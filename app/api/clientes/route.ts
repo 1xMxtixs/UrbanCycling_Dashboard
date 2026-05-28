@@ -65,3 +65,49 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const nombreCompleto = searchParams.get("nombreCompleto");
+
+    if (!nombreCompleto) {
+      return new NextResponse("Debe ingresar un nombre completo", {
+        status: 400,
+      });
+    }
+
+    const palabras = nombreCompleto
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const clientes = await db.cliente.findMany({
+      where: {
+        AND: palabras.map((palabra) => ({
+          OR: [
+            { primer_nombre: { contains: palabra } },
+            { segundo_nombre: { contains: palabra } },
+            { apellido_paterno: { contains: palabra } },
+            { apellido_materno: { contains: palabra } },
+          ],
+        })),
+      },
+      orderBy: {
+        fecha_creacion: "desc",
+      },
+    });
+
+    if (clientes.length === 0) {
+      return new NextResponse(
+        "El cliente ingresado no está registrado en la base de datos",
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(clientes);
+  } catch (error) {
+    console.log("[BUSCAR_CLIENTE]", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
