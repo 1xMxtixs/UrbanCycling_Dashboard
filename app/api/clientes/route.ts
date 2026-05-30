@@ -1,7 +1,46 @@
-import { clientesRepository } from "";
+import { clientesRepository } from "@/lib/clientes/repository";
 import { NextResponse } from "next/server";
 
-const rutRegex = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/;
+function formatearRut(rut: string) {
+  const rutLimpio = rut
+    .trim()
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/-/g, "");
+
+  if (!/^\d+[\dK]$/.test(rutLimpio)) {
+    return {
+      rutFormateado: null,
+      error: "El RUT solo puede contener números y dígito verificador K",
+    };
+  }
+
+  const cuerpo = rutLimpio.slice(0, -1);
+  const dv = rutLimpio.slice(-1);
+
+  if (cuerpo.length < 7) {
+    return {
+      rutFormateado: null,
+      error:
+        "El RUT ingresado tiene menos de 7 dígitos sin contar el verificador",
+    };
+  }
+
+  if (cuerpo.length > 8) {
+    return {
+      rutFormateado: null,
+      error:
+        "El RUT ingresado tiene más de 8 dígitos sin contar el verificador",
+    };
+  }
+
+  const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  return {
+    rutFormateado: `${cuerpoFormateado}-${dv}`,
+    error: null,
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,15 +63,15 @@ export async function POST(req: Request) {
       return new NextResponse("Faltan campos obligatorios", { status: 400 });
     }
 
-    const rutNormalizado = String(rut).trim().toUpperCase();
+    const { rutFormateado, error } = formatearRut(String(rut));
 
-    if (!rutRegex.test(rutNormalizado)) {
-      return new NextResponse("El RUT debe tener formato 12.345.678-9", {
+    if (error || !rutFormateado) {
+      return new NextResponse(error ?? "El RUT ingresado no es válido", {
         status: 400,
       });
     }
 
-    const clienteExistente = await clientesRepository.findByRut(rutNormalizado);
+    const clienteExistente = await clientesRepository.findByRut(rutFormateado);
 
     if (clienteExistente) {
       return new NextResponse("Ya existe un cliente con ese RUT", {
@@ -42,7 +81,7 @@ export async function POST(req: Request) {
 
     const cliente = await clientesRepository.create({
       tipo_cliente,
-      rut: rutNormalizado,
+      rut: rutFormateado,
       estado,
       primer_nombre,
       segundo_nombre,
@@ -59,4 +98,3 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
-
