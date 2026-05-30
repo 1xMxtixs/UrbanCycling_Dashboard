@@ -1,6 +1,5 @@
 // Endpoints generales del inventario para listar productos y registrar nuevos items.
 import { NextResponse } from "next/server"
-
 import { createInMemoryInventoryRepository } from "@/lib/inventory/inMemoryInventoryRepository"
 
 const inventoryRepository = createInMemoryInventoryRepository()
