@@ -1,6 +1,6 @@
 import { PrismaClient } from "../generated/prisma";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import mariadb from "mariadb";
+import * as mariadb from "mariadb";
 
 declare global {
   var prisma: PrismaClient | undefined;
