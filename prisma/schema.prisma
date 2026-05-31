@@ -84,5 +84,19 @@ model Proveedor{
   fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
   estado String @db.VarChar(20) 
 
+  telefonos TelefonoProveedor[]
+
   @@map("proveedores")
+}
+
+model TelefonoProveedor{
+
+  idTelefonoProveedor Int @id @default(autoincrement()) @db.UnsignedInt @map("id_telefono_proveedor")
+  idProveedor Int @db.UnsignedInt @map("id_proveedor")
+  telefono String @db.VarChar(20) 
+  descripcion String? @db.VarChar(50) 
+
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("telefonos_proveedor")
 }
