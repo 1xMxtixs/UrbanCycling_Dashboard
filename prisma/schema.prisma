@@ -69,32 +69,20 @@ model Producto{
   stockMinimo Int @db.SmallInt @map("stock_minimo")
   estado String @db.VarChar(20)
 
-  serviciosProducto ProductoServicio[]
-
   @@map("productos")
 }
 
-model Servicio {
-  idServicio Int @id @default(autoincrement()) @db.UnsignedInt @map("id_servicio")
-  nombre String @db.VarChar(100) @unique
-  descripcion String? @db.VarChar(255)
-  precioVenta Decimal @db.Decimal(12, 0) @map("precio_venta")
-  estado String @db.VarChar(20) @default("Activo")
+model Proveedor{
 
-  productosServicio ProductoServicio[]
+  idProveedor Int @id @default(autoincrement()) @db.UnsignedInt @map("id_proveedor")
+  razonSocial String @db.VarChar(100) @map("razon_social")
+  nombreFantasia String? @db.VarChar(150) @map("nombre_fantasia")
+  rut String @db.VarChar(12) @unique
+  giro String @db.VarChar(100)
+  condicionesDePago String @db.VarChar(100) @map("condiciones_de_pago")
+  nombreContacto String? @db.VarChar(100) @map("nombre_contacto")
+  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+  estado String @db.VarChar(20) 
 
-  @@map("servicios")
-}
-
-model ProductoServicio {
-  idProductoServicio Int @id @default(autoincrement()) @db.UnsignedInt @map("id_producto_servicio")
-  idProducto Int @db.UnsignedInt @map("id_producto")
-  idServicio Int @db.UnsignedInt @map("id_servicio")
-  cantidad Int @db.SmallInt
-  precioUnitario Decimal @db.Decimal(12, 0) @map("precio_unitario")
-
-  producto Producto @relation(fields: [idProducto], references: [idProducto])
-  servicio Servicio @relation(fields: [idServicio], references: [idServicio])
-
-  @@map("producto_servicio")
+  @@map("proveedores")
 }
