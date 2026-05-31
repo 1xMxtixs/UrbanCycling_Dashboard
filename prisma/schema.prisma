@@ -11,3 +11,33 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+model Rol {
+  idRol Int @id @default(autoincrement()) @db.UnsignedInt @map("id_rol")
+  nombre String @db.VarChar(50) @unique
+  descripcion String @db.VarChar(255)
+
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  idUsuario Int @id @default(autoincrement()) @db.UnsignedInt @map("id_usuario")
+  idRol Int @db.UnsignedInt @map("id_rol")
+  primerNombre String @db.VarChar(50) @map("primer_nombre")
+  segundoNombre String? @db.VarChar(50) @map("segundo_nombre")
+  apellidoPaterno String @db.VarChar(50) @map("apellido_paterno")
+  apellidoMaterno String @db.VarChar(50) @map("apellido_materno")
+  rut String @db.VarChar(12) @unique
+  correoElectronico String @db.VarChar(100) @unique @map("correo_electronico")
+  contrasena String @db.VarChar(255) 
+  estado String @db.VarChar(20)
+  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+  ultimoAcceso DateTime? @db.Timestamp(0) @map("ultimo_acceso")
+  tokenRecuperacion String? @db.VarChar(255) @map("token_recuperacion")
+
+  rol Rol @relation(fields: [idRol], references: [idRol])
+
+  @@map("usuarios")
+}
