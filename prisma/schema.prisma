@@ -57,6 +57,7 @@ model Cliente {
   fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
 
   telefonos TelefonoCliente[]
+  correos CorreoCliente[]
 
   @@map("clientes")
 }
@@ -69,6 +70,21 @@ model TelefonoCliente{
   descripcion String? @db.VarChar(50)
 
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+
+  @@map("telefonos_clientes")
+
+}
+
+model CorreoCliente{
+
+  idCorreoCliente Int @id @default(autoincrement()) @db.UnsignedInt @map("id_correo_cliente")
+  idCliente Int @db.UnsignedInt @map("id_cliente")
+  correo String @db.VarChar(100) @unique
+  descripcion String? @db.VarChar(50)
+
+  cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+
+  @@map("correos_clientes")
 
 }
 
