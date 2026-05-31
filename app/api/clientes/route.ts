@@ -1,3 +1,4 @@
+//import para la base de datos
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
