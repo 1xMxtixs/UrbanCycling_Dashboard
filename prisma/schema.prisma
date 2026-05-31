@@ -241,7 +241,6 @@ model Categoria{
 
 }
 
-<<<<<<< HEAD
 model CategoriaProducto{
 
   idCategoriaProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_categoria_producto")
@@ -253,7 +252,10 @@ model CategoriaProducto{
   producto Producto @relation(fields: [idProducto], references: [idProducto])
   categoria Categoria @relation(fields: [idCategoria], references: [idCategoria])
 
-=======
+  @@map("categoria_producto")
+
+}
+
 model OrdenDeTrabajo {
   idOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_orden_de_trabajo")
   idUsuario Int @db.UnsignedInt @map("id_usuario")
@@ -273,5 +275,4 @@ model OrdenDeTrabajo {
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
 
   @@map("ordenes_de_trabajo")
->>>>>>> dbf2428efef49fd013d7ddd4c06b02e6bb5ac5f2
 }
