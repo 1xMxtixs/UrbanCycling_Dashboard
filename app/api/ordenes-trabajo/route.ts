@@ -1,8 +1,3 @@
-import { bicicletasRepository } from "@/lib/bicicletas/repository";
-import { clientesRepository } from "@/lib/clientes/repository";
-import { ordenesTrabajoRepository } from "@/lib/ordenes-trabajo/repository";
-import { lineasOrdenTrabajoRepository } from "@/lib/lineas-orden-trabajo/repository";
-import { ventasRepository } from "@/lib/ventas/repository";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {

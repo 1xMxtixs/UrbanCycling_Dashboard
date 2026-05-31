@@ -1,10 +1,4 @@
-import { inventoryRepository } from "@/lib/inventory/repository";
-import { lineasOrdenTrabajoRepository } from "@/lib/lineas-orden-trabajo/repository";
-import { ordenesTrabajoRepository } from "@/lib/ordenes-trabajo/repository";
-import { productoServicioRepository } from "@/lib/producto-servicio/repository";
-import { serviciosRepository } from "@/lib/servicios/repository";
 import { NextResponse } from "next/server";
-import { ventasRepository } from "@/lib/ventas/repository";
 
 export async function POST(
   req: Request,

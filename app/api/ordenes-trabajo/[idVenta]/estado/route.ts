@@ -1,4 +1,3 @@
-import { ordenesTrabajoRepository } from "@/lib/ordenes-trabajo/repository";
 import { NextResponse } from "next/server";
 
 const transicionesPermitidas: Record<string, string[]> = {
