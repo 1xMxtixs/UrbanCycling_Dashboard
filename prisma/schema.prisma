@@ -58,6 +58,7 @@ model Cliente {
 
   telefonos TelefonoCliente[]
   correos CorreoCliente[]
+  clientes DireccionCliente[]
 
   @@map("clientes")
 }
@@ -86,6 +87,22 @@ model CorreoCliente{
 
   @@map("correos_clientes")
 
+}
+
+model DireccionCliente{
+
+  idDireccionCliente Int @id @default(autoincrement()) @db.UnsignedInt @map("id_direccion_cliente")
+  idCliente Int @db.UnsignedInt @map("id_cliente")
+  region String @db.VarChar(50) 
+  ciudad String @db.VarChar(50)
+  comuna String @db.VarChar(50)
+  calle String @db.VarChar(150)
+  numero String @db.VarChar(20)
+  unidad String? @db.VarChar(20)
+
+  cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+
+  @@map("direcciones_clientes")
 }
 
 model Producto{
