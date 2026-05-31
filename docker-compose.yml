@@ -1,3 +1,9 @@
+# Archivo Docker Compose para la base de datos MySQL de Urban Cycling
+
+# Esta configuración de Docker Compose define un servicio para una base de datos MySQL.
+# Para montar la base de datos, asegúrate de tener Docker Desktop instalado.
+# Luego ejecuta el siguiente comando en la terminal: docker-compose up -d
+
 version: '3.8'
 
 services:
