@@ -86,6 +86,7 @@ model Proveedor{
 
   telefonos TelefonoProveedor[]
   correos CorreoProveedor[]
+  direcciones DireccionProveedor[]
 
   @@map("proveedores")
 }
@@ -112,4 +113,20 @@ model CorreoProveedor{
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
 
   @@map("correos_proveedores")
+}
+
+model DireccionProveedor{
+
+  idDireccionProveedor Int @id @default(autoincrement()) @db.UnsignedInt @map("id_direccion_proveedor")
+  idProveedor Int @db.UnsignedInt @map("id_proveedor")
+  region String @db.VarChar(100) 
+  ciudad String @db.VarChar(100)
+  comuna String @db.VarChar(100)
+  calle String @db.VarChar(150)
+  numero String @db.VarChar(20)
+  unidad String? @db.VarChar(20)
+
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("direcciones_proveedores")
 }
