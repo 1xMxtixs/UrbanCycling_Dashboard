@@ -1,6 +1,7 @@
 import { bicicletasRepository } from "@/lib/bicicletas/repository";
 import { clientesRepository } from "@/lib/clientes/repository";
 import { ordenesTrabajoRepository } from "@/lib/ordenes-trabajo/repository";
+import { lineasOrdenTrabajoRepository } from "@/lib/lineas-orden-trabajo/repository";
 import { ventasRepository } from "@/lib/ventas/repository";
 import { NextResponse } from "next/server";
 
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
       id_comprobante: Number(id_comprobante),
       estado_pago: estado_pago ?? "pendiente",
       descuento: Number(descuento ?? 0),
-      total: Number(total ?? 0),
+      total: 0,
     });
 
     const bicicletaActualizada = await bicicletasRepository.update(
@@ -111,6 +112,47 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.log("[CREAR_ORDEN_TRABAJO]", error);
+
+    return NextResponse.json(
+      { code: "ERROR_INTERNO", message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    const ordenes = await ordenesTrabajoRepository.findMany();
+
+    const ordenesConDetalle = await Promise.all(
+      ordenes.map(async (orden) => {
+        const venta = await ventasRepository.findById(orden.id_venta);
+        const lineas = await lineasOrdenTrabajoRepository.findByVentaId(
+          orden.id_venta
+        );
+
+        const totalServicios = lineas.reduce(
+          (total, linea) => total + linea.cantidad * linea.precio_unitario,
+          0
+        );
+
+        const bicicleta = await bicicletasRepository.findMany({
+          id_venta: orden.id_venta,
+        });
+
+        return {
+          ...orden,
+          venta,
+          bicicletas: bicicleta,
+          lineas,
+          total_servicios: totalServicios,
+        };
+      })
+    );
+
+    return NextResponse.json(ordenesConDetalle);
+  } catch (error) {
+    console.log("[ORDENES_TRABAJO_GET]", error);
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },

@@ -4,6 +4,7 @@ import { ordenesTrabajoRepository } from "@/lib/ordenes-trabajo/repository";
 import { productoServicioRepository } from "@/lib/producto-servicio/repository";
 import { serviciosRepository } from "@/lib/servicios/repository";
 import { NextResponse } from "next/server";
+import { ventasRepository } from "@/lib/ventas/repository";
 
 export async function POST(
   req: Request,
@@ -117,10 +118,23 @@ export async function POST(
       });
     }
 
+    const lineas = await lineasOrdenTrabajoRepository.findByVentaId(id_venta);
+
+    const totalServicios = lineas.reduce(
+      (total, linea) => total + linea.cantidad * linea.precio_unitario,
+      0
+    );
+
+    const ventaActualizada = await ventasRepository.update(id_venta, {
+      total: totalServicios,
+    });
+
     return NextResponse.json(
       {
         linea,
         servicio,
+        venta: ventaActualizada,
+        total_servicios: totalServicios,
         productos_utilizados: productosAUtilizar.map((item) => ({
           id_producto: item.producto.id_producto,
           nombre: item.producto.nombre,
@@ -133,6 +147,48 @@ export async function POST(
     );
   } catch (error) {
     console.log("[AGREGAR_SERVICIO_ORDEN]", error);
+
+    return NextResponse.json(
+      { code: "ERROR_INTERNO", message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ idVenta: string }> }
+) {
+  try {
+    const { idVenta } = await params;
+    const id_venta = Number(idVenta);
+
+    const orden = await ordenesTrabajoRepository.findByVentaId(id_venta);
+
+    if (!orden) {
+      return NextResponse.json(
+        {
+          code: "ORDEN_NO_EXISTE",
+          message: "La orden de trabajo no existe",
+        },
+        { status: 404 }
+      );
+    }
+
+    const lineas = await lineasOrdenTrabajoRepository.findByVentaId(id_venta);
+
+    const total = lineas.reduce(
+      (acumulado, linea) => acumulado + linea.cantidad * linea.precio_unitario,
+      0
+    );
+
+    return NextResponse.json({
+      id_venta,
+      lineas,
+      total,
+    });
+  } catch (error) {
+    console.log("[LISTAR_SERVICIOS_ORDEN]", error);
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
