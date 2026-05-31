@@ -38,6 +38,7 @@ model Usuario {
   tokenRecuperacion String? @db.VarChar(255) @map("token_recuperacion")
 
   rol Rol @relation(fields: [idRol], references: [idRol])
+  ordenesDeTrabajo OrdenDeTrabajo[]
 
   ventas Venta[]
 
@@ -61,7 +62,8 @@ model Cliente {
   ventas Venta[]
   telefonos TelefonoCliente[]
   correos CorreoCliente[]
-  clientes DireccionCliente[]
+  direcciones DireccionCliente[]
+  ordenesDeTrabajo OrdenDeTrabajo[]
 
   @@map("clientes")
 }
@@ -234,4 +236,25 @@ model Categorias{
 
   @@map("categorias")
 
+}
+
+model OrdenDeTrabajo {
+  idOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_orden_de_trabajo")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  idCliente Int @db.UnsignedInt @map("id_cliente")
+  idComprobante Int? @db.UnsignedInt @map("id_comprobante")
+  fechaRecepcion DateTime @default(now()) @db.Timestamp(0) @map("fecha_recepcion")
+  fechaEntregaEstimada DateTime @db.Timestamp(0) @map("fecha_entrega_estimada")
+  fechaEntregaReal DateTime? @db.Timestamp(0) @map("fecha_entrega_real")
+  observacionesIngreso String? @db.VarChar(255) @map("observaciones_ingreso")
+  total Decimal @db.Decimal(12, 0)
+  descuento Int @db.UnsignedSmallInt
+  estado_pago String @db.VarChar(50) @map("estado_pago")
+  estado_orden String @db.VarChar(50) @map("estado_orden")
+  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+
+  @@map("ordenes_de_trabajo")
 }
