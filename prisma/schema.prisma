@@ -41,3 +41,20 @@ model Usuario {
 
   @@map("usuarios")
 }
+
+model Cliente {
+  idCliente Int @id @default(autoincrement()) @db.UnsignedInt @map("id_cliente")
+  tipoCliente String @db.VarChar(20) @map("tipo_cliente")
+  rut String @db.VarChar(12) @unique
+  primerNombre String? @db.VarChar(50) @map("primer_nombre")
+  segundoNombre String? @db.VarChar(50) @map("segundo_nombre")
+  apellidoPaterno String? @db.VarChar(50) @map("apellido_paterno")
+  apellidoMaterno String? @db.VarChar(50) @map("apellido_materno")
+  razonSocial String? @db.VarChar(255) @map("razon_social")
+  giro String? @db.VarChar(100)
+  nombreContacto String? @db.VarChar(100) @map("nombre_contacto")
+  estado String @db.VarChar(20)
+  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+
+  @@map("clientes")
+}
