@@ -85,6 +85,7 @@ model Proveedor{
   estado String @db.VarChar(20) 
 
   telefonos TelefonoProveedor[]
+  correos CorreoProveedor[]
 
   @@map("proveedores")
 }
@@ -99,4 +100,16 @@ model TelefonoProveedor{
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
 
   @@map("telefonos_proveedor")
+}
+
+model CorreoProveedor{
+
+  idCorreoProveedor Int @id @default(autoincrement()) @db.UnsignedInt @map("id_correo_proveedor")
+  idProveedor Int @db.UnsignedInt @map("id_proveedor")
+  telefono String @db.VarChar(20)
+  descripcion String? @db.VarChar(50) 
+
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("correos_proveedores")
 }
