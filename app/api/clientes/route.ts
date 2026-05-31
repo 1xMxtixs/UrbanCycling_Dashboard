@@ -1,4 +1,3 @@
-import { clientesRepository } from "@/lib/clientes/repository";
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
