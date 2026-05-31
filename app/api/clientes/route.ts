@@ -10,7 +10,7 @@ function formatearRut(rut: string) {
   if (!/^\d+[\dK]$/.test(rutLimpio)) {
     return {
       rutFormateado: null,
-      error: "El RUT solo puede contener números y dígito verificador K",
+      error: "El RUT solo puede contener números y el digito verificador debe ser un numero del 0 al 9 o letra k",
     };
   }
 
