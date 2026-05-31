@@ -13,6 +13,7 @@ export default function Page() {
           <p>HOLA PRUEBA!!</p>
           <p>HOLA PRUEBA!!</p>
           <p>HOLA PRUEBA!!</p>
+          <p>chao PRUEBA!!</p>
           <p>HOLA PRUEBA!!</p>
           <p>HOLA PRUEBA!!</p>
           <p>We&apos;ve already added the button component for you.</p>
