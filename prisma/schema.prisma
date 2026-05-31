@@ -222,12 +222,13 @@ model Producto{
   estado String @db.VarChar(20)
 
   serviciosProducto ProductoServicio[]
+  categoriasproducto CategoriaProducto[]
 
   @@map("productos")
 }
 
 
-model Categorias{
+model Categoria{
 
   idCategoria Int @id @default(autoincrement()) @db.UnsignedInt @map("id_categoria")
   nombre String @db.VarChar(50) @unique
@@ -235,6 +236,23 @@ model Categorias{
   estado String? @db.VarChar(20)
 
   @@map("categorias")
+
+  categoriasproducto CategoriaProducto[]
+
+}
+
+model CategoriaProducto{
+
+  idCategoriaProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_categoria_producto")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  idCategoria Int @db.UnsignedInt @map("id_categoria")
+  fechaAsignacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_asignacion")
+  estadoAsignacion String @db.VarChar(20) @map("estado_asignacion")
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+  categoria Categoria @relation(fields: [idCategoria], references: [idCategoria])
+
+  @@map("categoria_producto")
 
 }
 
