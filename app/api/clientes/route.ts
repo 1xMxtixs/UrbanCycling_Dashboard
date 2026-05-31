@@ -1,4 +1,4 @@
-//import para la base de datos
+//import para base de datos
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
@@ -11,7 +11,7 @@ function formatearRut(rut: string) {
   if (!/^\d+[\dK]$/.test(rutLimpio)) {
     return {
       rutFormateado: null,
-      error: "El RUT solo puede contener números y el digito verificador debe ser un numero del 0 al 9 o letra k",
+      error: "El RUT solo puede contener números y dígito verificador K",
     };
   }
 
@@ -42,24 +42,34 @@ function formatearRut(rut: string) {
   };
 }
 
+function separarNombres(nombres: string) {
+  const partes = nombres.trim().replace(/\s+/g, " ").split(" ");
+
+  return {
+    primer_nombre: partes[0],
+    segundo_nombre: partes.slice(1).join(" ") || null,
+  };
+}
+
+function separarApellidos(apellidos: string) {
+  const partes = apellidos.trim().replace(/\s+/g, " ").split(" ");
+
+  return {
+    apellido_paterno: partes[0],
+    apellido_materno: partes.slice(1).join(" ") || null,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
 
-    const {
-      tipo_cliente,
-      rut,
-      estado,
-      primer_nombre,
-      segundo_nombre,
-      apellido_paterno,
-      apellido_materno,
-      razon_social,
-      giro,
-      nombre_contacto,
-    } = data;
+    const nombres = data.nombres ?? data.Nombres;
+    const apellidos = data.apellidos ?? data.Apellidos;
+    const rut = data.rut;
+    const telefono = data.telefono;
 
-    if (!tipo_cliente || !rut || !estado) {
+    if (!nombres || !apellidos || !rut || !telefono) {
       return new NextResponse("Faltan campos obligatorios", { status: 400 });
     }
 
@@ -79,17 +89,23 @@ export async function POST(req: Request) {
       });
     }
 
+    const { primer_nombre, segundo_nombre } = separarNombres(String(nombres));
+    const { apellido_paterno, apellido_materno } = separarApellidos(
+      String(apellidos)
+    );
+
     const cliente = await clientesRepository.create({
-      tipo_cliente,
+      tipo_cliente: "persona",
       rut: rutFormateado,
-      estado,
+      estado: "activo",
+      telefono: String(telefono).trim(),
       primer_nombre,
       segundo_nombre,
       apellido_paterno,
       apellido_materno,
-      razon_social,
-      giro,
-      nombre_contacto,
+      razon_social: null,
+      giro: null,
+      nombre_contacto: null,
     });
 
     return NextResponse.json(cliente, { status: 201 });
