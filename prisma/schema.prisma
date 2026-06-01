@@ -212,6 +212,8 @@ model Venta {
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   lineasDeVenta LineaDeVenta[]
+  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+
 
   @@map("ventas")
 }
@@ -294,6 +296,7 @@ model OrdenDeTrabajo {
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   bicicletas Bicicleta?
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
+  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
 
   @@map("ordenes_de_trabajo")
 }
@@ -408,5 +411,21 @@ model Pago{
   metodoPago String @db.VarChar(50) @map("metodo_pago")
   montoPagado Decimal @db.Decimal(12,0) @map("monto_pagado")
 
+  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+
 }
 
+model PagoVentaOrdenDeTrabajo{
+
+  idPagoVentaOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_pago_venta_orden_de_trabajo")
+  idPago Int @db.UnsignedInt @map("id_pago")
+  idVenta Int? @db.UnsignedInt @map("id_venta")
+  idOrdenDeTrabajo Int? @db.UnsignedInt @map("id_orden_de_trabajo")
+  montoAsociado Decimal @db.Decimal(12,0) @map("monto_asociado")
+  tipoAbono String @db.VarChar(50) @map("tipo_abono")
+
+  venta Venta? @relation(fields: [idVenta], references: [idVenta])
+  ordenDeTrabajo OrdenDeTrabajo? @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
+  pago Pago @relation(fields: [idPago], references: [idPago])
+
+}
