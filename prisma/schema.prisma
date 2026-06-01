@@ -16,6 +16,8 @@ model Permiso {
   idPermiso Int @id @default(autoincrement()) @db.UnsignedInt @map("id_permiso")
   codigoPermiso String @db.VarChar(50) @unique @map("codigo_permiso")
   descripcion String @db.VarChar(255)
+
+  rolesPermiso RolPermiso[]
 }
 
 model Rol {
@@ -24,8 +26,20 @@ model Rol {
   descripcion String @db.VarChar(255)
 
   usuarios Usuario[]
+  permisosRol RolPermiso[]
 
   @@map("roles")
+}
+
+model RolPermiso {
+  idRolPermiso Int @id @default(autoincrement()) @db.UnsignedInt @map("id_rol_permiso")
+  idRol Int @db.UnsignedInt @map("id_rol")
+  idPermiso Int @db.UnsignedInt @map("id_permiso")
+
+  rol Rol @relation(fields: [idRol], references: [idRol])
+  permiso Permiso @relation(fields: [idPermiso], references: [idPermiso])
+
+  @@map("roles_permisos")
 }
 
 model Usuario {
