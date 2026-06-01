@@ -17,10 +17,8 @@ export function ClientesTabsView({
 
   return (
     <div className="w-full space-y-4">
-      {/* Premium Sliding Tabs Header */}
       <div className="flex justify-center md:justify-start">
         <div className="relative flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-full max-w-md shadow-inner border border-slate-200/80 dark:border-slate-700/80">
-          {/* Animated Background Indicator */}
           <div
             className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-slate-900 shadow-md transition-all duration-300 ease-out"
             style={{
@@ -53,7 +51,6 @@ export function ClientesTabsView({
         </div>
       </div>
 
-      {/* Render selected table with smooth transition */}
       <div className="transition-all duration-300 ease-in-out">
         {activeTab === "natural" ? (
           <div className="animate-in fade-in duration-300">
