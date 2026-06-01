@@ -39,6 +39,7 @@ model Usuario {
 
   rol Rol @relation(fields: [idRol], references: [idRol])
   ordenesDeTrabajo OrdenDeTrabajo[]
+  ordenesDeCompras OrdenDeCompra[]
 
   ventas Venta[]
 
@@ -125,6 +126,7 @@ model Proveedor{
   telefonos TelefonoProveedor[]
   correos CorreoProveedor[]
   direcciones DireccionProveedor[]
+  ordenesDeCompras OrdenDeCompra[]
 
   @@map("proveedores")
 }
@@ -226,13 +228,25 @@ model Producto{
   estado String @db.VarChar(20)
 
   serviciosProducto ProductoServicio[]
-  categoriasproducto CategoriaProducto[]
+  categoriasProducto CategoriaProducto[]
+  imagenesProducto ImagenesProducto[]
   lineasDeVenta LineaDeVenta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
+  LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
 
   @@map("productos")
 }
 
+model ImagenesProducto{
+
+  idImagenProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_imagen_producto")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  archivo Bytes @db.MediumBlob 
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+
+  @@map("imagenes_producto")
+}
 
 model Categoria{
 
@@ -241,10 +255,9 @@ model Categoria{
   descripcion String? @db.VarChar(255)
   estado String? @db.VarChar(20)
 
-  @@map("categorias")
-
   categoriasproducto CategoriaProducto[]
 
+  @@map("categorias")
 }
 
 model CategoriaProducto{
@@ -346,4 +359,37 @@ model ReclamosDeGarantia {
   ordenDeTrabajoGenerada OrdenDeTrabajo? @relation("OrdenDeTrabajoGenerada", fields: [idOrdenDeTrabajoGenerada], references: [idOrdenDeTrabajo])
 
   @@map("reclamos_de_garantia")
+}
+
+model OrdenDeCompra{
+
+  idOrdenDeCompra Int @id @default(autoincrement()) @db.UnsignedInt @map("id_orden_de_compra")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  idProveedor Int @db.UnsignedInt @map("id_proveedor")
+  fechaCreacion DateTime @db.Timestamp(0) @map("fecha_creacion")
+  estado String @db.VarChar(50)
+  fechaEntregaEstimada DateTime @db.Timestamp(0) @map("fecha_entrega_estimada")
+  fechaEntregaReal DateTime? @db.Timestamp(0) @map("fecha_entrega_real")
+  total Decimal @db.Decimal(12,0)
+
+  LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("ordenes_de_compra")
+}
+
+model LineaDeOrdenDeCompra{
+
+  idLineaDeOrdenDeCompra Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_orden_de_compra")
+  idOrdenDeCompra Int @db.UnsignedInt @map("id_orden_de_compra")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  cantidadOrdenada Int @db.SmallInt @map("cantidad_ordenada")
+  cantidadRecibida Int @db.SmallInt @map("cantidad_recibida")
+  precioCosto Decimal @db.Decimal(12,0) @map("precio_costo")
+
+  ordendecompra OrdenDeCompra @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+
 }
