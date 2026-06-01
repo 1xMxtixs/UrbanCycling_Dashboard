@@ -232,6 +232,7 @@ model Producto{
   lineasDeVenta LineaDeVenta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
+  lineasDeMermas LineasDeMerma[]
 
   @@map("productos")
 }
@@ -379,7 +380,22 @@ model Merma{
   tipo String @db.VarChar(50) 
   observacion String @db.VarChar(500)
 
+  lineasDeMermas LineasDeMerma[]
+
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   
+
+}
+
+model LineasDeMerma{
+
+  idLineaDeMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_merma")
+  idMerma Int @db.UnsignedInt @map("id_merma")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  cantidad Int @db.SmallInt
+
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+  merma Merma @relation(fields: [idMerma], references: [idMerma])
 
 }
