@@ -1,40 +1,120 @@
-//import para base de datos
+// Endpoints generales para registrar y listar ordenes de trabajo.
+import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+
+function normalizarTexto(texto: string) {
+  return texto.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function nombreCompletoCliente(cliente: {
+  primerNombre: string | null;
+  segundoNombre: string | null;
+  apellidoPaterno: string | null;
+  apellidoMaterno: string | null;
+  razonSocial: string | null;
+}) {
+  if (cliente.razonSocial) {
+    return cliente.razonSocial;
+  }
+
+  return [
+    cliente.primerNombre,
+    cliente.segundoNombre,
+    cliente.apellidoPaterno,
+    cliente.apellidoMaterno,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function toNumber(value: unknown) {
+  return Number(value ?? 0);
+}
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
 
-    const {
-      nombre_completo_cliente,
-      id_bicicleta,
-      id_usuario,
-      id_comprobante,
-      estado_pago,
-      descuento,
-      total,
-      estado_orden,
-      fecha_entrega_estimada,
-      observaciones_ingreso,
-    } = data;
+    const nombreCompletoClienteInput =
+      data.nombre_completo_cliente ?? data.nombreCompletoCliente;
+    const idUsuario = Number(data.id_usuario ?? data.idUsuario);
+    const idClienteInput = data.id_cliente ?? data.idCliente;
+    const idComprobanteInput = data.id_comprobante ?? data.idComprobante;
+    const fechaEntregaEstimadaInput =
+      data.fecha_entrega_estimada ?? data.fechaEntregaEstimada;
+    const observacionesIngreso =
+      data.observaciones_ingreso ?? data.observacionesIngreso ?? null;
+    const estadoPago = data.estado_pago ?? data.estadoPago ?? "pendiente";
+    const estadoOrden =
+      data.estado_orden ?? data.estadoOrden ?? "Por realizar";
+    const descuento = Number(data.descuento ?? 0);
+    const total = Number(data.total ?? 0);
+    const bicicletaData = data.bicicleta ?? data;
 
-    if (
-      !nombre_completo_cliente ||
-      !id_bicicleta ||
-      !id_usuario ||
-      !id_comprobante
-    ) {
+    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
       return NextResponse.json(
-        { code: "FALTAN_DATOS", message: "Faltan datos obligatorios" },
+        { code: "FALTA_USUARIO", message: "Debe indicar un usuario válido" },
         { status: 400 }
       );
     }
 
-    const clientes = await clientesRepository.findByNombreCompleto(
-      nombre_completo_cliente
-    );
+    const usuario = await db.usuario.findUnique({
+      where: {
+        idUsuario,
+      },
+    });
 
-    if (clientes.length === 0) {
+    if (!usuario) {
+      return NextResponse.json(
+        {
+          code: "USUARIO_NO_EXISTE",
+          message: "El usuario indicado no existe",
+        },
+        { status: 404 }
+      );
+    }
+
+    let cliente = null;
+
+    if (idClienteInput) {
+      const idCliente = Number(idClienteInput);
+
+      if (!Number.isInteger(idCliente) || idCliente <= 0) {
+        return NextResponse.json(
+          { code: "CLIENTE_INVALIDO", message: "El cliente no es válido" },
+          { status: 400 }
+        );
+      }
+
+      cliente = await db.cliente.findUnique({
+        where: {
+          idCliente,
+        },
+      });
+    } else if (nombreCompletoClienteInput) {
+      const clientes = await db.cliente.findMany();
+      const nombreBuscado = normalizarTexto(String(nombreCompletoClienteInput));
+      const coincidencias = clientes.filter(
+        (clienteItem) =>
+          normalizarTexto(nombreCompletoCliente(clienteItem)) === nombreBuscado
+      );
+
+      if (coincidencias.length > 1) {
+        return NextResponse.json(
+          {
+            code: "CLIENTE_AMBIGUO",
+            message:
+              "Hay más de un cliente con ese nombre. Seleccione uno específico.",
+            clientes: coincidencias,
+          },
+          { status: 409 }
+        );
+      }
+
+      cliente = coincidencias[0] ?? null;
+    }
+
+    if (!cliente) {
       return NextResponse.json(
         {
           code: "CLIENTE_NO_EXISTE",
@@ -45,64 +125,66 @@ export async function POST(req: Request) {
       );
     }
 
-    if (clientes.length > 1) {
+    const fechaEntregaEstimada = fechaEntregaEstimadaInput
+      ? new Date(fechaEntregaEstimadaInput)
+      : new Date();
+
+    if (Number.isNaN(fechaEntregaEstimada.getTime())) {
       return NextResponse.json(
         {
-          code: "CLIENTE_AMBIGUO",
-          message:
-            "Hay más de un cliente con ese nombre. Seleccione uno específico.",
-          clientes,
+          code: "FECHA_INVALIDA",
+          message: "La fecha de entrega estimada no es válida",
         },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
-    const cliente = clientes[0];
+    const tieneBicicleta =
+      bicicletaData.marca && bicicletaData.modelo && bicicletaData.color;
 
-    const bicicleta = await bicicletasRepository.findById(Number(id_bicicleta));
-
-    if (!bicicleta) {
-      return NextResponse.json(
-        {
-          code: "BICICLETA_NO_EXISTE",
-          message:
-            "La bicicleta no está registrada. Debe registrarla antes de crear la orden.",
+    const ordenTrabajo = await db.ordenDeTrabajo.create({
+      data: {
+        idUsuario: usuario.idUsuario,
+        idCliente: cliente.idCliente,
+        idComprobante: idComprobanteInput ? Number(idComprobanteInput) : null,
+        fechaEntregaEstimada,
+        fechaEntregaReal: null,
+        observacionesIngreso,
+        total,
+        descuento,
+        estadoPago,
+        estadoOrden,
+        bicicletas: tieneBicicleta
+          ? {
+              create: {
+                marca: String(bicicletaData.marca),
+                modelo: String(bicicletaData.modelo),
+                color: String(bicicletaData.color),
+                descripcion: bicicletaData.descripcion
+                  ? String(bicicletaData.descripcion)
+                  : null,
+              },
+            }
+          : undefined,
+      },
+      include: {
+        usuario: true,
+        cliente: true,
+        bicicletas: true,
+        lineasDeOrdenDeTrabajo: {
+          include: {
+            servicio: true,
+            producto: true,
+          },
         },
-        { status: 404 }
-      );
-    }
-
-    const venta = await ventasRepository.create({
-      id_usuario: Number(id_usuario),
-      id_cliente: cliente.id_cliente,
-      id_comprobante: Number(id_comprobante),
-      estado_pago: estado_pago ?? "pendiente",
-      descuento: Number(descuento ?? 0),
-      total: 0,
-    });
-
-    const bicicletaActualizada = await bicicletasRepository.update(
-      bicicleta.id_bicicleta,
-      {
-        id_venta: venta.id_venta,
-      }
-    );
-
-    const ordenTrabajo = await ordenesTrabajoRepository.create({
-      id_venta: venta.id_venta,
-      fecha_entrega_estimada: fecha_entrega_estimada
-        ? new Date(fecha_entrega_estimada)
-        : null,
-      fecha_entrega_real: null,
-      observaciones_ingreso: observaciones_ingreso ?? null,
+      },
     });
 
     return NextResponse.json(
       {
-        venta,
         ordenTrabajo,
         cliente,
-        bicicleta: bicicletaActualizada ?? bicicleta,
+        bicicleta: ordenTrabajo.bicicletas,
       },
       { status: 201 }
     );
@@ -118,33 +200,36 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const ordenes = await ordenesTrabajoRepository.findMany();
+    const ordenes = await db.ordenDeTrabajo.findMany({
+      orderBy: {
+        fechaCreacion: "desc",
+      },
+      include: {
+        usuario: true,
+        cliente: true,
+        bicicletas: true,
+        lineasDeOrdenDeTrabajo: {
+          include: {
+            servicio: true,
+            producto: true,
+          },
+        },
+      },
+    });
 
-    const ordenesConDetalle = await Promise.all(
-      ordenes.map(async (orden) => {
-        const venta = await ventasRepository.findById(orden.id_venta);
-        const lineas = await lineasOrdenTrabajoRepository.findByVentaId(
-          orden.id_venta
-        );
+    const ordenesConDetalle = ordenes.map((orden) => {
+      const totalServicios = orden.lineasDeOrdenDeTrabajo.reduce(
+        (total, linea) =>
+          total + linea.cantidad * toNumber(linea.precioUnitario),
+        0
+      );
 
-        const totalServicios = lineas.reduce(
-          (total, linea) => total + linea.cantidad * linea.precio_unitario,
-          0
-        );
-
-        const bicicleta = await bicicletasRepository.findMany({
-          id_venta: orden.id_venta,
-        });
-
-        return {
-          ...orden,
-          venta,
-          bicicletas: bicicleta,
-          lineas,
-          total_servicios: totalServicios,
-        };
-      })
-    );
+      return {
+        ...orden,
+        lineas: orden.lineasDeOrdenDeTrabajo,
+        total_servicios: totalServicios,
+      };
+    });
 
     return NextResponse.json(ordenesConDetalle);
   } catch (error) {

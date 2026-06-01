@@ -1,4 +1,4 @@
-// Endpoints generales de bicicletas para listar registros y crear nuevas bicicletas.
+import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 import { createInMemoryBicycleRepository } from "@/lib/bicycles/inMemoryBicycleRepository"

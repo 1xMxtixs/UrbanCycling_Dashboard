@@ -1,4 +1,19 @@
+import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+
+function parseIdOrden(idVenta: string) {
+  const idOrdenDeTrabajo = Number(idVenta);
+
+  if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+    return Number.NaN;
+  }
+
+  return idOrdenDeTrabajo;
+}
+
+function toNumber(value: unknown) {
+  return Number(value ?? 0);
+}
 
 export async function POST(
   req: Request,
@@ -6,9 +21,24 @@ export async function POST(
 ) {
   try {
     const { idVenta } = await params;
-    const { id_servicio, cantidad } = await req.json();
+    const { id_servicio, idServicio, cantidad } = await req.json();
+    const idOrdenDeTrabajo = parseIdOrden(idVenta);
+    const servicioId = Number(id_servicio ?? idServicio);
+    const cantidadServicio = Number(cantidad);
 
-    if (!id_servicio || !cantidad) {
+    if (Number.isNaN(idOrdenDeTrabajo)) {
+      return NextResponse.json(
+        { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !Number.isInteger(servicioId) ||
+      servicioId <= 0 ||
+      !Number.isInteger(cantidadServicio) ||
+      cantidadServicio <= 0
+    ) {
       return NextResponse.json(
         {
           code: "FALTAN_DATOS",
@@ -18,10 +48,11 @@ export async function POST(
       );
     }
 
-    const id_venta = Number(idVenta);
-    const cantidadServicio = Number(cantidad);
-
-    const orden = await ordenesTrabajoRepository.findByVentaId(id_venta);
+    const orden = await db.ordenDeTrabajo.findUnique({
+      where: {
+        idOrdenDeTrabajo,
+      },
+    });
 
     if (!orden) {
       return NextResponse.json(
@@ -33,7 +64,11 @@ export async function POST(
       );
     }
 
-    const servicio = await serviciosRepository.findById(Number(id_servicio));
+    const servicio = await db.servicio.findUnique({
+      where: {
+        idServicio: servicioId,
+      },
+    });
 
     if (!servicio) {
       return NextResponse.json(
@@ -45,8 +80,14 @@ export async function POST(
       );
     }
 
-    const productosServicio =
-      await productoServicioRepository.findByServicioId(servicio.id_servicio);
+    const productosServicio = await db.productoServicio.findMany({
+      where: {
+        idServicio: servicio.idServicio,
+      },
+      include: {
+        producto: true,
+      },
+    });
 
     if (productosServicio.length === 0) {
       return NextResponse.json(
@@ -58,83 +99,100 @@ export async function POST(
       );
     }
 
-    const productosAUtilizar = [];
-
-    for (const item of productosServicio) {
-      const producto = await inventoryRepository.findById(item.id_producto);
-
-      if (!producto) {
-        return NextResponse.json(
-          {
-            code: "INSUMO_NO_EXISTE",
-            message: `El insumo con ID ${item.id_producto} no existe`,
-            id_producto: item.id_producto,
-          },
-          { status: 404 }
-        );
-      }
-
+    const productosAUtilizar = productosServicio.map((item) => {
       const cantidadNecesaria = item.cantidad * cantidadServicio;
 
-      if (producto.stock_actual < cantidadNecesaria) {
-        return NextResponse.json(
-          {
-            code: "STOCK_INSUFICIENTE",
-            message: `No hay stock suficiente para ${producto.nombre}`,
-            producto: {
-              id_producto: producto.id_producto,
-              nombre: producto.nombre,
-              stock_actual: producto.stock_actual,
-            },
-            cantidad_requerida: cantidadNecesaria,
-            cantidad_disponible: producto.stock_actual,
-          },
-          { status: 409 }
-        );
-      }
-
-      productosAUtilizar.push({
-        producto,
+      return {
+        producto: item.producto,
         cantidadNecesaria,
-      });
-    }
-
-    const linea = await lineasOrdenTrabajoRepository.create({
-      id_venta,
-      id_servicio: servicio.id_servicio,
-      cantidad: cantidadServicio,
-      precio_unitario: servicio.precio_venta,
+      };
     });
 
-    for (const item of productosAUtilizar) {
-      await inventoryRepository.update(item.producto.id_producto, {
-        stock_actual: item.producto.stock_actual - item.cantidadNecesaria,
-      });
-    }
-
-    const lineas = await lineasOrdenTrabajoRepository.findByVentaId(id_venta);
-
-    const totalServicios = lineas.reduce(
-      (total, linea) => total + linea.cantidad * linea.precio_unitario,
-      0
+    const productoSinStock = productosAUtilizar.find(
+      (item) => item.producto.stockActual < item.cantidadNecesaria
     );
 
-    const ventaActualizada = await ventasRepository.update(id_venta, {
-      total: totalServicios,
+    if (productoSinStock) {
+      return NextResponse.json(
+        {
+          code: "STOCK_INSUFICIENTE",
+          message: `No hay stock suficiente para ${productoSinStock.producto.nombre}`,
+          producto: {
+            id_producto: productoSinStock.producto.idProducto,
+            idProducto: productoSinStock.producto.idProducto,
+            nombre: productoSinStock.producto.nombre,
+            stock_actual: productoSinStock.producto.stockActual,
+            stockActual: productoSinStock.producto.stockActual,
+          },
+          cantidad_requerida: productoSinStock.cantidadNecesaria,
+          cantidad_disponible: productoSinStock.producto.stockActual,
+        },
+        { status: 409 }
+      );
+    }
+
+    const resultado = await db.$transaction(async (tx) => {
+      const linea = await tx.lineaDeOrdenDeTrabajo.create({
+        data: {
+          idOrdenDeTrabajo,
+          idServicio: servicio.idServicio,
+          cantidad: cantidadServicio,
+          precioUnitario: servicio.precioVenta,
+        },
+      });
+
+      for (const item of productosAUtilizar) {
+        await tx.producto.update({
+          where: {
+            idProducto: item.producto.idProducto,
+          },
+          data: {
+            stockActual: item.producto.stockActual - item.cantidadNecesaria,
+          },
+        });
+      }
+
+      const lineas = await tx.lineaDeOrdenDeTrabajo.findMany({
+        where: {
+          idOrdenDeTrabajo,
+        },
+      });
+
+      const totalServicios = lineas.reduce(
+        (total, linea) =>
+          total + linea.cantidad * toNumber(linea.precioUnitario),
+        0
+      );
+
+      const ordenActualizada = await tx.ordenDeTrabajo.update({
+        where: {
+          idOrdenDeTrabajo,
+        },
+        data: {
+          total: totalServicios,
+        },
+      });
+
+      return {
+        linea,
+        orden: ordenActualizada,
+        totalServicios,
+      };
     });
 
     return NextResponse.json(
       {
-        linea,
+        linea: resultado.linea,
         servicio,
-        venta: ventaActualizada,
-        total_servicios: totalServicios,
+        orden: resultado.orden,
+        total_servicios: resultado.totalServicios,
         productos_utilizados: productosAUtilizar.map((item) => ({
-          id_producto: item.producto.id_producto,
+          id_producto: item.producto.idProducto,
+          idProducto: item.producto.idProducto,
           nombre: item.producto.nombre,
           cantidad_utilizada: item.cantidadNecesaria,
-          stock_anterior: item.producto.stock_actual,
-          stock_nuevo: item.producto.stock_actual - item.cantidadNecesaria,
+          stock_anterior: item.producto.stockActual,
+          stock_nuevo: item.producto.stockActual - item.cantidadNecesaria,
         })),
       },
       { status: 201 }
@@ -155,9 +213,20 @@ export async function GET(
 ) {
   try {
     const { idVenta } = await params;
-    const id_venta = Number(idVenta);
+    const idOrdenDeTrabajo = parseIdOrden(idVenta);
 
-    const orden = await ordenesTrabajoRepository.findByVentaId(id_venta);
+    if (Number.isNaN(idOrdenDeTrabajo)) {
+      return NextResponse.json(
+        { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
+        { status: 400 }
+      );
+    }
+
+    const orden = await db.ordenDeTrabajo.findUnique({
+      where: {
+        idOrdenDeTrabajo,
+      },
+    });
 
     if (!orden) {
       return NextResponse.json(
@@ -169,15 +238,25 @@ export async function GET(
       );
     }
 
-    const lineas = await lineasOrdenTrabajoRepository.findByVentaId(id_venta);
+    const lineas = await db.lineaDeOrdenDeTrabajo.findMany({
+      where: {
+        idOrdenDeTrabajo,
+      },
+      include: {
+        servicio: true,
+        producto: true,
+      },
+    });
 
     const total = lineas.reduce(
-      (acumulado, linea) => acumulado + linea.cantidad * linea.precio_unitario,
+      (acumulado, linea) =>
+        acumulado + linea.cantidad * toNumber(linea.precioUnitario),
       0
     );
 
     return NextResponse.json({
-      id_venta,
+      id_orden_de_trabajo: idOrdenDeTrabajo,
+      idOrdenDeTrabajo,
       lineas,
       total,
     });

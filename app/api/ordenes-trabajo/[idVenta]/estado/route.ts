@@ -1,3 +1,4 @@
+import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 const transicionesPermitidas: Record<string, string[]> = {
@@ -14,6 +15,7 @@ export async function PATCH(
   try {
     const { idVenta } = await params;
     const { estado } = await req.json();
+    const idOrdenDeTrabajo = Number(idVenta);
 
     if (!estado) {
       return NextResponse.json(
@@ -22,9 +24,18 @@ export async function PATCH(
       );
     }
 
-    const ordenTrabajo = await ordenesTrabajoRepository.findByVentaId(
-      Number(idVenta)
-    );
+    if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+      return NextResponse.json(
+        { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
+        { status: 400 }
+      );
+    }
+
+    const ordenTrabajo = await db.ordenDeTrabajo.findUnique({
+      where: {
+        idOrdenDeTrabajo,
+      },
+    });
 
     if (!ordenTrabajo) {
       return NextResponse.json(
@@ -37,25 +48,27 @@ export async function PATCH(
     }
 
     const estadosSiguientes =
-      transicionesPermitidas[ordenTrabajo.estado] ?? [];
+      transicionesPermitidas[ordenTrabajo.estadoOrden] ?? [];
 
     if (!estadosSiguientes.includes(estado)) {
       return NextResponse.json(
         {
           code: "CAMBIO_ESTADO_NO_PERMITIDO",
-          message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estado}"`,
+          message: `No se puede cambiar una orden desde "${ordenTrabajo.estadoOrden}" a "${estado}"`,
         },
         { status: 409 }
       );
     }
 
-    const ordenActualizada = await ordenesTrabajoRepository.update(
-      ordenTrabajo.id_venta,
-      {
-        estado,
-        fecha_entrega_real: estado === "Entregado" ? new Date() : undefined,
-      }
-    );
+    const ordenActualizada = await db.ordenDeTrabajo.update({
+      where: {
+        idOrdenDeTrabajo,
+      },
+      data: {
+        estadoOrden: estado,
+        fechaEntregaReal: estado === "Entregado" ? new Date() : undefined,
+      },
+    });
 
     return NextResponse.json(ordenActualizada);
   } catch (error) {
