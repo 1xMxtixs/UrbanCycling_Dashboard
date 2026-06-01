@@ -223,10 +223,20 @@ model Producto{
 
   serviciosProducto ProductoServicio[]
   categoriasproducto CategoriaProducto[]
+  imagenesproducto ImagenesProducto[]
 
   @@map("productos")
 }
 
+model ImagenesProducto{
+
+  idImagenProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_imagen_producto")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  archivo Bytes @db.MediumBlob 
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+
+}
 
 model Categoria{
 
@@ -235,10 +245,9 @@ model Categoria{
   descripcion String? @db.VarChar(255)
   estado String? @db.VarChar(20)
 
-  @@map("categorias")
-
   categoriasproducto CategoriaProducto[]
 
+  @@map("categorias")
 }
 
 model CategoriaProducto{
