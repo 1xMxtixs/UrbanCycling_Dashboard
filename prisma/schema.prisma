@@ -41,11 +41,26 @@ model Usuario {
   ordenesDeTrabajo OrdenDeTrabajo[]
   ordenesDeCompras OrdenDeCompra[]
   mermas Merma[]
-
+  telefonosUsuario TelefonoUsuario[]
   ventas Venta[]
 
   @@map("usuarios")
 }
+
+
+model TelefonoUsuario{
+
+  idTelefonoUsuario Int @id @default(autoincrement()) @db.UnsignedInt @map("id_telefono_usuario")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  telefono String @db.VarChar(20)
+  descripcion String? @db.VarChar(50)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+
+  @@map("telefonos_usuario")
+}
+
+
 
 model Cliente {
   idCliente Int @id @default(autoincrement()) @db.UnsignedInt @map("id_cliente")
