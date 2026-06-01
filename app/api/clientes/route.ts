@@ -128,3 +128,20 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+export async function GET() {
+  try {
+    const clientes = await db.cliente.findMany({
+      include: {
+        telefonos: true,
+      },
+    })
+
+    return NextResponse.json(clientes)
+  } catch (error) {
+    console.log("[CLIENTES_GET]", error)
+    return new NextResponse("Internal Server Error", {
+      status: 500,
+    })
+  }
+}
