@@ -63,6 +63,7 @@ model Usuario {
   mermas Merma[]
   telefonosUsuario TelefonoUsuario[]
   ventas Venta[]
+  auditorias Auditoria[]
 
   @@map("usuarios")
 }
@@ -79,6 +80,23 @@ model TelefonoUsuario{
 
   @@map("telefonos_usuario")
 }
+
+model Auditoria {
+  idAuditoria Int @id @default(autoincrement()) @db.UnsignedInt @map("id_auditoria")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  accion String @db.VarChar(50)
+  detalleCambio String? @db.VarChar(500) @map("detalle_cambio")
+  tablaAfectada String @db.VarChar(100) @map("tabla_afectada")
+  registroAfectado String @db.VarChar(100) @map("registro_afectado")
+  valorAnterior Json? @map("valor_anterior")
+  valorNuevo Json? @map("valor_nuevo")
+  fechaHora DateTime @default(now()) @db.Timestamp(0) @map("fecha_hora")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+
+  @@map("auditoria")
+}
+
 
 
 
