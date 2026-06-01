@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { FormCreateCliente } from "../FormCreateCliente/FormCreateCliente";
+import { useRouter } from "next/navigation";
 
 export function HeaderClientes() {
+  const router = useRouter();
   const [openModalCreate, setOpenModalCreate] = useState(false);
   const [mostrarExito, setMostrarExito] = useState(false);
 
@@ -20,6 +22,7 @@ export function HeaderClientes() {
     setOpenModalCreate(false);
 
     setMostrarExito(true);
+    router.refresh();
 
     setTimeout(() => {
       setMostrarExito(false);
@@ -44,7 +47,7 @@ export function HeaderClientes() {
           onOpenChange={setOpenModalCreate}
         >
           <DialogTrigger asChild>
-            <Button>
+            <Button className="py-5">
              + Registrar Cliente
             </Button>
           </DialogTrigger>
