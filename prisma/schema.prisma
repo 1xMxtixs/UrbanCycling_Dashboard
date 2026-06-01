@@ -177,6 +177,7 @@ model Servicio {
   estado String @db.VarChar(20)
 
   productosServicio ProductoServicio[]
+  lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
 
   @@map("servicios")
 }
@@ -207,6 +208,7 @@ model Venta {
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+  lineasDeVenta LineaDeVenta[]
 
   @@map("ventas")
 }
@@ -222,8 +224,10 @@ model Producto{
   estado String @db.VarChar(20)
 
   serviciosProducto ProductoServicio[]
-  categoriasproducto CategoriaProducto[]
-  imagenesproducto ImagenesProducto[]
+  categoriasProducto CategoriaProducto[]
+  imagenesProducto ImagenesProducto[]
+  lineasDeVenta LineaDeVenta[]
+  lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
 
   @@map("productos")
 }
@@ -236,6 +240,7 @@ model ImagenesProducto{
 
   producto Producto @relation(fields: [idProducto], references: [idProducto])
 
+  @@map("imagenes_producto")
 }
 
 model Categoria{
@@ -276,12 +281,55 @@ model OrdenDeTrabajo {
   observacionesIngreso String? @db.VarChar(255) @map("observaciones_ingreso")
   total Decimal @db.Decimal(12, 0)
   descuento Int @db.UnsignedSmallInt
-  estado_pago String @db.VarChar(50) @map("estado_pago")
-  estado_orden String @db.VarChar(50) @map("estado_orden")
+  estadoPago String @db.VarChar(50) @map("estado_pago")
+  estadoOrden String @db.VarChar(50) @map("estado_orden")
   fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
+  bicicletas Bicicleta?
+  lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
 
   @@map("ordenes_de_trabajo")
+}
+
+model Bicicleta{
+  idBicicleta Int @id @default(autoincrement()) @db.UnsignedInt @map("id_bicicleta")
+  idOrdenDeTrabajo Int @unique @db.UnsignedInt @map("id_orden_de_trabajo")
+  marca String @db.VarChar(50)
+  modelo String @db.VarChar(50)
+  color String @db.VarChar(50)
+  descripcion String? @db.VarChar(500)
+
+  ordenDeTrabajo OrdenDeTrabajo @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
+
+  @@map("bicicletas")
+}
+
+model LineaDeVenta {
+  idLineaDeVenta Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_venta")
+  idVenta Int @db.UnsignedInt @map("id_venta")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  cantidad Int @db.UnsignedSmallInt
+  precioUnitario Decimal @db.Decimal(12, 0) @map("precio_unitario")
+
+  venta Venta @relation(fields: [idVenta], references: [idVenta])
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+
+  @@map("lineas_de_venta")
+}
+
+model LineaDeOrdenDeTrabajo {
+  idLineaDeOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_orden_de_trabajo")
+  idOrdenDeTrabajo Int @db.UnsignedInt @map("id_orden_de_trabajo")
+  idServicio Int? @db.UnsignedInt @map("id_servicio")
+  idProducto Int? @db.UnsignedInt @map("id_producto")
+  cantidad Int @db.UnsignedSmallInt
+  precioUnitario Decimal @db.Decimal(12, 0) @map("precio_unitario")
+
+  ordenDeTrabajo OrdenDeTrabajo @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
+  servicio Servicio? @relation(fields: [idServicio], references: [idServicio])
+  producto Producto? @relation(fields: [idProducto], references: [idProducto])
+
+  @@map("lineas_de_orden_de_trabajo")
 }
