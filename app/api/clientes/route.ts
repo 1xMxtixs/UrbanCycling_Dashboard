@@ -1,4 +1,5 @@
-//import para base de datos
+//endpoints generales del inventario para registrar nuevos clientes.
+import { db } from "@/lib/db"
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
@@ -46,8 +47,8 @@ function separarNombres(nombres: string) {
   const partes = nombres.trim().replace(/\s+/g, " ").split(" ");
 
   return {
-    primer_nombre: partes[0],
-    segundo_nombre: partes.slice(1).join(" ") || null,
+    primerNombre: partes[0],
+    segundoNombre: partes.slice(1).join(" ") || null,
   };
 }
 
@@ -55,8 +56,8 @@ function separarApellidos(apellidos: string) {
   const partes = apellidos.trim().replace(/\s+/g, " ").split(" ");
 
   return {
-    apellido_paterno: partes[0],
-    apellido_materno: partes.slice(1).join(" ") || null,
+    apellidoPaterno: partes[0],
+    apellidoMaterno: partes.slice(1).join(" ") || null,
   };
 }
 
@@ -81,7 +82,11 @@ export async function POST(req: Request) {
       });
     }
 
-    const clienteExistente = await clientesRepository.findByRut(rutFormateado);
+    const clienteExistente = await db.cliente.findUnique({
+      where: {
+        rut: rutFormateado,
+      },
+    });
 
     if (clienteExistente) {
       return new NextResponse("Ya existe un cliente con ese RUT", {
@@ -89,28 +94,54 @@ export async function POST(req: Request) {
       });
     }
 
-    const { primer_nombre, segundo_nombre } = separarNombres(String(nombres));
-    const { apellido_paterno, apellido_materno } = separarApellidos(
+    const { primerNombre, segundoNombre } = separarNombres(String(nombres));
+    const { apellidoPaterno, apellidoMaterno } = separarApellidos(
       String(apellidos)
     );
 
-    const cliente = await clientesRepository.create({
-      tipo_cliente: "persona",
-      rut: rutFormateado,
-      estado: "activo",
-      telefono: String(telefono).trim(),
-      primer_nombre,
-      segundo_nombre,
-      apellido_paterno,
-      apellido_materno,
-      razon_social: null,
-      giro: null,
-      nombre_contacto: null,
+    const cliente = await db.cliente.create({
+      data: {
+        tipoCliente: "persona",
+        rut: rutFormateado,
+        estado: "activo",
+        primerNombre,
+        segundoNombre,
+        apellidoPaterno,
+        apellidoMaterno,
+        razonSocial: null,
+        giro: null,
+        nombreContacto: null,
+        telefonos: {
+          create: {
+            telefono: String(telefono).trim(),
+          },
+        },
+      },
+      include: {
+        telefonos: true,
+      },
     });
 
     return NextResponse.json(cliente, { status: 201 });
   } catch (error) {
     console.log("[CLIENTES_POST]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const clientes = await db.cliente.findMany({
+      include: {
+        telefonos: true,
+      },
+    })
+
+    return NextResponse.json(clientes)
+  } catch (error) {
+    console.log("[CLIENTES_GET]", error)
+    return new NextResponse("Internal Server Error", {
+      status: 500,
+    })
   }
 }
