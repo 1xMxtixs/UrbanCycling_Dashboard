@@ -39,6 +39,7 @@ model Usuario {
 
   rol Rol @relation(fields: [idRol], references: [idRol])
   ordenesDeTrabajo OrdenDeTrabajo[]
+  ordenesDeCompras OrdenDeCompra[]
 
   ventas Venta[]
 
@@ -125,6 +126,7 @@ model Proveedor{
   telefonos TelefonoProveedor[]
   correos CorreoProveedor[]
   direcciones DireccionProveedor[]
+  ordenesDeCompras OrdenDeCompra[]
 
   @@map("proveedores")
 }
@@ -332,4 +334,21 @@ model LineaDeOrdenDeTrabajo {
   producto Producto? @relation(fields: [idProducto], references: [idProducto])
 
   @@map("lineas_de_orden_de_trabajo")
+}
+
+model OrdenDeCompra{
+
+  idOrdenDeCompra Int @id @default(autoincrement()) @db.UnsignedInt @map("id_orden_de_compra")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  idProveedor Int @db.UnsignedInt @map("id_proveedor")
+  fechaCreacion DateTime @db.Timestamp(0) @map("fecha_creacion")
+  estado String @db.VarChar(50)
+  fechaEntregaEstimada DateTime @db.Timestamp(0) @map("fecha_entrega_estimada")
+  fechaEntregaReal DateTime? @db.Timestamp(0) @map("fecha_entrega_real")
+  total Decimal @db.Decimal(12,0)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("ordenes_de_compra")
 }
