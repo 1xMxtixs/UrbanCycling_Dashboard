@@ -1,9 +1,7 @@
 // Endpoints del inventario para consultar, actualizar o eliminar un producto por ID.
 import { NextResponse } from "next/server"
 
-import { createInMemoryInventoryRepository } from "@/lib/inventory/inMemoryInventoryRepository"
-
-const inventoryRepository = createInMemoryInventoryRepository()
+import { db } from "@/lib/db"
 
 type RouteContext = {
   params: Promise<{
@@ -30,7 +28,11 @@ export async function GET(_request: Request, context: RouteContext) {
       return new NextResponse("Invalid product id", { status: 400 })
     }
 
-    const product = await inventoryRepository.findById(productId)
+    const product = await db.producto.findUnique({
+      where: {
+        idProducto: productId,
+      },
+    })
 
     if (!product) {
       return new NextResponse("Product not found", { status: 404 })
@@ -54,18 +56,41 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if (data.nombre) {
-      const existingProduct = await inventoryRepository.findByName(data.nombre)
+      const existingProduct = await db.producto.findUnique({
+        where: {
+          nombre: data.nombre,
+        },
+      })
 
-      if (existingProduct && existingProduct.id_producto !== productId) {
+      if (existingProduct && existingProduct.idProducto !== productId) {
         return new NextResponse("Product already exists", { status: 409 })
       }
     }
 
-    const product = await inventoryRepository.update(productId, data)
+    const productExists = await db.producto.findUnique({
+      where: {
+        idProducto: productId,
+      },
+    })
 
-    if (!product) {
+    if (!productExists) {
       return new NextResponse("Product not found", { status: 404 })
     }
+
+    const product = await db.producto.update({
+      where: {
+        idProducto: productId,
+      },
+      data: {
+        tipoProducto: data.tipoProducto,
+        nombre: data.nombre,
+        descripcion: data.descripcion,
+        precioVenta: data.precioVenta,
+        stockActual: data.stockActual,
+        stockMinimo: data.stockMinimo,
+        estado: data.estado,
+      },
+    })
 
     return NextResponse.json(product)
   } catch (error) {
@@ -83,11 +108,21 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return new NextResponse("Invalid product id", { status: 400 })
     }
 
-    const deletedProduct = await inventoryRepository.delete(productId)
+    const product = await db.producto.findUnique({
+      where: {
+        idProducto: productId,
+      },
+    })
 
-    if (!deletedProduct) {
+    if (!product) {
       return new NextResponse("Product not found", { status: 404 })
     }
+
+    await db.producto.delete({
+      where: {
+        idProducto: productId,
+      },
+    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
