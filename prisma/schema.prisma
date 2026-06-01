@@ -209,6 +209,8 @@ model Venta {
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   lineasDeVenta LineaDeVenta[]
+  reclamosDeGarantia ReclamosDeGarantia[] @relation("VentaReclamada")
+  garantiaGeneradora ReclamosDeGarantia? @relation("VentaGenerada")
 
   @@map("ventas")
 }
@@ -279,6 +281,8 @@ model OrdenDeTrabajo {
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   bicicletas Bicicleta?
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
+  reclamosDeGarantia ReclamosDeGarantia[] @relation("OrdenDeTrabajoReclamada")
+  garantiaGeneradora ReclamosDeGarantia? @relation("OrdenDeTrabajoGenerada")
 
   @@map("ordenes_de_trabajo")
 }
@@ -322,4 +326,24 @@ model LineaDeOrdenDeTrabajo {
   producto Producto? @relation(fields: [idProducto], references: [idProducto])
 
   @@map("lineas_de_orden_de_trabajo")
+}
+
+model ReclamosDeGarantia {
+  idReclamoDeGarantia Int @id @default(autoincrement()) @db.UnsignedInt @map("id_reclamo_de_garantia")
+  idVentaReclamada Int? @db.UnsignedInt @map("id_venta_reclamada")
+  idVentaGenerada Int? @unique@db.UnsignedInt @map("id_venta_generada")
+  idOrdenDeTrabajoReclamada Int? @db.UnsignedInt @map("id_orden_de_trabajo_reclamada")
+  idOrdenDeTrabajoGenerada Int? @unique @db.UnsignedInt @map("id_orden_de_trabajo_generada")
+  motivo String @db.VarChar(500)
+  estado String @db.VarChar(50)
+  tipoResolucion String? @db.VarChar(100) @map("tipo_resolucion")
+  justificacionResolucion String? @db.VarChar(500) @map("justificacion_resolucion")
+  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+
+  ventaReclamada Venta? @relation("VentaReclamada", fields: [idVentaReclamada], references: [idVenta])
+  ventaGenerada Venta? @relation("VentaGenerada", fields: [idVentaGenerada], references: [idVenta])
+  ordenDeTrabajoReclamada OrdenDeTrabajo? @relation("OrdenDeTrabajoReclamada", fields: [idOrdenDeTrabajoReclamada], references: [idOrdenDeTrabajo])
+  ordenDeTrabajoGenerada OrdenDeTrabajo? @relation("OrdenDeTrabajoGenerada", fields: [idOrdenDeTrabajoGenerada], references: [idOrdenDeTrabajo])
+
+  @@map("reclamos_de_garantia")
 }
