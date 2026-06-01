@@ -66,6 +66,7 @@ model Cliente {
   correos CorreoCliente[]
   direcciones DireccionCliente[]
   ordenesDeTrabajo OrdenDeTrabajo[]
+  comprobante Comprobante[]
 
   @@map("clientes")
 }
@@ -234,7 +235,7 @@ model Producto{
   lineasDeVenta LineaDeVenta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
-  lineasDeMermas LineasDeMerma[]
+  lineasDeMermas LineaDeMerma[]
 
   @@map("productos")
 }
@@ -354,6 +355,7 @@ model OrdenDeCompra{
   total Decimal @db.Decimal(12,0)
 
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
+  comprobante Comprobante[]
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
@@ -373,6 +375,8 @@ model LineaDeOrdenDeCompra{
   ordendecompra OrdenDeCompra @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
   producto Producto @relation(fields: [idProducto], references: [idProducto])
 
+  @@map("lineas_de_oden_de_compra")
+
 }
 
 model Merma{
@@ -383,14 +387,15 @@ model Merma{
   tipo String @db.VarChar(50) 
   observacion String @db.VarChar(500)
 
-  lineasDeMermas LineasDeMerma[]
+  lineasDeMermas LineaDeMerma[]
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   
+  @@map("mermas")
 
 }
 
-model LineasDeMerma{
+model LineaDeMerma{
 
   idLineaDeMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_merma")
   idMerma Int @db.UnsignedInt @map("id_merma")
@@ -400,6 +405,8 @@ model LineasDeMerma{
 
   producto Producto @relation(fields: [idProducto], references: [idProducto])
   merma Merma @relation(fields: [idMerma], references: [idMerma])
+
+  @@map("lineas_de_merma")
 
 }
 
@@ -412,6 +419,8 @@ model Pago{
   montoPagado Decimal @db.Decimal(12,0) @map("monto_pagado")
 
   pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+
+  @@map("pagos")
 
 }
 
@@ -427,5 +436,27 @@ model PagoVentaOrdenDeTrabajo{
   venta Venta? @relation(fields: [idVenta], references: [idVenta])
   ordenDeTrabajo OrdenDeTrabajo? @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
   pago Pago @relation(fields: [idPago], references: [idPago])
+
+  @@map("pago_venta_oden_de_trabajo")
+
+}
+
+model Comprobante{
+
+  idComprobante Int @id @default(autoincrement()) @db.UnsignedInt @map("id_comprobante")
+  idCliente Int? @db.UnsignedInt @map("id_cliente")
+  idOrdenDeCompra Int? @db.UnsignedInt @map("id_orden_de_compra")
+  tipoMovimiento String @db.VarChar(20) @map("tipo_movimiento")
+  tipoDte Int @db.SmallInt @map("tipo_dte")
+  numeroFolio Int @db.UnsignedInt @unique @map("numero_folio")
+  fechaEmision DateTime @db.Timestamp(0) @map("fecha_emision")
+  montoNeto Decimal @db.Decimal(12,0) @map("monto_neto")
+  montoIva Decimal @db.Decimal(12,0) @map("monto_iva")
+  montoTotal Decimal @db.Decimal(12,0) @map("monto_total")
+
+  ordendecompra OrdenDeCompra? @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
+  cliente Cliente? @relation(fields: [idCliente], references: [idCliente])
+
+  @@map("comprobantes")
 
 }
