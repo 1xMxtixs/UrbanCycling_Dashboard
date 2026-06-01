@@ -40,6 +40,7 @@ model Usuario {
   rol Rol @relation(fields: [idRol], references: [idRol])
   ordenesDeTrabajo OrdenDeTrabajo[]
   ordenesDeCompras OrdenDeCompra[]
+  mermas Merma[]
 
   ventas Venta[]
 
@@ -233,6 +234,7 @@ model Producto{
   lineasDeVenta LineaDeVenta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
+  lineasDeMermas LineasDeMerma[]
 
   @@map("productos")
 }
@@ -393,3 +395,42 @@ model LineaDeOrdenDeCompra{
   producto Producto @relation(fields: [idProducto], references: [idProducto])
 
 }
+
+model Merma{
+
+  idMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_merma")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  fechaRegistro DateTime @db.Timestamp(0) @map("fecha_registro")
+  tipo String @db.VarChar(50) 
+  observacion String @db.VarChar(500)
+
+  lineasDeMermas LineasDeMerma[]
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  
+
+}
+
+model LineasDeMerma{
+
+  idLineaDeMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_linea_de_merma")
+  idMerma Int @db.UnsignedInt @map("id_merma")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  cantidad Int @db.SmallInt
+
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+  merma Merma @relation(fields: [idMerma], references: [idMerma])
+
+}
+
+model Pago{
+
+  idPago Int @id @default(autoincrement()) @db.UnsignedInt @map("id_pago")
+  fecha DateTime @db.Timestamp(0) 
+  estado String @db.VarChar(50)
+  metodoPago String @db.VarChar(50) @map("metodo_pago")
+  montoPagado Decimal @db.Decimal(12,0) @map("monto_pagado")
+
+}
+
