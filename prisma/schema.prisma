@@ -12,6 +12,12 @@ datasource db {
   provider = "mysql"
 }
 
+model Permiso {
+  idPermiso Int @id @default(autoincrement()) @db.UnsignedInt @map("id_permiso")
+  codigoPermiso String @db.VarChar(50) @unique @map("codigo_permiso")
+  descripcion String @db.VarChar(255)
+}
+
 model Rol {
   idRol Int @id @default(autoincrement()) @db.UnsignedInt @map("id_rol")
   nombre String @db.VarChar(50) @unique
@@ -228,13 +234,10 @@ model Venta {
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   lineasDeVenta LineaDeVenta[]
-<<<<<<< HEAD
   reclamosDeGarantia ReclamosDeGarantia[] @relation("VentaReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("VentaGenerada")
-=======
   pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
 
->>>>>>> bfc83c38af24aa25a2024c8303186ba725e39f59
 
   @@map("ventas")
 }
@@ -317,12 +320,9 @@ model OrdenDeTrabajo {
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   bicicletas Bicicleta?
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
-<<<<<<< HEAD
   reclamosDeGarantia ReclamosDeGarantia[] @relation("OrdenDeTrabajoReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("OrdenDeTrabajoGenerada")
-=======
   pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
->>>>>>> bfc83c38af24aa25a2024c8303186ba725e39f59
 
   @@map("ordenes_de_trabajo")
 }
