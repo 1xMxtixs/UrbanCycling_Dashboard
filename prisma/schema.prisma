@@ -40,6 +40,7 @@ model Usuario {
   rol Rol @relation(fields: [idRol], references: [idRol])
   ordenesDeTrabajo OrdenDeTrabajo[]
   ordenesDeCompras OrdenDeCompra[]
+  mermas Merma[]
 
   ventas Venta[]
 
@@ -367,5 +368,18 @@ model LineaDeOrdenDeCompra{
 
   ordendecompra OrdenDeCompra @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
   producto Producto @relation(fields: [idProducto], references: [idProducto])
+
+}
+
+model Merma{
+
+  idMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_merma")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  fechaRegistro DateTime @db.Timestamp(0) @map("fecha_registro")
+  tipo String @db.VarChar(50) 
+  observacion String @db.VarChar(500)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  
 
 }
