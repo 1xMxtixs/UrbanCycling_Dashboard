@@ -1,13 +1,18 @@
-import { db } from "@/lib/db"
+
 import { NextResponse } from "next/server"
 
-import { createInMemoryBicycleRepository } from "@/lib/bicycles/inMemoryBicycleRepository"
-
-const bicycleRepository = createInMemoryBicycleRepository()
+import { db } from "@/lib/db"
 
 export async function GET() {
   try {
-    const bicycles = await bicycleRepository.findMany()
+    const bicycles = await db.bicicleta.findMany({
+      orderBy: {
+        idBicicleta: "desc",
+      },
+      include: {
+        ordenDeTrabajo: true,
+      },
+    })
 
     return NextResponse.json(bicycles)
   } catch (error) {
@@ -19,7 +24,37 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
-    const bicycle = await bicycleRepository.create(data)
+    const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
+      where: {
+        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+      },
+    })
+
+    if (!existingWorkOrder) {
+      return new NextResponse("Work order not found", { status: 404 })
+    }
+
+    const existingBicycle = await db.bicicleta.findUnique({
+      where: {
+        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+      },
+    })
+
+    if (existingBicycle) {
+      return new NextResponse("Work order already has a bicycle", {
+        status: 409,
+      })
+    }
+
+    const bicycle = await db.bicicleta.create({
+      data: {
+        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+        marca: data.marca,
+        modelo: data.modelo,
+        color: data.color,
+        descripcion: data.descripcion ?? null,
+      },
+    })
 
     return NextResponse.json(bicycle, { status: 201 })
   } catch (error) {

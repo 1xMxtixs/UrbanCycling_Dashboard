@@ -28,10 +28,7 @@ export function FormCreateCliente({
     razon: "",
   });
 
-  const [cargando, setCargando] = useState(false);
-  const [errorGeneral, setErrorGeneral] = useState("");
-
-  const guardarCliente = async () => {
+  const guardarCliente = () => {
     const nuevosErrores = {
       nombre:
         tipoCliente === "natural" && !nombre
@@ -66,39 +63,18 @@ export function FormCreateCliente({
       return;
     }
 
-    setCargando(true);
-    setErrorGeneral("");
+    console.log({
+      tipoCliente,
+      nombre,
+      apellido,
+      razon,
+      rut,
+      telefono,
+      nombreContacto,
+      giro,
+    });
 
-    try {
-      const response = await fetch("/api/clientes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tipoCliente,
-          nombre,
-          apellido,
-          razon,
-          rut,
-          telefono,
-          nombreContacto,
-          giro,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Error al guardar el cliente");
-      }
-
-      onSuccess();
-    } catch (err: any) {
-      console.error(err);
-      setErrorGeneral(err.message || "Ocurrió un error inesperado.");
-    } finally {
-      setCargando(false);
-    }
+    onSuccess();
   };
 
   return (
@@ -287,18 +263,11 @@ export function FormCreateCliente({
         </>
       )}
 
-      {errorGeneral && (
-        <p className="text-red-500 text-sm mt-1 bg-red-50 p-2 rounded border border-red-200">
-          {errorGeneral}
-        </p>
-      )}
-
       <button
         onClick={guardarCliente}
-        disabled={cargando}
-        className="w-full bg-black text-white p-2 rounded-md hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full bg-black text-white p-2 rounded-md hover:bg-gray-800"
       >
-        {cargando ? "Guardando..." : "Guardar Cliente"}
+        Guardar Cliente
       </button>
     </div>
   );
