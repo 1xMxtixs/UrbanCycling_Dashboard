@@ -1,6 +1,8 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
+import { ArrowUpDown } from "lucide-react"
 
 export type ProductColumn = {
   idProducto: number
@@ -29,7 +31,19 @@ export const columns: ColumnDef<ProductColumn>[] = [
   },
   {
     accessorKey: "stockActual",
-    header: "Stock actual",
+    header: ({ column }) => {
+      return (
+        <Button
+        variant="ghost"
+        onClick={() => 
+          column.toggleSorting(column.getIsSorted() === "asc")
+        }
+        >
+          Stock Actual
+          <ArrowUpDown className="ml-2 h-4 w-4"/>
+        </Button>
+      )
+    },
     cell: ({ row }) => {
       const stockActual = row.original.stockActual
       const stockMinimo = row.original.stockMinimo
@@ -62,7 +76,23 @@ export const columns: ColumnDef<ProductColumn>[] = [
     },
   },
   {
-    accessorKey: "estado",
-    header: "Estado",
+  accessorKey: "estado",
+  header: "Estado",
+  cell: ({ row }) => {
+    const estado = row.original.estado; 
+    const isActive = estado === "activo";
+
+    return (
+      <span
+        className={
+          isActive
+            ? "rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 capitalize"
+            : "rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 capitalize"
+        }
+      >
+        {estado}
+      </span>
+    );
   },
+}
 ]

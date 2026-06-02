@@ -34,8 +34,9 @@ export function DataTable<TData, TValue>({
   data,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] =
-    React.useState<ColumnFiltersState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  )
 
   const table = useReactTable({
     data,
@@ -59,31 +60,38 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="rounded-lg bg-background p-4 shadow-md">
-      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="flex-1">
-          <Input
-            placeholder="Buscar producto..."
-            value={(table.getColumn("nombre")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("nombre")?.setFilterValue(event.target.value)
+      <div className="mb-4 space-y-2">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder="Buscar producto..."
+              value={
+                (table.getColumn("nombre")?.getFilterValue() as string) ?? ""
+              }
+              onChange={(event) =>
+                table.getColumn("nombre")?.setFilterValue(event.target.value)
+              }
+            />
+          </div>
+
+          <select
+            className="h-8 rounded-lg border border-input bg-background px-3 text-sm"
+            value={
+              (table.getColumn("estado")?.getFilterValue() as string) ?? ""
             }
-          />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {table.getFilteredRowModel().rows.length} resultados encontrados
-          </p>
+            onChange={(event) =>
+              table.getColumn("estado")?.setFilterValue(event.target.value)
+            }
+          >
+            <option value="">Todos</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
         </div>
 
-        <select
-          className="h-8 rounded-lg border border-input bg-background px-3 text-sm"
-          value={(table.getColumn("estado")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("estado")?.setFilterValue(event.target.value)
-          }
-        >
-          <option value="">Todos</option>
-          <option value="activo">Activos</option>
-          <option value="inactivo">Inactivos</option>
-        </select>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {table.getFilteredRowModel().rows.length} resultados encontrados
+        </p>
       </div>
 
       <div className="rounded-md border">
