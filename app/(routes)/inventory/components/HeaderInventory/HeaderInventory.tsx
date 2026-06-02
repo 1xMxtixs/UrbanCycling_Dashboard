@@ -28,7 +28,7 @@ export function HeaderInventory() {
 
       <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
         <DialogTrigger asChild>
-          <Button>+ Agregar producto</Button>
+          <Button className="py-5">+ Agregar producto</Button>
         </DialogTrigger>
 
         <DialogContent className="sm:max-w-2xl">

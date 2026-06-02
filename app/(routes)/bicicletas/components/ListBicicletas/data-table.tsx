@@ -1,19 +1,17 @@
 "use client"
 
-import React from "react"
-
+import React from "react";
 import {
   ColumnDef,
   SortingState,
   flexRender,
   getCoreRowModel,
-  ColumnFilter,
   getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
   getPaginationRowModel,
   ColumnFiltersState,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 
 import {
   Table,
@@ -22,90 +20,68 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-interface DataTableProps<TData, Tvalue> {
-  columns: ColumnDef<TData, Tvalue>[]
-  data: TData[]
+interface DataTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
 }
 
-export function DataTable<TData, Tvalue>({
-  columns,
-  data,
-}: DataTableProps<TData, Tvalue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
-  const [globalFilter, setGlobalFilter] = React.useState("")
-  const [isMounted, setIsMounted] = React.useState(false)
+export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    setIsMounted(true);
+  }, []);
 
   const table = useReactTable({
     data,
     columns,
-
     initialState: {
-        pagination: {
+      pagination: {
         pageSize: 15,
-        },
+      },
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
       columnFilters,
-      globalFilter,
     },
-  })
+  });
 
   if (!isMounted) {
-    return null
+    return null;
   }
 
   return (
     <div className="mt-4 rounded-lg bg-background p-4 shadow-md">
-      <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <Input
-              placeholder="Buscar por nombre, razón social o RUT..."
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(event.target.value)}
-            />
-          </div>
-
-          <select
-            className="border rounded-md px-3 py-2 h-10 bg-background text-sm cursor-pointer border-slate-200 focus:outline-none focus:ring-2 focus:ring-black transition-all"
-            value={
-              (table.getColumn("estado")?.getFilterValue() as string) ?? ""
-            }
+      <div className="mb-4 flex items-center gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Buscar bicicleta..."
+            value={(table.getColumn("marca")?.getFilterValue() as string) ?? ""}
             onChange={(event) =>
-              table.getColumn("estado")?.setFilterValue(event.target.value)
+              table.getColumn("marca")?.setFilterValue(event.target.value)
             }
-          >
-            <option value="">Todos los estados</option>
-            <option value="Activo">Activos</option>
-            <option value="Inactivo">Inactivos</option>
-          </select>
-        </div>
+          />
 
-        <p className="text-sm text-gray-500">
-          {table.getFilteredRowModel().rows.length} resultados encontrados
-        </p>
+          <p className="mt-2 text-sm text-gray-500">
+            {table.getFilteredRowModel().rows.length} resultados encontrados
+          </p>
+        </div>
       </div>
-            <div className="rounded-md border">
+
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -114,7 +90,10 @@ export function DataTable<TData, Tvalue>({
                   <TableHead key={header.id}>
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -134,7 +113,7 @@ export function DataTable<TData, Tvalue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No result.
+                  No hay bicicletas registradas.
                 </TableCell>
               </TableRow>
             )}
@@ -161,5 +140,5 @@ export function DataTable<TData, Tvalue>({
         </Button>
       </div>
     </div>
-  )
+  );
 }

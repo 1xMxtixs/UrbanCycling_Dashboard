@@ -9,6 +9,9 @@ export async function GET() {
       orderBy: {
         idProducto: "desc",
       },
+      include: {
+        imagenesProducto: true,
+      },
     })
 
     return NextResponse.json(products)
@@ -40,6 +43,17 @@ export async function POST(request: Request) {
         stockActual: data.stockActual,
         stockMinimo: data.stockMinimo,
         estado: data.estado,
+        // Si se subió imagen, crear el registro en ImagenesProducto
+        ...(data.imageUrl && {
+          imagenesProducto: {
+            create: {
+              url: data.imageUrl,
+            },
+          },
+        }),
+      },
+      include: {
+        imagenesProducto: true,
       },
     })
 

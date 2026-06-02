@@ -236,7 +236,7 @@ model ImagenesProducto{
 
   idImagenProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_imagen_producto")
   idProducto Int @db.UnsignedInt @map("id_producto")
-  archivo Bytes @db.MediumBlob 
+  url String @db.VarChar(512)
 
   producto Producto @relation(fields: [idProducto], references: [idProducto])
 

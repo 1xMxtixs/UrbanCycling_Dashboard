@@ -26,6 +26,11 @@ export const dataGeneralSidebar = [
         href: "/clientes"
     },
     {
+        icon: Building2,
+        label: "Inventario",
+        href: "/inventory"
+    },
+    {
         icon: Calendar,
         label: "Calendar",
         href: "/tasks"
