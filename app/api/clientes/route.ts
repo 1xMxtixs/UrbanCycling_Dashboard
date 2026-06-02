@@ -64,14 +64,12 @@ function separarApellidos(apellidos: string) {
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-
-    const nombres = data.nombres ?? data.Nombres;
-    const apellidos = data.apellidos ?? data.Apellidos;
+    const tipoCliente = data.tipoCliente || "natural";
     const rut = data.rut;
     const telefono = data.telefono;
 
-    if (!nombres || !apellidos || !rut || !telefono) {
-      return new NextResponse("Faltan campos obligatorios", { status: 400 });
+    if (!rut || !telefono) {
+      return new NextResponse("Faltan campos obligatorios (RUT y Teléfono)", { status: 400 });
     }
 
     const { rutFormateado, error } = formatearRut(String(rut));
@@ -94,16 +92,32 @@ export async function POST(req: Request) {
       });
     }
 
-    const { primerNombre, segundoNombre } = separarNombres(String(nombres));
-    const { apellidoPaterno, apellidoMaterno } = separarApellidos(
-      String(apellidos)
-    );
+    let insertData: any = {
+      tipoCliente,
+      rut: rutFormateado,
+      estado: "activo",
+      telefonos: {
+        create: {
+          telefono: String(telefono).trim(),
+        },
+      },
+    };
 
-    const cliente = await db.cliente.create({
-      data: {
-        tipoCliente: "persona",
-        rut: rutFormateado,
-        estado: "activo",
+    if (tipoCliente === "natural") {
+      const nombres = data.nombre || data.nombres || data.Nombres;
+      const apellidos = data.apellido || data.apellidos || data.Apellidos;
+
+      if (!nombres || !apellidos) {
+        return new NextResponse("Faltan campos obligatorios para persona natural (nombres y apellidos)", { status: 400 });
+      }
+
+      const { primerNombre, segundoNombre } = separarNombres(String(nombres));
+      const { apellidoPaterno, apellidoMaterno } = separarApellidos(
+        String(apellidos)
+      );
+
+      insertData = {
+        ...insertData,
         primerNombre,
         segundoNombre,
         apellidoPaterno,
@@ -111,12 +125,32 @@ export async function POST(req: Request) {
         razonSocial: null,
         giro: null,
         nombreContacto: null,
-        telefonos: {
-          create: {
-            telefono: String(telefono).trim(),
-          },
-        },
-      },
+      };
+    } else if (tipoCliente === "juridica") {
+      const razonSocial = data.razon || data.razonSocial || data.RazonSocial;
+      const giro = data.giro || null;
+      const nombreContacto = data.nombreContacto || null;
+
+      if (!razonSocial) {
+        return new NextResponse("Falta la Razón Social para persona jurídica", { status: 400 });
+      }
+
+      insertData = {
+        ...insertData,
+        primerNombre: null,
+        segundoNombre: null,
+        apellidoPaterno: null,
+        apellidoMaterno: null,
+        razonSocial,
+        giro,
+        nombreContacto,
+      };
+    } else {
+      return new NextResponse("Tipo de cliente no válido", { status: 400 });
+    }
+
+    const cliente = await db.cliente.create({
+      data: insertData,
       include: {
         telefonos: true,
       },
