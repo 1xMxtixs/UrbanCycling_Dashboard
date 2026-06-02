@@ -1,7 +1,9 @@
 // Endpoints de bicicletas para consultar, actualizar o eliminar un registro por ID.
 import { NextResponse } from "next/server"
 
-import { db } from "@/lib/db"
+import { createInMemoryBicycleRepository } from "@/lib/bicycles/inMemoryBicycleRepository"
+
+const bicycleRepository = createInMemoryBicycleRepository()
 
 type RouteContext = {
   params: Promise<{
@@ -28,14 +30,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return new NextResponse("Invalid bicycle id", { status: 400 })
     }
 
-    const bicycle = await db.bicicleta.findUnique({
-      where: {
-        idBicicleta: bicycleId,
-      },
-      include: {
-        ordenDeTrabajo: true,
-      },
-    })
+    const bicycle = await bicycleRepository.findById(bicycleId)
 
     if (!bicycle) {
       return new NextResponse("Bicycle not found", { status: 404 })
@@ -58,55 +53,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       return new NextResponse("Invalid bicycle id", { status: 400 })
     }
 
-    const bicycleExists = await db.bicicleta.findUnique({
-      where: {
-        idBicicleta: bicycleId,
-      },
-    })
+    const bicycle = await bicycleRepository.update(bicycleId, data)
 
-    if (!bicycleExists) {
+    if (!bicycle) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
-
-    if (
-      data.idOrdenDeTrabajo &&
-      data.idOrdenDeTrabajo !== bicycleExists.idOrdenDeTrabajo
-    ) {
-      const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
-        where: {
-          idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-        },
-      })
-
-      if (!existingWorkOrder) {
-        return new NextResponse("Work order not found", { status: 404 })
-      }
-
-      const existingBicycle = await db.bicicleta.findUnique({
-        where: {
-          idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-        },
-      })
-
-      if (existingBicycle && existingBicycle.idBicicleta !== bicycleId) {
-        return new NextResponse("Work order already has a bicycle", {
-          status: 409,
-        })
-      }
-    }
-
-    const bicycle = await db.bicicleta.update({
-      where: {
-        idBicicleta: bicycleId,
-      },
-      data: {
-        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-        marca: data.marca,
-        modelo: data.modelo,
-        color: data.color,
-        descripcion: data.descripcion,
-      },
-    })
 
     return NextResponse.json(bicycle)
   } catch (error) {
@@ -124,21 +75,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return new NextResponse("Invalid bicycle id", { status: 400 })
     }
 
-    const bicycle = await db.bicicleta.findUnique({
-      where: {
-        idBicicleta: bicycleId,
-      },
-    })
+    const deletedBicycle = await bicycleRepository.delete(bicycleId)
 
-    if (!bicycle) {
+    if (!deletedBicycle) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
-
-    await db.bicicleta.delete({
-      where: {
-        idBicicleta: bicycleId,
-      },
-    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

@@ -1,4 +1,5 @@
-//import para base de datos
+//endpoints generales del inventario para registrar nuevos clientes.
+import { db } from "@/lib/db"
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
@@ -46,8 +47,8 @@ function separarNombres(nombres: string) {
   const partes = nombres.trim().replace(/\s+/g, " ").split(" ");
 
   return {
-    primer_nombre: partes[0],
-    segundo_nombre: partes.slice(1).join(" ") || null,
+    primerNombre: partes[0],
+    segundoNombre: partes.slice(1).join(" ") || null,
   };
 }
 
@@ -55,22 +56,20 @@ function separarApellidos(apellidos: string) {
   const partes = apellidos.trim().replace(/\s+/g, " ").split(" ");
 
   return {
-    apellido_paterno: partes[0],
-    apellido_materno: partes.slice(1).join(" ") || null,
+    apellidoPaterno: partes[0],
+    apellidoMaterno: partes.slice(1).join(" ") || null,
   };
 }
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-
-    const nombres = data.nombres ?? data.Nombres;
-    const apellidos = data.apellidos ?? data.Apellidos;
+    const tipoCliente = data.tipoCliente || "natural";
     const rut = data.rut;
     const telefono = data.telefono;
 
-    if (!nombres || !apellidos || !rut || !telefono) {
-      return new NextResponse("Faltan campos obligatorios", { status: 400 });
+    if (!rut || !telefono) {
+      return new NextResponse("Faltan campos obligatorios (RUT y Teléfono)", { status: 400 });
     }
 
     const { rutFormateado, error } = formatearRut(String(rut));
@@ -81,7 +80,11 @@ export async function POST(req: Request) {
       });
     }
 
-    const clienteExistente = await clientesRepository.findByRut(rutFormateado);
+    const clienteExistente = await db.cliente.findUnique({
+      where: {
+        rut: rutFormateado,
+      },
+    });
 
     if (clienteExistente) {
       return new NextResponse("Ya existe un cliente con ese RUT", {
@@ -89,28 +92,90 @@ export async function POST(req: Request) {
       });
     }
 
-    const { primer_nombre, segundo_nombre } = separarNombres(String(nombres));
-    const { apellido_paterno, apellido_materno } = separarApellidos(
-      String(apellidos)
-    );
-
-    const cliente = await clientesRepository.create({
-      tipo_cliente: "persona",
+    let insertData: any = {
+      tipoCliente,
       rut: rutFormateado,
       estado: "activo",
-      telefono: String(telefono).trim(),
-      primer_nombre,
-      segundo_nombre,
-      apellido_paterno,
-      apellido_materno,
-      razon_social: null,
-      giro: null,
-      nombre_contacto: null,
+      telefonos: {
+        create: {
+          telefono: String(telefono).trim(),
+        },
+      },
+    };
+
+    if (tipoCliente === "natural") {
+      const nombres = data.nombre || data.nombres || data.Nombres;
+      const apellidos = data.apellido || data.apellidos || data.Apellidos;
+
+      if (!nombres || !apellidos) {
+        return new NextResponse("Faltan campos obligatorios para persona natural (nombres y apellidos)", { status: 400 });
+      }
+
+      const { primerNombre, segundoNombre } = separarNombres(String(nombres));
+      const { apellidoPaterno, apellidoMaterno } = separarApellidos(
+        String(apellidos)
+      );
+
+      insertData = {
+        ...insertData,
+        primerNombre,
+        segundoNombre,
+        apellidoPaterno,
+        apellidoMaterno,
+        razonSocial: null,
+        giro: null,
+        nombreContacto: null,
+      };
+    } else if (tipoCliente === "juridica") {
+      const razonSocial = data.razon || data.razonSocial || data.RazonSocial;
+      const giro = data.giro || null;
+      const nombreContacto = data.nombreContacto || null;
+
+      if (!razonSocial) {
+        return new NextResponse("Falta la Razón Social para persona jurídica", { status: 400 });
+      }
+
+      insertData = {
+        ...insertData,
+        primerNombre: null,
+        segundoNombre: null,
+        apellidoPaterno: null,
+        apellidoMaterno: null,
+        razonSocial,
+        giro,
+        nombreContacto,
+      };
+    } else {
+      return new NextResponse("Tipo de cliente no válido", { status: 400 });
+    }
+
+    const cliente = await db.cliente.create({
+      data: insertData,
+      include: {
+        telefonos: true,
+      },
     });
 
     return NextResponse.json(cliente, { status: 201 });
   } catch (error) {
     console.log("[CLIENTES_POST]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const clientes = await db.cliente.findMany({
+      include: {
+        telefonos: true,
+      },
+    })
+
+    return NextResponse.json(clientes)
+  } catch (error) {
+    console.log("[CLIENTES_GET]", error)
+    return new NextResponse("Internal Server Error", {
+      status: 500,
+    })
   }
 }
