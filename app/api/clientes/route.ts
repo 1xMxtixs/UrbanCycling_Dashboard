@@ -166,6 +166,9 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     const clientes = await db.cliente.findMany({
+      orderBy: {
+        fechaCreacion: "desc",
+      },
       include: {
         telefonos: true,
       },

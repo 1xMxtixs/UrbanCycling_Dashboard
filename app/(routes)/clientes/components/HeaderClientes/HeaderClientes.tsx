@@ -22,6 +22,7 @@ export function HeaderClientes() {
     setOpenModalCreate(false);
 
     setMostrarExito(true);
+    window.dispatchEvent(new Event("clientes:refresh"));
     router.refresh();
 
     setTimeout(() => {
