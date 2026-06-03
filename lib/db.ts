@@ -6,10 +6,10 @@ declare global {
 }
 
 // 1. Creamos el pool de conexiones con el driver compatible de MySQL/MariaDB
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || "mariadb://mock_user:mock_pass@localhost:3306/mock_db";
 
 // 2. Instanciamos el adaptador oficial de Prisma 7
-const adapter = new PrismaMariaDb(connectionString!);
+const adapter = new PrismaMariaDb(connectionString);
 
 export const db = globalThis.prisma || new PrismaClient({ adapter });
 
