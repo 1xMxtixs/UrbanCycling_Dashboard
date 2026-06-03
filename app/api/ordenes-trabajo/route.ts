@@ -31,6 +31,42 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+type BicicletaInput = {
+  marca?: unknown;
+  modelo?: unknown;
+  color?: unknown;
+  descripcion?: unknown;
+};
+
+function normalizarBicicletas(data: Record<string, unknown>) {
+  const bicicletasInput = data.bicicletas ?? data.bicicleta;
+
+  if (Array.isArray(bicicletasInput)) {
+    return bicicletasInput as BicicletaInput[];
+  }
+
+  if (bicicletasInput && typeof bicicletasInput === "object") {
+    return [bicicletasInput as BicicletaInput];
+  }
+
+  if (data.marca || data.modelo || data.color || data.descripcion) {
+    return [data as BicicletaInput];
+  }
+
+  return [];
+}
+
+function mapearBicicleta(bicicleta: BicicletaInput) {
+  return {
+    marca: String(bicicleta.marca).trim(),
+    modelo: String(bicicleta.modelo).trim(),
+    color: String(bicicleta.color).trim(),
+    descripcion: bicicleta.descripcion
+      ? String(bicicleta.descripcion).trim()
+      : null,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -49,7 +85,7 @@ export async function POST(req: Request) {
       data.estado_orden ?? data.estadoOrden ?? "Por realizar";
     const descuento = Number(data.descuento ?? 0);
     const total = Number(data.total ?? 0);
-    const bicicletaData = data.bicicleta ?? data;
+    const bicicletasInput = normalizarBicicletas(data);
 
     if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
       return NextResponse.json(
@@ -139,8 +175,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const tieneBicicleta =
-      bicicletaData.marca && bicicletaData.modelo && bicicletaData.color;
+    const bicicletaIncompleta = bicicletasInput.find(
+      (bicicleta) => !bicicleta.marca || !bicicleta.modelo || !bicicleta.color
+    );
+
+    if (bicicletaIncompleta) {
+      return NextResponse.json(
+        {
+          code: "BICICLETA_INCOMPLETA",
+          message: "Cada bicicleta debe tener marca, modelo y color",
+        },
+        { status: 400 }
+      );
+    }
+
+    const bicicletas = bicicletasInput.map(mapearBicicleta);
 
     const ordenTrabajo = await db.ordenDeTrabajo.create({
       data: {
@@ -154,16 +203,9 @@ export async function POST(req: Request) {
         descuento,
         estadoPago,
         estadoOrden,
-        bicicletas: tieneBicicleta
+        bicicletas: bicicletas.length
           ? {
-              create: {
-                marca: String(bicicletaData.marca),
-                modelo: String(bicicletaData.modelo),
-                color: String(bicicletaData.color),
-                descripcion: bicicletaData.descripcion
-                  ? String(bicicletaData.descripcion)
-                  : null,
-              },
+              create: bicicletas,
             }
           : undefined,
       },
@@ -184,7 +226,7 @@ export async function POST(req: Request) {
       {
         ordenTrabajo,
         cliente,
-        bicicleta: ordenTrabajo.bicicletas,
+        bicicletas: ordenTrabajo.bicicletas,
       },
       { status: 201 }
     );
