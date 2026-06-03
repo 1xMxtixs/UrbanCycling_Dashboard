@@ -39,6 +39,32 @@ type BicicletaInput = {
   imagenUrl?: unknown;
 };
 
+type ProductoOrdenInput = {
+  id_producto?: unknown;
+  idProducto?: unknown;
+  cantidad?: unknown;
+  precio_unitario?: unknown;
+  precioUnitario?: unknown;
+};
+
+type ProductoSolicitado = {
+  idProducto: number;
+  cantidad: number;
+  precioUnitario: number;
+};
+
+type ProductoAgrupado = {
+  idProducto: number;
+  cantidad: number;
+};
+
+type LineaOrdenData = {
+  idServicio: number | null;
+  idProducto: number | null;
+  cantidad: number;
+  precioUnitario: number;
+};
+
 function normalizarBicicletas(data: Record<string, unknown>) {
   const bicicletasInput = data.bicicletas ?? data.bicicleta;
 
@@ -69,6 +95,16 @@ function mapearBicicleta(bicicleta: BicicletaInput) {
       ? String(bicicleta.imagenUrl).trim()
       : null,
   };
+}
+
+function parsePositiveInteger(value: unknown) {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return Number.NaN;
+  }
+
+  return parsedValue;
 }
 
 export async function POST(req: Request) {
@@ -215,8 +251,106 @@ export async function POST(req: Request) {
       });
     }
 
+    const productosSolicitados: ProductoSolicitado[] = productosInput.map(
+      (item: ProductoOrdenInput) => ({
+        idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
+        cantidad: parsePositiveInteger(item.cantidad),
+        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+      })
+    );
+
+    const productoInvalido = productosSolicitados.find(
+      (item) =>
+        Number.isNaN(item.idProducto) ||
+        Number.isNaN(item.cantidad) ||
+        Number.isNaN(item.precioUnitario) ||
+        item.precioUnitario < 0
+    );
+
+    if (productoInvalido) {
+      return NextResponse.json(
+        {
+          code: "PRODUCTO_INVALIDO",
+          message:
+            "Todos los productos deben tener ID, cantidad y precio vÃ¡lidos",
+        },
+        { status: 400 }
+      );
+    }
+
+    const productosAgrupados: ProductoAgrupado[] = Array.from(
+      productosSolicitados.reduce((productosMap, item) => {
+        productosMap.set(
+          item.idProducto,
+          (productosMap.get(item.idProducto) ?? 0) + item.cantidad
+        );
+
+        return productosMap;
+      }, new Map<number, number>())
+    ).map(([idProducto, cantidad]) => ({
+      idProducto,
+      cantidad,
+    }));
+
+    const productos = productosAgrupados.length
+      ? await db.producto.findMany({
+          where: {
+            idProducto: {
+              in: productosAgrupados.map((item) => item.idProducto),
+            },
+          },
+        })
+      : [];
+
+    const productosPorId = new Map(
+      productos.map((producto) => [producto.idProducto, producto])
+    );
+
+    const productoNoExiste = productosAgrupados.find(
+      (item) => !productosPorId.has(item.idProducto)
+    );
+
+    if (productoNoExiste) {
+      return NextResponse.json(
+        {
+          code: "PRODUCTO_NO_EXISTE",
+          message: `El producto con ID ${productoNoExiste.idProducto} no existe`,
+          id_producto: productoNoExiste.idProducto,
+          idProducto: productoNoExiste.idProducto,
+        },
+        { status: 404 }
+      );
+    }
+
+    const productoSinStock = productosAgrupados.find((item) => {
+      const producto = productosPorId.get(item.idProducto);
+
+      return producto && producto.stockActual < item.cantidad;
+    });
+
+    if (productoSinStock) {
+      const producto = productosPorId.get(productoSinStock.idProducto)!;
+
+      return NextResponse.json(
+        {
+          code: "STOCK_INSUFICIENTE",
+          message: `No hay stock suficiente para ${producto.nombre}`,
+          producto: {
+            id_producto: producto.idProducto,
+            idProducto: producto.idProducto,
+            nombre: producto.nombre,
+            stock_actual: producto.stockActual,
+            stockActual: producto.stockActual,
+          },
+          cantidad_requerida: productoSinStock.cantidad,
+          cantidad_disponible: producto.stockActual,
+        },
+        { status: 409 }
+      );
+    }
+
     // 2. Build lines array
-    const lineasData = [];
+    const lineasData: LineaOrdenData[] = [];
 
     // Add service line if montoServicio > 0
     if (montoServicio > 0) {
@@ -228,59 +362,69 @@ export async function POST(req: Request) {
       });
     }
 
-    // Add product lines
-    for (const p of productosInput) {
-      const idProducto = Number(p.idProducto ?? p.id_producto);
-      const cantidad = Number(p.cantidad ?? 1);
-      const precioUnitario = Number(p.precioUnitario ?? p.precio_unitario ?? 0);
-
-      if (idProducto > 0 && cantidad > 0) {
-        lineasData.push({
-          idServicio: null,
-          idProducto,
-          cantidad,
-          precioUnitario
-        });
-      }
+    for (const productoSolicitado of productosSolicitados) {
+      lineasData.push({
+        idServicio: null,
+        idProducto: productoSolicitado.idProducto,
+        cantidad: productoSolicitado.cantidad,
+        precioUnitario: productoSolicitado.precioUnitario
+      });
     }
 
     // Calculate grand total
     const calculatedTotal = lineasData.reduce((sum, line) => sum + (line.cantidad * line.precioUnitario), 0);
 
-    const ordenTrabajo = await db.ordenDeTrabajo.create({
-      data: {
-        idUsuario: usuario.idUsuario,
-        idCliente: cliente.idCliente,
-        idComprobante: idComprobanteInput ? Number(idComprobanteInput) : null,
-        fechaEntregaEstimada,
-        fechaEntregaReal: null,
-        observacionesIngreso,
-        total: calculatedTotal,
-        descuento,
-        estadoPago,
-        estadoOrden,
-        bicicletas: bicicletas.length
-          ? {
-              create: bicicletas,
-            }
-          : undefined,
-        lineasDeOrdenDeTrabajo: lineasData.length
-          ? {
-              create: lineasData
-            }
-          : undefined,
-      },
-      include: {
-        usuario: true,
-        cliente: true,
-        bicicletas: true,
-        lineasDeOrdenDeTrabajo: {
-          include: {
-            servicio: true,
-            producto: true,
+    const ordenTrabajo = await db.$transaction(async (tx) => {
+      const ordenCreada = await tx.ordenDeTrabajo.create({
+        data: {
+          idUsuario: usuario.idUsuario,
+          idCliente: cliente.idCliente,
+          idComprobante: idComprobanteInput ? Number(idComprobanteInput) : null,
+          fechaEntregaEstimada,
+          fechaEntregaReal: null,
+          observacionesIngreso,
+          total: calculatedTotal,
+          descuento,
+          estadoPago,
+          estadoOrden,
+          bicicletas: bicicletas.length
+            ? {
+                create: bicicletas,
+              }
+            : undefined,
+          lineasDeOrdenDeTrabajo: lineasData.length
+            ? {
+                create: lineasData
+              }
+            : undefined,
+        },
+        include: {
+          usuario: true,
+          cliente: true,
+          bicicletas: true,
+          lineasDeOrdenDeTrabajo: {
+            include: {
+              servicio: true,
+              producto: true,
+            },
           },
         },
-      },
+      });
+
+      for (const item of productosAgrupados) {
+        const producto = productosPorId.get(item.idProducto)!;
+
+        await tx.producto.update({
+          where: {
+            idProducto: item.idProducto,
+          },
+          data: {
+            stockActual: producto.stockActual - item.cantidad,
+          },
+        });
+      }
+
+      return ordenCreada;
     });
 
     return NextResponse.json(
