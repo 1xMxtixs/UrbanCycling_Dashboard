@@ -17,36 +17,28 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Bicicleta } from "../ListBicicletas/columns";
-
-const rutSchema = z
-  .string()
-  .optional()
-  .refine((value) => {
-    if (!value) return true;
-    const cleaned = value.replace(/[^0-9kK]/gi, "");
-    return cleaned.length >= 7 && cleaned.length <= 9;
-  }, {
-    message: "El RUT ingresado no tiene un formato válido",
-  });
 
 const formSchema = z.object({
   marca: z.string().min(1, "La marca es obligatoria"),
   modelo: z.string().min(1, "El modelo es obligatorio"),
   color: z.string().min(1, "El color es obligatorio"),
   descripcion: z.string().optional(),
-  clientRut: rutSchema,
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 type FormCreateBicicletaProps = {
+  selectedOrdenId: string;
   setOpenModalCreate: (open: boolean) => void;
   onSuccess: () => void;
 };
 
 export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
-  const { setOpenModalCreate, onSuccess } = props;
+  const { selectedOrdenId, setOpenModalCreate, onSuccess } = props;
+
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -56,33 +48,47 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
       modelo: "",
       color: "",
       descripcion: "",
-      clientRut: "",
     },
   });
 
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { isSubmitting, isValid } = form.formState;
+
+  const uploadImage = async () => {
+    if (!selectedImage) {
+      return null;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedImage);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "No se pudo subir la imagen");
+      }
+
+      const data = (await response.json()) as { url: string };
+      return data.url;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     try {
-      let imagen: string | null = null;
-
-      if (selectedImage) {
-        imagen = await new Promise<string | null>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result;
-            if (typeof result === "string") {
-              resolve(result);
-            } else {
-              resolve(null);
-            }
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(selectedImage);
-        });
+      if (!selectedOrdenId) {
+        toast.error("Debe seleccionar una orden de trabajo");
+        return;
       }
+
+      const imagenUrl = await uploadImage();
 
       const response = await fetch("/api/bicycles", {
         method: "POST",
@@ -90,17 +96,18 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          idOrdenDeTrabajo: Number(selectedOrdenId),
           marca: values.marca,
           modelo: values.modelo,
           color: values.color,
           descripcion: values.descripcion || null,
-          clientRut: values.clientRut || null,
-          imagen,
+          imagenUrl,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("No se pudo registrar la bicicleta");
+        const errorText = await response.text();
+        throw new Error(errorText || "No se pudo registrar la bicicleta");
       }
 
       window.dispatchEvent(new Event("bicicletas:refresh"));
@@ -112,7 +119,11 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
       setImagePreview(null);
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo registrar la bicicleta");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo registrar la bicicleta"
+      );
     }
   };
 
@@ -149,53 +160,32 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="color"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Color</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: Negro" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="clientRut"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>RUT cliente (opcional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: 12.345.678-5" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="color"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Color</FormLabel>
+              <FormControl>
+                <Input placeholder="Ej: Negro" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div>
           <FormLabel>Imagen (opcional)</FormLabel>
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             className="mt-2 w-full rounded-md border border-gray-300 p-2"
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               setSelectedImage(file);
 
               if (file) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const result = reader.result;
-                  setImagePreview(typeof result === "string" ? result : null);
-                };
-                reader.readAsDataURL(file);
+                setImagePreview(URL.createObjectURL(file));
               } else {
                 setImagePreview(null);
               }
@@ -203,7 +193,12 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           />
           {imagePreview && (
             <div className="mt-3 rounded-xl border bg-slate-50 p-2">
-              <img src={imagePreview} alt="Previsualización" className="h-40 w-full object-cover rounded-xl" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview}
+                alt="Previsualizacion"
+                className="h-40 w-full rounded-xl object-cover"
+              />
             </div>
           )}
         </div>
@@ -213,9 +208,12 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           name="descripcion"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Descripción</FormLabel>
+              <FormLabel>Descripcion</FormLabel>
               <FormControl>
-                <Textarea placeholder="Ingresa una breve descripción de la bicicleta" {...field} />
+                <Textarea
+                  placeholder="Ingresa una breve descripcion de la bicicleta"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -223,8 +221,11 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
         />
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={!isValid || isSubmitting}>
-            Guardar bicicleta
+          <Button
+            type="submit"
+            disabled={!isValid || isSubmitting || isUploadingImage}
+          >
+            {isUploadingImage ? "Subiendo imagen..." : "Guardar bicicleta"}
           </Button>
         </div>
       </form>

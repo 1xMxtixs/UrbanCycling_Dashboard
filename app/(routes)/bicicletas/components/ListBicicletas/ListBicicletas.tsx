@@ -1,12 +1,26 @@
 "use client"
 
 import { useEffect, useState } from "react";
-import { DataTable } from "./data-table";
-import { columns, type Bicicleta } from "./columns";
+
+import { Input } from "@/components/ui/input";
+
+import { BikeCard } from "./BikeCard";
+import type { Bicicleta } from "./columns";
+
+function getNombreCliente(cliente: Bicicleta["ordenDeTrabajo"]["cliente"]) {
+  return (
+    cliente.razonSocial ||
+    [cliente.primerNombre, cliente.apellidoPaterno, cliente.apellidoMaterno]
+      .filter(Boolean)
+      .join(" ") ||
+    "Sin cliente"
+  );
+}
 
 export function ListBicicletas() {
   const [bicicletas, setBicicletas] = useState<Bicicleta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchBicicletas = async () => {
@@ -45,9 +59,52 @@ export function ListBicicletas() {
     );
   }
 
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredBicicletas = normalizedSearch
+    ? bicicletas.filter((bicicleta) => {
+        const cliente = bicicleta.ordenDeTrabajo?.cliente;
+        const searchableText = [
+          bicicleta.idOrdenDeTrabajo,
+          bicicleta.marca,
+          bicicleta.modelo,
+          bicicleta.color,
+          bicicleta.descripcion,
+          bicicleta.ordenDeTrabajo?.estadoOrden,
+          cliente ? getNombreCliente(cliente) : "",
+          cliente?.rut,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(normalizedSearch);
+      })
+    : bicicletas;
+
   return (
-    <div className="animate-in fade-in duration-300">
-      <DataTable columns={columns} data={bicicletas} />
+    <div className="space-y-4 animate-in fade-in duration-300">
+      <div className="rounded-lg bg-background p-4 shadow-md">
+        <Input
+          placeholder="Buscar por marca, modelo, cliente u orden..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <p className="mt-2 text-sm text-muted-foreground">
+          {filteredBicicletas.length} bicicletas encontradas
+        </p>
+      </div>
+
+      {filteredBicicletas.length === 0 ? (
+        <div className="rounded-lg border bg-background p-8 text-center text-sm text-muted-foreground shadow-sm">
+          No hay bicicletas registradas.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filteredBicicletas.map((bicicleta) => (
+            <BikeCard key={bicicleta.idBicicleta} bicicleta={bicicleta} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
