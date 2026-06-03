@@ -39,11 +39,15 @@ export function ListBicicletas() {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg bg-background p-6 text-sm text-muted-foreground shadow-md">
+      <div className="rounded-lg bg-background p-6 text-sm text-muted-foreground shadow-md animate-pulse">
         Cargando bicicletas...
       </div>
     );
   }
 
-  return <DataTable columns={columns} data={bicicletas} />;
+  return (
+    <div className="animate-in fade-in duration-300">
+      <DataTable columns={columns} data={bicicletas} />
+    </div>
+  );
 }

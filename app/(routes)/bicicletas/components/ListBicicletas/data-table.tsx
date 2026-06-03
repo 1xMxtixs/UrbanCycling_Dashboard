@@ -64,7 +64,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
   }
 
   return (
-    <div className="mt-4 rounded-lg bg-background p-4 shadow-md">
+    <div className="mt-4 rounded-lg bg-background p-4 shadow-md animate-in fade-in duration-300">
       <div className="mb-4 flex items-center gap-4">
         <div className="flex-1">
           <Input
@@ -102,7 +102,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className="transition-colors duration-200 hover:bg-slate-50">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
