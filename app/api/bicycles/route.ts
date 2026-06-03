@@ -24,9 +24,15 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
+    const idOrdenDeTrabajo = Number(data.idOrdenDeTrabajo)
+
+    if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+      return new NextResponse("Invalid work order id", { status: 400 })
+    }
+
     const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
       where: {
-        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+        idOrdenDeTrabajo,
       },
     })
 
@@ -34,21 +40,9 @@ export async function POST(request: Request) {
       return new NextResponse("Work order not found", { status: 404 })
     }
 
-    const existingBicycle = await db.bicicleta.findUnique({
-      where: {
-        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-      },
-    })
-
-    if (existingBicycle) {
-      return new NextResponse("Work order already has a bicycle", {
-        status: 409,
-      })
-    }
-
     const bicycle = await db.bicicleta.create({
       data: {
-        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+        idOrdenDeTrabajo,
         marca: data.marca,
         modelo: data.modelo,
         color: data.color,
