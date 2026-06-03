@@ -99,6 +99,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         modelo: data.modelo,
         color: data.color,
         descripcion: data.descripcion,
+        imagenUrl: data.imagenUrl,
       },
     })
 

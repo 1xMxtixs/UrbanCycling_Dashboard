@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         modelo: data.modelo,
         color: data.color,
         descripcion: data.descripcion ?? null,
+        imagenUrl: data.imagenUrl ?? null,
       },
     })
 
