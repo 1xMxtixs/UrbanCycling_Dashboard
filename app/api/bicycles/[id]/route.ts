@@ -72,26 +72,20 @@ export async function PATCH(request: Request, context: RouteContext) {
       data.idOrdenDeTrabajo &&
       data.idOrdenDeTrabajo !== bicycleExists.idOrdenDeTrabajo
     ) {
+      const idOrdenDeTrabajo = Number(data.idOrdenDeTrabajo)
+
+      if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+        return new NextResponse("Invalid work order id", { status: 400 })
+      }
+
       const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
         where: {
-          idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+          idOrdenDeTrabajo,
         },
       })
 
       if (!existingWorkOrder) {
         return new NextResponse("Work order not found", { status: 404 })
-      }
-
-      const existingBicycle = await db.bicicleta.findUnique({
-        where: {
-          idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-        },
-      })
-
-      if (existingBicycle && existingBicycle.idBicicleta !== bicycleId) {
-        return new NextResponse("Work order already has a bicycle", {
-          status: 409,
-        })
       }
     }
 
@@ -105,6 +99,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         modelo: data.modelo,
         color: data.color,
         descripcion: data.descripcion,
+        imagenUrl: data.imagenUrl,
       },
     })
 

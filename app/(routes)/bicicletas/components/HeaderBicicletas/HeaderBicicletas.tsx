@@ -11,13 +11,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
-import type { Bicicleta } from "../ListBicicletas/columns";
 
-type HeaderBicicletasProps = {
-  onAddBicicleta: (bicicleta: Omit<Bicicleta, "id">) => Promise<void>;
-};
-
-export function HeaderBicicletas({ onAddBicicleta }: HeaderBicicletasProps) {
+export function HeaderBicicletas() {
   const [openModalCreate, setOpenModalCreate] = useState(false);
   const [mostrarExito, setMostrarExito] = useState(false);
 
@@ -56,7 +51,6 @@ export function HeaderBicicletas({ onAddBicicleta }: HeaderBicicletasProps) {
             <FormCreateBicicleta
               setOpenModalCreate={setOpenModalCreate}
               onSuccess={handleSuccess}
-              onAddBicicleta={onAddBicicleta}
             />
           </DialogContent>
         </Dialog>

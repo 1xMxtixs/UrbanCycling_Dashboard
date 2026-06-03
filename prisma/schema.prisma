@@ -287,7 +287,7 @@ model OrdenDeTrabajo {
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
-  bicicletas Bicicleta?
+  bicicletas Bicicleta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
 
   @@map("ordenes_de_trabajo")
@@ -295,11 +295,12 @@ model OrdenDeTrabajo {
 
 model Bicicleta{
   idBicicleta Int @id @default(autoincrement()) @db.UnsignedInt @map("id_bicicleta")
-  idOrdenDeTrabajo Int @unique @db.UnsignedInt @map("id_orden_de_trabajo")
+  idOrdenDeTrabajo Int @db.UnsignedInt @map("id_orden_de_trabajo")
   marca String @db.VarChar(50)
   modelo String @db.VarChar(50)
   color String @db.VarChar(50)
   descripcion String? @db.VarChar(500)
+  imagenUrl String? @db.VarChar(512) @map("imagen_url")
 
   ordenDeTrabajo OrdenDeTrabajo @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
 

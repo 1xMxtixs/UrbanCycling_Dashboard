@@ -43,11 +43,10 @@ type FormValues = z.infer<typeof formSchema>;
 type FormCreateBicicletaProps = {
   setOpenModalCreate: (open: boolean) => void;
   onSuccess: () => void;
-  onAddBicicleta: (bicicleta: Omit<Bicicleta, "id">) => Promise<void>;
 };
 
 export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
-  const { setOpenModalCreate, onSuccess, onAddBicicleta } = props;
+  const { setOpenModalCreate, onSuccess } = props;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -85,15 +84,26 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
         });
       }
 
-      await onAddBicicleta({
-        marca: values.marca,
-        modelo: values.modelo,
-        color: values.color,
-        descripcion: values.descripcion || null,
-        cliente: values.clientRut ? `Cliente ${values.clientRut}` : null,
-        imagen,
+      const response = await fetch("/api/bicycles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          marca: values.marca,
+          modelo: values.modelo,
+          color: values.color,
+          descripcion: values.descripcion || null,
+          clientRut: values.clientRut || null,
+          imagen,
+        }),
       });
 
+      if (!response.ok) {
+        throw new Error("No se pudo registrar la bicicleta");
+      }
+
+      window.dispatchEvent(new Event("bicicletas:refresh"));
       toast.success("Bicicleta registrada correctamente");
       setOpenModalCreate(false);
       onSuccess();

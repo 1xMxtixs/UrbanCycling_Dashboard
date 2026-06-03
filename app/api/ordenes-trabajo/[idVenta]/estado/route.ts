@@ -2,9 +2,10 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 const transicionesPermitidas: Record<string, string[]> = {
-  "Por realizar": ["En curso"],
-  "En curso": ["Listo para entregar"],
-  "Listo para entregar": ["Entregado"],
+  "Por realizar": ["En curso", "En espera"],
+  "En curso": ["Listo para entregar", "En espera"],
+  "En espera": ["En curso", "Listo para entregar"],
+  "Listo para entregar": ["Entregado", "En curso"],
   "Entregado": [],
 };
 
@@ -66,7 +67,7 @@ export async function PATCH(
       },
       data: {
         estadoOrden: estado,
-        fechaEntregaReal: estado === "Entregado" ? new Date() : undefined,
+        fechaEntregaReal: ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined,
       },
     });
 

@@ -31,6 +31,46 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+type BicicletaInput = {
+  marca?: unknown;
+  modelo?: unknown;
+  color?: unknown;
+  descripcion?: unknown;
+  imagenUrl?: unknown;
+};
+
+function normalizarBicicletas(data: Record<string, unknown>) {
+  const bicicletasInput = data.bicicletas ?? data.bicicleta;
+
+  if (Array.isArray(bicicletasInput)) {
+    return bicicletasInput as BicicletaInput[];
+  }
+
+  if (bicicletasInput && typeof bicicletasInput === "object") {
+    return [bicicletasInput as BicicletaInput];
+  }
+
+  if (data.marca || data.modelo || data.color || data.descripcion || data.imagenUrl) {
+    return [data as BicicletaInput];
+  }
+
+  return [];
+}
+
+function mapearBicicleta(bicicleta: BicicletaInput) {
+  return {
+    marca: String(bicicleta.marca).trim(),
+    modelo: String(bicicleta.modelo).trim(),
+    color: String(bicicleta.color).trim(),
+    descripcion: bicicleta.descripcion
+      ? String(bicicleta.descripcion).trim()
+      : null,
+    imagenUrl: bicicleta.imagenUrl
+      ? String(bicicleta.imagenUrl).trim()
+      : null,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -48,8 +88,12 @@ export async function POST(req: Request) {
     const estadoOrden =
       data.estado_orden ?? data.estadoOrden ?? "Por realizar";
     const descuento = Number(data.descuento ?? 0);
-    const total = Number(data.total ?? 0);
-    const bicicletaData = data.bicicleta ?? data;
+    
+    // Parse service labor cost and products list
+    const montoServicio = Number(data.montoServicio ?? data.monto_servicio ?? 0);
+    const productosInput = Array.isArray(data.productos) ? data.productos : [];
+    
+    const bicicletasInput = normalizarBicicletas(data);
 
     if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
       return NextResponse.json(
@@ -139,8 +183,69 @@ export async function POST(req: Request) {
       );
     }
 
-    const tieneBicicleta =
-      bicicletaData.marca && bicicletaData.modelo && bicicletaData.color;
+    const bicicletaIncompleta = bicicletasInput.find(
+      (bicicleta) => !bicicleta.marca || !bicicleta.modelo || !bicicleta.color
+    );
+
+    if (bicicletaIncompleta) {
+      return NextResponse.json(
+        {
+          code: "BICICLETA_INCOMPLETA",
+          message: "Cada bicicleta debe tener marca, modelo y color",
+        },
+        { status: 400 }
+      );
+    }
+
+    const bicicletas = bicicletasInput.map(mapearBicicleta);
+
+    // 1. Fetch or create generic service "Servicio de Taller"
+    let genericService = await db.servicio.findUnique({
+      where: { nombre: "Servicio de Taller" }
+    });
+
+    if (!genericService) {
+      genericService = await db.servicio.create({
+        data: {
+          nombre: "Servicio de Taller",
+          descripcion: "Mano de obra y servicios técnicos generales",
+          precioVenta: 0,
+          estado: "activo"
+        }
+      });
+    }
+
+    // 2. Build lines array
+    const lineasData = [];
+
+    // Add service line if montoServicio > 0
+    if (montoServicio > 0) {
+      lineasData.push({
+        idServicio: genericService.idServicio,
+        idProducto: null,
+        cantidad: 1,
+        precioUnitario: montoServicio
+      });
+    }
+
+    // Add product lines
+    for (const p of productosInput) {
+      const idProducto = Number(p.idProducto ?? p.id_producto);
+      const cantidad = Number(p.cantidad ?? 1);
+      const precioUnitario = Number(p.precioUnitario ?? p.precio_unitario ?? 0);
+
+      if (idProducto > 0 && cantidad > 0) {
+        lineasData.push({
+          idServicio: null,
+          idProducto,
+          cantidad,
+          precioUnitario
+        });
+      }
+    }
+
+    // Calculate grand total
+    const calculatedTotal = lineasData.reduce((sum, line) => sum + (line.cantidad * line.precioUnitario), 0);
 
     const ordenTrabajo = await db.ordenDeTrabajo.create({
       data: {
@@ -150,20 +255,18 @@ export async function POST(req: Request) {
         fechaEntregaEstimada,
         fechaEntregaReal: null,
         observacionesIngreso,
-        total,
+        total: calculatedTotal,
         descuento,
         estadoPago,
         estadoOrden,
-        bicicletas: tieneBicicleta
+        bicicletas: bicicletas.length
           ? {
-              create: {
-                marca: String(bicicletaData.marca),
-                modelo: String(bicicletaData.modelo),
-                color: String(bicicletaData.color),
-                descripcion: bicicletaData.descripcion
-                  ? String(bicicletaData.descripcion)
-                  : null,
-              },
+              create: bicicletas,
+            }
+          : undefined,
+        lineasDeOrdenDeTrabajo: lineasData.length
+          ? {
+              create: lineasData
             }
           : undefined,
       },
@@ -184,7 +287,7 @@ export async function POST(req: Request) {
       {
         ordenTrabajo,
         cliente,
-        bicicleta: ordenTrabajo.bicicletas,
+        bicicletas: ordenTrabajo.bicicletas,
       },
       { status: 201 }
     );
