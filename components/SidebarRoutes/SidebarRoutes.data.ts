@@ -17,9 +17,14 @@ export const dataGeneralSidebar = [
         href: "/"
     },
     {
+        icon: Wrench,
+        label: "Órdenes de Trabajo",
+        href: "/ordenes-trabajo"
+    },
+    {
         icon: Building2,
-        label: "Companies",
-        href: "/companies"
+        label: "Inventario",
+        href: "/inventory"
     },
     {
         icon: Building2,
@@ -28,43 +33,16 @@ export const dataGeneralSidebar = [
     },
     {
         icon: Building2,
-        label: "Inventario",
-        href: "/inventory"
+        label: "Bicicletas",
+        href: "/bicicletas"
     },
-    {
-        icon: Wrench,
-        label: "Órdenes de Trabajo",
-        href: "/ordenes-trabajo"
-    },
-    {
-        icon: Calendar,
-        label: "Calendar",
-        href: "/tasks"
-    },
+
 ]
 
 export const dataToolsSidebar = [
-    {
-        icon: CircleHelpIcon,
-        label: "Faqs",
-        href: "/faqs"
-    },
-    {
-        icon: BarChart4,
-        label: "Analytics",
-        href: "/anaytics"
-    }
+    
 ]
 
 export const dataSupportSidebar = [
-    {
-        icon: Settings,
-        label: "Settings",
-        href: "/setting"
-    },
-    {
-        icon: ShieldCheck,
-        label: "Security",
-        href: "/security"
-    }
+    
 ]
