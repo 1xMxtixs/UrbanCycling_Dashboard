@@ -300,6 +300,7 @@ model Bicicleta{
   modelo String @db.VarChar(50)
   color String @db.VarChar(50)
   descripcion String? @db.VarChar(500)
+  imagenUrl String? @db.VarChar(512) @map("imagen_url")
 
   ordenDeTrabajo OrdenDeTrabajo @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
 
