@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,33 +11,49 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
 
 type OrdenTrabajo = {
   idOrdenDeTrabajo: number;
   estadoOrden: string;
   estadoPago: string;
-  fechaCreacion: string;
   total: number;
   cliente: {
     razonSocial: string | null;
     primerNombre: string | null;
     apellidoPaterno: string | null;
     apellidoMaterno: string | null;
+    rut: string;
   };
   bicicletas?: Array<{ marca: string; modelo: string }>;
 };
 
+function getNombreCliente(cliente: OrdenTrabajo["cliente"]) {
+  return (
+    cliente.razonSocial ||
+    [cliente.primerNombre, cliente.apellidoPaterno, cliente.apellidoMaterno]
+      .filter(Boolean)
+      .join(" ") ||
+    "Sin cliente"
+  );
+}
+
 export function HeaderBicicletas() {
   const [openModalCreate, setOpenModalCreate] = useState(false);
   const [mostrarExito, setMostrarExito] = useState(false);
-  const [mostrarOrdenes, setMostrarOrdenes] = useState(false);
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
+  const [selectedOrdenId, setSelectedOrdenId] = useState("");
   const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
   const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
 
+  const selectedOrden = ordenes.find(
+    (orden) => String(orden.idOrdenDeTrabajo) === selectedOrdenId
+  );
+
   const handleSuccess = () => {
     setOpenModalCreate(false);
+    setSelectedOrdenId("");
     setMostrarExito(true);
 
     setTimeout(() => {
@@ -45,7 +62,7 @@ export function HeaderBicicletas() {
   };
 
   useEffect(() => {
-    if (!openModalCreate || !mostrarOrdenes || ordenes.length > 0) {
+    if (!openModalCreate || ordenes.length > 0) {
       return;
     }
 
@@ -54,120 +71,142 @@ export function HeaderBicicletas() {
       setErrorOrdenes(null);
 
       try {
-        const response = await fetch("/api/ordenes-trabajo");
+        const response = await fetch("/api/ordenes-trabajo", {
+          cache: "no-store",
+        });
+
         if (!response.ok) {
-          throw new Error("No se pudo cargar las órdenes de trabajo");
+          throw new Error("No se pudieron cargar las ordenes de trabajo");
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as OrdenTrabajo[];
         setOrdenes(data ?? []);
-      } catch (error) {
-        setErrorOrdenes("Error al cargar las órdenes de trabajo");
+      } catch {
+        setErrorOrdenes("Error al cargar las ordenes de trabajo");
       } finally {
         setCargandoOrdenes(false);
       }
     };
 
     void fetchOrdenes();
-  }, [openModalCreate, mostrarOrdenes, ordenes.length]);
+  }, [openModalCreate, ordenes.length]);
 
   return (
     <>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Bicicletas</h1>
+          <h1 className="text-3xl font-bold">Gestion de Bicicletas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Monitoreo de inventario y estado de servicio técnico en tiempo real.
+            Monitoreo de inventario y estado de servicio tecnico en tiempo real.
           </p>
         </div>
 
-        <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
+        <Dialog
+          open={openModalCreate}
+          onOpenChange={(open) => {
+            setOpenModalCreate(open);
+            if (!open) {
+              setSelectedOrdenId("");
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button>+ Nueva bicicleta</Button>
           </DialogTrigger>
 
-          <DialogContent className="sm:max-w-2xl animate-in fade-in duration-300">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl animate-in fade-in duration-300">
             <DialogHeader>
               <DialogTitle>Registrar bicicleta</DialogTitle>
               <DialogDescription>
-                Ingresa los datos técnicos de la bicicleta y/o vincula un cliente.
+                Ingresa los datos tecnicos de la bicicleta y vincula una orden
+                de trabajo existente.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mb-6 rounded-2xl border border-border bg-muted p-4 shadow-sm transition-all duration-300 animate-in slide-in-from-top-1">
+            <div className="mb-6 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm transition-all duration-300 animate-in slide-in-from-top-1">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Vincular a orden de trabajo</h2>
+                  <h2 className="text-lg font-semibold">
+                    Vincular a orden de trabajo
+                  </h2>
                   <p className="text-sm text-muted-foreground">
-                    Revisa las órdenes de trabajo disponibles antes de guardar la bicicleta.
+                    Revisa las ordenes de trabajo disponibles antes de guardar
+                    la bicicleta.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setMostrarOrdenes((prev) => !prev)}
+
+                <select
+                  value={selectedOrdenId}
+                  onChange={(event) => setSelectedOrdenId(event.target.value)}
+                  disabled={cargandoOrdenes}
+                  className="h-10 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-72"
                 >
-                  {mostrarOrdenes ? "Ocultar órdenes" : "Vincular a orden de trabajo"}
-                </Button>
+                  <option value="">
+                    {cargandoOrdenes
+                      ? "Cargando ordenes..."
+                      : "Selecciona una orden"}
+                  </option>
+                  {ordenes.map((orden) => (
+                    <option
+                      key={orden.idOrdenDeTrabajo}
+                      value={orden.idOrdenDeTrabajo}
+                    >
+                      Orden #{orden.idOrdenDeTrabajo} -{" "}
+                      {getNombreCliente(orden.cliente)}
+                      {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
+                      {orden.estadoOrden}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {mostrarOrdenes && (
-                <div className="mt-4 space-y-4 animate-in fade-in duration-200">
-                  {cargandoOrdenes ? (
-                    <p className="text-sm text-muted-foreground">Cargando órdenes de trabajo...</p>
-                  ) : errorOrdenes ? (
-                    <p className="text-sm text-destructive">{errorOrdenes}</p>
-                  ) : ordenes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No hay órdenes de trabajo disponibles en este momento.
-                    </p>
-                  ) : (
-                    <div className="grid gap-3">
-                      {ordenes.map((orden) => (
-                        <div
-                          key={orden.idOrdenDeTrabajo}
-                          className="rounded-2xl border border-border bg-background p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-                        >
-                          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                Orden #{orden.idOrdenDeTrabajo}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Cliente: {orden.cliente?.razonSocial || [orden.cliente?.primerNombre, orden.cliente?.apellidoPaterno, orden.cliente?.apellidoMaterno]
-                                  .filter(Boolean)
-                                  .join(" ") || "Sin cliente"}
-                              </p>
-                            </div>
-                            <div className="space-y-1 text-right text-sm text-muted-foreground">
-                              <p>Estado: {orden.estadoOrden}</p>
-                              <p>Pago: {orden.estadoPago}</p>
-                              <p>Total: {Number(orden.total ?? 0).toFixed(0)}</p>
-                            </div>
-                          </div>
+              {errorOrdenes && (
+                <p className="mt-3 text-sm text-destructive">{errorOrdenes}</p>
+              )}
 
-                          <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm">
-                            <p className="font-medium">Bicicletas en la orden</p>
-                            <ul className="mt-2 space-y-1">
-                              {(orden.bicicletas ?? []).map((bicicleta, index) => (
-                                <li key={index} className="text-muted-foreground">
-                                  • {bicicleta?.marca ?? "Sin marca"} {bicicleta?.modelo ?? "Sin modelo"}
-                                </li>
-                              ))}
-                              {(!orden.bicicletas || orden.bicicletas.length === 0) && (
-                                <li className="text-muted-foreground">No hay bicicletas vinculadas</li>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
-                      ))}
+              {selectedOrden && (
+                <div className="mt-4 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm animate-in fade-in duration-200">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Orden #{selectedOrden.idOrdenDeTrabajo}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Cliente: {getNombreCliente(selectedOrden.cliente)}
+                      </p>
                     </div>
-                  )}
+                    <div className="space-y-1 text-left text-sm text-muted-foreground sm:text-right">
+                      <p>Estado: {selectedOrden.estadoOrden}</p>
+                      <p>Pago: {selectedOrden.estadoPago}</p>
+                      <p>Total: {Number(selectedOrden.total ?? 0).toFixed(0)}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm">
+                    <p className="font-medium text-foreground">Bicicletas en la orden</p>
+                    <ul className="mt-2 space-y-1">
+                      {(selectedOrden.bicicletas ?? []).map(
+                        (bicicleta, index) => (
+                          <li key={index} className="text-muted-foreground">
+                            - {bicicleta?.marca ?? "Sin marca"}{" "}
+                            {bicicleta?.modelo ?? "Sin modelo"}
+                          </li>
+                        )
+                      )}
+                      {(!selectedOrden.bicicletas ||
+                        selectedOrden.bicicletas.length === 0) && (
+                        <li className="text-muted-foreground">
+                          No hay bicicletas vinculadas
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>
 
             <FormCreateBicicleta
+              selectedOrdenId={selectedOrdenId}
               setOpenModalCreate={setOpenModalCreate}
               onSuccess={handleSuccess}
             />
@@ -176,7 +215,7 @@ export function HeaderBicicletas() {
       </div>
 
       {mostrarExito && (
-        <div className="fixed bottom-5 right-5 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+        <div className="fixed bottom-5 right-5 z-50 rounded-lg bg-green-600 px-6 py-3 text-white shadow-lg">
           Bicicleta registrada correctamente
         </div>
       )}
