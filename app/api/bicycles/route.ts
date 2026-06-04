@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
+import { requireAuth } from "@/lib/require-auth"
 
 function getErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error) {
@@ -13,6 +14,12 @@ function getErrorCode(error: unknown) {
 
 export async function GET() {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const bicycles = await db.bicicleta.findMany({
       orderBy: {
         idBicicleta: "desc",
@@ -35,6 +42,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const data = await request.json()
     const idOrdenDeTrabajo = Number(data.idOrdenDeTrabajo)
     const marca = String(data.marca ?? "").trim()
