@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
+import { requireAuth } from "@/lib/require-auth"
 
 type RouteContext = {
   params: Promise<{
@@ -21,6 +22,12 @@ function parseBicycleId(id: string): number {
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const { id } = await context.params
     const bicycleId = parseBicycleId(id)
 
@@ -50,6 +57,12 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const { id } = await context.params
     const bicycleId = parseBicycleId(id)
     const data = await request.json()
@@ -112,6 +125,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const { id } = await context.params
     const bicycleId = parseBicycleId(id)
 

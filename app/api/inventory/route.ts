@@ -2,9 +2,16 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
+import { requireAuth } from "@/lib/require-auth"
 
 export async function GET() {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const products = await db.producto.findMany({
       orderBy: {
         idProducto: "desc",
@@ -23,6 +30,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const { response } = await requireAuth()
+
+    if (response) {
+      return response
+    }
+
     const data = await request.json()
     const existingProduct = await db.producto.findUnique({
       where: {
