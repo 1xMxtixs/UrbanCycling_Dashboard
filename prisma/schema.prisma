@@ -31,7 +31,8 @@ model Permiso {
 model Rol {
   idRol Int @id @default(autoincrement()) @db.UnsignedInt @map("id_rol")
   nombre String @db.VarChar(50) @unique
-  descripcion String @db.VarChar(255)
+  descripcion String? @db.VarChar(255)
+  estado String @db.VarChar(20)
 
   usuarios Usuario[]
   permisosRol RolPermiso[]
