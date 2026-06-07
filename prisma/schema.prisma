@@ -483,11 +483,10 @@ model Merma{
   idMerma Int @id @default(autoincrement()) @db.UnsignedInt @map("id_merma")
   idUsuario Int @db.UnsignedInt @map("id_usuario")
   fechaRegistro DateTime @db.Timestamp(0) @map("fecha_registro")
-  tipo String @db.VarChar(50) 
+  tipo String @db.VarChar(30) 
   observacion String @db.VarChar(500)
 
   lineasDeMermas LineaDeMerma[]
-
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   
   @@map("mermas")
