@@ -48,14 +48,14 @@ model Usuario {
   primerNombre String @db.VarChar(50) @map("primer_nombre")
   segundoNombre String? @db.VarChar(50) @map("segundo_nombre")
   apellidoPaterno String @db.VarChar(50) @map("apellido_paterno")
-  apellidoMaterno String @db.VarChar(50) @map("apellido_materno")
+  apellidoMaterno String? @db.VarChar(50) @map("apellido_materno")
   rut String @db.VarChar(12) @unique
-  correoElectronico String @db.VarChar(100) @unique @map("correo_electronico")
-  contrasena String @db.VarChar(255) 
-  estado String @db.VarChar(20)
-  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
-  ultimoAcceso DateTime? @db.Timestamp(0) @map("ultimo_acceso")
+  correoElectronico String @db.VarChar(255) @unique @map("correo_electronico")
+  contrasena_hash String @db.VarChar(255) @map("contrasena_hash")
+  fechaRegistro DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
+  fechaUltimoAcceso DateTime? @db.Timestamp(0) @map("fecha_ultimo_acceso")
   tokenRecuperacion String? @db.VarChar(255) @map("token_recuperacion")
+  estado String @db.VarChar(20)
 
   rol Rol? @relation(fields: [idRol], references: [idRol])
   ordenesDeTrabajo OrdenDeTrabajo[]
