@@ -14,10 +14,18 @@ datasource db {
 
 model Permiso {
   idPermiso Int @id @default(autoincrement()) @db.UnsignedInt @map("id_permiso")
-  codigoPermiso String @db.VarChar(50) @unique @map("codigo_permiso")
-  descripcion String @db.VarChar(255)
+  nombre String @db.VarChar(50) @unique
+  modulo String @db.VarChar(50)
+  recurso String @db.VarChar(50)
+  accion String @db.VarChar(50)
+  codigo String @db.VarChar(50) @unique
+  descripcion String? @db.VarChar(255)
 
   rolesPermiso RolPermiso[]
+
+  @@unique([modulo, recurso, accion], name: "permiso_unico_modulo_recurso_accion")
+
+  @@map("permisos")
 }
 
 model Rol {
