@@ -81,15 +81,15 @@ model TelefonoUsuario{
 }
 
 model Auditoria {
-  idAuditoria Int @id @default(autoincrement()) @db.UnsignedInt @map("id_auditoria")
+  idAuditoria BigInt @id @default(autoincrement()) @db.UnsignedBigInt @map("id_auditoria")
   idUsuario Int @db.UnsignedInt @map("id_usuario")
-  accion String @db.VarChar(50)
-  detalleCambio String? @db.VarChar(500) @map("detalle_cambio")
-  tablaAfectada String @db.VarChar(100) @map("tabla_afectada")
-  registroAfectado String @db.VarChar(100) @map("registro_afectado")
+  tipoOperacion String @db.VarChar(50) @map("tipo_operacion")
+  nombreTablaAfectada String @db.VarChar(100) @map("nombre_tabla_afectada")
+  registroAfectado Int @db.UnsignedInt @map("registro_afectado")
   valorAnterior Json? @map("valor_anterior")
   valorNuevo Json? @map("valor_nuevo")
-  fechaHora DateTime @default(now()) @db.Timestamp(0) @map("fecha_hora")
+  detalleCambio String? @db.VarChar(500) @map("detalle_cambio")
+  fechaRegistro DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
 
