@@ -43,9 +43,12 @@ model RolPermiso {
   idRolPermiso Int @id @default(autoincrement()) @db.UnsignedInt @map("id_rol_permiso")
   idRol Int @db.UnsignedInt @map("id_rol")
   idPermiso Int @db.UnsignedInt @map("id_permiso")
+  fechaAsignacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_asignacion")
 
   rol Rol @relation(fields: [idRol], references: [idRol])
   permiso Permiso @relation(fields: [idPermiso], references: [idPermiso])
+
+  @@unique([idRol, idPermiso], name: "rol_permiso_unico")
 
   @@map("roles_permisos")
 }
