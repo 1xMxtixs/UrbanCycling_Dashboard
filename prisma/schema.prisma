@@ -70,7 +70,8 @@ model Usuario {
   estado String @db.VarChar(20)
 
   rol Rol? @relation(fields: [idRol], references: [idRol])
-  ordenesDeTrabajo OrdenDeTrabajo[]
+  ordenesDeTrabajoCreadas OrdenDeTrabajo[] @relation("OrdenDeTrabajoCreada")
+  ordenesDeTrabajoAsignadas OrdenDeTrabajo[] @relation("OrdenDeTrabajoAsignada")
   ordenesDeCompras OrdenDeCompra[]
   mermas Merma[]
   ajustesInventario AjusteInventario[]
@@ -348,19 +349,23 @@ model CategoriaProducto{
 model OrdenDeTrabajo {
   idOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_orden_de_trabajo")
   idUsuario Int @db.UnsignedInt @map("id_usuario")
+  idMecanicoAsignado Int? @db.UnsignedInt @map("id_mecanico_asignado")
   idCliente Int @db.UnsignedInt @map("id_cliente")
-  idComprobante Int? @db.UnsignedInt @map("id_comprobante")
-  fechaRecepcion DateTime @default(now()) @db.Timestamp(0) @map("fecha_recepcion")
+  fechaRegistro DateTime @default(now()) @db.Timestamp(0) @map("fecha_recepcion")
+  estado String @db.VarChar(50) @map("estado")
+  estadoPago String @db.VarChar(50) @map("estado_pago")
   fechaEntregaEstimada DateTime @db.Timestamp(0) @map("fecha_entrega_estimada")
   fechaEntregaReal DateTime? @db.Timestamp(0) @map("fecha_entrega_real")
   observacionesIngreso String? @db.VarChar(255) @map("observaciones_ingreso")
-  total Decimal @db.Decimal(12, 0)
-  descuento Int @db.UnsignedSmallInt
-  estadoPago String @db.VarChar(50) @map("estado_pago")
-  estadoOrden String @db.VarChar(50) @map("estado_orden")
-  fechaCreacion DateTime @default(now()) @db.Timestamp(0) @map("fecha_creacion")
+  montoSubtotal Decimal @db.Decimal(12, 0) @map("monto_subtotal")
+  descuentoProductosServicios Decimal @db.Decimal(12, 0) @map("descuento_productos_servicios")
+  descuentoGlobal Decimal @db.Decimal(12, 0) @map("descuento_global")
+  montoTotal Decimal @db.Decimal(12, 0) @map("monto_total")
+  montoNeto Decimal @db.Decimal(12, 0) @map("monto_neto")
+  montoIva Decimal @db.Decimal(12, 0) @map("monto_iva")
 
-  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  usuario Usuario @relation("OrdenDeTrabajoCreada", fields: [idUsuario], references: [idUsuario])
+  mecanico Usuario? @relation("OrdenDeTrabajoAsignada", fields: [idMecanicoAsignado], references: [idUsuario])
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
   bicicletas Bicicleta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
