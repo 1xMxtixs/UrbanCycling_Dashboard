@@ -499,6 +499,7 @@ model LineaDeMerma{
   idMerma Int @db.UnsignedInt @map("id_merma")
   idProducto Int @db.UnsignedInt @map("id_producto")
   cantidad Int @db.SmallInt
+  costoUnitario Decimal @db.Decimal(12,4) @map("costo_unitario")
 
 
   producto Producto @relation(fields: [idProducto], references: [idProducto])
