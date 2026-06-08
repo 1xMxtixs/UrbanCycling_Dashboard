@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
           },
         })
 
-        if (!user || user.estado.toLowerCase() !== "activo") {
+        if (!user || user.estado?.toLowerCase() !== "activo") {
           return null
         }
 
