@@ -78,6 +78,8 @@ model Usuario {
   telefonosUsuario TelefonoUsuario[]
   ventas Venta[]
   auditorias Auditoria[]
+  movimientosInventario MovimientoInventario[]
+
 
   @@map("usuarios")
 }
@@ -129,7 +131,7 @@ model Cliente {
   correos CorreoCliente[]
   direcciones DireccionCliente[]
   ordenesDeTrabajo OrdenDeTrabajo[]
-  comprobante Comprobante[]
+
 
   @@map("clientes")
 }
@@ -192,6 +194,7 @@ model Proveedor{
   correos CorreoProveedor[]
   direcciones DireccionProveedor[]
   ordenesDeCompras OrdenDeCompra[]
+  documentosTributarios DocumentoTributario[]
 
   @@map("proveedores")
 }
@@ -282,6 +285,8 @@ model Venta {
   reclamosDeGarantia ReclamosDeGarantia[] @relation("VentaReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("VentaGenerada")
   pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+  origenesDTE      OrigenDocumentoTributario[]
+
 
   @@map("ventas")
 }
@@ -304,6 +309,9 @@ model Producto{
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
   lineasDeMermas LineaDeMerma[]
   lineasDeAjuste LineaDeAjuste[]
+  movimientosInventario  MovimientoInventario[]
+  
+
 
   @@map("productos")
 }
@@ -372,6 +380,8 @@ model OrdenDeTrabajo {
   reclamosDeGarantia ReclamosDeGarantia[] @relation("OrdenDeTrabajoReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("OrdenDeTrabajoGenerada")
   pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+  origenesDTE      OrigenDocumentoTributario[]
+
 
   @@map("ordenes_de_trabajo")
 }
@@ -413,6 +423,8 @@ model LineaDeVenta {
 
   venta Venta @relation(fields: [idVenta], references: [idVenta])
   producto Producto @relation(fields: [idProducto], references: [idProducto])
+  movimientosInventario MovimientoInventario[]
+
 
   @@map("lineas_de_venta")
 }
@@ -430,6 +442,7 @@ model LineaDeOrdenDeTrabajo {
   ordenDeTrabajo OrdenDeTrabajo @relation(fields: [idOrdenDeTrabajo], references: [idOrdenDeTrabajo])
   servicio Servicio? @relation(fields: [idServicio], references: [idServicio])
   producto Producto? @relation(fields: [idProducto], references: [idProducto])
+  movimientosInventario MovimientoInventario[]
 
   @@map("lineas_de_orden_de_trabajo")
 }
@@ -466,10 +479,11 @@ model OrdenDeCompra{
   total Decimal @db.Decimal(12,0)
 
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
-  comprobante Comprobante[]
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+  origenesDTE      OrigenDocumentoTributario[]
+
 
   @@map("ordenes_de_compra")
 }
@@ -485,6 +499,7 @@ model LineaDeOrdenDeCompra{
 
   ordendecompra OrdenDeCompra @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
   producto Producto @relation(fields: [idProducto], references: [idProducto])
+  movimientosInventario MovimientoInventario[]
 
   @@map("lineas_de_oden_de_compra")
 
@@ -516,6 +531,7 @@ model LineaDeMerma{
 
   producto Producto @relation(fields: [idProducto], references: [idProducto])
   merma Merma @relation(fields: [idMerma], references: [idMerma])
+  movimientosInventario MovimientoInventario[]
 
   @@map("lineas_de_merma")
 
@@ -552,25 +568,35 @@ model PagoVentaOrdenDeTrabajo{
 
 }
 
-model Comprobante{
+model DocumentoTributario {
+  idDocumentoTributario Int      @id @default(autoincrement()) @db.UnsignedInt @map("id_documento_tributario")
+  idUsuario             Int?     @db.UnsignedInt @map("id_usuario")
+  idCliente             Int?     @db.UnsignedInt @map("id_cliente")
+  idProveedor           Int?     @db.UnsignedInt @map("id_proveedor")
+  tipoMovimiento        String   @db.VarChar(20) @map("tipo_movimiento")
+  tipoDte               String   @db.VarChar(50) @map("tipo_dte")
+  numeroFolio           Int      @db.UnsignedInt @map("numero_folio")
+  rutEmisor             String   @db.VarChar(12) @map("rut_emisor")
+  rutReceptor           String   @db.VarChar(12) @map("rut_receptor")
+  fechaRegistro         DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
+  fechaEmision          DateTime @db.Timestamp(0) @map("fecha_emision")
+  montoSubtotal         Decimal  @db.Decimal(12, 0) @map("monto_subtotal")
+  descuentoAcumulado    Decimal  @db.Decimal(12, 0) @map("descuento_acumulado")
+  montoTotal            Decimal  @db.Decimal(12, 0) @map("monto_total")
+  montoNeto             Decimal  @db.Decimal(12, 0) @map("monto_neto")
+  montoIva              Decimal  @db.Decimal(12, 0) @map("monto_iva")
+  estado                String   @db.VarChar(20)
+  urlPdf                String?  @db.VarChar(512) @map("url_pdf")
+  observaciones         String?  @db.VarChar(500)
 
-  idComprobante Int @id @default(autoincrement()) @db.UnsignedInt @map("id_comprobante")
-  idCliente Int? @db.UnsignedInt @map("id_cliente")
-  idOrdenDeCompra Int? @db.UnsignedInt @map("id_orden_de_compra")
-  tipoMovimiento String @db.VarChar(20) @map("tipo_movimiento")
-  tipoDte Int @db.SmallInt @map("tipo_dte")
-  numeroFolio Int @db.UnsignedInt @unique @map("numero_folio")
-  fechaEmision DateTime @db.Timestamp(0) @map("fecha_emision")
-  montoNeto Decimal @db.Decimal(12,0) @map("monto_neto")
-  montoIva Decimal @db.Decimal(12,0) @map("monto_iva")
-  montoTotal Decimal @db.Decimal(12,0) @map("monto_total")
+  proveedor   Proveedor?  @relation(fields: [idProveedor], references: [idProveedor])
+  origenes    OrigenDocumentoTributario[]
+  referencias ReferenciaDte[] @relation("DteOrigen")
+  referenciado ReferenciaDte[] @relation("DteReferenciado")
 
-  ordendecompra OrdenDeCompra? @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
-  cliente Cliente? @relation(fields: [idCliente], references: [idCliente])
-
-  @@map("comprobantes")
-
+  @@map("documentos_tributarios")
 }
+
 
 model AjusteInventario {
   idAjusteInventario Int @id @default(autoincrement()) @db.UnsignedInt @map("id_ajuste_inventario")
@@ -594,6 +620,60 @@ model LineaDeAjuste {
 
   ajusteInventario AjusteInventario @relation(fields: [idAjusteInventario], references: [idAjusteInventario])
   producto Producto @relation(fields: [idProducto], references: [idProducto])
+  movimientosInventario MovimientoInventario[]
 
 }
 
+model MovimientoInventario {
+  idMovimientoInventario Int @id @default(autoincrement()) @db.UnsignedInt @map("id_movimiento_inventario")
+  idProducto Int @db.UnsignedInt @map("id_producto")
+  idUsuario Int @db.UnsignedInt @map("id_usuario")
+  idLineaDeOrdenDeCompra Int? @db.UnsignedInt @map("id_linea_de_orden_de_compra")
+  idLineaDeVenta Int? @db.UnsignedInt @map("id_linea_de_venta")
+  idLineaDeOrdenDeTrabajo Int? @db.UnsignedInt @map("id_linea_de_orden_de_trabajo")
+  idLineaDeMerma Int? @db.UnsignedInt @map("id_linea_de_merma")
+  idLineaDeAjusteDeInventario Int? @db.UnsignedInt @map("id_linea_de_ajuste_de_inventario")
+  fechaRegistro DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
+  tipoMovimiento String @db.VarChar(20) @map("tipo_movimiento")
+  cantidad Decimal @db.Decimal(12, 4)
+  costoUnitario Decimal @db.Decimal(12, 4) @map("costo_unitario")
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
+  lineaDeOrdenDeCompra LineaDeOrdenDeCompra? @relation(fields: [idLineaDeOrdenDeCompra], references: [idLineaDeOrdenDeCompra])
+  lineaDeVenta LineaDeVenta? @relation(fields: [idLineaDeVenta], references: [idLineaDeVenta])
+  lineaDeOrdenDeTrabajo LineaDeOrdenDeTrabajo? @relation(fields: [idLineaDeOrdenDeTrabajo], references: [idLineaDeOrdenDeTrabajo])
+  lineaDeMerma LineaDeMerma? @relation(fields: [idLineaDeMerma], references: [idLineaDeMerma])
+  lineaDeAjuste LineaDeAjuste? @relation(fields: [idLineaDeAjusteDeInventario], references: [idLineaDeAjuste])
+
+  @@map("movimientos_inventario")
+}
+
+model OrigenDocumentoTributario {
+  idOrigenDocumentoTributario Int  @id @default(autoincrement()) @db.UnsignedInt @map("id_origen_documento_tributario")
+  idDocumentoTributario       Int  @db.UnsignedInt @map("id_documento_tributario")
+  idVenta                     Int? @db.UnsignedInt @map("id_venta")
+  idOrdenDeTrabajo            Int? @db.UnsignedInt @map("id_orden_de_trabajo")
+  idOrdenDeCompra             Int? @db.UnsignedInt @map("id_orden_de_compra")
+
+  documentoTributario DocumentoTributario @relation(fields: [idDocumentoTributario], references: [idDocumentoTributario])
+  venta               Venta?              @relation(fields: [idVenta],              references: [idVenta])
+  ordenDeTrabajo      OrdenDeTrabajo?     @relation(fields: [idOrdenDeTrabajo],     references: [idOrdenDeTrabajo])
+  ordenDeCompra       OrdenDeCompra?      @relation(fields: [idOrdenDeCompra],       references: [idOrdenDeCompra])
+
+  @@map("origen_documentos_tributarios")
+}
+
+model ReferenciaDte {
+  idReferenciaDte    Int      @id @default(autoincrement()) @db.UnsignedInt @map("id_referencia_dte")
+  idDteOrigen        Int      @db.UnsignedInt @map("id_dte_origen")
+  idDteReferenciado  Int      @db.UnsignedInt @map("id_dte_referenciado")
+  codigoRef          Int      @db.UnsignedTinyInt @map("codigo_ref")
+  razonReferencia    String   @db.VarChar(90) @map("razon_referencia")
+  fechaReferencia    DateTime @db.Date @map("fecha_referencia")
+
+  dteOrigen       DocumentoTributario @relation("DteOrigen",       fields: [idDteOrigen],       references: [idDocumentoTributario])
+  dteReferenciado DocumentoTributario @relation("DteReferenciado", fields: [idDteReferenciado],  references: [idDocumentoTributario])
+
+  @@map("referencias_dte")
+}
