@@ -1,9 +1,15 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 
 export type ClienteNatural = {
   id: number
@@ -24,7 +30,31 @@ export type ClienteJuridica = {
   estado: string
 }
 
-// 1. Columnas para Personas Naturales
+const CellActions = ({ row, table }: { row: any; table: any }) => {
+  const client = row.original
+  const meta = table.options.meta as any
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => meta?.onViewDetails(client.id)}
+          className="flex cursor-pointer items-center gap-2"
+        >
+          <Eye className="h-4 w-4" />
+          Ver Detalle
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
   {
     accessorKey: "nombre",
@@ -79,16 +109,7 @@ export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
   {
     id: "acciones",
     header: "Acciones",
-    cell: () => {
-      return (
-        <Button
-          variant="ghost"
-          size="icon"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      )
-    }
+    cell: CellActions,
   }
 ]
 
@@ -159,15 +180,6 @@ export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
   {
     id: "acciones",
     header: "Acciones",
-    cell: () => {
-      return (
-        <Button
-          variant="ghost"
-          size="icon"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      )
-    }
+    cell: CellActions,
   }
 ]
