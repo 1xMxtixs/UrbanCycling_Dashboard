@@ -2,7 +2,8 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
-import { requireAuth } from "@/lib/require-auth"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 
 type RouteContext = {
   params: Promise<{
@@ -20,9 +21,27 @@ function parseProductId(id: string): number {
   return productId
 }
 
+function withImageAlias(product: {
+  idProducto: number
+  urlImagen: string
+}) {
+  return {
+    ...product,
+    imagenesProducto: product.urlImagen
+      ? [
+          {
+            idImagenProducto: product.idProducto,
+            idProducto: product.idProducto,
+            url: product.urlImagen,
+          },
+        ]
+      : [],
+  }
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
 
     if (response) {
       return response
@@ -45,7 +64,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return new NextResponse("Product not found", { status: 404 })
     }
 
-    return NextResponse.json(product)
+    return NextResponse.json(withImageAlias(product))
   } catch (error) {
     console.log("[INVENTORY_ID_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -54,7 +73,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.INVENTORY_UPDATE)
 
     if (response) {
       return response
@@ -99,13 +118,15 @@ export async function PATCH(request: Request, context: RouteContext) {
         nombre: data.nombre,
         descripcion: data.descripcion,
         precioVenta: data.precioVenta,
+        costoPromedio: data.costoPromedio ?? data.precioCosto,
         stockActual: data.stockActual,
         stockMinimo: data.stockMinimo,
         estado: data.estado,
+        urlImagen: data.urlImagen ?? data.imageUrl,
       },
     })
 
-    return NextResponse.json(product)
+    return NextResponse.json(withImageAlias(product))
   } catch (error) {
     console.log("[INVENTORY_ID_PATCH]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -114,7 +135,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.INVENTORY_DELETE)
 
     if (response) {
       return response
