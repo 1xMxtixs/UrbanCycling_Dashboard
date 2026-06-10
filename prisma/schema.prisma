@@ -611,3 +611,8 @@ model VentaEnMostrador {
 
   @@map("ventas_en_mostrador")
 }
+
+
+
+
+
