@@ -1,6 +1,56 @@
 // Endpoints generales para registrar y listar ordenes de trabajo.
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { z } from "zod"
+
+const bicicletaSchema = z.object({
+  marca: z.string().min(1),
+  modelo: z.string().min(1),
+  color: z.string().min(1),
+  descripcion: z.string().optional().nullable(),
+  imagenUrl: z.string().optional().nullable(),
+})
+
+const productoSchema = z.object({
+  idProducto: z.number().int().positive(),
+  cantidad: z.number().int().positive(),
+  precioUnitario: z.number().min(0),
+})
+
+const ordenTrabajoSchema = z.object({
+  idUsuario: z.number().int().positive(),
+
+  idCliente: z.number().int().positive().optional(),
+
+  nombreCompletoCliente: z.string().optional(),
+
+  fechaEntregaEstimada: z.string().optional(),
+
+  observacionesIngreso: z.string().optional(),
+
+  estadoPago: z.string().default("pendiente"),
+
+  estadoOrden: z.string().default("Por realizar"),
+
+  descuento: z.number().min(0).default(0),
+
+  montoServicio: z.number().min(0).default(0),
+
+  bicicletas: z.array(bicicletaSchema).default([]),
+
+  productos: z.array(productoSchema).default([]),
+
+  idComprobante: z.number().int().positive().optional(),
+})
+.refine(
+  (data) =>
+    data.idCliente ||
+    data.nombreCompletoCliente,
+  {
+    message:
+      "Debe indicar un cliente mediante idCliente o nombreCompletoCliente",
+  }
+)
 
 function normalizarTexto(texto: string) {
   return texto.trim().replace(/\s+/g, " ").toLowerCase();
@@ -109,34 +159,129 @@ function parsePositiveInteger(value: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
+    const rawData = await req.json();
 
-    const nombreCompletoClienteInput =
-      data.nombre_completo_cliente ?? data.nombreCompletoCliente;
-    const idUsuario = Number(data.id_usuario ?? data.idUsuario);
-    const idClienteInput = data.id_cliente ?? data.idCliente;
-    const idComprobanteInput = data.id_comprobante ?? data.idComprobante;
-    const fechaEntregaEstimadaInput =
-      data.fecha_entrega_estimada ?? data.fechaEntregaEstimada;
-    const observacionesIngreso =
-      data.observaciones_ingreso ?? data.observacionesIngreso ?? null;
-    const estadoPago = data.estado_pago ?? data.estadoPago ?? "pendiente";
-    const estadoOrden =
-      data.estado_orden ?? data.estadoOrden ?? "Por realizar";
-    const descuento = Number(data.descuento ?? 0);
-    
-    // Parse service labor cost and products list
-    const montoServicio = Number(data.montoServicio ?? data.monto_servicio ?? 0);
-    const productosInput = Array.isArray(data.productos) ? data.productos : [];
-    
-    const bicicletasInput = normalizarBicicletas(data);
+    const dataNormalizada = {
+      idUsuario: Number(
+        rawData.id_usuario ??
+        rawData.idUsuario
+      ),
 
-    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
-      return NextResponse.json(
-        { code: "FALTA_USUARIO", message: "Debe indicar un usuario válido" },
-        { status: 400 }
+      idCliente:
+        rawData.id_cliente ??
+        rawData.idCliente,
+
+      nombreCompletoCliente:
+        rawData.nombre_completo_cliente ??
+        rawData.nombreCompletoCliente,
+
+      idComprobante:
+        rawData.id_comprobante ??
+        rawData.idComprobante,
+
+      fechaEntregaEstimada:
+        rawData.fecha_entrega_estimada ??
+        rawData.fechaEntregaEstimada,
+
+      observacionesIngreso:
+        rawData.observaciones_ingreso ??
+        rawData.observacionesIngreso,
+
+      estadoPago:
+        rawData.estado_pago ??
+        rawData.estadoPago ??
+        "pendiente",
+
+      estadoOrden:
+        rawData.estado_orden ??
+        rawData.estadoOrden ??
+        "Por realizar",
+
+      descuento: Number(
+        rawData.descuento ?? 0
+      ),
+
+      montoServicio: Number(
+        rawData.montoServicio ??
+        rawData.monto_servicio ??
+        0
+      ),
+
+      bicicletas:
+        normalizarBicicletas(rawData),
+
+      productos: Array.isArray(rawData.productos)
+        ? rawData.productos.map(
+            (item: any) => ({
+              idProducto: Number(
+                item.id_producto ??
+                item.idProducto
+              ),
+              cantidad: Number(item.cantidad),
+              precioUnitario: Number(
+                item.precio_unitario ??
+                item.precioUnitario ??
+                0
+              ),
+            })
+          )
+        : [],
+    };
+
+    const validation =
+      ordenTrabajoSchema.safeParse(
+        dataNormalizada
+      );
+
+    if (!validation.success) {
+      console.log(validation.error.flatten());
+
+      return new NextResponse(
+        validation.error.issues[0]?.message ??
+          "Error de validación",
+        {
+          status: 400,
+        }
       );
     }
+
+    const data = validation.data;
+
+    const nombreCompletoClienteInput =
+      data.nombreCompletoCliente;
+
+    const idUsuario =
+      data.idUsuario;
+
+    const idClienteInput =
+      data.idCliente;
+
+    const idComprobanteInput =
+      data.idComprobante;
+
+    const fechaEntregaEstimadaInput =
+      data.fechaEntregaEstimada;
+
+    const observacionesIngreso =
+      data.observacionesIngreso ?? null;
+
+    const estadoPago =
+      data.estadoPago;
+
+    const estadoOrden =
+      data.estadoOrden;
+
+    const descuento =
+      data.descuento;
+
+    const montoServicio =
+      data.montoServicio;
+
+    const bicicletasInput =
+      data.bicicletas;
+
+    const productosInput =
+      data.productos;
 
     const usuario = await db.usuario.findUnique({
       where: {
@@ -158,13 +303,6 @@ export async function POST(req: Request) {
 
     if (idClienteInput) {
       const idCliente = Number(idClienteInput);
-
-      if (!Number.isInteger(idCliente) || idCliente <= 0) {
-        return NextResponse.json(
-          { code: "CLIENTE_INVALIDO", message: "El cliente no es válido" },
-          { status: 400 }
-        );
-      }
 
       cliente = await db.cliente.findUnique({
         where: {
@@ -219,20 +357,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const bicicletaIncompleta = bicicletasInput.find(
-      (bicicleta) => !bicicleta.marca || !bicicleta.modelo || !bicicleta.color
-    );
-
-    if (bicicletaIncompleta) {
-      return NextResponse.json(
-        {
-          code: "BICICLETA_INCOMPLETA",
-          message: "Cada bicicleta debe tener marca, modelo y color",
-        },
-        { status: 400 }
-      );
-    }
-
     const bicicletas = bicicletasInput.map(mapearBicicleta);
 
     // 1. Fetch or create generic service "Servicio de Taller"
@@ -258,25 +382,6 @@ export async function POST(req: Request) {
         precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
       })
     );
-
-    const productoInvalido = productosSolicitados.find(
-      (item) =>
-        Number.isNaN(item.idProducto) ||
-        Number.isNaN(item.cantidad) ||
-        Number.isNaN(item.precioUnitario) ||
-        item.precioUnitario < 0
-    );
-
-    if (productoInvalido) {
-      return NextResponse.json(
-        {
-          code: "PRODUCTO_INVALIDO",
-          message:
-            "Todos los productos deben tener ID, cantidad y precio vÃ¡lidos",
-        },
-        { status: 400 }
-      );
-    }
 
     const productosAgrupados: ProductoAgrupado[] = Array.from(
       productosSolicitados.reduce((productosMap, item) => {

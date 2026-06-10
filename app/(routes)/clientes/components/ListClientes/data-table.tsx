@@ -30,11 +30,13 @@ import { Button } from "@/components/ui/button"
 interface DataTableProps<TData, Tvalue> {
   columns: ColumnDef<TData, Tvalue>[]
   data: TData[]
+  onViewDetails?: (id: number) => void
 }
 
 export function DataTable<TData, Tvalue>({
   columns,
   data,
+  onViewDetails,
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -55,6 +57,9 @@ export function DataTable<TData, Tvalue>({
         pagination: {
         pageSize: 15,
         },
+    },
+    meta: {
+      onViewDetails,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

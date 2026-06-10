@@ -1,5 +1,5 @@
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 
 import { Menu, Search, Sidebar } from "lucide-react"
 import { SidebarRoutes } from "../SidebarRoutes"
@@ -14,6 +14,10 @@ export function Navbar() {
                     <Menu />
                 </SheetTrigger>
                 <SheetContent side="left">
+                    <div className="sr-only">
+                        <SheetTitle>Menú de Navegación Lateral</SheetTitle>
+                        <SheetDescription>Enlaces para navegar a las distintas secciones del dashboard</SheetDescription>
+                    </div>
                     <SidebarRoutes />
                 </SheetContent>
             </Sheet>

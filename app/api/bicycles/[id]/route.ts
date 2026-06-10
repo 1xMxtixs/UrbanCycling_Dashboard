@@ -2,12 +2,25 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
-import { requireAuth } from "@/lib/require-auth"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 
 type RouteContext = {
   params: Promise<{
     id: string
   }>
+}
+
+type BicycleResponse = {
+  idBicicleta: number
+  idOrdenDeTrabajo: number
+  tipo: string
+  marca: string
+  modelo: string
+  color: string
+  descripcionAdicional: string | null
+  imagenes?: Array<{ urlImagen: string }>
+  ordenDeTrabajo?: unknown
 }
 
 function parseBicycleId(id: string): number {
@@ -20,9 +33,17 @@ function parseBicycleId(id: string): number {
   return bicycleId
 }
 
+function mapBicycleResponse(bicycle: BicycleResponse) {
+  return {
+    ...bicycle,
+    descripcion: bicycle.descripcionAdicional,
+    imagenUrl: bicycle.imagenes?.[0]?.urlImagen ?? null,
+  }
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.BICYCLES_READ)
 
     if (response) {
       return response
@@ -40,6 +61,7 @@ export async function GET(_request: Request, context: RouteContext) {
         idBicicleta: bicycleId,
       },
       include: {
+        imagenes: true,
         ordenDeTrabajo: true,
       },
     })
@@ -48,7 +70,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
 
-    return NextResponse.json(bicycle)
+    return NextResponse.json(mapBicycleResponse(bicycle))
   } catch (error) {
     console.log("[BICYCLES_ID_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -57,7 +79,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.BICYCLES_UPDATE)
 
     if (response) {
       return response
@@ -108,15 +130,19 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
       data: {
         idOrdenDeTrabajo: data.idOrdenDeTrabajo,
+        tipo: data.tipo,
         marca: data.marca,
         modelo: data.modelo,
         color: data.color,
-        descripcion: data.descripcion,
-        imagenUrl: data.imagenUrl,
+        descripcionAdicional:
+          data.descripcionAdicional ?? data.descripcion ?? undefined,
+      },
+      include: {
+        imagenes: true,
       },
     })
 
-    return NextResponse.json(bicycle)
+    return NextResponse.json(mapBicycleResponse(bicycle))
   } catch (error) {
     console.log("[BICYCLES_ID_PATCH]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -125,7 +151,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requireAuth()
+    const { response } = await requirePermission(PERMISSIONS.BICYCLES_DELETE)
 
     if (response) {
       return response

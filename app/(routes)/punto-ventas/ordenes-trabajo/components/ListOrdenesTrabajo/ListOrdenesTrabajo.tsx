@@ -58,7 +58,7 @@ export function ListOrdenesTrabajo() {
 
   const getOrders = async () => {
     try {
-      const response = await fetch("/api/ordenes-trabajo", {
+      const response = await fetch("/api/punto-venta", {
         cache: "no-store",
       })
 
@@ -67,8 +67,15 @@ export function ListOrdenesTrabajo() {
         return
       }
 
-      const data = (await response.json()) as WorkOrder[]
-      setOrders(data)
+      const data = await response.json()
+      const ordenes = Array.isArray(data)
+        ? data
+            .filter((item) => item.tipoOperacion === "orden_trabajo")
+            .map((item) => item.ordenTrabajo)
+            .filter(Boolean)
+        : []
+
+      setOrders(ordenes)
     } catch (err) {
       console.error("Error fetching work orders:", err)
     } finally {
@@ -88,7 +95,7 @@ export function ListOrdenesTrabajo() {
   const handleStatusChange = async (orderId: number, nextStatus: string) => {
     setUpdatingId(orderId)
     try {
-      const res = await fetch(`/api/ordenes-trabajo/${orderId}/estado`, {
+      const res = await fetch(`/api/punto-venta/orden-${orderId}/estado`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

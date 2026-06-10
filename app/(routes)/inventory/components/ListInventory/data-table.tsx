@@ -24,19 +24,28 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+import type { ProductColumn } from "./columns"
+
+interface DataTableProps {
+  columns: ColumnDef<ProductColumn>[]
+  data: ProductColumn[]
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable({
   columns,
   data,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
+  const outOfStockCount = data.filter(
+    (product) => product.stockActual === 0,
+  ).length
+  const lowStockCount = data.filter(
+    (product) =>
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
+  ).length
 
   const table = useReactTable({
     data,
@@ -60,6 +69,26 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="rounded-lg bg-background p-4 shadow-md">
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+          <p className="text-sm font-semibold text-destructive">
+            {outOfStockCount} productos sin stock
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Productos que no tienen unidades disponibles.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+            {lowStockCount} productos con stock bajo
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Productos con stock igual o menor al minimo definido.
+          </p>
+        </div>
+      </div>
+
       <div className="mb-4 space-y-2">
         <div className="flex items-center gap-4">
           <div className="flex-1">

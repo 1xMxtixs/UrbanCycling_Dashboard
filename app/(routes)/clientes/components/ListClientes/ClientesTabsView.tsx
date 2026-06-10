@@ -7,11 +7,13 @@ import { columnsNaturales, columnsJuridicas, ClienteNatural, ClienteJuridica } f
 interface ClientesTabsViewProps {
   clientesNaturales: ClienteNatural[];
   clientesJuridicas: ClienteJuridica[];
+  onViewDetails?: (id: number) => void;
 }
 
 export function ClientesTabsView({
   clientesNaturales,
   clientesJuridicas,
+  onViewDetails,
 }: ClientesTabsViewProps) {
   const [activeTab, setActiveTab] = useState<"natural" | "juridica">("natural");
 
@@ -57,6 +59,7 @@ export function ClientesTabsView({
             <DataTable
               columns={columnsNaturales}
               data={clientesNaturales}
+              onViewDetails={onViewDetails}
             />
           </div>
         ) : (
@@ -64,6 +67,7 @@ export function ClientesTabsView({
             <DataTable
               columns={columnsJuridicas}
               data={clientesJuridicas}
+              onViewDetails={onViewDetails}
             />
           </div>
         )}

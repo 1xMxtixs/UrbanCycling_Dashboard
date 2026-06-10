@@ -1,7 +1,10 @@
+// Endpoint de registro de usuarios adaptado al schema actual de autenticacion.
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
 import { hashPassword } from "@/lib/password"
+
+const DEFAULT_REGISTER_ROLE = "Sin Rol"
 
 function normalizeRut(rut: string) {
   const cleaned = rut
@@ -69,7 +72,6 @@ export async function POST(request: Request) {
     if (
       !primerNombre ||
       !apellidoPaterno ||
-      !apellidoMaterno ||
       !rut ||
       !correoElectronico ||
       !contrasena
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
 
     const existingUser = await db.usuario.findFirst({
       where: {
-        OR: [{ rut }, { correoElectronico }],
+        OR: [{ rut }, { correo: correoElectronico }],
       },
     })
 
@@ -101,16 +103,17 @@ export async function POST(request: Request) {
             idRol,
           },
         })
-      : await db.rol.findFirst({
-          orderBy: {
-            idRol: "asc",
+      : await db.rol.findUnique({
+          where: {
+            nombre: DEFAULT_REGISTER_ROLE,
           },
         })
 
     if (!role) {
-      return new NextResponse("No hay roles disponibles para crear usuarios", {
-        status: 400,
-      })
+      return new NextResponse(
+        `No existe el rol predeterminado ${DEFAULT_REGISTER_ROLE}`,
+        { status: 400 }
+      )
     }
 
     const hashedPassword = await hashPassword(contrasena)
@@ -123,8 +126,8 @@ export async function POST(request: Request) {
         apellidoPaterno,
         apellidoMaterno,
         rut,
-        correoElectronico,
-        contrasena: hashedPassword,
+        correo: correoElectronico,
+        contrasenaHash: hashedPassword,
         estado,
       },
       select: {
@@ -135,13 +138,20 @@ export async function POST(request: Request) {
         apellidoPaterno: true,
         apellidoMaterno: true,
         rut: true,
-        correoElectronico: true,
+        correo: true,
         estado: true,
-        fechaCreacion: true,
+        fechaRegistro: true,
       },
     })
 
-    return NextResponse.json(user, { status: 201 })
+    return NextResponse.json(
+      {
+        ...user,
+        correoElectronico: user.correo,
+        fechaCreacion: user.fechaRegistro,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     console.log("[AUTH_REGISTER_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })

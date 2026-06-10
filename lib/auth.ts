@@ -1,3 +1,4 @@
+// Configuracion central de NextAuth para credenciales, roles y permisos.
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
@@ -26,12 +27,24 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await db.usuario.findUnique({
+        const user = await db.usuario.findFirst({
           where: {
-            correoElectronico: email,
+            correo: email,
           },
           include: {
-            rol: true,
+            rol: {
+              include: {
+                permisosRol: {
+                  select: {
+                    permiso: {
+                      select: {
+                        codigo: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         })
 
@@ -39,7 +52,7 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const isPasswordValid = await verifyPassword(password, user.contrasena)
+        const isPasswordValid = await verifyPassword(password, user.contrasenaHash)
 
         if (!isPasswordValid) {
           return null
@@ -50,13 +63,17 @@ export const authOptions: NextAuthOptions = {
             idUsuario: user.idUsuario,
           },
           data: {
-            ultimoAcceso: new Date(),
+            fechaUltimoAcceso: new Date(),
           },
         })
 
+        const permissions =
+          user.rol?.permisosRol.map((rolPermiso) => rolPermiso.permiso.codigo) ??
+          []
+
         return {
           id: String(user.idUsuario),
-          email: user.correoElectronico,
+          email: user.correo ?? user.rut,
           name: [
             user.primerNombre,
             user.segundoNombre,
@@ -66,8 +83,9 @@ export const authOptions: NextAuthOptions = {
             .filter(Boolean)
             .join(" "),
           idUsuario: user.idUsuario,
-          idRol: user.idRol,
-          rol: user.rol.nombre,
+          idRol: user.idRol ?? 0,
+          rol: user.rol?.nombre || "Usuario",
+          permisos: permissions,
         }
       },
     }),
@@ -78,6 +96,7 @@ export const authOptions: NextAuthOptions = {
         token.idUsuario = user.idUsuario
         token.idRol = user.idRol
         token.rol = user.rol
+        token.permisos = user.permisos ?? []
       }
 
       return token
@@ -88,6 +107,7 @@ export const authOptions: NextAuthOptions = {
         session.user.idUsuario = token.idUsuario
         session.user.idRol = token.idRol
         session.user.rol = token.rol
+        session.user.permisos = token.permisos ?? []
       }
 
       return session

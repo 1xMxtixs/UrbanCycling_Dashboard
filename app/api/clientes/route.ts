@@ -61,12 +61,19 @@ function separarApellidos(apellidos: string) {
   };
 }
 
+function crearCorreoRespaldo(rut: string) {
+  const rutLimpio = rut.replace(/\./g, "").replace(/-/g, "").toLowerCase();
+
+  return `cliente.${rutLimpio}@urbancycling.local`;
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
     const tipoCliente = data.tipoCliente || "natural";
     const rut = data.rut;
     const telefono = data.telefono;
+    const correo = data.correo || data.email || data.correoElectronico;
 
     if (!rut || !telefono) {
       return new NextResponse("Faltan campos obligatorios (RUT y Teléfono)", { status: 400 });
@@ -95,6 +102,7 @@ export async function POST(req: Request) {
     let insertData: any = {
       tipoCliente,
       rut: rutFormateado,
+      correo: correo ? String(correo).trim().toLowerCase() : crearCorreoRespaldo(rutFormateado),
       estado: "activo",
       telefonos: {
         create: {
@@ -167,10 +175,17 @@ export async function GET() {
   try {
     const clientes = await db.cliente.findMany({
       orderBy: {
-        fechaCreacion: "desc",
+        fechaRegistro: "desc",
       },
       include: {
         telefonos: true,
+        correos: true,
+        direcciones: true,
+        ordenesDeTrabajo: {
+          orderBy: {
+            fechaCreacion: "desc",
+          },
+        },
       },
     })
 

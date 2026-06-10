@@ -1,14 +1,12 @@
 
 import {
-    BarChart4,
     Building2,
     PanelsTopLeft,
-    Settings,
-    ShieldCheck,
-    CircleHelpIcon,
-    Calendar,
+    Users,
     Wrench
 } from 'lucide-react'
+
+import { PERMISSIONS } from "@/lib/permissions"
 
 export const dataGeneralSidebar = [
     {
@@ -19,22 +17,32 @@ export const dataGeneralSidebar = [
     {
         icon: Wrench,
         label: "Órdenes de Trabajo",
-        href: "/ordenes-trabajo"
+        href: "/ordenes-trabajo",
+        permission: PERMISSIONS.WORK_ORDERS_READ
     },
     {
         icon: Building2,
         label: "Inventario",
-        href: "/inventory"
+        href: "/inventory",
+        permission: PERMISSIONS.INVENTORY_READ
     },
     {
         icon: Building2,
         label: "Clientes",
-        href: "/clientes"
+        href: "/clientes",
+        permission: PERMISSIONS.CLIENTS_READ
     },
     {
         icon: Building2,
         label: "Bicicletas",
-        href: "/bicicletas"
+        href: "/bicicletas",
+        permission: PERMISSIONS.BICYCLES_READ
+    },
+    {
+        icon: Users,
+        label: "Usuarios",
+        href: "/usuarios",
+        permission: PERMISSIONS.USERS_READ
     },
 
 ]
