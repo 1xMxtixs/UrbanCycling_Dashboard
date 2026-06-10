@@ -3,11 +3,16 @@
 import { useEffect, useState } from "react"
 
 import { DataTable } from "./data-table"
-import { columns, type ProductColumn } from "./columns"
+import { getColumns, type ProductColumn } from "./columns"
+import { ProductDetailSheet } from "./ProductDetailSheet"
 
 export function ListInventory() {
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
+    null,
+  )
+  const [openDetail, setOpenDetail] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -28,10 +33,14 @@ export function ListInventory() {
       }
     }
 
-    getInventory()
+    const timerId = window.setTimeout(() => {
+      getInventory()
+    }, 0)
+
     window.addEventListener("inventory:refresh", getInventory)
 
     return () => {
+      window.clearTimeout(timerId)
       window.removeEventListener("inventory:refresh", getInventory)
     }
   }, [])
@@ -44,5 +53,19 @@ export function ListInventory() {
     )
   }
 
-  return <DataTable columns={columns} data={inventory} />
+  const columns = getColumns((product) => {
+    setSelectedProduct(product)
+    setOpenDetail(true)
+  })
+
+  return (
+    <>
+      <DataTable columns={columns} data={inventory} />
+      <ProductDetailSheet
+        product={selectedProduct}
+        open={openDetail}
+        onOpenChange={setOpenDetail}
+      />
+    </>
+  )
 }
