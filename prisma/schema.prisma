@@ -68,6 +68,10 @@ model Usuario {
   tokenRecuperacion String?   @db.VarChar(255) @map("token_recuperacion")
   estado            String    @db.VarChar(20)
   telefono          String?   @db.VarChar(20)
+<<<<<<< HEAD
+=======
+  correo            String?   @db.VarChar(255)
+>>>>>>> d4427791d7b1b8708bd9f6238f333fceef550778
 
   rol                       Rol?                   @relation(fields: [idRol], references: [idRol])
   ventas                    Venta[]

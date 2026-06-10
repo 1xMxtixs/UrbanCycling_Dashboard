@@ -179,6 +179,13 @@ export async function GET() {
       },
       include: {
         telefonos: true,
+        correos: true,
+        direcciones: true,
+        ordenesDeTrabajo: {
+          orderBy: {
+            fechaCreacion: "desc",
+          },
+        },
       },
     })
 

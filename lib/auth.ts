@@ -66,8 +66,8 @@ export const authOptions: NextAuthOptions = {
             .filter(Boolean)
             .join(" "),
           idUsuario: user.idUsuario,
-          idRol: user.idRol,
-          rol: user.rol.nombre,
+          idRol: user.idRol ?? 0,
+          rol: user.rol?.nombre || "Usuario",
         }
       },
     }),
