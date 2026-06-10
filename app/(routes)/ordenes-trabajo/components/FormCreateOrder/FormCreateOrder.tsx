@@ -286,7 +286,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/ordenes-trabajo", {
+      const response = await fetch("/api/punto-venta", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -294,24 +294,26 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         body: JSON.stringify({
           id_usuario: 1, 
           id_cliente: Number(selectedClientId),
-          fecha_entrega_estimada: new Date(fechaEntrega).toISOString(),
-          observaciones_ingreso: descripcion.trim() || null,
           estado_pago: "pendiente",
-          estado_orden: "Por realizar",
           descuento: 0,
-          montoServicio, 
-          productos: selectedProducts.map((p) => ({
-            idProducto: Number(p.idProducto),
-            cantidad: p.cantidad,
-            precioUnitario: p.precioUnitario,
-          })),
-          bicicletas: bikes.map((b) => ({
-            marca: b.marca.trim(),
-            modelo: b.modelo.trim(),
-            color: b.color.trim(),
-            descripcion: b.descripcion.trim() || null,
-            imagenUrl: b.imagenUrl || null,
-          })),
+          ordenTrabajo: {
+            fechaEntregaEstimada: new Date(fechaEntrega).toISOString(),
+            observacionesIngreso: descripcion.trim() || null,
+            estadoOrden: "Por realizar",
+            montoServicio,
+            productos: selectedProducts.map((p) => ({
+              idProducto: Number(p.idProducto),
+              cantidad: p.cantidad,
+              precioUnitario: p.precioUnitario,
+            })),
+            bicicletas: bikes.map((b) => ({
+              marca: b.marca.trim(),
+              modelo: b.modelo.trim(),
+              color: b.color.trim(),
+              descripcion: b.descripcion.trim() || null,
+              imagenUrl: b.imagenUrl || null,
+            })),
+          },
         }),
       })
 
