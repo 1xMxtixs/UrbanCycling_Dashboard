@@ -67,7 +67,6 @@ export const authOptions: NextAuthOptions = {
           },
         })
 
-        const roleName = user.rol?.nombre ?? "Sin Rol"
         const permissions =
           user.rol?.permisosRol.map((rolPermiso) => rolPermiso.permiso.codigo) ??
           []
@@ -84,8 +83,8 @@ export const authOptions: NextAuthOptions = {
             .filter(Boolean)
             .join(" "),
           idUsuario: user.idUsuario,
-          idRol: user.idRol,
-          rol: roleName,
+          idRol: user.idRol ?? 0,
+          rol: user.rol?.nombre || "Usuario",
           permisos: permissions,
         }
       },
