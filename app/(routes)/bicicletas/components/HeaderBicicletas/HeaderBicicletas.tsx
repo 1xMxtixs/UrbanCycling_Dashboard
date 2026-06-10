@@ -71,7 +71,7 @@ export function HeaderBicicletas() {
       setErrorOrdenes(null);
 
       try {
-        const response = await fetch("/api/ordenes-trabajo", {
+        const response = await fetch("/api/punto-venta", {
           cache: "no-store",
         });
 
@@ -79,8 +79,15 @@ export function HeaderBicicletas() {
           throw new Error("No se pudieron cargar las ordenes de trabajo");
         }
 
-        const data = (await response.json()) as OrdenTrabajo[];
-        setOrdenes(data ?? []);
+        const data = await response.json();
+        const ordenesTrabajo = Array.isArray(data)
+          ? data
+              .filter((item) => item.tipoOperacion === "orden_trabajo")
+              .map((item) => item.ordenTrabajo)
+              .filter(Boolean)
+          : [];
+
+        setOrdenes(ordenesTrabajo);
       } catch {
         setErrorOrdenes("Error al cargar las ordenes de trabajo");
       } finally {
