@@ -55,13 +55,22 @@ function adaptarVenta(venta: any) {
   }
 
   const ventaSegura = sanitizarActores(venta);
+  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {};
 
   return {
     ...ventaSegura,
-    montoTotal: ventaSegura.total,
-    descuentoGlobal: ventaSegura.descuento,
-    estadoVenta: ventaSegura.estado,
-    fechaRegistro: ventaSegura.fechaCreacion,
+    ...ventaEnMostrador,
+    idVenta: ventaSegura.idVenta,
+    idUsuario: ventaSegura.idUsuario,
+    idCliente: ventaSegura.idCliente,
+    fechaCreacion: ventaSegura.fechaRegistro,
+    total: ventaEnMostrador.montoTotal,
+    descuento: ventaEnMostrador.descuentoGlobal,
+    montoTotal: ventaEnMostrador.montoTotal,
+    descuentoGlobal: ventaEnMostrador.descuentoGlobal,
+    estadoVenta: ventaEnMostrador.estado,
+    estadoPago: ventaEnMostrador.estadoPago,
+    fechaRegistro: ventaSegura.fechaRegistro,
   };
 }
 
@@ -74,11 +83,13 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
 
   return {
     ...ordenTrabajoSegura,
-    montoTotal: ordenTrabajoSegura.total,
-    descuentoGlobal: ordenTrabajoSegura.descuento,
-    estado: ordenTrabajoSegura.estadoOrden,
-    fechaRecepcion: ordenTrabajoSegura.fechaRegistro,
-    fechaRegistro: ordenTrabajoSegura.fechaCreacion,
+    total: ordenTrabajoSegura.montoTotal,
+    descuento: ordenTrabajoSegura.descuentoGlobal,
+    estadoOrden: ordenTrabajoSegura.estado,
+    fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
+    fechaRegistro: ordenTrabajoSegura.venta?.fechaRegistro,
+    usuario: sanitizarUsuario(ordenTrabajoSegura.venta?.usuario),
+    cliente: ordenTrabajoSegura.venta?.cliente,
   };
 }
 
@@ -108,9 +119,13 @@ export async function GET(
         include: {
           usuario: true,
           cliente: true,
-          lineasDeVenta: {
+          ventaEnMostrador: {
             include: {
-              producto: true,
+              lineasDeVenta: {
+                include: {
+                  producto: true,
+                },
+              },
             },
           },
         },
@@ -138,8 +153,13 @@ export async function GET(
         idOrdenDeTrabajo: parsed.id,
       },
       include: {
-        usuario: true,
-        cliente: true,
+        venta: {
+          include: {
+            usuario: true,
+            cliente: true,
+          },
+        },
+        mecanico: true,
         bicicletas: true,
         lineasDeOrdenDeTrabajo: {
           include: {
@@ -200,19 +220,28 @@ export async function PATCH(
           idVenta: parsed.id,
         },
         data: {
-          descuento:
-            data.descuento !== undefined || data.descuentoGlobal !== undefined
-              ? Number(data.descuento ?? data.descuentoGlobal)
-              : undefined,
-          estadoPago: data.estado_pago ?? data.estadoPago ?? undefined,
-          estado: data.estado_venta ?? data.estadoVenta ?? data.estado ?? undefined,
+          ventaEnMostrador: {
+            update: {
+              descuentoGlobal:
+                data.descuento !== undefined || data.descuentoGlobal !== undefined
+                  ? Number(data.descuento ?? data.descuentoGlobal)
+                  : undefined,
+              estadoPago: data.estado_pago ?? data.estadoPago ?? undefined,
+              estado:
+                data.estado_venta ?? data.estadoVenta ?? data.estado ?? undefined,
+            },
+          },
         },
         include: {
           usuario: true,
           cliente: true,
-          lineasDeVenta: {
+          ventaEnMostrador: {
             include: {
-              producto: true,
+              lineasDeVenta: {
+                include: {
+                  producto: true,
+                },
+              },
             },
           },
         },
@@ -232,7 +261,7 @@ export async function PATCH(
         idOrdenDeTrabajo: parsed.id,
       },
       data: {
-        descuento:
+        descuentoGlobal:
           data.descuento !== undefined || data.descuentoGlobal !== undefined
             ? Number(data.descuento ?? data.descuentoGlobal)
             : undefined,
@@ -244,8 +273,13 @@ export async function PATCH(
           data.observaciones_ingreso ?? data.observacionesIngreso ?? undefined,
       },
       include: {
-        usuario: true,
-        cliente: true,
+        venta: {
+          include: {
+            usuario: true,
+            cliente: true,
+          },
+        },
+        mecanico: true,
         bicicletas: true,
         lineasDeOrdenDeTrabajo: {
           include: {

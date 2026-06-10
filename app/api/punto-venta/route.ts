@@ -31,6 +31,7 @@ type ServicioInput = {
 };
 
 type BicicletaInput = {
+  tipo?: unknown;
   marca?: unknown;
   modelo?: unknown;
   color?: unknown;
@@ -108,13 +109,22 @@ function adaptarVenta(venta: any) {
   }
 
   const ventaSegura = sanitizarActores(venta);
+  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {};
 
   return {
     ...ventaSegura,
-    montoTotal: ventaSegura.total,
-    descuentoGlobal: ventaSegura.descuento,
-    estadoVenta: ventaSegura.estado,
-    fechaRegistro: ventaSegura.fechaCreacion,
+    ...ventaEnMostrador,
+    idVenta: ventaSegura.idVenta,
+    idUsuario: ventaSegura.idUsuario,
+    idCliente: ventaSegura.idCliente,
+    fechaCreacion: ventaSegura.fechaRegistro,
+    total: ventaEnMostrador.montoTotal,
+    descuento: ventaEnMostrador.descuentoGlobal,
+    montoTotal: ventaEnMostrador.montoTotal,
+    descuentoGlobal: ventaEnMostrador.descuentoGlobal,
+    estadoVenta: ventaEnMostrador.estado,
+    estadoPago: ventaEnMostrador.estadoPago,
+    fechaRegistro: ventaSegura.fechaRegistro,
   };
 }
 
@@ -127,11 +137,10 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
 
   return {
     ...ordenTrabajoSegura,
-    montoTotal: ordenTrabajoSegura.total,
-    descuentoGlobal: ordenTrabajoSegura.descuento,
-    estado: ordenTrabajoSegura.estadoOrden,
-    fechaRecepcion: ordenTrabajoSegura.fechaRegistro,
-    fechaRegistro: ordenTrabajoSegura.fechaCreacion,
+    total: ordenTrabajoSegura.montoTotal,
+    descuento: ordenTrabajoSegura.descuentoGlobal,
+    estadoOrden: ordenTrabajoSegura.estado,
+    fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
   };
 }
 
@@ -161,11 +170,11 @@ function mapearServicio(item: ServicioInput) {
 
 function mapearBicicleta(item: BicicletaInput) {
   return {
+    tipo: String(item.tipo ?? "bicicleta").trim(),
     marca: String(item.marca ?? "").trim(),
     modelo: String(item.modelo ?? "").trim(),
     color: String(item.color ?? "").trim(),
-    descripcion: item.descripcion ? String(item.descripcion).trim() : null,
-    imagenUrl: item.imagenUrl ? String(item.imagenUrl).trim() : null,
+    descripcionAdicional: item.descripcion ? String(item.descripcion).trim() : null,
   };
 }
 
@@ -195,6 +204,30 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   }
 
   return "venta";
+}
+
+function obtenerMetodoPago(rawData: any) {
+  return rawData.pago?.metodo_pago ??
+    rawData.pago?.metodoPago ??
+    rawData.metodo_pago ??
+    rawData.metodoPago ??
+    null;
+}
+
+function obtenerMontoPago(rawData: any, montoPorDefecto: number) {
+  const monto =
+    rawData.pago?.monto_pagado ??
+    rawData.pago?.montoPagado ??
+    rawData.pago?.monto ??
+    rawData.monto_pagado ??
+    rawData.montoPagado ??
+    null;
+
+  return monto === null || monto === undefined ? montoPorDefecto : Number(monto);
+}
+
+function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
+  return rawData.pago?.estado ?? rawData.estado_pago_detalle ?? estadoPorDefecto;
 }
 
 export async function POST(req: Request) {
@@ -501,92 +534,121 @@ export async function POST(req: Request) {
     const montosVenta = calcularMontos(totalVenta, ventaDescuentoGlobal);
     const montosOrden = calcularMontos(totalOrden, ordenDescuentoGlobal);
     const montosOperacion = calcularMontos(totalBruto, descuento);
+    const metodoPago = obtenerMetodoPago(rawData);
+    const montoPago = obtenerMontoPago(rawData, montosOperacion.montoTotal);
+    const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago);
+
+    if (metodoPago && (Number.isNaN(montoPago) || montoPago <= 0)) {
+      return NextResponse.json(
+        {
+          code: "MONTO_PAGO_INVALIDO",
+          message: "El monto pagado debe ser un numero mayor a cero",
+        },
+        { status: 400 }
+      );
+    }
 
     const resultado = await prisma.$transaction(async (tx: any) => {
-      const venta = lineasVenta.length
-        ? await tx.venta.create({
-            data: {
-              idUsuario,
-              idCliente,
-              idComprobante: rawData.id_comprobante
-                ? Number(rawData.id_comprobante)
-                : rawData.idComprobante
-                  ? Number(rawData.idComprobante)
-                  : null,
-              estadoPago,
-              estado: rawData.estado_venta ?? rawData.estadoVenta ?? "confirmada",
-              total: montosVenta.montoTotal,
-              descuento: montosVenta.descuentoGlobal,
-              lineasDeVenta: {
-                create: lineasVenta.map((linea) => ({
-                  idProducto: linea.idProducto,
-                  cantidad: linea.cantidad,
-                  precioUnitario: linea.precioUnitario,
-                })),
-              },
-            },
+      const ventaBase = await tx.venta.create({
+        data: {
+          idUsuario,
+          idCliente,
+          ventaEnMostrador: lineasVenta.length
+            ? {
+                create: {
+                  estado:
+                    rawData.estado_venta ?? rawData.estadoVenta ?? "confirmada",
+                  estadoPago,
+                  montoSubtotal: montosVenta.montoSubtotal,
+                  descuentoProductos: 0,
+                  descuentoGlobal: montosVenta.descuentoGlobal,
+                  montoTotal: montosVenta.montoTotal,
+                  montoNeto: montosVenta.montoNeto,
+                  montoIva: montosVenta.montoIva,
+                  lineasDeVenta: {
+                    create: lineasVenta.map((linea) => ({
+                      idProducto: linea.idProducto,
+                      cantidad: linea.cantidad,
+                      precioUnitario: linea.precioUnitario,
+                      descuentoUnitario: linea.descuentoUnitario,
+                      costoUnitario: linea.costoUnitario,
+                    })),
+                  },
+                },
+              }
+            : undefined,
+          ordenDeTrabajo: tieneOrden
+            ? {
+                create: {
+                  idMecanicoAsignado:
+                    ordenInput.id_mecanico_asignado ??
+                    ordenInput.idMecanicoAsignado
+                      ? Number(
+                          ordenInput.id_mecanico_asignado ??
+                            ordenInput.idMecanicoAsignado
+                        )
+                      : null,
+                  estado:
+                    ordenInput.estado_orden ??
+                    ordenInput.estadoOrden ??
+                    "Por realizar",
+                  estadoPago,
+                  fechaEntregaEstimada: ordenInput.fecha_entrega_estimada
+                    ? new Date(ordenInput.fecha_entrega_estimada)
+                    : ordenInput.fechaEntregaEstimada
+                      ? new Date(ordenInput.fechaEntregaEstimada)
+                      : new Date(),
+                  fechaEntregaReal: null,
+                  observacionesIngreso:
+                    ordenInput.observaciones_ingreso ??
+                    ordenInput.observacionesIngreso ??
+                    null,
+                  montoSubtotal: montosOrden.montoSubtotal,
+                  descuentoProductosServicios: 0,
+                  descuentoGlobal: montosOrden.descuentoGlobal,
+                  montoTotal: montosOrden.montoTotal,
+                  montoNeto: montosOrden.montoNeto,
+                  montoIva: montosOrden.montoIva,
+                  bicicletas: bicicletas.length
+                    ? {
+                        create: bicicletas,
+                      }
+                    : undefined,
+                  lineasDeOrdenDeTrabajo:
+                    lineasOrdenProductos.length || lineasOrdenServicios.length
+                      ? {
+                          create: [
+                            ...lineasOrdenProductos,
+                            ...lineasOrdenServicios,
+                          ].map((linea) => ({
+                            idProducto: linea.idProducto,
+                            idServicio: linea.idServicio,
+                            cantidad: linea.cantidad,
+                            precioUnitario: linea.precioUnitario,
+                            descuentoUnitario: linea.descuentoUnitario,
+                            costoUnitario: linea.costoUnitario,
+                          })),
+                        }
+                      : undefined,
+                },
+              }
+            : undefined,
+        },
+        include: {
+          usuario: true,
+          cliente: true,
+          ventaEnMostrador: {
             include: {
-              usuario: true,
-              cliente: true,
               lineasDeVenta: {
                 include: {
                   producto: true,
                 },
               },
             },
-          })
-        : null;
-
-      const ordenTrabajo = tieneOrden
-        ? await tx.ordenDeTrabajo.create({
-            data: {
-              idUsuario,
-              idCliente,
-              idComprobante: ordenInput.id_comprobante
-                ? Number(ordenInput.id_comprobante)
-                : ordenInput.idComprobante
-                  ? Number(ordenInput.idComprobante)
-                  : null,
-              fechaEntregaEstimada: ordenInput.fecha_entrega_estimada
-                ? new Date(ordenInput.fecha_entrega_estimada)
-                : ordenInput.fechaEntregaEstimada
-                  ? new Date(ordenInput.fechaEntregaEstimada)
-                  : new Date(),
-              fechaEntregaReal: null,
-              observacionesIngreso:
-                ordenInput.observaciones_ingreso ??
-                ordenInput.observacionesIngreso ??
-                null,
-              total: montosOrden.montoTotal,
-              descuento: montosOrden.descuentoGlobal,
-              estadoPago,
-              estadoOrden:
-                ordenInput.estado_orden ??
-                ordenInput.estadoOrden ??
-                "Por realizar",
-              bicicletas: bicicletas.length
-                ? {
-                    create: bicicletas,
-                  }
-                : undefined,
-              lineasDeOrdenDeTrabajo:
-                lineasOrdenProductos.length || lineasOrdenServicios.length
-                  ? {
-                      create: [
-                        ...lineasOrdenProductos,
-                        ...lineasOrdenServicios,
-                      ].map((linea) => ({
-                        idProducto: linea.idProducto,
-                        idServicio: linea.idServicio,
-                        cantidad: linea.cantidad,
-                        precioUnitario: linea.precioUnitario,
-                      })),
-                    }
-                  : undefined,
-            },
+          },
+          ordenDeTrabajo: {
             include: {
-              usuario: true,
-              cliente: true,
+              mecanico: true,
               bicicletas: true,
               lineasDeOrdenDeTrabajo: {
                 include: {
@@ -595,8 +657,44 @@ export async function POST(req: Request) {
                 },
               },
             },
+          },
+        },
+      });
+
+      const venta = ventaBase.ventaEnMostrador ? ventaBase : null;
+      const ordenTrabajo = ventaBase.ordenDeTrabajo
+        ? {
+            ...ventaBase.ordenDeTrabajo,
+            venta: ventaBase,
+            usuario: ventaBase.usuario,
+            cliente: ventaBase.cliente,
+          }
+        : null;
+
+      const pago = metodoPago
+        ? await tx.pago.create({
+            data: {
+              idUsuario,
+              fechaRegistro: new Date(),
+              estado: estadoRegistroPago,
+              metodoPago: String(metodoPago),
+              monto: montoPago,
+            },
           })
         : null;
+
+      if (pago && venta?.ventaEnMostrador) {
+        await tx.asignacionPago.create({
+          data: {
+            idPago: pago.idPago,
+            idVentaEnMostrador: venta.ventaEnMostrador.idVentaEnMostrador,
+            idOrdenDeCompra: null,
+            montoAsociado: montoPago,
+            tipoAbono:
+              montoPago >= montosOperacion.montoTotal ? "pago_total" : "abono",
+          },
+        });
+      }
 
       for (const item of productosAgrupados) {
         const producto = productosPorId.get(item.idProducto)!;
@@ -614,6 +712,7 @@ export async function POST(req: Request) {
       return {
         venta,
         ordenTrabajo,
+        pago,
       };
     });
 
@@ -645,6 +744,7 @@ export async function POST(req: Request) {
         montoIva: montosOperacion.montoIva,
         venta,
         ordenTrabajo,
+        pago: resultado.pago,
       },
       { status: 201 }
     );
@@ -660,76 +760,85 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const [ventas, ordenesTrabajo] = await Promise.all([
-      prisma.venta.findMany({
-        orderBy: {
-          fechaCreacion: "desc",
-        },
-        include: {
-          usuario: true,
-          cliente: true,
-          lineasDeVenta: {
-            include: {
-              producto: true,
+    const ventas = await prisma.venta.findMany({
+      orderBy: {
+        fechaRegistro: "desc",
+      },
+      include: {
+        usuario: true,
+        cliente: true,
+        ventaEnMostrador: {
+          include: {
+            lineasDeVenta: {
+              include: {
+                producto: true,
+              },
             },
           },
         },
-      }),
-      prisma.ordenDeTrabajo.findMany({
-        orderBy: {
-          fechaCreacion: "desc",
-        },
-        include: {
-          usuario: true,
-          cliente: true,
-          bicicletas: true,
-          lineasDeOrdenDeTrabajo: {
-            include: {
-              producto: true,
-              servicio: true,
+        ordenDeTrabajo: {
+          include: {
+            mecanico: true,
+            bicicletas: true,
+            lineasDeOrdenDeTrabajo: {
+              include: {
+                producto: true,
+                servicio: true,
+              },
             },
           },
         },
-      }),
-    ]);
+      },
+    });
 
-    const operaciones = [
-      ...ventas.map((venta: any) => {
+    const operaciones = ventas.flatMap((venta: any) => {
+      const items = [];
+
+      if (venta.ventaEnMostrador) {
         const ventaAdaptada = adaptarVenta(venta);
 
-        return {
+        items.push({
           idPuntoVenta: `venta-${venta.idVenta}`,
           tipoOperacion: "venta",
-          fechaCreacion: venta.fechaCreacion,
-          fechaRegistro: venta.fechaCreacion,
-          total: venta.total,
-          montoTotal: venta.total,
-          estadoPago: venta.estadoPago,
-          estadoVenta: venta.estado,
+          fechaCreacion: venta.fechaRegistro,
+          fechaRegistro: venta.fechaRegistro,
+          total: venta.ventaEnMostrador.montoTotal,
+          montoTotal: venta.ventaEnMostrador.montoTotal,
+          estadoPago: venta.ventaEnMostrador.estadoPago,
+          estadoVenta: venta.ventaEnMostrador.estado,
           cliente: venta.cliente,
-          usuario: venta.usuario,
+          usuario: sanitizarUsuario(venta.usuario),
           venta: ventaAdaptada,
+        });
+      }
+
+      if (venta.ordenDeTrabajo) {
+        const ordenTrabajo = {
+          ...venta.ordenDeTrabajo,
+          venta,
+          usuario: venta.usuario,
+          cliente: venta.cliente,
         };
-      }),
-      ...ordenesTrabajo.map((ordenTrabajo: any) => {
         const ordenTrabajoAdaptada = adaptarOrdenTrabajo(ordenTrabajo);
 
-        return {
-          idPuntoVenta: `orden-${ordenTrabajo.idOrdenDeTrabajo}`,
+        items.push({
+          idPuntoVenta: `orden-${venta.ordenDeTrabajo.idOrdenDeTrabajo}`,
           tipoOperacion: "orden_trabajo",
-          fechaCreacion: ordenTrabajo.fechaCreacion,
-          fechaRegistro: ordenTrabajo.fechaCreacion,
-          total: ordenTrabajo.total,
-          montoTotal: ordenTrabajo.total,
-          estadoPago: ordenTrabajo.estadoPago,
-          estadoOrden: ordenTrabajo.estadoOrden,
-          cliente: ordenTrabajo.cliente,
-          usuario: ordenTrabajo.usuario,
+          fechaCreacion: venta.fechaRegistro,
+          fechaRegistro: venta.fechaRegistro,
+          total: venta.ordenDeTrabajo.montoTotal,
+          montoTotal: venta.ordenDeTrabajo.montoTotal,
+          estadoPago: venta.ordenDeTrabajo.estadoPago,
+          estadoOrden: venta.ordenDeTrabajo.estado,
+          cliente: venta.cliente,
+          usuario: sanitizarUsuario(venta.usuario),
           ordenTrabajo: ordenTrabajoAdaptada,
-        };
-      }),
-    ].sort(
-      (a, b) =>
+        });
+      }
+
+      return items;
+    }).sort(
+      (a: any, b: any) =>
         new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime()
     );
 

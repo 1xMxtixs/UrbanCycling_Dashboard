@@ -59,13 +59,22 @@ function sanitizarActores<T extends { usuario?: any; mecanico?: any }>(data: T) 
 
 function adaptarVenta(venta: any) {
   const ventaSegura = sanitizarActores(venta);
+  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {};
 
   return {
     ...ventaSegura,
-    montoTotal: ventaSegura.total,
-    descuentoGlobal: ventaSegura.descuento,
-    estadoVenta: ventaSegura.estado,
-    fechaRegistro: ventaSegura.fechaCreacion,
+    ...ventaEnMostrador,
+    idVenta: ventaSegura.idVenta,
+    idUsuario: ventaSegura.idUsuario,
+    idCliente: ventaSegura.idCliente,
+    fechaCreacion: ventaSegura.fechaRegistro,
+    total: ventaEnMostrador.montoTotal,
+    descuento: ventaEnMostrador.descuentoGlobal,
+    montoTotal: ventaEnMostrador.montoTotal,
+    descuentoGlobal: ventaEnMostrador.descuentoGlobal,
+    estadoVenta: ventaEnMostrador.estado,
+    estadoPago: ventaEnMostrador.estadoPago,
+    fechaRegistro: ventaSegura.fechaRegistro,
   };
 }
 
@@ -74,11 +83,13 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
 
   return {
     ...ordenTrabajoSegura,
-    montoTotal: ordenTrabajoSegura.total,
-    descuentoGlobal: ordenTrabajoSegura.descuento,
-    estado: ordenTrabajoSegura.estadoOrden,
-    fechaRecepcion: ordenTrabajoSegura.fechaRegistro,
-    fechaRegistro: ordenTrabajoSegura.fechaCreacion,
+    total: ordenTrabajoSegura.montoTotal,
+    descuento: ordenTrabajoSegura.descuentoGlobal,
+    estadoOrden: ordenTrabajoSegura.estado,
+    fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
+    fechaRegistro: ordenTrabajoSegura.venta?.fechaRegistro,
+    usuario: sanitizarUsuario(ordenTrabajoSegura.venta?.usuario),
+    cliente: ordenTrabajoSegura.venta?.cliente,
   };
 }
 
@@ -120,8 +131,17 @@ export async function PATCH(
           idVenta: parsed.id,
         },
         data: {
-          estado: estadoVenta ?? undefined,
-          estadoPago: estadoPago ?? undefined,
+          ventaEnMostrador: {
+            update: {
+              estado: estadoVenta ?? undefined,
+              estadoPago: estadoPago ?? undefined,
+            },
+          },
+        },
+        include: {
+          usuario: true,
+          cliente: true,
+          ventaEnMostrador: true,
         },
       });
 
@@ -162,13 +182,13 @@ export async function PATCH(
 
     if (estadoOrden) {
       const estadosSiguientes =
-        transicionesOrdenPermitidas[ordenTrabajo.estadoOrden] ?? [];
+        transicionesOrdenPermitidas[ordenTrabajo.estado] ?? [];
 
       if (!estadosSiguientes.includes(estadoOrden)) {
         return NextResponse.json(
           {
             code: "CAMBIO_ESTADO_NO_PERMITIDO",
-            message: `No se puede cambiar una orden desde "${ordenTrabajo.estadoOrden}" a "${estadoOrden}"`,
+            message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
           },
           { status: 409 }
         );
@@ -180,12 +200,21 @@ export async function PATCH(
         idOrdenDeTrabajo: parsed.id,
       },
       data: {
-        estadoOrden: estadoOrden ?? undefined,
+        estado: estadoOrden ?? undefined,
         estadoPago: estadoPago ?? undefined,
         fechaEntregaReal:
           estadoOrden && ["Listo para entregar", "Entregado"].includes(estadoOrden)
             ? new Date()
             : undefined,
+      },
+      include: {
+        venta: {
+          include: {
+            usuario: true,
+            cliente: true,
+          },
+        },
+        mecanico: true,
       },
     });
 
