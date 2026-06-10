@@ -284,7 +284,7 @@ model Venta {
   lineasDeVenta LineaDeVenta[]
   reclamosDeGarantia ReclamosDeGarantia[] @relation("VentaReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("VentaGenerada")
-  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+  asignacionesPago AsignacionPago[]
   origenesDTE      OrigenDocumentoTributario[]
 
 
@@ -303,7 +303,6 @@ model Producto{
 
   serviciosProducto ProductoServicio[]
   categoriasProducto CategoriaProducto[]
-  imagenesProducto ImagenProducto[]
   lineasDeVenta LineaDeVenta[]
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   LineasDeOrdenDeCompra LineaDeOrdenDeCompra[]
@@ -314,17 +313,6 @@ model Producto{
 
 
   @@map("productos")
-}
-
-model ImagenProducto{
-
-  idImagenProducto Int @id @default(autoincrement()) @db.UnsignedInt @map("id_imagen_producto")
-  idProducto Int @db.UnsignedInt @map("id_producto")
-  url String @db.VarChar(512)
-
-  producto Producto @relation(fields: [idProducto], references: [idProducto])
-
-  @@map("imagenes_producto")
 }
 
 model Categoria{
@@ -379,7 +367,7 @@ model OrdenDeTrabajo {
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   reclamosDeGarantia ReclamosDeGarantia[] @relation("OrdenDeTrabajoReclamada")
   garantiaGeneradora ReclamosDeGarantia? @relation("OrdenDeTrabajoGenerada")
-  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+  asignacionesPago AsignacionPago[]
   origenesDTE      OrigenDocumentoTributario[]
 
 
@@ -545,13 +533,13 @@ model Pago{
   metodoPago String @db.VarChar(50) @map("metodo_pago")
   montoPagado Decimal @db.Decimal(12,0) @map("monto_pagado")
 
-  pagoVentaOrdenDeTrabajo PagoVentaOrdenDeTrabajo[]
+  asignacionesPago AsignacionPago[]
 
   @@map("pagos")
 
 }
 
-model PagoVentaOrdenDeTrabajo{
+model AsignacionPago{
 
   idPagoVentaOrdenDeTrabajo Int @id @default(autoincrement()) @db.UnsignedInt @map("id_pago_venta_orden_de_trabajo")
   idPago Int @db.UnsignedInt @map("id_pago")
