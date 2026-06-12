@@ -44,6 +44,12 @@ export const dataGeneralSidebar = [
         href: "/usuarios",
         permission: PERMISSIONS.USERS_READ
     },
+    {
+        icon: Building2,
+        label: "Historial de Boletas",
+        href: "/historial-boletas",
+        permission: PERMISSIONS.REPORTS_READ
+    },
 
 ]
 
