@@ -1,5 +1,7 @@
 // Endpoints generales para registrar y listar ventas directas de productos.
 import { db } from "@/lib/db"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 import { NextResponse } from "next/server"
 
 type ProductoVentaInput = {
@@ -10,6 +12,40 @@ type ProductoVentaInput = {
 
 function toNumber(value: unknown) {
   return Number(value ?? 0)
+}
+
+function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
+  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal)
+  const montoNeto = Math.round(montoTotal / 1.19)
+  const montoIva = montoTotal - montoNeto
+
+  return {
+    montoSubtotal,
+    descuentoGlobal,
+    montoTotal,
+    montoNeto,
+    montoIva,
+  }
+}
+
+function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[number] & {
+  ventaEnMostrador?: {
+    estado: string
+    estadoPago: string
+    montoTotal: unknown
+    descuentoGlobal: unknown
+    lineasDeVenta?: unknown[]
+  } | null
+}) {
+  return {
+    ...venta,
+    fechaCreacion: venta.fechaRegistro,
+    total: venta.ventaEnMostrador?.montoTotal ?? 0,
+    descuento: venta.ventaEnMostrador?.descuentoGlobal ?? 0,
+    estadoPago: venta.ventaEnMostrador?.estadoPago ?? null,
+    estadoVenta: venta.ventaEnMostrador?.estado ?? null,
+    lineasDeVenta: venta.ventaEnMostrador?.lineasDeVenta ?? [],
+  }
 }
 
 function parsePositiveInteger(value: unknown) {
@@ -24,10 +60,15 @@ function parsePositiveInteger(value: unknown) {
 
 export async function POST(req: Request) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+
+    if (response) {
+      return response
+    }
+
     const data = await req.json()
     const idUsuario = parsePositiveInteger(data.id_usuario ?? data.idUsuario)
     const idCliente = parsePositiveInteger(data.id_cliente ?? data.idCliente)
-    const idComprobanteInput = data.id_comprobante ?? data.idComprobante
     const descuento = Number(data.descuento ?? 0)
     const estadoPago = data.estado_pago ?? data.estadoPago ?? "pagado"
     const estadoVenta = data.estado_venta ?? data.estadoVenta ?? "confirmada"
@@ -197,31 +238,45 @@ export async function POST(req: Request) {
       0
     )
     const total = Math.max(0, totalBruto - descuento)
+    const montos = calcularMontos(totalBruto, descuento)
 
     const venta = await db.$transaction(async (tx) => {
       const ventaCreada = await tx.venta.create({
         data: {
           idUsuario,
           idCliente,
-          idComprobante: idComprobanteInput ? Number(idComprobanteInput) : null,
-          total,
-          descuento,
-          estadoPago,
-          estadoVenta,
-          lineasDeVenta: {
-            create: lineasCalculadas.map((linea) => ({
-              idProducto: linea.producto.idProducto,
-              cantidad: linea.cantidad,
-              precioUnitario: linea.precioUnitario,
-            })),
+          ventaEnMostrador: {
+            create: {
+              estado: estadoVenta,
+              estadoPago,
+              montoSubtotal: montos.montoSubtotal,
+              descuentoProductos: 0,
+              descuentoGlobal: montos.descuentoGlobal,
+              montoTotal: montos.montoTotal,
+              montoNeto: montos.montoNeto,
+              montoIva: montos.montoIva,
+              lineasDeVenta: {
+                create: lineasCalculadas.map((linea) => ({
+                  idProducto: linea.producto.idProducto,
+                  cantidad: linea.cantidad,
+                  precioUnitario: linea.precioUnitario,
+                  descuentoUnitario: 0,
+                  costoUnitario: linea.producto.costoPromedio,
+                })),
+              },
+            },
           },
         },
         include: {
           usuario: true,
           cliente: true,
-          lineasDeVenta: {
+          ventaEnMostrador: {
             include: {
-              producto: true,
+              lineasDeVenta: {
+                include: {
+                  producto: true,
+                },
+              },
             },
           },
         },
@@ -242,10 +297,10 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json(
-      {
-        code: "VENTA_CONFIRMADA",
-        message: "Venta registrada correctamente",
-        venta,
+        {
+          code: "VENTA_CONFIRMADA",
+          message: "Venta registrada correctamente",
+        venta: adaptarVenta(venta),
         total_bruto: totalBruto,
         descuento,
         total,
@@ -264,22 +319,32 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { response } = await requirePermission(PERMISSIONS.SALES_READ)
+
+    if (response) {
+      return response
+    }
+
     const ventas = await db.venta.findMany({
       orderBy: {
-        fechaCreacion: "desc",
+        fechaRegistro: "desc",
       },
       include: {
         usuario: true,
         cliente: true,
-        lineasDeVenta: {
+        ventaEnMostrador: {
           include: {
-            producto: true,
+            lineasDeVenta: {
+              include: {
+                producto: true,
+              },
+            },
           },
         },
       },
     })
 
-    return NextResponse.json(ventas)
+    return NextResponse.json(ventas.map(adaptarVenta))
   } catch (error) {
     console.log("[VENTAS_GET]", error)
 

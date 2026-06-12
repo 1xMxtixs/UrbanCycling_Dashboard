@@ -3,6 +3,8 @@
 // - venta-12
 // - orden-8
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 const prisma = db as any;
@@ -100,8 +102,6 @@ export async function PATCH(
   try {
     const { idPuntoVenta } = await params;
     const parsed = parseIdPuntoVenta(idPuntoVenta);
-    const data = await req.json();
-    const estadoPago = data.estado_pago ?? data.estadoPago;
 
     if (!parsed) {
       return NextResponse.json(
@@ -112,6 +112,19 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const requiredPermission =
+      parsed.tipo === "venta"
+        ? PERMISSIONS.SALES_CREATE
+        : PERMISSIONS.WORK_ORDERS_UPDATE_STATUS
+    const { response } = await requirePermission(requiredPermission)
+
+    if (response) {
+      return response
+    }
+
+    const data = await req.json();
+    const estadoPago = data.estado_pago ?? data.estadoPago;
 
     if (parsed.tipo === "venta") {
       const estadoVenta = data.estado_venta ?? data.estadoVenta ?? data.estado;

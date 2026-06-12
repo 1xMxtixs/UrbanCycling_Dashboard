@@ -1,7 +1,10 @@
 
 import {
+    Bike,
     Building2,
+    Package,
     PanelsTopLeft,
+    UserCog,
     Users,
     Wrench
 } from 'lucide-react'
@@ -14,6 +17,10 @@ export const dataGeneralSidebar = [
         label: "Dashboard",
         href: "/"
     },
+
+]
+
+export const dataOperationSidebar = [
     {
         icon: Wrench,
         label: "Órdenes de Trabajo",
@@ -21,36 +28,34 @@ export const dataGeneralSidebar = [
         permission: PERMISSIONS.WORK_ORDERS_READ
     },
     {
-        icon: Building2,
+        icon: Package,
         label: "Inventario",
         href: "/inventory",
         permission: PERMISSIONS.INVENTORY_READ
     },
-    {
-        icon: Building2,
+]
+
+export const dataManagementSidebar = [
+     {
+        icon: Users,
         label: "Clientes",
         href: "/clientes",
         permission: PERMISSIONS.CLIENTS_READ
     },
     {
-        icon: Building2,
+        icon: Bike,
         label: "Bicicletas",
         href: "/bicicletas",
         permission: PERMISSIONS.BICYCLES_READ
     },
+]
+
+export const dataAdministrationSidebar = [
     {
-        icon: Users,
+        icon: UserCog,
         label: "Usuarios",
         href: "/usuarios",
         permission: PERMISSIONS.USERS_READ
     },
-
 ]
-
-export const dataToolsSidebar = [
     
-]
-
-export const dataSupportSidebar = [
-    
-]

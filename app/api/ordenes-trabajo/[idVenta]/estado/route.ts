@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 const transicionesPermitidas: Record<string, string[]> = {
@@ -14,6 +16,14 @@ export async function PATCH(
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
+    const { response } = await requirePermission(
+      PERMISSIONS.WORK_ORDERS_UPDATE_STATUS
+    )
+
+    if (response) {
+      return response
+    }
+
     const { idVenta } = await params;
     const { estado } = await req.json();
     const idOrdenDeTrabajo = Number(idVenta);
@@ -49,13 +59,13 @@ export async function PATCH(
     }
 
     const estadosSiguientes =
-      transicionesPermitidas[ordenTrabajo.estadoOrden] ?? [];
+      transicionesPermitidas[ordenTrabajo.estado] ?? [];
 
     if (!estadosSiguientes.includes(estado)) {
       return NextResponse.json(
         {
           code: "CAMBIO_ESTADO_NO_PERMITIDO",
-          message: `No se puede cambiar una orden desde "${ordenTrabajo.estadoOrden}" a "${estado}"`,
+          message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estado}"`,
         },
         { status: 409 }
       );
@@ -66,12 +76,15 @@ export async function PATCH(
         idOrdenDeTrabajo,
       },
       data: {
-        estadoOrden: estado,
+        estado,
         fechaEntregaReal: ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined,
       },
     });
 
-    return NextResponse.json(ordenActualizada);
+    return NextResponse.json({
+      ...ordenActualizada,
+      estadoOrden: ordenActualizada.estado,
+    });
   } catch (error) {
     console.log("[ACTUALIZAR_ESTADO_ORDEN]", error);
 
