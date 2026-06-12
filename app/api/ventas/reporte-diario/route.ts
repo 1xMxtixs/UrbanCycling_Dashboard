@@ -1,5 +1,7 @@
 // Reporte diario de ingresos por ventas directas.
 import { db } from "@/lib/db"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 import { NextResponse } from "next/server"
 
 function formatearFecha(date: Date) {
@@ -47,8 +49,34 @@ function toNumber(value: unknown) {
   return Number(value ?? 0)
 }
 
+function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[number] & {
+  ventaEnMostrador?: {
+    estado: string
+    estadoPago: string
+    montoTotal: unknown
+    descuentoGlobal: unknown
+    lineasDeVenta?: unknown[]
+  } | null
+}) {
+  return {
+    ...venta,
+    fechaCreacion: venta.fechaRegistro,
+    total: venta.ventaEnMostrador?.montoTotal ?? 0,
+    descuento: venta.ventaEnMostrador?.descuentoGlobal ?? 0,
+    estadoPago: venta.ventaEnMostrador?.estadoPago ?? null,
+    estadoVenta: venta.ventaEnMostrador?.estado ?? null,
+    lineasDeVenta: venta.ventaEnMostrador?.lineasDeVenta ?? [],
+  }
+}
+
 export async function GET(req: Request) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.REPORTS_READ)
+
+    if (response) {
+      return response
+    }
+
     const { searchParams } = new URL(req.url)
     const { error, fechaReporte, inicioDia, finDia } = parseFecha(
       searchParams.get("fecha")
@@ -66,27 +94,31 @@ export async function GET(req: Request) {
 
     const ventas = await db.venta.findMany({
       where: {
-        fechaCreacion: {
+        fechaRegistro: {
           gte: inicioDia,
           lt: finDia,
         },
       },
       orderBy: {
-        fechaCreacion: "asc",
+        fechaRegistro: "asc",
       },
       include: {
         cliente: true,
         usuario: true,
-        lineasDeVenta: {
+        ventaEnMostrador: {
           include: {
-            producto: true,
+            lineasDeVenta: {
+              include: {
+                producto: true,
+              },
+            },
           },
         },
       },
     })
 
     const totalIngresos = ventas.reduce(
-      (total, venta) => total + toNumber(venta.total),
+      (total, venta) => total + toNumber(venta.ventaEnMostrador?.montoTotal),
       0
     )
 
@@ -96,7 +128,7 @@ export async function GET(req: Request) {
       totalIngresos,
       cantidad_ventas: ventas.length,
       cantidadVentas: ventas.length,
-      ventas,
+      ventas: ventas.map(adaptarVenta),
     })
   } catch (error) {
     console.log("[VENTAS_REPORTE_DIARIO_GET]", error)

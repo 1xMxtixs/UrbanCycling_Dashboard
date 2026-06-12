@@ -2,6 +2,8 @@
 // Mientras no exista una tabla punto_venta, registra ventas y ordenes en sus
 // tablas actuales y responde con una forma unificada para el front.
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 const prisma = db as any;
@@ -232,6 +234,12 @@ function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
 
 export async function POST(req: Request) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+
+    if (response) {
+      return response
+    }
+
     const rawData = await req.json();
     const idUsuario = parsePositiveInteger(rawData.id_usuario ?? rawData.idUsuario);
     const idCliente = parsePositiveInteger(rawData.id_cliente ?? rawData.idCliente);
@@ -760,6 +768,12 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { response } = await requirePermission(PERMISSIONS.SALES_READ)
+
+    if (response) {
+      return response
+    }
+
     const ventas = await prisma.venta.findMany({
       orderBy: {
         fechaRegistro: "desc",
