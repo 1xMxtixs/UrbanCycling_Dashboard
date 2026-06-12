@@ -12,22 +12,18 @@ import {
 import { useState } from "react";
 import { FormCreateCliente } from "../FormCreateCliente/FormCreateCliente";
 import { useRouter } from "next/navigation";
+import { toast } from "@/components/ui/sonner";
 
 export function HeaderClientes() {
   const router = useRouter();
   const [openModalCreate, setOpenModalCreate] = useState(false);
-  const [mostrarExito, setMostrarExito] = useState(false);
 
   const handleSuccess = () => {
     setOpenModalCreate(false);
 
-    setMostrarExito(true);
     window.dispatchEvent(new Event("clientes:refresh"));
     router.refresh();
-
-    setTimeout(() => {
-      setMostrarExito(false);
-    }, 3000);
+    toast.success("Cliente creado correctamente");
   };
 
   return (
@@ -70,12 +66,6 @@ export function HeaderClientes() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {mostrarExito && (
-        <div className="fixed bottom-5 right-5 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-          Cliente Registrado!
-        </div>
-      )}
     </>
   );
 }
