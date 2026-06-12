@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 function parseIdOrden(idVenta: string) {
@@ -15,11 +17,29 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function calcularMontos(montoSubtotal: number) {
+  const montoNeto = Math.round(montoSubtotal / 1.19);
+  const montoIva = montoSubtotal - montoNeto;
+
+  return {
+    montoSubtotal,
+    montoTotal: montoSubtotal,
+    montoNeto,
+    montoIva,
+  };
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_UPDATE)
+
+    if (response) {
+      return response
+    }
+
     const { idVenta } = await params;
     const { id_servicio, idServicio, cantidad } = await req.json();
     const idOrdenDeTrabajo = parseIdOrden(idVenta);
@@ -138,6 +158,8 @@ export async function POST(
           idServicio: servicio.idServicio,
           cantidad: cantidadServicio,
           precioUnitario: servicio.precioVenta,
+          descuentoUnitario: 0,
+          costoUnitario: 0,
         },
       });
 
@@ -163,13 +185,17 @@ export async function POST(
           total + linea.cantidad * toNumber(linea.precioUnitario),
         0
       );
+      const montos = calcularMontos(totalServicios);
 
       const ordenActualizada = await tx.ordenDeTrabajo.update({
         where: {
           idOrdenDeTrabajo,
         },
         data: {
-          total: totalServicios,
+          montoSubtotal: montos.montoSubtotal,
+          montoTotal: montos.montoTotal,
+          montoNeto: montos.montoNeto,
+          montoIva: montos.montoIva,
         },
       });
 
@@ -212,6 +238,12 @@ export async function GET(
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_READ)
+
+    if (response) {
+      return response
+    }
+
     const { idVenta } = await params;
     const idOrdenDeTrabajo = parseIdOrden(idVenta);
 

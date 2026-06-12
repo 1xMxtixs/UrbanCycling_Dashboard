@@ -1,5 +1,7 @@
 // Endpoints generales para registrar y listar ordenes de trabajo.
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 import { z } from "zod"
 
@@ -113,7 +115,23 @@ type LineaOrdenData = {
   idProducto: number | null;
   cantidad: number;
   precioUnitario: number;
+  descuentoUnitario: number;
+  costoUnitario: number;
 };
+
+function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
+  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal);
+  const montoNeto = Math.round(montoTotal / 1.19);
+  const montoIva = montoTotal - montoNeto;
+
+  return {
+    montoSubtotal,
+    descuentoGlobal,
+    montoTotal,
+    montoNeto,
+    montoIva,
+  };
+}
 
 function normalizarBicicletas(data: Record<string, unknown>) {
   const bicicletasInput = data.bicicletas ?? data.bicicleta;
@@ -135,14 +153,12 @@ function normalizarBicicletas(data: Record<string, unknown>) {
 
 function mapearBicicleta(bicicleta: BicicletaInput) {
   return {
+    tipo: "bicicleta",
     marca: String(bicicleta.marca).trim(),
     modelo: String(bicicleta.modelo).trim(),
     color: String(bicicleta.color).trim(),
-    descripcion: bicicleta.descripcion
+    descripcionAdicional: bicicleta.descripcion
       ? String(bicicleta.descripcion).trim()
-      : null,
-    imagenUrl: bicicleta.imagenUrl
-      ? String(bicicleta.imagenUrl).trim()
       : null,
   };
 }
@@ -159,6 +175,12 @@ function parsePositiveInteger(value: unknown) {
 
 export async function POST(req: Request) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_CREATE)
+
+    if (response) {
+      return response
+    }
+
     const rawData = await req.json();
 
     const dataNormalizada = {
@@ -212,7 +234,7 @@ export async function POST(req: Request) {
 
       productos: Array.isArray(rawData.productos)
         ? rawData.productos.map(
-            (item: any) => ({
+            (item: ProductoOrdenInput) => ({
               idProducto: Number(
                 item.id_producto ??
                 item.idProducto
@@ -255,9 +277,6 @@ export async function POST(req: Request) {
 
     const idClienteInput =
       data.idCliente;
-
-    const idComprobanteInput =
-      data.idComprobante;
 
     const fechaEntregaEstimadaInput =
       data.fechaEntregaEstimada;
@@ -463,7 +482,9 @@ export async function POST(req: Request) {
         idServicio: genericService.idServicio,
         idProducto: null,
         cantidad: 1,
-        precioUnitario: montoServicio
+        precioUnitario: montoServicio,
+        descuentoUnitario: 0,
+        costoUnitario: 0,
       });
     }
 
@@ -472,45 +493,62 @@ export async function POST(req: Request) {
         idServicio: null,
         idProducto: productoSolicitado.idProducto,
         cantidad: productoSolicitado.cantidad,
-        precioUnitario: productoSolicitado.precioUnitario
+        precioUnitario: productoSolicitado.precioUnitario,
+        descuentoUnitario: 0,
+        costoUnitario: toNumber(
+          productosPorId.get(productoSolicitado.idProducto)?.costoPromedio
+        ),
       });
     }
 
     // Calculate grand total
     const calculatedTotal = lineasData.reduce((sum, line) => sum + (line.cantidad * line.precioUnitario), 0);
+    const montos = calcularMontos(calculatedTotal, descuento);
 
     const ordenTrabajo = await db.$transaction(async (tx) => {
-      const ordenCreada = await tx.ordenDeTrabajo.create({
+      const ventaCreada = await tx.venta.create({
         data: {
           idUsuario: usuario.idUsuario,
           idCliente: cliente.idCliente,
-          idComprobante: idComprobanteInput ? Number(idComprobanteInput) : null,
-          fechaEntregaEstimada,
-          fechaEntregaReal: null,
-          observacionesIngreso,
-          total: calculatedTotal,
-          descuento,
-          estadoPago,
-          estadoOrden,
-          bicicletas: bicicletas.length
-            ? {
-                create: bicicletas,
-              }
-            : undefined,
-          lineasDeOrdenDeTrabajo: lineasData.length
-            ? {
-                create: lineasData
-              }
-            : undefined,
+          ordenDeTrabajo: {
+            create: {
+              idMecanicoAsignado: null,
+              fechaEntregaEstimada,
+              fechaEntregaReal: null,
+              observacionesIngreso,
+              montoSubtotal: montos.montoSubtotal,
+              descuentoProductosServicios: 0,
+              descuentoGlobal: montos.descuentoGlobal,
+              montoTotal: montos.montoTotal,
+              montoNeto: montos.montoNeto,
+              montoIva: montos.montoIva,
+              estadoPago,
+              estado: estadoOrden,
+              bicicletas: bicicletas.length
+                ? {
+                    create: bicicletas,
+                  }
+                : undefined,
+              lineasDeOrdenDeTrabajo: lineasData.length
+                ? {
+                    create: lineasData,
+                  }
+                : undefined,
+            },
+          },
         },
         include: {
           usuario: true,
           cliente: true,
-          bicicletas: true,
-          lineasDeOrdenDeTrabajo: {
+          ordenDeTrabajo: {
             include: {
-              servicio: true,
-              producto: true,
+              bicicletas: true,
+              lineasDeOrdenDeTrabajo: {
+                include: {
+                  servicio: true,
+                  producto: true,
+                },
+              },
             },
           },
         },
@@ -529,7 +567,12 @@ export async function POST(req: Request) {
         });
       }
 
-      return ordenCreada;
+      return {
+        ...ventaCreada.ordenDeTrabajo!,
+        venta: ventaCreada,
+        usuario: ventaCreada.usuario,
+        cliente: ventaCreada.cliente,
+      };
     });
 
     return NextResponse.json(
@@ -552,13 +595,26 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_READ)
+
+    if (response) {
+      return response
+    }
+
     const ordenes = await db.ordenDeTrabajo.findMany({
       orderBy: {
-        fechaCreacion: "desc",
+        venta: {
+          fechaRegistro: "desc",
+        },
       },
       include: {
-        usuario: true,
-        cliente: true,
+        venta: {
+          include: {
+            usuario: true,
+            cliente: true,
+          },
+        },
+        mecanico: true,
         bicicletas: true,
         lineasDeOrdenDeTrabajo: {
           include: {
@@ -571,13 +627,19 @@ export async function GET() {
 
     const ordenesConDetalle = ordenes.map((orden) => {
       const totalServicios = orden.lineasDeOrdenDeTrabajo.reduce(
-        (total, linea) =>
+        (total: number, linea) =>
           total + linea.cantidad * toNumber(linea.precioUnitario),
         0
       );
 
       return {
         ...orden,
+        fechaCreacion: orden.venta.fechaRegistro,
+        usuario: orden.venta.usuario,
+        cliente: orden.venta.cliente,
+        total: orden.montoTotal,
+        descuento: orden.descuentoGlobal,
+        estadoOrden: orden.estado,
         lineas: orden.lineasDeOrdenDeTrabajo,
         total_servicios: totalServicios,
       };
