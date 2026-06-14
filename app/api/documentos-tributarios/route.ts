@@ -30,6 +30,34 @@ async function getNextFolio() {
   return (lastDocument?.numeroFolio ?? 0) + 1
 }
 
+export async function GET() {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.RECEIPTS_CREATE)
+
+    if (response) {
+      return response
+    }
+
+    const documentosTributarios = await db.documentoTributario.findMany({
+      orderBy: {
+        fechaEmision: "desc",
+      },
+      include: {
+        origenes: true,
+      },
+    })
+
+    return NextResponse.json({ documentosTributarios })
+  } catch (error) {
+    console.log("[DOCUMENTOS_TRIBUTARIOS_GET]", error)
+
+    return NextResponse.json(
+      { code: "ERROR_INTERNO", message: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(

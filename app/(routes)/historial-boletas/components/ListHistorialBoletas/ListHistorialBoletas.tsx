@@ -31,7 +31,8 @@ interface DocumentoTributario {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("es-CL", {
+  const [year, month, day] = value.split("T")[0].split("-").map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString("es-CL", {
     day: "2-digit",
     month: "short",
     year: "numeric",
