@@ -16,6 +16,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,6 +32,7 @@ import {
 } from "@/components/ui/table"
 
 import type { ProductColumn } from "./columns"
+import { KpiCards } from "./kpi-cards"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
@@ -39,13 +47,6 @@ export function DataTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
-  const outOfStockCount = data.filter(
-    (product) => product.stockActual === 0,
-  ).length
-  const lowStockCount = data.filter(
-    (product) =>
-      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
-  ).length
 
   const table = useReactTable({
     data,
@@ -69,25 +70,7 @@ export function DataTable({
 
   return (
     <div className="rounded-lg bg-background p-4 shadow-md">
-      <div className="mb-4 grid gap-3 md:grid-cols-2">
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-          <p className="text-sm font-semibold text-destructive">
-            {outOfStockCount} productos sin stock
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Productos que no tienen unidades disponibles.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-            {lowStockCount} productos con stock bajo
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Productos con stock igual o menor al minimo definido.
-          </p>
-        </div>
-      </div>
+      <KpiCards data={data} />
 
       <div className="mb-4 space-y-2">
         <div className="flex items-center gap-4">
@@ -103,19 +86,23 @@ export function DataTable({
             />
           </div>
 
-          <select
-            className="h-8 rounded-lg border border-input bg-background px-3 text-sm"
+          <Select
             value={
-              (table.getColumn("estado")?.getFilterValue() as string) ?? ""
+              (table.getColumn("estado")?.getFilterValue() as string) ?? "all"
             }
-            onChange={(event) =>
-              table.getColumn("estado")?.setFilterValue(event.target.value)
+            onValueChange={(value) =>
+              table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
             }
           >
-            <option value="">Todos</option>
-            <option value="activo">Activos</option>
-            <option value="inactivo">Inactivos</option>
-          </select>
+            <SelectTrigger className="h-8 w-32 border border-slate-200">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="activo">Activos</SelectItem>
+              <SelectItem value="inactivo">Inactivos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <p className="mt-2 text-sm text-muted-foreground">

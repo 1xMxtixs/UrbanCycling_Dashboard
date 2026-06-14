@@ -16,13 +16,21 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
     .filter((o) => {
       const isCompleted = ["Listo para entregar", "Entregado"].includes(o.estadoOrden)
       if (isCompleted) return false
-      const dEstimada = new Date(o.fechaEntregaEstimada)
+      const rawDate = new Date(o.fechaEntregaEstimada)
+      const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())
       return dEstimada <= limit
     })
-    .sort((a, b) => new Date(a.fechaEntregaEstimada).getTime() - new Date(b.fechaEntregaEstimada).getTime())
+    .sort((a, b) => {
+      const rawA = new Date(a.fechaEntregaEstimada)
+      const rawB = new Date(b.fechaEntregaEstimada)
+      const dateA = new Date(rawA.getUTCFullYear(), rawA.getUTCMonth(), rawA.getUTCDate())
+      const dateB = new Date(rawB.getUTCFullYear(), rawB.getUTCMonth(), rawB.getUTCDate())
+      return dateA.getTime() - dateB.getTime()
+    })
 
   const getUrgencyDetails = (date: Date | string) => {
-    const dEstimada = new Date(date)
+    const rawDate = new Date(date)
+    const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())
     const diffMs = dEstimada.getTime() - now.getTime()
     const diffHours = Math.round(diffMs / (1000 * 60 * 60))
 
@@ -81,6 +89,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
             month: "short",
             hour: "2-digit",
             minute: "2-digit",
+            timeZone: "UTC",
           })
 
           const clientName = order.cliente

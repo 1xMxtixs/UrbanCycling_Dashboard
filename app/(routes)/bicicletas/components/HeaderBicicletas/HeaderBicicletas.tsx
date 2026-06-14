@@ -11,6 +11,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
 
@@ -118,7 +125,7 @@ export function HeaderBicicletas() {
           }}
         >
           <DialogTrigger asChild>
-            <Button>+ Nueva bicicleta</Button>
+            <Button className="py-5 font-semibold">+ Nueva bicicleta</Button>
           </DialogTrigger>
 
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl animate-in fade-in duration-300">
@@ -142,29 +149,39 @@ export function HeaderBicicletas() {
                   </p>
                 </div>
 
-                <select
-                  value={selectedOrdenId}
-                  onChange={(event) => setSelectedOrdenId(event.target.value)}
+                <Select
+                  value={selectedOrdenId || "none"}
+                  onValueChange={(val) => setSelectedOrdenId(val === "none" ? "" : val)}
                   disabled={cargandoOrdenes}
-                  className="h-10 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-72"
                 >
-                  <option value="">
-                    {cargandoOrdenes
-                      ? "Cargando ordenes..."
-                      : "Selecciona una orden"}
-                  </option>
-                  {ordenes.map((orden) => (
-                    <option
-                      key={orden.idOrdenDeTrabajo}
-                      value={orden.idOrdenDeTrabajo}
-                    >
-                      Orden #{orden.idOrdenDeTrabajo} -{" "}
-                      {getNombreCliente(orden.cliente)}
-                      {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
-                      {orden.estadoOrden}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-10 min-w-0 sm:w-72">
+                    <SelectValue
+                      placeholder={
+                        cargandoOrdenes
+                          ? "Cargando ordenes..."
+                          : "Selecciona una orden"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="none">
+                      {cargandoOrdenes
+                        ? "Cargando ordenes..."
+                        : "Selecciona una orden"}
+                    </SelectItem>
+                    {ordenes.map((orden) => (
+                      <SelectItem
+                        key={orden.idOrdenDeTrabajo}
+                        value={String(orden.idOrdenDeTrabajo)}
+                      >
+                        Orden #{orden.idOrdenDeTrabajo} -{" "}
+                        {getNombreCliente(orden.cliente)}
+                        {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
+                        {orden.estadoOrden}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {errorOrdenes && (

@@ -4,6 +4,8 @@ import {
     Building2,
     Package,
     PanelsTopLeft,
+    ShoppingBag,
+    Store,
     UserCog,
     Users,
     Wrench
@@ -22,9 +24,9 @@ export const dataGeneralSidebar = [
 
 export const dataOperationSidebar = [
     {
-        icon: Wrench,
-        label: "Órdenes de Trabajo",
-        href: "/ordenes-trabajo",
+        icon: Store,
+        label: "Punto de Venta",
+        href: "/punto-ventas",
         permission: PERMISSIONS.WORK_ORDERS_READ
     },
     {

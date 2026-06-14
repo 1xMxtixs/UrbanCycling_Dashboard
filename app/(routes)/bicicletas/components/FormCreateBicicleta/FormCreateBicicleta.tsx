@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ImageIcon, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,31 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Tipo de archivo no permitido. Solo JPG, PNG, WEBP, GIF.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("La imagen supera el tamaño máximo de 5 MB.");
+      return;
+    }
+
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -115,8 +141,7 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
       setOpenModalCreate(false);
       onSuccess();
       form.reset();
-      setSelectedImage(null);
-      setImagePreview(null);
+      handleRemoveImage();
     } catch (error) {
       console.error(error);
       toast.error(
@@ -174,35 +199,6 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           )}
         />
 
-        <div>
-          <FormLabel>Imagen (opcional)</FormLabel>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="mt-2 w-full rounded-md border border-gray-300 p-2"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setSelectedImage(file);
-
-              if (file) {
-                setImagePreview(URL.createObjectURL(file));
-              } else {
-                setImagePreview(null);
-              }
-            }}
-          />
-          {imagePreview && (
-            <div className="mt-3 rounded-xl border bg-slate-50 p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imagePreview}
-                alt="Previsualizacion"
-                className="h-40 w-full rounded-xl object-cover"
-              />
-            </div>
-          )}
-        </div>
-
         <FormField
           control={form.control}
           name="descripcion"
@@ -220,6 +216,51 @@ export function FormCreateBicicleta(props: FormCreateBicicletaProps) {
           )}
         />
 
+        {/* ── Sección de Imagen ───────────────────────────────────── */}
+        <div className="space-y-2">
+          <FormLabel>Imagen de la bicicleta (Opcional)</FormLabel>
+
+          {imagePreview ? (
+            <div className="group relative h-32 w-32 overflow-hidden rounded-lg border border-slate-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview}
+                alt="Vista previa de la bicicleta"
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700"
+            >
+              <ImageIcon className="h-8 w-8" />
+              <span className="text-sm font-medium">
+                Haz clic para seleccionar una imagen
+              </span>
+              <span className="text-xs text-slate-400">
+                JPG, PNG, WEBP, GIF — Máx. 5 MB
+              </span>
+            </button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+        </div>
+        
         <div className="flex justify-end">
           <Button
             type="submit"

@@ -1,13 +1,11 @@
 "use client"
 
 import React from "react"
-
 import {
   ColumnDef,
   SortingState,
   flexRender,
   getCoreRowModel,
-  ColumnFilter,
   getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
@@ -33,22 +31,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { type WorkOrder } from "./kpi-cards"
 
-interface DataTableProps<TData, Tvalue> {
-  columns: ColumnDef<TData, Tvalue>[]
+interface DataTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  onViewDetails?: (id: number) => void
+  onViewDetails: (order: WorkOrder) => void
+  onStatusChange: (orderId: number, nextStatus: string) => void
+  updatingId: number | null
+  onPayClick?: (order: WorkOrder) => void
+  onGenerateReceipt?: (order: WorkOrder) => void
 }
 
-export function DataTable<TData, Tvalue>({
+export function DataTable<TData, TValue>({
   columns,
   data,
   onViewDetails,
-}: DataTableProps<TData, Tvalue>) {
+  onStatusChange,
+  updatingId,
+  onPayClick,
+  onGenerateReceipt,
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [isMounted, setIsMounted] = React.useState(false)
 
@@ -59,14 +64,17 @@ export function DataTable<TData, Tvalue>({
   const table = useReactTable({
     data,
     columns,
-
     initialState: {
-        pagination: {
-        pageSize: 15,
-        },
+      pagination: {
+        pageSize: 8,
+      },
     },
     meta: {
       onViewDetails,
+      onStatusChange,
+      updatingId,
+      onPayClick,
+      onGenerateReceipt,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -87,12 +95,12 @@ export function DataTable<TData, Tvalue>({
   }
 
   return (
-    <div className="mt-4 rounded-lg bg-background p-4 shadow-md">
+    <div className="mt-4 rounded-lg bg-background p-4 shadow-md border border-slate-100 dark:border-slate-800">
       <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
             <Input
-              placeholder="Buscar por nombre, razón social o RUT..."
+              placeholder="Buscar por ID, Cliente o Bicicleta..."
               value={globalFilter ?? ""}
               onChange={(event) => setGlobalFilter(event.target.value)}
             />
@@ -100,34 +108,39 @@ export function DataTable<TData, Tvalue>({
 
           <Select
             value={
-              (table.getColumn("estado")?.getFilterValue() as string) ?? "all"
+              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
             }
             onValueChange={(value) =>
-              table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
+              table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
             }
           >
-            <SelectTrigger className="w-44 h-10 border border-slate-200">
+            <SelectTrigger className="w-56 h-10 border border-slate-200 bg-background text-sm">
               <SelectValue placeholder="Todos los estados" />
             </SelectTrigger>
             <SelectContent position="popper">
               <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="Activo">Activos</SelectItem>
-              <SelectItem value="Inactivo">Inactivos</SelectItem>
+              <SelectItem value="por-realizar">Por realizar</SelectItem>
+              <SelectItem value="activa">Activas (En curso)</SelectItem>
+              <SelectItem value="espera">En Espera</SelectItem>
+              <SelectItem value="por-entregar">Por entregar</SelectItem>
+              <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+              <SelectItem value="retrasada">Retrasadas</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <p className="text-sm text-gray-500">
+        <p className="text-xs text-slate-500 font-semibold">
           {table.getFilteredRowModel().rows.length} resultados encontrados
         </p>
       </div>
-            <div className="rounded-md border">
+
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="font-semibold text-slate-500 dark:text-slate-400">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -150,7 +163,7 @@ export function DataTable<TData, Tvalue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No result.
+                  No se encontraron resultados.
                 </TableCell>
               </TableRow>
             )}
@@ -165,7 +178,7 @@ export function DataTable<TData, Tvalue>({
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           variant="outline"
@@ -173,7 +186,7 @@ export function DataTable<TData, Tvalue>({
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Next
+          Siguiente
         </Button>
       </div>
     </div>
