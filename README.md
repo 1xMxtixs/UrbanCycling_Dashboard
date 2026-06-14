@@ -118,11 +118,6 @@ AWS_ACCESS_KEY_ID="tu_access_key"
 AWS_SECRET_ACCESS_KEY="tu_secret_key"
 AWS_BUCKET_NAME="tu_bucket"
 ```
-
-> ⚠️ **Nunca subas el archivo `.env` al repositorio.** Está incluido en `.gitignore`.
-
----
-
 ## 🧑‍💻 Scripts Disponibles
 
 | Comando | Descripción |
