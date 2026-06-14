@@ -2,8 +2,10 @@
 import {
     Bike,
     Building2,
+    FileText,
     Package,
     PanelsTopLeft,
+    Receipt,
     ShoppingBag,
     Store,
     UserCog,
@@ -51,7 +53,7 @@ export const dataManagementSidebar = [
         permission: PERMISSIONS.BICYCLES_READ
     },
      {
-        icon: Building2,
+        icon: FileText,
         label: "Historial de Boletas",
         href: "/historial-boletas",
         permission: PERMISSIONS.REPORTS_READ
