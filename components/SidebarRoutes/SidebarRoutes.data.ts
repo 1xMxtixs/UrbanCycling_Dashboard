@@ -48,6 +48,12 @@ export const dataManagementSidebar = [
         href: "/bicicletas",
         permission: PERMISSIONS.BICYCLES_READ
     },
+     {
+        icon: Building2,
+        label: "Historial de Boletas",
+        href: "/historial-boletas",
+        permission: PERMISSIONS.REPORTS_READ
+    },
 ]
 
 export const dataAdministrationSidebar = [
