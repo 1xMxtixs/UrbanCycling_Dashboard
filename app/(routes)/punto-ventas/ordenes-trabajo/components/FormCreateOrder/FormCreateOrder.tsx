@@ -20,6 +20,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Client {
   idCliente: number
@@ -51,6 +58,8 @@ interface BikeInput {
   color: string
   descripcion: string
   imagenUrl: string
+  imageFile?: File | null
+  imagePreview?: string | null
   isUploading: boolean
   isCollapsed: boolean
 }
@@ -75,6 +84,10 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [descripcion, setDescripcion] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const [estadoPago, setEstadoPago] = useState<string>("pendiente")
+  const [metodoPago, setMetodoPago] = useState<string>("efectivo")
+  const [montoAbono, setMontoAbono] = useState<number>(0)
+
   const [bikes, setBikes] = useState<BikeInput[]>([
     {
       marca: "",
@@ -82,6 +95,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       color: "",
       descripcion: "",
       imagenUrl: "",
+      imageFile: null,
+      imagePreview: null,
       isUploading: false,
       isCollapsed: false,
     },
@@ -134,6 +149,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           color: "",
           descripcion: "",
           imagenUrl: "",
+          imageFile: null,
+          imagePreview: null,
           isUploading: false,
           isCollapsed: false,
         },
@@ -165,7 +182,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setBikes(updated)
   }
 
-  const handleBikeImageChange = async (
+  const handleBikeImageChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -182,34 +199,25 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       return
     }
 
-    handleUpdateBikeField(index, "isUploading", true)
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!res.ok) {
-        throw new Error("Error al subir imagen")
-      }
-
-      const data = await res.json()
-      handleUpdateBikeField(index, "imagenUrl", data.url)
-      toast.success("Imagen subida correctamente")
-    } catch (err) {
-      console.error(err)
-      toast.error("Error al subir la imagen")
-    } finally {
-      handleUpdateBikeField(index, "isUploading", false)
+    const previewUrl = URL.createObjectURL(file)
+    const updated = [...bikes]
+    updated[index] = {
+      ...updated[index],
+      imageFile: file,
+      imagePreview: previewUrl,
     }
+    setBikes(updated)
   }
 
   const handleRemoveBikeImage = (index: number) => {
-    handleUpdateBikeField(index, "imagenUrl", "")
+    const updated = [...bikes]
+    updated[index] = {
+      ...updated[index],
+      imageFile: null,
+      imagePreview: null,
+      imagenUrl: "",
+    }
+    setBikes(updated)
   }
 
   const handleAddProduct = () => {
@@ -283,9 +291,41 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       return
     }
 
+    if (estadoPago === "abono" && (montoAbono <= 0 || montoAbono >= grandTotal)) {
+      toast.error(`El abono debe ser mayor a 0 y menor al total de la orden ($${grandTotal.toLocaleString("es-CL")}).`)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
+      // 1. Upload any pending bike images
+      const bikesData = await Promise.all(
+        bikes.map(async (b, idx) => {
+          let finalImageUrl = b.imagenUrl || null
+          if (b.imageFile) {
+            const formData = new FormData()
+            formData.append("file", b.imageFile)
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            })
+            if (!res.ok) {
+              throw new Error(`Error al subir la imagen de la bicicleta #${idx + 1}`)
+            }
+            const data = await res.json()
+            finalImageUrl = data.url
+          }
+          return {
+            marca: b.marca.trim(),
+            modelo: b.modelo.trim(),
+            color: b.color.trim(),
+            descripcion: b.descripcion.trim() || null,
+            imagenUrl: finalImageUrl,
+          }
+        })
+      )
+
       const response = await fetch("/api/punto-venta", {
         method: "POST",
         headers: {
@@ -294,7 +334,9 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         body: JSON.stringify({
           id_usuario: 1, 
           id_cliente: Number(selectedClientId),
-          estado_pago: "pendiente",
+          estado_pago: estadoPago,
+          metodo_pago: estadoPago === "pendiente" ? null : metodoPago,
+          monto_pagado: estadoPago === "pagada" ? grandTotal : (estadoPago === "abono" ? montoAbono : 0),
           descuento: 0,
           ordenTrabajo: {
             fechaEntregaEstimada: new Date(fechaEntrega).toISOString(),
@@ -306,13 +348,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
               cantidad: p.cantidad,
               precioUnitario: p.precioUnitario,
             })),
-            bicicletas: bikes.map((b) => ({
-              marca: b.marca.trim(),
-              modelo: b.modelo.trim(),
-              color: b.color.trim(),
-              descripcion: b.descripcion.trim() || null,
-              imagenUrl: b.imagenUrl || null,
-            })),
+            bicicletas: bikesData,
           },
         }),
       })
@@ -355,25 +391,26 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                 Cargando clientes...
               </div>
             ) : (
-              <select
-                id="cliente"
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                required
-              >
-                <option value="">-- Selecciona un Cliente --</option>
+            <Select
+              value={selectedClientId || undefined}
+              onValueChange={setSelectedClientId}
+            >
+              <SelectTrigger className="w-full h-10 border border-slate-200 bg-background text-sm">
+                <SelectValue placeholder="-- Selecciona un Cliente --" />
+              </SelectTrigger>
+              <SelectContent position="popper">
                 {clients.map((c) => {
                   const label = c.razonSocial
                     ? `${c.razonSocial} (${c.rut})`
                     : `${c.primerNombre} ${c.apellidoPaterno || ""} (${c.rut})`.trim()
                   return (
-                    <option key={c.idCliente} value={c.idCliente}>
+                    <SelectItem key={c.idCliente} value={String(c.idCliente)}>
                       {label}
-                    </option>
+                    </SelectItem>
                   )
                 })}
-              </select>
+              </SelectContent>
+            </Select>
             )}
           </div>
 
@@ -577,11 +614,11 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                         Foto de la Bicicleta (Opcional)
                       </Label>
 
-                      {bike.imagenUrl ? (
+                      {bike.imagePreview || bike.imagenUrl ? (
                         <div className="group relative h-40 w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={bike.imagenUrl}
+                            src={bike.imagePreview || bike.imagenUrl}
                             alt={`Bicicleta #${idx + 1}`}
                             className="h-full w-full object-contain"
                           />
@@ -599,7 +636,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                             htmlFor={`bike-file-${idx}`}
                             className="flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 hover:bg-slate-100/50 dark:bg-slate-950/20 dark:hover:bg-slate-900/30 transition-all text-slate-500"
                           >
-                            {bike.isUploading ? (
+                            {isSubmitting ? (
                               <>
                                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                 <span className="text-xs font-medium">Subiendo foto...</span>
@@ -618,7 +655,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                             accept="image/*"
                             onChange={(e) => handleBikeImageChange(idx, e)}
                             className="hidden"
-                            disabled={bike.isUploading}
+                            disabled={isSubmitting}
                           />
                         </div>
                       )}
@@ -673,19 +710,21 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                 >
                   {/* Select Product */}
                   <div className="flex-1 min-w-50">
-                    <select
-                      value={selProd.idProducto}
-                      onChange={(e) => handleProductChange(idx, e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      required
+                    <Select
+                      value={selProd.idProducto || undefined}
+                      onValueChange={(val) => handleProductChange(idx, val)}
                     >
-                      <option value="">-- Selecciona un Producto --</option>
-                      {products.map((p) => (
-                        <option key={p.idProducto} value={p.idProducto}>
-                          {p.nombre} (${Number(p.precioVenta).toLocaleString("es-CL")})
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-9 w-full text-xs bg-background border border-slate-200">
+                        <SelectValue placeholder="-- Selecciona un Producto --" />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {products.map((p) => (
+                          <SelectItem key={p.idProducto} value={String(p.idProducto)}>
+                            {p.nombre} (${Number(p.precioVenta).toLocaleString("es-CL")})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Quantity Input */}
@@ -739,47 +778,116 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           </Button>
         </div>
         {/* Summary calculations displays */}
-        <div className="grid gap-4 border-t border-slate-200/50 dark:border-slate-800 pt-4 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-              Total Repuestos
-            </Label>
-            <Input
-              type="text"
-              readOnly
-              disabled
-              value={`$${totalProductsCost.toLocaleString("es-CL")}`}
-              className="bg-slate-100/50 dark:bg-slate-800/50 font-semibold cursor-not-allowed"
-            />
-          </div>
+        <div className="flex justify-end border-t border-slate-200/50 dark:border-slate-800 pt-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 w-full sm:max-w-xl">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                Total Repuesto
+              </Label>
+              <Input
+                type="text"
+                readOnly
+                disabled
+                value={`$${totalProductsCost.toLocaleString("es-CL")}`}
+                className="bg-slate-100/50 dark:bg-slate-800/50 font-semibold cursor-not-allowed text-right"
+              />
+            </div>
 
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-              Monto Servicio (Mano de Obra)
-            </Label>
-            <Input
-              type="text"
-              readOnly
-              disabled
-              value={`$${montoServicio.toLocaleString("es-CL")}`}
-              className="bg-slate-100/50 dark:bg-slate-800/50 font-semibold cursor-not-allowed"
-            />
-          </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                Monto Servicio
+              </Label>
+              <Input
+                type="text"
+                readOnly
+                disabled
+                value={`$${montoServicio.toLocaleString("es-CL")}`}
+                className="bg-slate-100/50 dark:bg-slate-800/50 font-semibold cursor-not-allowed text-right"
+              />
+            </div>
 
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase font-bold text-primary tracking-wider">
-              Monto Total (Total General)
-            </Label>
-            <Input
-              type="text"
-              readOnly
-              disabled
-              value={`$${grandTotal.toLocaleString("es-CL")}`}
-              className="border-primary/30 bg-primary/5 dark:bg-primary/10 font-black text-primary cursor-not-allowed"
-            />
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase font-bold text-primary tracking-wider">
+                Monto Total
+              </Label>
+              <Input
+                type="text"
+                readOnly
+                disabled
+                value={`$${grandTotal.toLocaleString("es-CL")}`}
+                className="border-primary/30 bg-primary/5 dark:bg-primary/10 font-black text-primary cursor-not-allowed text-right"
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── Sección de Información de Pago ────────────────────── */}
+      <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-850 dark:text-slate-200 border-b border-slate-200/50 dark:border-slate-800 pb-2">
+          <DollarSign className="h-4.5 w-4.5 text-primary" />
+          Información del Pago Inicial
+        </h3>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Tipo de Pago / Estado Pago */}
+          <div className="space-y-1.5">
+            <Label htmlFor="estadoPago" className="text-xs font-semibold text-slate-650 dark:text-slate-400">
+              Tipo de Pago Inicial
+            </Label>
+            <Select value={estadoPago} onValueChange={setEstadoPago}>
+              <SelectTrigger className="w-full h-10 border border-slate-200 bg-background text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="pendiente">Pendiente (Sin Pago Inicial)</SelectItem>
+                <SelectItem value="abono">Abono (Pago Parcial)</SelectItem>
+                <SelectItem value="pagada">Pago Total (${grandTotal.toLocaleString("es-CL")})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Método de Pago */}
+          {estadoPago !== "pendiente" && (
+            <div className="space-y-1.5 animate-in fade-in duration-200">
+              <Label htmlFor="metodoPago" className="text-xs font-semibold text-slate-650 dark:text-slate-400">
+                Método de Pago
+              </Label>
+              <Select value={metodoPago} onValueChange={setMetodoPago}>
+                <SelectTrigger className="w-full h-10 border border-slate-200 bg-background text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="efectivo">Efectivo</SelectItem>
+                  <SelectItem value="transferencia">Transferencia</SelectItem>
+                  <SelectItem value="debito">Tarjeta de Débito</SelectItem>
+                  <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Monto del Abono */}
+          {estadoPago === "abono" && (
+            <div className="space-y-1.5 animate-in fade-in duration-200">
+              <Label htmlFor="montoAbono" className="text-xs font-semibold text-slate-650 dark:text-slate-400">
+                Monto del Abono
+              </Label>
+              <Input
+                id="montoAbono"
+                type="number"
+                min={1}
+                max={grandTotal - 1}
+                value={montoAbono || ""}
+                onChange={(e) => setMontoAbono(Math.max(0, Number(e.target.value)))}
+                placeholder="Monto en CLP"
+                required
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-4">
         <Button
           type="button"

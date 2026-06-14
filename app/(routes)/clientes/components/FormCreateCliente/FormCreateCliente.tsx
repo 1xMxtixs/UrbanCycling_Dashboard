@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FormCreateClienteProps {
   onSuccess: () => void;
@@ -108,19 +115,18 @@ export function FormCreateCliente({
           Tipo de Cliente:
         </label>
 
-        <select
-          className="w-full rounded-md p-2 border border-gray-300"
+        <Select
           value={tipoCliente}
-          onChange={(e) => setTipoCliente(e.target.value)}
+          onValueChange={setTipoCliente}
         >
-          <option value="natural">
-            Persona Natural
-          </option>
-
-          <option value="juridica">
-            Persona Jurídica
-          </option>
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecciona el tipo de cliente" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="natural">Persona Natural</SelectItem>
+            <SelectItem value="juridica">Persona Jurídica</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {tipoCliente === "natural" && (

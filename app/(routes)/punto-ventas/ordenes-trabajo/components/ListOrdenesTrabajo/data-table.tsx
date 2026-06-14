@@ -24,6 +24,13 @@ import {
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { type WorkOrder } from "./kpi-cards"
 
 interface DataTableProps<TData, TValue> {
@@ -32,6 +39,8 @@ interface DataTableProps<TData, TValue> {
   onViewDetails: (order: WorkOrder) => void
   onStatusChange: (orderId: number, nextStatus: string) => void
   updatingId: number | null
+  onPayClick?: (order: WorkOrder) => void
+  onGenerateReceipt?: (order: WorkOrder) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -40,6 +49,8 @@ export function DataTable<TData, TValue>({
   onViewDetails,
   onStatusChange,
   updatingId,
+  onPayClick,
+  onGenerateReceipt,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -62,6 +73,8 @@ export function DataTable<TData, TValue>({
       onViewDetails,
       onStatusChange,
       updatingId,
+      onPayClick,
+      onGenerateReceipt,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -93,22 +106,27 @@ export function DataTable<TData, TValue>({
             />
           </div>
 
-          <select
-            className="border rounded-md px-3 py-2 h-10 bg-background text-sm cursor-pointer border-slate-200 focus:outline-none focus:ring-2 focus:ring-black transition-all"
+          <Select
             value={
-              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? ""
+              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
             }
-            onChange={(event) =>
-              table.getColumn("estadoOrden")?.setFilterValue(event.target.value)
+            onValueChange={(value) =>
+              table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
             }
           >
-            <option value="">Todos los estados</option>
-            <option value="por-realizar">Por realizar</option>
-            <option value="activa">Activas (En curso)</option>
-            <option value="espera">En Espera</option>
-            <option value="completada">Completadas</option>
-            <option value="retrasada">Retrasadas</option>
-          </select>
+            <SelectTrigger className="w-56 h-10 border border-slate-200 bg-background text-sm">
+              <SelectValue placeholder="Todos los estados" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="por-realizar">Por realizar</SelectItem>
+              <SelectItem value="activa">Activas (En curso)</SelectItem>
+              <SelectItem value="espera">En Espera</SelectItem>
+              <SelectItem value="por-entregar">Por entregar</SelectItem>
+              <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+              <SelectItem value="retrasada">Retrasadas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <p className="text-xs text-slate-500 font-semibold">

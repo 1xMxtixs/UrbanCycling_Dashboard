@@ -11,7 +11,8 @@ import {
   Clock, 
   Wrench,
   ChevronDown,
-  ShoppingBag
+  ShoppingBag,
+  Coins
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,13 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { KpiCards, type WorkOrder } from "./kpi-cards"
 import { UpcomingDeadlines } from "./upcoming-deadlines"
@@ -47,6 +55,24 @@ function getAvailableTransitions(currentStatus: string) {
   return map[currentStatus] || []
 }
 
+function formatDocDate(dateInput: any) {
+  if (!dateInput) return "";
+  let dateStr = "";
+  if (typeof dateInput === "string") {
+    dateStr = dateInput;
+  } else if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, "0");
+    const month = String(dateInput.getMonth() + 1).padStart(2, "0");
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  } else {
+    dateStr = new Date(dateInput).toISOString();
+  }
+  const datePart = dateStr.split("T")[0];
+  const parts = datePart.split("-");
+  return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+}
+
 export function ListOrdenesTrabajo() {
   const router = useRouter()
   const [orders, setOrders] = useState<WorkOrder[]>([])
@@ -55,6 +81,14 @@ export function ListOrdenesTrabajo() {
 
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
   const [openDetailsModal, setOpenDetailsModal] = useState(false)
+
+  const [payModalOpen, setPayModalOpen] = useState(false)
+  const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
+  const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false)
+  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
   const getOrders = async () => {
     try {
@@ -130,15 +164,192 @@ export function ListOrdenesTrabajo() {
     }
   }
 
+  const handlePayClick = (order: WorkOrder) => {
+    setOrderToPay(order)
+    setSelectedMetodoPago("efectivo")
+    setPayModalOpen(true)
+  }
+
+  const handleConfirmPayment = async () => {
+    if (!orderToPay) return
+    setIsConfirmingPayment(true)
+    const saldoPendiente = Math.max(0, Number(orderToPay.total) - Number(orderToPay.totalPagado || 0))
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          estadoPago: "pagada",
+          metodoPago: selectedMetodoPago,
+          monto: saldoPendiente,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message || "Error al registrar pago restante")
+      }
+
+      toast.success("Pago registrado correctamente. Orden saldada.")
+      setPayModalOpen(false)
+      setOpenDetailsModal(false)
+      getOrders()
+      router.refresh()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "No se pudo registrar el pago restante")
+    } finally {
+      setIsConfirmingPayment(false)
+    }
+  }
+
   const handleViewDetails = (order: WorkOrder) => {
     setSelectedOrder(order)
     setOpenDetailsModal(true)
   }
 
+  const handleGenerateReceipt = async (order: WorkOrder) => {
+    setIsGeneratingReceipt(true)
+    try {
+      const res = await fetch("/api/documentos-tributarios", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          origen: "orden-trabajo",
+          idOrdenDeTrabajo: order.idOrdenDeTrabajo,
+          tipoDte: 39,
+        }),
+      })
+
+      if (res.status === 201 || res.status === 409) {
+        const data = await res.json()
+        setActiveReceipt(data.documentoTributario)
+        setSelectedOrder(order)
+        setReceiptModalOpen(true)
+      } else {
+        const errorData = await res.json()
+        throw new Error(errorData.message || "Error al generar la boleta")
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "No se pudo generar la boleta.")
+    } finally {
+      setIsGeneratingReceipt(false)
+    }
+  }
+
+  const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
+    const printWindow = window.open("", "_blank", "width=400,height=600")
+    if (!printWindow) {
+      toast.error("Por favor, permite las ventanas emergentes para imprimir.")
+      return
+    }
+
+    const clientLabel = order?.cliente
+      ? order.cliente.razonSocial
+        ? order.cliente.razonSocial
+        : `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
+      : "Cliente General"
+
+    const lineas = order?.lineasDeOrdenDeTrabajo || []
+
+    const content = `
+      <html>
+        <head>
+          <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
+          <style>
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              padding: 20px;
+              max-width: 300px;
+              margin: 0 auto;
+              font-size: 12px;
+              color: #000;
+              line-height: 1.4;
+            }
+            .text-center { text-align: center; }
+            .bold { font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 10px 0; }
+            .flex { display: flex; justify-content: space-between; }
+            .header-title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+            .receipt-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; }
+            .footer { font-size: 10px; margin-top: 25px; text-align: center; color: #555; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center header-title">URBAN CYCLING</div>
+          <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
+          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
+          <div class="divider"></div>
+          
+          <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
+          <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
+          <div class="divider"></div>
+          
+          <div>Fecha Emisión: ${formatDocDate(dte.fechaEmision)}</div>
+          <div>Cliente: ${clientLabel}</div>
+          ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
+          <div class="divider"></div>
+          
+          <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
+          ${lineas.map((line: any) => `
+            <div class="flex">
+              <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto"}</span>
+              <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
+            </div>
+          `).join("")}
+          
+          <div class="divider"></div>
+          
+          <div class="flex">
+            <span>Neto:</span>
+            <span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span>
+          </div>
+          <div class="flex">
+            <span>IVA (19%):</span>
+            <span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span>
+          </div>
+          <div class="flex bold" style="font-size: 13px; margin-top: 5px;">
+            <span>TOTAL:</span>
+            <span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span>
+          </div>
+          
+          <div class="divider"></div>
+          <div class="footer">
+            ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>
+            ¡Gracias por su preferencia en Urban Cycling!
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `
+
+    printWindow.document.write(content)
+    printWindow.document.close()
+  }
+
   const renderStatusBadge = (order: WorkOrder) => {
-    const isCompleted = ["Listo para entregar", "Entregado"].includes(order.estadoOrden)
+    const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(order.estadoOrden)
     const dEstimada = new Date(order.fechaEntregaEstimada)
-    const isDelayed = dEstimada < new Date() && !isCompleted
+    const localEndDay = new Date(
+      dEstimada.getUTCFullYear(),
+      dEstimada.getUTCMonth(),
+      dEstimada.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
+    const isDelayed = localEndDay < new Date() && !isFullyCompleted
     
     if (isDelayed) {
       return (
@@ -169,6 +380,11 @@ export function ListOrdenesTrabajo() {
           </span>
         )
       case "Listo para entregar":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider">
+            Por Entregar
+          </span>
+        )
       case "Entregado":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider">
@@ -205,6 +421,8 @@ export function ListOrdenesTrabajo() {
         onViewDetails={handleViewDetails}
         onStatusChange={handleStatusChange}
         updatingId={updatingId}
+        onPayClick={handlePayClick}
+        onGenerateReceipt={handleGenerateReceipt}
       />
 
       {/* 3. Sección Inferior: Próximos Vencimientos */}
@@ -277,32 +495,35 @@ export function ListOrdenesTrabajo() {
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div>
                         <span className="text-xs text-muted-foreground block">Fecha Recepción</span>
-                        <span className="font-semibold text-slate-805 dark:text-slate-250">
-                          {new Date(selectedOrder.fechaRecepcion).toLocaleDateString("es-ES", {
+                        <span className="font-semibold text-slate-850 dark:text-slate-250">
+                          {new Date(selectedOrder.fechaRecepcion || selectedOrder.fechaCreacion || "").toLocaleDateString("es-ES", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
+                            timeZone: "UTC",
                           })}
                         </span>
                       </div>
                       <div>
                         <span className="text-xs text-muted-foreground block">Fecha Entrega Estimada</span>
-                        <span className="font-semibold text-slate-805 dark:text-slate-250">
+                        <span className="font-semibold text-slate-850 dark:text-slate-250">
                           {new Date(selectedOrder.fechaEntregaEstimada).toLocaleDateString("es-ES", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
+                            timeZone: "UTC",
                           })}
                         </span>
                       </div>
                       <div>
                         <span className="text-xs text-muted-foreground block">Fecha Entrega Real</span>
-                        <span className="font-semibold text-slate-805 dark:text-slate-250">
+                        <span className="font-semibold text-slate-850 dark:text-slate-250">
                           {selectedOrder.fechaEntregaReal
                             ? new Date(selectedOrder.fechaEntregaReal).toLocaleDateString("es-ES", {
                                 day: "2-digit",
                                 month: "short",
                                 year: "numeric",
+                                timeZone: "UTC",
                               })
                             : "Pendiente de finalizar"}
                         </span>
@@ -407,6 +628,63 @@ export function ListOrdenesTrabajo() {
                     </div>
                   </div>
 
+                  {/* 3.6. Historial de Pagos */}
+                  <div className="space-y-2 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-850 p-4">
+                    <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                      <Coins className="h-4 w-4 text-primary" />
+                      Estado de Pago e Historial
+                    </h4>
+                    <div className="grid gap-4 sm:grid-cols-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block text-[10px] uppercase font-bold mb-0.5">Estado de Pago</span>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
+                          selectedOrder.estadoPago?.toLowerCase() === "pagada" || selectedOrder.estadoPago?.toLowerCase() === "pagado"
+                            ? "bg-green-55 border border-green-200 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400"
+                            : selectedOrder.estadoPago?.toLowerCase() === "abono"
+                              ? "bg-blue-55 border border-blue-200 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400"
+                              : "bg-yellow-50 border border-yellow-250 text-yellow-750 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-450"
+                        }`}>
+                          {selectedOrder.estadoPago?.toLowerCase() === "pagada" || selectedOrder.estadoPago?.toLowerCase() === "pagado" ? "Pagada" : selectedOrder.estadoPago}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px] uppercase font-bold mb-0.5">Saldo Restante</span>
+                        <span className={`font-bold text-sm ${
+                          (selectedOrder.estadoPago?.toLowerCase() === "pagada" || selectedOrder.estadoPago?.toLowerCase() === "pagado")
+                            ? "text-green-600 dark:text-green-400"
+                            : (Number(selectedOrder.total) - Number(selectedOrder.totalPagado || 0)) > 0
+                              ? "text-red-500"
+                              : "text-green-600 dark:text-green-400"
+                        }`}>
+                          $
+                          {(selectedOrder.estadoPago?.toLowerCase() === "pagada" || selectedOrder.estadoPago?.toLowerCase() === "pagado"
+                            ? 0
+                            : Math.max(0, Number(selectedOrder.total) - Number(selectedOrder.totalPagado || 0))
+                          ).toLocaleString("es-CL")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedOrder.pagos && selectedOrder.pagos.length > 0 ? (
+                      <div className="mt-3 space-y-1.5 border-t border-dashed border-slate-200 dark:border-slate-800 pt-2 font-mono">
+                        <span className="text-[10px] text-muted-foreground font-sans uppercase font-bold block mb-1">Pagos Registrados:</span>
+                        {selectedOrder.pagos.map((pago: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-800">
+                            <div className="space-y-0.5">
+                              <span className="font-semibold block capitalize font-sans">Pago #{idx + 1} ({pago.metodoPago})</span>
+                              <span className="text-[10px] text-muted-foreground">{new Date(pago.fechaRegistro).toLocaleString("es-CL")}</span>
+                            </div>
+                            <span className="font-bold text-green-600 dark:text-green-400">
+                              +${Number(pago.monto).toLocaleString("es-CL")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic mt-2">No se registran pagos para esta orden.</p>
+                    )}
+                  </div>
+
                   {/* 4. Bicicletas */}
                   <div className="space-y-3">
                     <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
@@ -453,37 +731,228 @@ export function ListOrdenesTrabajo() {
                 </div>
 
                 {/* Acciones en el pie del Modal */}
-                <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                  <Button variant="outline" onClick={() => setOpenDetailsModal(false)}>
-                    Cerrar
-                  </Button>
-                  {getAvailableTransitions(selectedOrder.estadoOrden).length > 0 && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button className="flex items-center gap-1">
-                          Mover Estado
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        {getAvailableTransitions(selectedOrder.estadoOrden).map((nextState) => (
-                          <DropdownMenuItem
-                            key={nextState}
-                            onClick={() =>
-                              handleStatusChange(selectedOrder.idOrdenDeTrabajo, nextState)
-                            }
-                            className="cursor-pointer font-semibold text-xs"
-                          >
-                            Mover a: <strong className="ml-1 text-primary">{nextState}</strong>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                <div className="flex justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                  <div>
+                    {selectedOrder.estadoPago?.toLowerCase() !== "pagada" && selectedOrder.estadoPago?.toLowerCase() !== "pagado" && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handlePayClick(selectedOrder)}
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                      >
+                        <Coins className="h-4 w-4 mr-1.5" />
+                        Registrar Pago Restante
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setOpenDetailsModal(false)}>
+                      Cerrar
+                    </Button>
+                    {getAvailableTransitions(selectedOrder.estadoOrden).length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button className="flex items-center gap-1">
+                            Mover Estado
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          {getAvailableTransitions(selectedOrder.estadoOrden).map((nextState) => (
+                            <DropdownMenuItem
+                              key={nextState}
+                              onClick={() =>
+                                handleStatusChange(selectedOrder.idOrdenDeTrabajo, nextState)
+                              }
+                              className="cursor-pointer font-semibold text-xs"
+                            >
+                              Mover a: <strong className="ml-1 text-primary">{nextState}</strong>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
               </>
             )
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmación de Pago Restante */}
+      <Dialog open={payModalOpen} onOpenChange={setPayModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-green-600 dark:text-green-400">
+              <Coins className="h-5 w-5" />
+              Confirmar Registro de Pago Restante
+            </DialogTitle>
+            <DialogDescription>
+              Seleccione el método de pago utilizado por el cliente para saldar la cuenta pendiente de la orden de trabajo.
+            </DialogDescription>
+          </DialogHeader>
+
+          {orderToPay && (() => {
+            const total = Number(orderToPay.total);
+            const totalPagado = Number(orderToPay.totalPagado || 0);
+            const saldoPendiente = Math.max(0, total - totalPagado);
+
+            return (
+              <div className="space-y-4 py-3">
+                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border p-3 text-xs space-y-2 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">ID Orden:</span>
+                    <span className="font-bold">#{orderToPay.idOrdenDeTrabajo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">Monto Total Orden:</span>
+                    <span className="font-bold">${total.toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">Monto Ya Pagado (Abonos):</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">${totalPagado.toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-dashed pt-2">
+                    <span className="text-muted-foreground font-sans">Saldo Restante a Cobrar:</span>
+                    <span className="font-bold text-red-500 text-sm">${saldoPendiente.toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="metodoPagoModal" className="text-xs font-bold text-slate-700">
+                    Método de Pago
+                  </Label>
+                  <Select
+                    value={selectedMetodoPago}
+                    onValueChange={setSelectedMetodoPago}
+                  >
+                    <SelectTrigger className="w-full border bg-background text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                      <SelectItem value="debito">Tarjeta de Débito</SelectItem>
+                      <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPayModalOpen(false)}
+                    disabled={isConfirmingPayment}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleConfirmPayment}
+                    disabled={isConfirmingPayment}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                  >
+                    {isConfirmingPayment ? (
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Procesando...
+                      </span>
+                    ) : (
+                      "Confirmar Pago Restante"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Previsualización de Boleta / Comprobante */}
+      <Dialog open={receiptModalOpen} onOpenChange={setReceiptModalOpen}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 dark:text-white">
+              Comprobante de Compra Generado
+            </DialogTitle>
+            <DialogDescription>
+              La boleta interna ha sido registrada y generada correctamente en el sistema.
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeReceipt && (
+            <div className="space-y-4 py-3">
+              {/* Ticket Físico Preview */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-inner text-xs font-mono text-slate-800 dark:text-slate-200 max-w-xs mx-auto space-y-4">
+                <div className="text-center space-y-1">
+                  <h4 className="font-sans font-black text-sm tracking-tight text-slate-900 dark:text-white">URBAN CYCLING</h4>
+                  <p className="text-[10px] text-muted-foreground font-sans">Giro: Venta y Servicio de Bicicletas</p>
+                  <p className="text-[10px] text-muted-foreground font-sans">RUT Emisor: {activeReceipt.rutEmisor}</p>
+                </div>
+                
+                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 my-2" />
+                
+                <div className="text-center">
+                  <p className="font-sans font-bold text-xs uppercase tracking-wider">Comprobante de Compra</p>
+                  <p className="font-sans font-black text-sm text-primary">Folio N° {activeReceipt.numeroFolio}</p>
+                </div>
+
+                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 my-2" />
+
+                <div className="space-y-1">
+                  <p><span className="text-muted-foreground font-sans">Fecha Emisión:</span> {formatDocDate(activeReceipt.fechaEmision)}</p>
+                  <p><span className="text-muted-foreground font-sans">Receptor:</span> {activeReceipt.rutReceptor}</p>
+                </div>
+
+                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 my-2" />
+
+                <div className="space-y-1.5 text-right">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">Monto Neto:</span>
+                    <span>${Number(activeReceipt.montoNeto).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">IVA (19%):</span>
+                    <span>${Number(activeReceipt.montoIva).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-dashed border-slate-300 dark:border-slate-700 pt-1 text-sm text-primary">
+                    <span className="font-sans">TOTAL:</span>
+                    <span>${Number(activeReceipt.montoTotal).toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 my-2" />
+
+                <div className="text-center text-[10px] text-muted-foreground font-sans leading-tight">
+                  Este documento es un comprobante interno de compra.<br />
+                  ¡Gracias por su preferencia!
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReceiptModalOpen(false)}
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handlePrintReceipt(activeReceipt, selectedOrder)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  disabled={isGeneratingReceipt}
+                >
+                  {isGeneratingReceipt ? "Imprimiendo..." : "Imprimir Comprobante"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

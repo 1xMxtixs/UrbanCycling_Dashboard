@@ -1,12 +1,13 @@
 "use client"
 
-import { Play, Pause, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Play, Pause, CheckCircle2, AlertTriangle, PackageCheck } from "lucide-react"
 
 export interface WorkOrder {
   idOrdenDeTrabajo: number
   idUsuario: number
   idCliente: number
   fechaRecepcion: string | Date
+  fechaCreacion?: string | Date
   fechaEntregaEstimada: string | Date
   fechaEntregaReal: string | Date | null
   observacionesIngreso: string | null
@@ -14,6 +15,15 @@ export interface WorkOrder {
   descuento: number
   estadoPago: string
   estadoOrden: string
+  totalPagado?: number
+  pagos?: Array<{
+    idPago: number
+    fechaRegistro: string
+    estado: string
+    metodoPago: string
+    monto: number | string
+    tipoAbono: string
+  }>
   cliente?: {
     idCliente: number
     tipoCliente: string
@@ -69,23 +79,28 @@ export function KpiCards({ orders }: KpiCardsProps) {
     (o) => o.estadoOrden === "En espera"
   ).length
 
-  // 3. Completadas Hoy
+  // 3. Completadas Hoy (solo Entregado)
   const completedTodayCount = orders.filter((o) => {
     if (!o.fechaEntregaReal) return false
     const dReal = new Date(o.fechaEntregaReal)
     return (
-      ["Listo para entregar", "Entregado"].includes(o.estadoOrden) &&
+      o.estadoOrden === "Entregado" &&
       dReal.getDate() === now.getDate() &&
       dReal.getMonth() === now.getMonth() &&
       dReal.getFullYear() === now.getFullYear()
     )
   }).length
 
-  // 4. Retrasadas (Estimado pasado y no completado)
+  // 4. Por Entregar (Listo para entregar)
+  const readyToDeliverCount = orders.filter(
+    (o) => o.estadoOrden === "Listo para entregar"
+  ).length
+
+  // 5. Retrasadas (Estimado pasado y no completado)
   const delayedOrdersCount = orders.filter((o) => {
-    const isCompleted = ["Listo para entregar", "Entregado"].includes(o.estadoOrden)
+    const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(o.estadoOrden)
     const dEstimada = new Date(o.fechaEntregaEstimada)
-    return dEstimada < now && !isCompleted
+    return dEstimada < now && !isFullyCompleted
   }).length
 
   const kpis = [
@@ -108,9 +123,18 @@ export function KpiCards({ orders }: KpiCardsProps) {
       iconClass: "bg-yellow-500/10 text-yellow-500",
     },
     {
+      title: "Por Entregar",
+      value: readyToDeliverCount,
+      description: "Listas para ser retiradas por el cliente",
+      icon: PackageCheck,
+      bgClass: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50",
+      textClass: "text-amber-700 dark:text-amber-400",
+      iconClass: "bg-amber-500/10 text-amber-500",
+    },
+    {
       title: "Completadas Hoy",
       value: completedTodayCount,
-      description: "Servicios finalizados el día de hoy",
+      description: "Servicios entregados el día de hoy",
       icon: CheckCircle2,
       bgClass: "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800/50",
       textClass: "text-green-700 dark:text-green-400",
@@ -129,7 +153,7 @@ export function KpiCards({ orders }: KpiCardsProps) {
   ]
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {kpis.map((kpi, idx) => {
         const Icon = kpi.icon
         return (
