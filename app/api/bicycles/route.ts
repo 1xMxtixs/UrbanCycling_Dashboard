@@ -27,7 +27,7 @@ type BicycleWithRelations = Awaited<
         apellidoMaterno: string | null
         razonSocial: string | null
         rut: string
-      }
+      } | null
     }
   }
 }

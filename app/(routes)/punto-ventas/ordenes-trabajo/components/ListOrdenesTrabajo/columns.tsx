@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,6 +29,14 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
   const meta = table.options.meta as any
   const transitions = getAvailableTransitions(order.estadoOrden)
 
+  const total = Number(order.total)
+  const totalPagado = Number(order.totalPagado || 0)
+  const isPaid =
+    order.estadoPago?.toLowerCase() === "pagada" ||
+    order.estadoPago?.toLowerCase() === "pagado" ||
+    Math.max(0, total - totalPagado) === 0
+  const saldoPendiente = isPaid ? 0 : Math.max(0, total - totalPagado)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -50,6 +58,26 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           <Eye className="h-4 w-4" />
           Ver Detalle
         </DropdownMenuItem>
+
+        {isPaid && (
+          <DropdownMenuItem
+            onClick={() => meta?.onGenerateReceipt?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-blue-600 font-semibold"
+          >
+            <FileText className="h-4 w-4" />
+            Generar Boleta
+          </DropdownMenuItem>
+        )}
+
+        {order.estadoPago?.toLowerCase() !== "pagada" && (
+          <DropdownMenuItem
+            onClick={() => meta?.onPayClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-green-600 font-semibold"
+          >
+            <Coins className="h-4 w-4" />
+            Registrar Pago
+          </DropdownMenuItem>
+        )}
 
         {transitions.length > 0 && (
           <>
@@ -152,11 +180,19 @@ export const columns: ColumnDef<WorkOrder>[] = [
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue) return true
       const order = row.original
-      const isCompleted = ["Listo para entregar", "Entregado"].includes(
-        order.estadoOrden
-      )
+      const isCompleted = ["Entregado"].includes(order.estadoOrden)
       const dEstimada = new Date(order.fechaEntregaEstimada)
-      const isDelayed = dEstimada < new Date() && !isCompleted
+      const localEndDay = new Date(
+        dEstimada.getUTCFullYear(),
+        dEstimada.getUTCMonth(),
+        dEstimada.getUTCDate(),
+        23,
+        59,
+        59,
+        999
+      )
+      const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(order.estadoOrden)
+      const isDelayed = localEndDay < new Date() && !isFullyCompleted
 
       if (filterValue === "retrasada") {
         return isDelayed
@@ -166,6 +202,8 @@ export const columns: ColumnDef<WorkOrder>[] = [
         return order.estadoOrden === "En espera"
       } else if (filterValue === "completada") {
         return isCompleted
+      } else if (filterValue === "por-entregar") {
+        return order.estadoOrden === "Listo para entregar"
       } else if (filterValue === "por-realizar") {
         return order.estadoOrden === "Por realizar"
       }
@@ -177,7 +215,16 @@ export const columns: ColumnDef<WorkOrder>[] = [
         order.estadoOrden
       )
       const dEstimada = new Date(order.fechaEntregaEstimada)
-      const isDelayed = dEstimada < new Date() && !isCompleted
+      const localEndDay = new Date(
+        dEstimada.getUTCFullYear(),
+        dEstimada.getUTCMonth(),
+        dEstimada.getUTCDate(),
+        23,
+        59,
+        59,
+        999
+      )
+      const isDelayed = localEndDay < new Date() && !isCompleted
 
       if (isDelayed) {
         return (
@@ -208,6 +255,11 @@ export const columns: ColumnDef<WorkOrder>[] = [
             </span>
           )
         case "Listo para entregar":
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              Por Entregar
+            </span>
+          )
         case "Entregado":
           return (
             <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400">
@@ -245,6 +297,7 @@ export const columns: ColumnDef<WorkOrder>[] = [
             day: "2-digit",
             month: "short",
             year: "numeric",
+            timeZone: "UTC",
           })}
         </span>
       )

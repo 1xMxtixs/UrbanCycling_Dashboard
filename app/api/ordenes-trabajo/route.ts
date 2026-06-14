@@ -175,19 +175,16 @@ function parsePositiveInteger(value: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_CREATE)
+    const { session, response } = await requirePermission(PERMISSIONS.WORK_ORDERS_CREATE)
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response || new NextResponse("No autorizado", { status: 401 })
     }
 
     const rawData = await req.json();
 
     const dataNormalizada = {
-      idUsuario: Number(
-        rawData.id_usuario ??
-        rawData.idUsuario
-      ),
+      idUsuario: session.user.idUsuario,
 
       idCliente:
         rawData.id_cliente ??
@@ -612,6 +609,15 @@ export async function GET() {
           include: {
             usuario: true,
             cliente: true,
+            ventaEnMostrador: {
+              include: {
+                asignacionesPago: {
+                  include: {
+                    pago: true,
+                  },
+                },
+              },
+            },
           },
         },
         mecanico: true,
@@ -632,9 +638,16 @@ export async function GET() {
         0
       );
 
+      const asignaciones = (orden.venta as any)?.ventaEnMostrador?.asignacionesPago ?? [];
+      const totalPagado = asignaciones.reduce(
+        (sum: number, a: any) => sum + toNumber(a.montoAsociado),
+        0
+      );
+
       return {
         ...orden,
         fechaCreacion: orden.venta.fechaRegistro,
+        fechaRecepcion: orden.venta.fechaRegistro,
         usuario: orden.venta.usuario,
         cliente: orden.venta.cliente,
         total: orden.montoTotal,
@@ -642,6 +655,15 @@ export async function GET() {
         estadoOrden: orden.estado,
         lineas: orden.lineasDeOrdenDeTrabajo,
         total_servicios: totalServicios,
+        totalPagado,
+        pagos: asignaciones.map((a: any) => ({
+          idPago: a.pago?.idPago,
+          fechaRegistro: a.pago?.fechaRegistro,
+          estado: a.pago?.estado,
+          metodoPago: a.pago?.metodoPago,
+          monto: a.pago?.monto,
+          tipoAbono: a.tipoAbono,
+        })),
       };
     });
 

@@ -60,14 +60,14 @@ function parsePositiveInteger(value: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+    const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response || new NextResponse("No autorizado", { status: 401 })
     }
 
     const data = await req.json()
-    const idUsuario = parsePositiveInteger(data.id_usuario ?? data.idUsuario)
+    const idUsuario = session.user.idUsuario
     const idCliente = parsePositiveInteger(data.id_cliente ?? data.idCliente)
     const descuento = Number(data.descuento ?? 0)
     const estadoPago = data.estado_pago ?? data.estadoPago ?? "pagado"

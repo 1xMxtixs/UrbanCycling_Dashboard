@@ -82,6 +82,12 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   }
 
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
+  
+  const asignaciones = ordenTrabajoSegura.venta?.ventaEnMostrador?.asignacionesPago ?? [];
+  const totalPagado = asignaciones.reduce(
+    (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
+    0
+  );
 
   return {
     ...ordenTrabajoSegura,
@@ -90,8 +96,18 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     estadoOrden: ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRegistro: ordenTrabajoSegura.venta?.fechaRegistro,
+    fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
     usuario: sanitizarUsuario(ordenTrabajoSegura.venta?.usuario),
     cliente: ordenTrabajoSegura.venta?.cliente,
+    totalPagado,
+    pagos: asignaciones.map((a: any) => ({
+      idPago: a.pago?.idPago,
+      fechaRegistro: a.pago?.fechaRegistro,
+      estado: a.pago?.estado,
+      metodoPago: a.pago?.metodoPago,
+      monto: a.pago?.monto,
+      tipoAbono: a.tipoAbono,
+    })),
   };
 }
 
@@ -136,6 +152,11 @@ export async function GET(
                   producto: true,
                 },
               },
+              asignacionesPago: {
+                include: {
+                  pago: true,
+                },
+              },
             },
           },
         },
@@ -167,6 +188,15 @@ export async function GET(
           include: {
             usuario: true,
             cliente: true,
+            ventaEnMostrador: {
+              include: {
+                asignacionesPago: {
+                  include: {
+                    pago: true,
+                  },
+                },
+              },
+            },
           },
         },
         mecanico: true,

@@ -457,6 +457,7 @@ export function ListClientes() {
                                   {new Date(order.fechaRecepcion).toLocaleDateString("es-ES", {
                                     day: "2-digit",
                                     month: "short",
+                                    timeZone: "UTC",
                                   })}
                                 </span>
                                 <span className="font-extrabold text-slate-900 dark:text-slate-200">
