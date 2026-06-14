@@ -1,6 +1,5 @@
 import { Logo } from "../Logo";
 import { SidebarRoutes } from "../SidebarRoutes";
-import { SidebarLogoutButton } from "./SidebarLogoutButton";
 
 export function Sidebar() {
   return (
@@ -8,7 +7,6 @@ export function Sidebar() {
         <div className="h-full flex flex-col border-r">
             <Logo />
             <SidebarRoutes />
-            <SidebarLogoutButton />
         </div>
 
     </div>

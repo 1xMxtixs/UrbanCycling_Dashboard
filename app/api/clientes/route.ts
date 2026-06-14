@@ -1,5 +1,8 @@
 //endpoints generales del inventario para registrar nuevos clientes.
 import { db } from "@/lib/db"
+import type { Prisma } from "@/generated/prisma"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 import { NextResponse } from "next/server";
 
 function formatearRut(rut: string) {
@@ -69,6 +72,12 @@ function crearCorreoRespaldo(rut: string) {
 
 export async function POST(req: Request) {
   try {
+    const { response } = await requirePermission(PERMISSIONS.CLIENTS_CREATE)
+
+    if (response) {
+      return response
+    }
+
     const data = await req.json();
     const tipoCliente = data.tipoCliente || "natural";
     const rut = data.rut;
@@ -99,7 +108,7 @@ export async function POST(req: Request) {
       });
     }
 
-    let insertData: any = {
+    let insertData: Prisma.ClienteCreateInput = {
       tipoCliente,
       rut: rutFormateado,
       correo: correo ? String(correo).trim().toLowerCase() : crearCorreoRespaldo(rutFormateado),
@@ -173,23 +182,84 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { response } = await requirePermission(PERMISSIONS.CLIENTS_READ)
+
+    if (response) {
+      return response
+    }
+
     const clientes = await db.cliente.findMany({
       orderBy: {
         fechaRegistro: "desc",
       },
       include: {
         telefonos: true,
-        correos: true,
         direcciones: true,
-        ordenesDeTrabajo: {
+        ventas: {
           orderBy: {
-            fechaCreacion: "desc",
+            fechaRegistro: "desc",
+          },
+          include: {
+            ordenDeTrabajo: true,
           },
         },
       },
     })
 
-    return NextResponse.json(clientes)
+    const clientesFormateados = clientes.map((cliente) => {
+      const ordenesDeTrabajo = cliente.ventas
+        .filter((venta) => venta.ordenDeTrabajo)
+        .map((venta) => {
+          const orden = venta.ordenDeTrabajo!
+
+          return {
+            idOrdenDeTrabajo: orden.idOrdenDeTrabajo,
+            idUsuario: venta.idUsuario,
+            idCliente: venta.idCliente,
+            fechaRecepcion: venta.fechaRegistro,
+            fechaEntregaEstimada: orden.fechaEntregaEstimada,
+            fechaEntregaReal: orden.fechaEntregaReal,
+            observacionesIngreso: orden.observacionesIngreso,
+            total: orden.montoTotal,
+            descuento: orden.descuentoGlobal,
+            estadoPago: orden.estadoPago,
+            estadoOrden: orden.estado,
+            fechaCreacion: venta.fechaRegistro,
+          }
+        })
+
+      return {
+        idCliente: cliente.idCliente,
+        tipoCliente: cliente.tipoCliente,
+        rut: cliente.rut,
+        fechaRegistro: cliente.fechaRegistro,
+        fechaCreacion: cliente.fechaRegistro,
+        estado: cliente.estado,
+        primerNombre: cliente.primerNombre,
+        segundoNombre: cliente.segundoNombre,
+        apellidoPaterno: cliente.apellidoPaterno,
+        apellidoMaterno: cliente.apellidoMaterno,
+        razonSocial: cliente.razonSocial,
+        giro: cliente.giro,
+        nombreContacto: cliente.nombreContacto,
+        correo: cliente.correo,
+        telefonos: cliente.telefonos,
+        direcciones: cliente.direcciones,
+        correos: cliente.correo
+          ? [
+              {
+                idCorreoCliente: cliente.idCliente,
+                idCliente: cliente.idCliente,
+                correo: cliente.correo,
+                descripcion: "Principal",
+              },
+            ]
+          : [],
+        ordenesDeTrabajo,
+      }
+    })
+
+    return NextResponse.json(clientesFormateados)
   } catch (error) {
     console.log("[CLIENTES_GET]", error)
     return new NextResponse("Internal Server Error", {
