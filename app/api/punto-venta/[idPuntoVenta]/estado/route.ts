@@ -90,6 +90,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     estadoOrden: ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRegistro: ordenTrabajoSegura.venta?.fechaRegistro,
+    fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
     usuario: sanitizarUsuario(ordenTrabajoSegura.venta?.usuario),
     cliente: ordenTrabajoSegura.venta?.cliente,
   };
@@ -125,6 +126,8 @@ export async function PATCH(
 
     const data = await req.json();
     const estadoPago = data.estado_pago ?? data.estadoPago;
+    const metodoPago = data.metodo_pago ?? data.metodoPago;
+    const montoPago = data.monto_pagado ?? data.montoPagado ?? data.monto;
 
     if (parsed.tipo === "venta") {
       const estadoVenta = data.estado_venta ?? data.estadoVenta ?? data.estado;
@@ -137,6 +140,42 @@ export async function PATCH(
           },
           { status: 400 }
         );
+      }
+
+      let nuevoPago = null;
+      if (estadoPago?.toLowerCase() === "pagada" && metodoPago) {
+        const ventaObj = await prisma.venta.findUnique({
+          where: { idVenta: parsed.id },
+          include: { ventaEnMostrador: true },
+        });
+
+        if (ventaObj?.ventaEnMostrador) {
+          const totalVenta = Number(ventaObj.ventaEnMostrador.montoTotal);
+
+          nuevoPago = await prisma.$transaction(async (tx: any) => {
+            const p = await tx.pago.create({
+              data: {
+                idUsuario: ventaObj.idUsuario,
+                fechaRegistro: new Date(),
+                estado: "pagada",
+                metodoPago: String(metodoPago),
+                monto: totalVenta,
+              },
+            });
+
+            await tx.asignacionPago.create({
+              data: {
+                idPago: p.idPago,
+                idVentaEnMostrador: ventaObj.ventaEnMostrador.idVentaEnMostrador,
+                idOrdenDeCompra: null,
+                montoAsociado: totalVenta,
+                tipoAbono: "pago_total",
+              },
+            });
+
+            return p;
+          });
+        }
       }
 
       const ventaActualizada = await prisma.venta.update({
@@ -162,6 +201,7 @@ export async function PATCH(
         idPuntoVenta,
         tipoOperacion: "venta",
         venta: adaptarVenta(ventaActualizada),
+        pago: nuevoPago,
       });
     }
 
@@ -180,6 +220,17 @@ export async function PATCH(
     const ordenTrabajo = await prisma.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo: parsed.id,
+      },
+      include: {
+        venta: {
+          include: {
+            ventaEnMostrador: {
+              include: {
+                asignacionesPago: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -208,13 +259,75 @@ export async function PATCH(
       }
     }
 
+    let nuevoPago = null;
+    let finalEstadoPago = estadoPago;
+
+    if (estadoPago && metodoPago) {
+      const totalOrden = Number(ordenTrabajo.montoTotal);
+      const totalPagadoPrev =
+        ordenTrabajo.venta?.ventaEnMostrador?.asignacionesPago?.reduce(
+          (sum: number, ap: any) => sum + Number(ap.montoAsociado),
+          0
+        ) ?? 0;
+
+      const saldoPendiente = Math.max(0, totalOrden - totalPagadoPrev);
+      const montoAPagar =
+        montoPago !== undefined && montoPago !== null
+          ? Number(montoPago)
+          : saldoPendiente;
+
+      if (montoAPagar > 0 && ordenTrabajo.venta?.ventaEnMostrador) {
+        nuevoPago = await prisma.$transaction(async (tx: any) => {
+          const p = await tx.pago.create({
+            data: {
+              idUsuario: ordenTrabajo.venta.idUsuario,
+              fechaRegistro: new Date(),
+              estado: "pagada",
+              metodoPago: String(metodoPago),
+              monto: montoAPagar,
+            },
+          });
+
+          const isFullPayment = totalPagadoPrev + montoAPagar >= totalOrden;
+
+          await tx.asignacionPago.create({
+            data: {
+              idPago: p.idPago,
+              idVentaEnMostrador:
+                ordenTrabajo.venta.ventaEnMostrador.idVentaEnMostrador,
+              idOrdenDeCompra: null,
+              montoAsociado: montoAPagar,
+              tipoAbono: isFullPayment ? "pago_total" : "abono",
+            },
+          });
+
+          return p;
+        });
+
+        if (totalPagadoPrev + montoAPagar >= totalOrden) {
+          finalEstadoPago = "pagada";
+        }
+      }
+    }
+
+    if (finalEstadoPago && ordenTrabajo.venta?.ventaEnMostrador) {
+      await prisma.ventaEnMostrador.update({
+        where: {
+          idVentaEnMostrador: ordenTrabajo.venta.ventaEnMostrador.idVentaEnMostrador,
+        },
+        data: {
+          estadoPago: finalEstadoPago,
+        },
+      });
+    }
+
     const ordenActualizada = await prisma.ordenDeTrabajo.update({
       where: {
         idOrdenDeTrabajo: parsed.id,
       },
       data: {
         estado: estadoOrden ?? undefined,
-        estadoPago: estadoPago ?? undefined,
+        estadoPago: finalEstadoPago ?? undefined,
         fechaEntregaReal:
           estadoOrden && ["Listo para entregar", "Entregado"].includes(estadoOrden)
             ? new Date()
@@ -225,6 +338,15 @@ export async function PATCH(
           include: {
             usuario: true,
             cliente: true,
+            ventaEnMostrador: {
+              include: {
+                asignacionesPago: {
+                  include: {
+                    pago: true,
+                  },
+                },
+              },
+            },
           },
         },
         mecanico: true,
@@ -235,6 +357,7 @@ export async function PATCH(
       idPuntoVenta,
       tipoOperacion: "orden_trabajo",
       ordenTrabajo: adaptarOrdenTrabajo(ordenActualizada),
+      pago: nuevoPago,
     });
   } catch (error) {
     console.log("[PUNTO_VENTA_ESTADO_PATCH]", error);

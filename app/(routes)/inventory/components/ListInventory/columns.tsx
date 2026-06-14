@@ -2,7 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, Eye } from "lucide-react"
+import { ArrowUpDown, Eye, MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 
 export type ProductImage = {
   idImagenProducto: number
@@ -146,16 +153,25 @@ export function getColumns(
   },
   {
     id: "actions",
-    header: "Detalle",
+    header: "Acciones",
     cell: ({ row }) => (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onViewDetail(row.original)}
-      >
-        <Eye />
-        Ver detalle
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={() => onViewDetail(row.original)}
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            Ver detalle
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     ),
   },
   ]

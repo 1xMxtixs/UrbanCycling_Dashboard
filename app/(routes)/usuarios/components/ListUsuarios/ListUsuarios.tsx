@@ -352,7 +352,7 @@ export function ListUsuarios() {
                           <SelectTrigger className="w-44">
                             <SelectValue placeholder="Seleccionar rol" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper">
                             {roles.map((role) => (
                               <SelectItem
                                 key={role.idRol}

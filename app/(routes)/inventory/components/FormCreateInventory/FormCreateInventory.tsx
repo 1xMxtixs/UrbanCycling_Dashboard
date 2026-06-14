@@ -171,19 +171,24 @@ export function FormCreateInventory(props: FormCreateInventoryProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-3 gap-4 items-center">
           <FormField
             control={form.control}
             name="tipoProducto"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="col-span-1">
                 <FormLabel>Tipo de producto</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Ej: Repuesto, accesorio, bicicleta"
-                    {...field}
-                  />
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un tipo" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    <SelectItem value="Repuesto">Repuesto</SelectItem>
+                    <SelectItem value="Accesorio">Accesorio</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -193,7 +198,7 @@ export function FormCreateInventory(props: FormCreateInventoryProps) {
             control={form.control}
             name="nombre"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="col-span-2">
                 <FormLabel>Nombre</FormLabel>
                 <FormControl>
                   <Input placeholder="Ej: Cadena Shimano 11v" {...field} />
@@ -292,7 +297,7 @@ export function FormCreateInventory(props: FormCreateInventoryProps) {
           <FormLabel>Imagen del producto (Opcional)</FormLabel>
 
           {imagePreview ? (
-            <div className="group relative h-48 w-full overflow-hidden rounded-lg border border-slate-200">
+            <div className="group relative h-32 w-32 overflow-hidden rounded-lg border border-slate-200">
               <Image
                 src={imagePreview}
                 alt="Vista previa del producto"
@@ -302,7 +307,7 @@ export function FormCreateInventory(props: FormCreateInventoryProps) {
               <button
                 type="button"
                 onClick={handleRemoveImage}
-                className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <X className="h-4 w-4" />
               </button>

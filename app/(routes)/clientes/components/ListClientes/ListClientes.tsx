@@ -208,7 +208,7 @@ export function ListClientes() {
 
                 {/* Header Section with gradient background */}
                 <div
-                  className={`p-6 border-b border-slate-100 dark:border-slate-850 bg-gradient-to-r ${
+                  className={`p-6 border-b border-slate-100 dark:border-slate-850 bg-linear-to-r ${
                     isNatural
                       ? "from-violet-50/70 to-indigo-50/50 dark:from-violet-950/20 dark:to-indigo-950/10"
                       : "from-emerald-50/70 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/10"
@@ -318,7 +318,7 @@ export function ListClientes() {
                                   <Phone className="h-3.5 w-3.5 text-slate-400" />
                                   <span className="font-medium">{t.telefono}</span>
                                   {t.descripcion && (
-                                    <span className="text-[10px] text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.25 rounded border border-slate-200 dark:border-slate-700">
+                                    <span className="text-[10px] text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-px rounded border border-slate-200 dark:border-slate-700">
                                       {t.descripcion}
                                     </span>
                                   )}
@@ -347,7 +347,7 @@ export function ListClientes() {
                                   <Mail className="h-3.5 w-3.5 text-slate-400" />
                                   <span className="font-medium">{m.correo}</span>
                                   {m.descripcion && (
-                                    <span className="text-[10px] text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.25 rounded border border-slate-200 dark:border-slate-700">
+                                    <span className="text-[10px] text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-px rounded border border-slate-200 dark:border-slate-700">
                                       {m.descripcion}
                                     </span>
                                   )}
@@ -377,7 +377,7 @@ export function ListClientes() {
                                     key={d.idDireccionCliente}
                                     className="flex items-start gap-2 text-slate-700 dark:text-slate-350"
                                   >
-                                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
                                     <div>
                                       <span className="font-medium leading-relaxed block">
                                         {formattedAddress}
@@ -446,7 +446,7 @@ export function ListClientes() {
                                   Orden #{order.idOrdenDeTrabajo}
                                 </span>
                                 <span
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.25 text-[10px] font-bold ${statusColor}`}
+                                  className={`inline-flex items-center rounded-full border px-2 py-px text-[10px] font-bold ${statusColor}`}
                                 >
                                   {order.estadoOrden}
                                 </span>
@@ -457,6 +457,7 @@ export function ListClientes() {
                                   {new Date(order.fechaRecepcion).toLocaleDateString("es-ES", {
                                     day: "2-digit",
                                     month: "short",
+                                    timeZone: "UTC",
                                   })}
                                 </span>
                                 <span className="font-extrabold text-slate-900 dark:text-slate-200">

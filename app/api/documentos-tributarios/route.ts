@@ -14,7 +14,7 @@ import {
 } from "@/lib/tax-document"
 
 function getIssuerRut(data: Record<string, unknown>) {
-  return String(data.rutEmisor ?? process.env.TAX_ISSUER_RUT ?? "").trim()
+  return String(data.rutEmisor ?? process.env.TAX_ISSUER_RUT ?? "76.633.070-3").trim()
 }
 
 async function getNextFolio() {
@@ -28,6 +28,34 @@ async function getNextFolio() {
   })
 
   return (lastDocument?.numeroFolio ?? 0) + 1
+}
+
+export async function GET() {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.RECEIPTS_CREATE)
+
+    if (response) {
+      return response
+    }
+
+    const documentosTributarios = await db.documentoTributario.findMany({
+      orderBy: {
+        fechaEmision: "desc",
+      },
+      include: {
+        origenes: true,
+      },
+    })
+
+    return NextResponse.json({ documentosTributarios })
+  } catch (error) {
+    console.log("[DOCUMENTOS_TRIBUTARIOS_GET]", error)
+
+    return NextResponse.json(
+      { code: "ERROR_INTERNO", message: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
 }
 
 export async function POST(request: Request) {
@@ -126,8 +154,8 @@ export async function POST(request: Request) {
     }
 
     let linkedVentaId: number
-    let linkedClientId: number
-    let rutReceptor: string
+    let linkedClientId: number | null = null
+    let rutReceptor: string | null = null
     let montoSubtotal = 0
     let descuentoAcumulado = 0
     let totalOrigen = 0
@@ -158,7 +186,7 @@ export async function POST(request: Request) {
 
       linkedVentaId = venta.idVenta
       linkedClientId = venta.idCliente
-      rutReceptor = venta.cliente.rut
+      rutReceptor = venta.cliente?.rut ?? null
       montoSubtotal = Math.round(toNumber(totalsSource?.montoSubtotal))
       totalOrigen = toNumber(totalsSource?.montoTotal)
 
@@ -199,7 +227,7 @@ export async function POST(request: Request) {
 
       linkedVentaId = ordenDeTrabajo.idVenta
       linkedClientId = ordenDeTrabajo.venta.idCliente
-      rutReceptor = ordenDeTrabajo.venta.cliente.rut
+      rutReceptor = ordenDeTrabajo.venta.cliente?.rut ?? null
       montoSubtotal = Math.round(toNumber(ordenDeTrabajo.montoSubtotal))
       descuentoAcumulado = Math.round(
         toNumber(ordenDeTrabajo.descuentoProductosServicios) +

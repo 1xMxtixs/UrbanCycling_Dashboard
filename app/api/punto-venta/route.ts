@@ -136,6 +136,12 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   }
 
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
+  
+  const asignaciones = ordenTrabajoSegura.venta?.ventaEnMostrador?.asignacionesPago ?? [];
+  const totalPagado = asignaciones.reduce(
+    (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
+    0
+  );
 
   return {
     ...ordenTrabajoSegura,
@@ -143,6 +149,16 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     descuento: ordenTrabajoSegura.descuentoGlobal,
     estadoOrden: ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
+    fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
+    totalPagado,
+    pagos: asignaciones.map((a: any) => ({
+      idPago: a.pago?.idPago,
+      fechaRegistro: a.pago?.fechaRegistro,
+      estado: a.pago?.estado,
+      metodoPago: a.pago?.metodoPago,
+      monto: a.pago?.monto,
+      tipoAbono: a.tipoAbono,
+    })),
   };
 }
 
@@ -234,15 +250,19 @@ function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
 
 export async function POST(req: Request) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+    const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response || new NextResponse("No autorizado", { status: 401 })
     }
 
     const rawData = await req.json();
-    const idUsuario = parsePositiveInteger(rawData.id_usuario ?? rawData.idUsuario);
-    const idCliente = parsePositiveInteger(rawData.id_cliente ?? rawData.idCliente);
+    const idUsuario = session.user.idUsuario;
+    const rawIdCliente = rawData.id_cliente ?? rawData.idCliente;
+    const idCliente = rawIdCliente !== null && rawIdCliente !== undefined && rawIdCliente !== ""
+      ? parsePositiveInteger(rawIdCliente)
+      : null;
+
     const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0);
     const estadoPago = rawData.estado_pago ?? rawData.estadoPago ?? "pendiente";
     const productosVenta = normalizarProductos(rawData.productos).map(mapearProducto);
@@ -261,7 +281,7 @@ export async function POST(req: Request) {
       ? normalizarBicicletas(ordenInput.bicicletas).map(mapearBicicleta)
       : [];
 
-    if (Number.isNaN(idUsuario) || Number.isNaN(idCliente)) {
+    if (Number.isNaN(idUsuario) || (idCliente !== null && Number.isNaN(idCliente))) {
       return NextResponse.json(
         {
           code: "FALTAN_DATOS",
@@ -355,20 +375,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const cliente = await prisma.cliente.findUnique({
-      where: {
-        idCliente,
-      },
-    });
-
-    if (!cliente) {
-      return NextResponse.json(
-        {
-          code: "CLIENTE_NO_EXISTE",
-          message: "El cliente no esta registrado",
+    if (idCliente !== null) {
+      const cliente = await prisma.cliente.findUnique({
+        where: {
+          idCliente,
         },
-        { status: 404 }
-      );
+      });
+
+      if (!cliente) {
+        return NextResponse.json(
+          {
+            code: "CLIENTE_NO_EXISTE",
+            message: "El cliente no esta registrado",
+          },
+          { status: 404 }
+        );
+      }
     }
 
     const productosAgrupados = agruparProductos([...productosVenta, ...productosOrden]);
@@ -561,7 +583,7 @@ export async function POST(req: Request) {
         data: {
           idUsuario,
           idCliente,
-          ventaEnMostrador: lineasVenta.length
+          ventaEnMostrador: (lineasVenta.length > 0 || tieneOrden)
             ? {
                 create: {
                   estado:
@@ -788,6 +810,11 @@ export async function GET() {
                 producto: true,
               },
             },
+            asignacionesPago: {
+              include: {
+                pago: true,
+              },
+            },
           },
         },
         ordenDeTrabajo: {
@@ -808,7 +835,7 @@ export async function GET() {
     const operaciones = ventas.flatMap((venta: any) => {
       const items = [];
 
-      if (venta.ventaEnMostrador) {
+      if (venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
         const ventaAdaptada = adaptarVenta(venta);
 
         items.push({

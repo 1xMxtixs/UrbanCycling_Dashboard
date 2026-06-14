@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { Menu, Search, Sidebar } from "lucide-react"
 import { SidebarRoutes } from "../SidebarRoutes"
 import { ToggleTheme } from "../ToggleTheme"
+import { UserButton } from "./UserButton"
 
 export function Navbar() {
   return (
@@ -28,7 +29,7 @@ export function Navbar() {
         </div>
         <div className="flex gap-x-2 items-center">
             <ToggleTheme />
-            
+            <UserButton />
         </div>
     </nav>
   )
