@@ -42,6 +42,7 @@ interface DataTableProps<TData, TValue> {
   onPayClick?: (order: WorkOrder) => void
   onGenerateReceipt?: (order: WorkOrder) => void
   onRescheduleClick?: (order: WorkOrder) => void
+  onCancelClick?: (order: WorkOrder) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -53,6 +54,7 @@ export function DataTable<TData, TValue>({
   onPayClick,
   onGenerateReceipt,
   onRescheduleClick,
+  onCancelClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -78,6 +80,7 @@ export function DataTable<TData, TValue>({
       onPayClick,
       onGenerateReceipt,
       onRescheduleClick,
+      onCancelClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -127,6 +130,7 @@ export function DataTable<TData, TValue>({
               <SelectItem value="espera">En Espera</SelectItem>
               <SelectItem value="por-entregar">Por entregar</SelectItem>
               <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+              <SelectItem value="anulada">Anuladas</SelectItem>
               <SelectItem value="retrasada">Retrasadas</SelectItem>
             </SelectContent>
           </Select>

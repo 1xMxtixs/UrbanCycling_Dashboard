@@ -13,7 +13,8 @@ import {
   Wrench,
   ChevronDown,
   ShoppingBag,
-  Coins
+  Coins,
+  XCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -52,6 +53,7 @@ function getAvailableTransitions(currentStatus: string) {
     "En espera": ["En curso", "Listo para entregar"],
     "Listo para entregar": ["Entregado", "En curso"],
     "Entregado": [],
+    "Anulada": [],
   }
   return map[currentStatus] || []
 }
@@ -104,6 +106,9 @@ export function ListOrdenesTrabajo() {
   const [orderToReschedule, setOrderToReschedule] = useState<WorkOrder | null>(null)
   const [newDeliveryDate, setNewDeliveryDate] = useState("")
   const [isRescheduling, setIsRescheduling] = useState(false)
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [orderToCancel, setOrderToCancel] = useState<WorkOrder | null>(null)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
   const getOrders = async () => {
     try {
@@ -189,6 +194,55 @@ export function ListOrdenesTrabajo() {
     setOrderToReschedule(order)
     setNewDeliveryDate(toDateInputValue(order.fechaEntregaEstimada))
     setRescheduleModalOpen(true)
+  }
+
+  const handleCancelClick = (order: WorkOrder) => {
+    setOrderToCancel(order)
+    setCancelModalOpen(true)
+  }
+
+  const handleConfirmCancelOrder = async () => {
+    if (!orderToCancel) return
+
+    setIsCancellingOrder(true)
+
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ estado: "Anulada" }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(
+          err.code === "ANULACION_NO_PERMITIDA"
+            ? "No es posible anular esta orden"
+            : err.message || "No se pudo anular la orden"
+        )
+        return
+      }
+
+      toast.success("Orden de trabajo anulada correctamente.")
+
+      if (selectedOrder?.idOrdenDeTrabajo === orderToCancel.idOrdenDeTrabajo) {
+        setSelectedOrder({
+          ...selectedOrder,
+          estadoOrden: "Anulada",
+        })
+      }
+
+      setCancelModalOpen(false)
+      setOrderToCancel(null)
+      getOrders()
+      router.refresh()
+    } catch {
+      toast.error("No se pudo anular la orden")
+    } finally {
+      setIsCancellingOrder(false)
+    }
   }
 
   const handleConfirmReschedule = async () => {
@@ -406,7 +460,7 @@ export function ListOrdenesTrabajo() {
   }
 
   const renderStatusBadge = (order: WorkOrder) => {
-    const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(order.estadoOrden)
+    const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(order.estadoOrden)
     const dEstimada = new Date(order.fechaEntregaEstimada)
     const localEndDay = new Date(
       dEstimada.getUTCFullYear(),
@@ -459,6 +513,12 @@ export function ListOrdenesTrabajo() {
             Completada
           </span>
         )
+      case "Anulada":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider">
+            Anulada
+          </span>
+        )
       default:
         return (
           <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-semibold">
@@ -492,6 +552,7 @@ export function ListOrdenesTrabajo() {
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
+        onCancelClick={handleCancelClick}
       />
 
       {/* 3. Sección Inferior: Próximos Vencimientos */}
@@ -815,6 +876,16 @@ export function ListOrdenesTrabajo() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {!["Entregado", "Anulada"].includes(selectedOrder.estadoOrden) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCancelClick(selectedOrder)}
+                        className="gap-1.5 text-red-600 hover:text-red-700"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Anular
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       onClick={() => handleRescheduleClick(selectedOrder)}
@@ -854,6 +925,63 @@ export function ListOrdenesTrabajo() {
               </>
             )
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmacion de Anulacion */}
+      <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-red-600 dark:text-red-400">
+              <XCircle className="h-5 w-5" />
+              Anular Orden de Trabajo
+            </DialogTitle>
+            <DialogDescription>
+              Confirma la anulacion de la orden seleccionada.
+            </DialogDescription>
+          </DialogHeader>
+
+          {orderToCancel && (
+            <div className="space-y-4 py-3">
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 p-3 text-xs space-y-2">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Orden</span>
+                  <span className="font-bold">#{orderToCancel.idOrdenDeTrabajo}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Estado actual</span>
+                  <span className="font-bold">{orderToCancel.estadoOrden}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCancelModalOpen(false)}
+                  disabled={isCancellingOrder}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleConfirmCancelOrder}
+                  disabled={isCancellingOrder}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                >
+                  {isCancellingOrder ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Anulando...
+                    </span>
+                  ) : (
+                    "Confirmar Anulacion"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

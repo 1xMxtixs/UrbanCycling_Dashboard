@@ -98,7 +98,7 @@ export function KpiCards({ orders }: KpiCardsProps) {
 
   // 5. Retrasadas (Estimado pasado y no completado)
   const delayedOrdersCount = orders.filter((o) => {
-    const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(o.estadoOrden)
+    const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(o.estadoOrden)
     const dEstimada = new Date(o.fechaEntregaEstimada)
     return dEstimada < now && !isFullyCompleted
   }).length

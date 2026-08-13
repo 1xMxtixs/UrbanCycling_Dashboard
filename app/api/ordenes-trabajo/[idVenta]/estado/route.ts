@@ -9,6 +9,7 @@ const transicionesPermitidas: Record<string, string[]> = {
   "En espera": ["En curso", "Listo para entregar"],
   "Listo para entregar": ["Entregado", "En curso"],
   "Entregado": [],
+  "Anulada": [],
 };
 
 export async function PATCH(
@@ -52,12 +53,23 @@ export async function PATCH(
       return NextResponse.json(
         {
           code: "ORDEN_NO_EXISTE",
-          message: "La orden de trabajo no existe",
+          message: "La orden no existe",
         },
         { status: 404 }
       );
     }
 
+    if (estado === "Anulada") {
+      if (["Entregado", "Anulada"].includes(ordenTrabajo.estado)) {
+        return NextResponse.json(
+          {
+            code: "ANULACION_NO_PERMITIDA",
+            message: "La orden ya se encuentra Entregada o Anulada",
+          },
+          { status: 409 }
+        );
+      }
+    } else {
     const estadosSiguientes =
       transicionesPermitidas[ordenTrabajo.estado] ?? [];
 
@@ -69,6 +81,7 @@ export async function PATCH(
         },
         { status: 409 }
       );
+    }
     }
 
     const ordenActualizada = await db.ordenDeTrabajo.update({
