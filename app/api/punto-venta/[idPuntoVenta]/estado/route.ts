@@ -5,7 +5,7 @@
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
-import type { Prisma } from "@/generated/prisma"
+import { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
 const prisma = db as any
@@ -146,67 +146,86 @@ export async function PATCH(
       }
 
       if (estadoPago?.toLowerCase() === "pagada" && metodoPago) {
-        const ventaObj = await prisma.venta.findUnique({
-          where: { idVenta: parsed.id },
-          include: { ventaEnMostrador: true },
-        })
+        const resultado = await prisma.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const ventaObj = await tx.venta.findUnique({
+              where: { idVenta: parsed.id },
+              include: {
+                ventaEnMostrador: {
+                  include: {
+                    asignacionesPago: {
+                      select: { montoAsociado: true },
+                    },
+                  },
+                },
+              },
+            })
 
-        if (ventaObj?.ventaEnMostrador) {
-          const totalVenta = Number(ventaObj.ventaEnMostrador.montoTotal)
+            if (!ventaObj?.ventaEnMostrador) {
+              throw new Error("VENTA_NO_EXISTE")
+            }
 
-          const resultado = await prisma.$transaction(
-            async (tx: Prisma.TransactionClient) => {
-              const p = await tx.pago.create({
+            const totalVenta = Number(ventaObj.ventaEnMostrador.montoTotal)
+            const totalPagado = ventaObj.ventaEnMostrador.asignacionesPago.reduce(
+              (total, asignacion) => total + Number(asignacion.montoAsociado),
+              0
+            )
+            const saldoPendiente = Math.max(0, totalVenta - totalPagado)
+            let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
+
+            if (saldoPendiente > 0) {
+              nuevoPago = await tx.pago.create({
                 data: {
                   idUsuario: ventaObj.idUsuario,
                   fechaRegistro: new Date(),
                   estado: "pagada",
                   metodoPago: String(metodoPago),
-                  monto: totalVenta,
+                  monto: saldoPendiente,
                 },
               })
 
               await tx.asignacionPago.create({
                 data: {
-                  idPago: p.idPago,
+                  idPago: nuevoPago.idPago,
                   idVentaEnMostrador:
                     ventaObj.ventaEnMostrador.idVentaEnMostrador,
                   idOrdenDeCompra: null,
-                  montoAsociado: totalVenta,
+                  montoAsociado: saldoPendiente,
                   tipoAbono: "pago_total",
                 },
               })
+            }
 
-              const ventaActualizada = await tx.venta.update({
-                where: {
-                  idVenta: parsed.id,
-                },
-                data: {
-                  ventaEnMostrador: {
-                    update: {
-                      estado: estadoVenta ?? undefined,
-                      estadoPago: estadoPago ?? undefined,
-                    },
+            const ventaActualizada = await tx.venta.update({
+              where: {
+                idVenta: parsed.id,
+              },
+              data: {
+                ventaEnMostrador: {
+                  update: {
+                    estado: estadoVenta ?? undefined,
+                    estadoPago: "pagada",
                   },
                 },
-                include: {
-                  usuario: true,
-                  cliente: true,
-                  ventaEnMostrador: true,
-                },
-              })
+              },
+              include: {
+                usuario: true,
+                cliente: true,
+                ventaEnMostrador: true,
+              },
+            })
 
-              return { pago: p, venta: ventaActualizada }
-            }
-          )
+            return { pago: nuevoPago, venta: ventaActualizada }
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+        )
 
-          return NextResponse.json({
-            idPuntoVenta,
-            tipoOperacion: "venta",
-            venta: adaptarVenta(resultado.venta),
-            pago: resultado.pago,
-          })
-        }
+        return NextResponse.json({
+          idPuntoVenta,
+          tipoOperacion: "venta",
+          venta: adaptarVenta(resultado.venta),
+          pago: resultado.pago,
+        })
       }
 
       const ventaActualizada = await prisma.$transaction(
