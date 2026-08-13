@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -78,6 +78,14 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
             Registrar Pago
           </DropdownMenuItem>
         )}
+
+        <DropdownMenuItem
+          onClick={() => meta?.onRescheduleClick?.(order)}
+          className="flex cursor-pointer items-center gap-2 text-amber-700 font-semibold"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Reprogramar Entrega
+        </DropdownMenuItem>
 
         {transitions.length > 0 && (
           <>

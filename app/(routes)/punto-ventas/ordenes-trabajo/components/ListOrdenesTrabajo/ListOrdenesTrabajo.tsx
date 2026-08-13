@@ -7,6 +7,7 @@ import {
   Loader2, 
   User, 
   Calendar, 
+  CalendarClock,
   FileText, 
   Clock, 
   Wrench,
@@ -73,6 +74,16 @@ function formatDocDate(dateInput: any) {
   return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
 }
 
+function toDateInputValue(dateInput: string | Date | null | undefined) {
+  if (!dateInput) return ""
+
+  if (typeof dateInput === "string") {
+    return dateInput.split("T")[0] ?? ""
+  }
+
+  return dateInput.toISOString().split("T")[0] ?? ""
+}
+
 export function ListOrdenesTrabajo() {
   const router = useRouter()
   const [orders, setOrders] = useState<WorkOrder[]>([])
@@ -89,6 +100,10 @@ export function ListOrdenesTrabajo() {
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false)
+  const [orderToReschedule, setOrderToReschedule] = useState<WorkOrder | null>(null)
+  const [newDeliveryDate, setNewDeliveryDate] = useState("")
+  const [isRescheduling, setIsRescheduling] = useState(false)
 
   const getOrders = async () => {
     try {
@@ -168,6 +183,59 @@ export function ListOrdenesTrabajo() {
     setOrderToPay(order)
     setSelectedMetodoPago("efectivo")
     setPayModalOpen(true)
+  }
+
+  const handleRescheduleClick = (order: WorkOrder) => {
+    setOrderToReschedule(order)
+    setNewDeliveryDate(toDateInputValue(order.fechaEntregaEstimada))
+    setRescheduleModalOpen(true)
+  }
+
+  const handleConfirmReschedule = async () => {
+    if (!orderToReschedule) return
+
+    if (!newDeliveryDate) {
+      toast.error("Debe ingresar una fecha estimada de entrega")
+      return
+    }
+
+    setIsRescheduling(true)
+
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fechaEntregaEstimada: newDeliveryDate,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.message || "No se pudo reprogramar la entrega")
+        return
+      }
+
+      toast.success("Fecha estimada de entrega actualizada correctamente.")
+
+      if (selectedOrder?.idOrdenDeTrabajo === orderToReschedule.idOrdenDeTrabajo) {
+        setSelectedOrder({
+          ...selectedOrder,
+          fechaEntregaEstimada: newDeliveryDate,
+        })
+      }
+
+      setRescheduleModalOpen(false)
+      setOrderToReschedule(null)
+      getOrders()
+      router.refresh()
+    } catch {
+      toast.error("No se pudo reprogramar la entrega")
+    } finally {
+      setIsRescheduling(false)
+    }
   }
 
   const handleConfirmPayment = async () => {
@@ -423,6 +491,7 @@ export function ListOrdenesTrabajo() {
         updatingId={updatingId}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
+        onRescheduleClick={handleRescheduleClick}
       />
 
       {/* 3. Sección Inferior: Próximos Vencimientos */}
@@ -746,6 +815,14 @@ export function ListOrdenesTrabajo() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRescheduleClick(selectedOrder)}
+                      className="gap-1.5"
+                    >
+                      <CalendarClock className="h-4 w-4" />
+                      Reprogramar
+                    </Button>
                     <Button variant="outline" onClick={() => setOpenDetailsModal(false)}>
                       Cerrar
                     </Button>
@@ -777,6 +854,96 @@ export function ListOrdenesTrabajo() {
               </>
             )
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Reprogramacion de Entrega */}
+      <Dialog open={rescheduleModalOpen} onOpenChange={setRescheduleModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-amber-700 dark:text-amber-400">
+              <CalendarClock className="h-5 w-5" />
+              Reprogramar Entrega
+            </DialogTitle>
+            <DialogDescription>
+              Actualiza la fecha estimada comprometida para la orden seleccionada.
+            </DialogDescription>
+          </DialogHeader>
+
+          {orderToReschedule && (
+            <div className="space-y-4 py-3">
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border p-3 text-xs space-y-2">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Orden</span>
+                  <span className="font-bold">#{orderToReschedule.idOrdenDeTrabajo}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Fecha de ingreso</span>
+                  <span className="font-bold">
+                    {new Date(orderToReschedule.fechaRecepcion || orderToReschedule.fechaCreacion || "").toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Fecha estimada actual</span>
+                  <span className="font-bold">
+                    {new Date(orderToReschedule.fechaEntregaEstimada).toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nuevaFechaEntrega" className="text-xs font-bold text-slate-700">
+                  Nueva Fecha Estimada de Entrega
+                </Label>
+                <Input
+                  id="nuevaFechaEntrega"
+                  type="date"
+                  value={newDeliveryDate}
+                  min={toDateInputValue(orderToReschedule.fechaRecepcion || orderToReschedule.fechaCreacion)}
+                  onChange={(event) => setNewDeliveryDate(event.target.value)}
+                  disabled={isRescheduling}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRescheduleModalOpen(false)}
+                  disabled={isRescheduling}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleConfirmReschedule}
+                  disabled={isRescheduling}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                >
+                  {isRescheduling ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Guardando...
+                    </span>
+                  ) : (
+                    "Guardar Reprogramacion"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
