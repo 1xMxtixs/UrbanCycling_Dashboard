@@ -5,6 +5,7 @@
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
@@ -122,9 +123,9 @@ export async function PATCH(
       parsed.tipo === "venta"
         ? PERMISSIONS.SALES_CREATE
         : PERMISSIONS.WORK_ORDERS_UPDATE_STATUS
-    const { response } = await requirePermission(requiredPermission)
+    const { session, response } = await requirePermission(requiredPermission)
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -428,6 +429,29 @@ export async function PATCH(
             mecanico: true,
           },
         })
+
+        if (estadoOrden) {
+          await registrarAuditoriaOrdenTrabajo(tx, {
+            idUsuario: session.user.idUsuario,
+            tipoOperacion:
+              estadoOrden === "Anulada" ? "anulacion_orden" : "cambio_estado",
+            idOrdenDeTrabajo: parsed.id,
+            valorAnterior: {
+              estado: ordenTrabajo.estado,
+              estadoPago: ordenTrabajo.estadoPago,
+              fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
+            },
+            valorNuevo: {
+              estado: ordenActualizada.estado,
+              estadoPago: ordenActualizada.estadoPago,
+              fechaEntregaReal: ordenActualizada.fechaEntregaReal,
+            },
+            detalleCambio:
+              estadoOrden === "Anulada"
+                ? "Anulacion de orden de trabajo"
+                : `Cambio de estado de orden a ${estadoOrden}`,
+          })
+        }
 
         return { orden: ordenActualizada, pago: nuevoPago }
       }

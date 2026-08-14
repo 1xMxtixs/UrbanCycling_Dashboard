@@ -5,6 +5,7 @@
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
 const prisma = db as any;
@@ -199,6 +200,12 @@ function camposRequeridosVacios(data: Record<string, unknown>) {
   });
 }
 
+function compactObject(data: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }
@@ -219,9 +226,9 @@ export async function GET(
 
     const requiredPermission =
       parsed.tipo === "venta" ? PERMISSIONS.SALES_READ : PERMISSIONS.WORK_ORDERS_READ
-    const { response } = await requirePermission(requiredPermission)
+    const { session, response } = await requirePermission(requiredPermission)
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -345,9 +352,9 @@ export async function PATCH(
       parsed.tipo === "venta"
         ? PERMISSIONS.SALES_CREATE
         : PERMISSIONS.WORK_ORDERS_UPDATE
-    const { response } = await requirePermission(requiredPermission)
+    const { session, response } = await requirePermission(requiredPermission)
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -489,20 +496,16 @@ export async function PATCH(
       );
     }
 
-    const debeBuscarOrdenActual =
-      tieneFechaEntregaEstimada || tieneMecanicoAsignado;
-    const ordenTrabajoActual = debeBuscarOrdenActual
-      ? await prisma.ordenDeTrabajo.findUnique({
-          where: {
-            idOrdenDeTrabajo: parsed.id,
-          },
-          include: {
-            venta: true,
-          },
-        })
-      : null;
+    const ordenTrabajoActual = await prisma.ordenDeTrabajo.findUnique({
+      where: {
+        idOrdenDeTrabajo: parsed.id,
+      },
+      include: {
+        venta: true,
+      },
+    });
 
-    if (debeBuscarOrdenActual && !ordenTrabajoActual) {
+    if (!ordenTrabajoActual) {
       return NextResponse.json(
         {
           code: "ORDEN_NO_EXISTE",
@@ -545,40 +548,82 @@ export async function PATCH(
       }
     }
 
-    const ordenActualizada = await prisma.ordenDeTrabajo.update({
-      where: {
-        idOrdenDeTrabajo: parsed.id,
-      },
-      data: {
-        descuentoGlobal:
-          tieneDescuento
-            ? Number(descuento)
-            : undefined,
-        estado: tieneEstadoOrden ? String(estadoOrden).trim() : undefined,
-        estadoPago: tieneEstadoPago ? String(estadoPago).trim() : undefined,
-        idMecanicoAsignado: tieneMecanicoAsignado
-          ? idMecanicoAsignado
-          : undefined,
-        fechaEntregaEstimada,
-        observacionesIngreso:
-          data.observaciones_ingreso ?? data.observacionesIngreso ?? undefined,
-      },
-      include: {
-        venta: {
-          include: {
-            usuario: true,
-            cliente: true,
+    const updateData = {
+      descuentoGlobal: tieneDescuento ? Number(descuento) : undefined,
+      estado: tieneEstadoOrden ? String(estadoOrden).trim() : undefined,
+      estadoPago: tieneEstadoPago ? String(estadoPago).trim() : undefined,
+      idMecanicoAsignado: tieneMecanicoAsignado
+        ? idMecanicoAsignado
+        : undefined,
+      fechaEntregaEstimada,
+      observacionesIngreso:
+        data.observaciones_ingreso ?? data.observacionesIngreso ?? undefined,
+    };
+    const cambiosAuditoria = compactObject({
+      descuentoGlobal: updateData.descuentoGlobal,
+      estado: updateData.estado,
+      estadoPago: updateData.estadoPago,
+      idMecanicoAsignado: updateData.idMecanicoAsignado,
+      fechaEntregaEstimada: updateData.fechaEntregaEstimada,
+      observacionesIngreso: updateData.observacionesIngreso,
+    });
+
+    const ordenActualizada = await prisma.$transaction(async (tx: any) => {
+      const orden = await tx.ordenDeTrabajo.update({
+        where: {
+          idOrdenDeTrabajo: parsed.id,
+        },
+        data: updateData,
+        include: {
+          venta: {
+            include: {
+              usuario: true,
+              cliente: true,
+            },
+          },
+          mecanico: true,
+          bicicletas: true,
+          lineasDeOrdenDeTrabajo: {
+            include: {
+              producto: true,
+              servicio: true,
+            },
           },
         },
-        mecanico: true,
-        bicicletas: true,
-        lineasDeOrdenDeTrabajo: {
-          include: {
-            producto: true,
-            servicio: true,
-          },
-        },
-      },
+      });
+
+      if (Object.keys(cambiosAuditoria).length > 0) {
+        await registrarAuditoriaOrdenTrabajo(tx, {
+          idUsuario: session.user.idUsuario,
+          tipoOperacion: tieneFechaEntregaEstimada
+            ? "reprogramacion_entrega"
+            : "modificacion_orden",
+          idOrdenDeTrabajo: parsed.id,
+          valorAnterior: compactObject({
+            descuentoGlobal: tieneDescuento
+              ? ordenTrabajoActual.descuentoGlobal
+              : undefined,
+            estado: tieneEstadoOrden ? ordenTrabajoActual.estado : undefined,
+            estadoPago: tieneEstadoPago ? ordenTrabajoActual.estadoPago : undefined,
+            idMecanicoAsignado: tieneMecanicoAsignado
+              ? ordenTrabajoActual.idMecanicoAsignado
+              : undefined,
+            fechaEntregaEstimada: tieneFechaEntregaEstimada
+              ? ordenTrabajoActual.fechaEntregaEstimada
+              : undefined,
+            observacionesIngreso:
+              updateData.observacionesIngreso !== undefined
+                ? ordenTrabajoActual.observacionesIngreso
+                : undefined,
+          }),
+          valorNuevo: cambiosAuditoria,
+          detalleCambio: tieneFechaEntregaEstimada
+            ? "Reprogramacion de fecha estimada de entrega"
+            : "Modificacion de orden de trabajo",
+        });
+      }
+
+      return orden;
     });
 
     return NextResponse.json({

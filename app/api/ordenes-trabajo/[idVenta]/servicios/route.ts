@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
 function parseIdOrden(idVenta: string) {
@@ -367,9 +368,9 @@ export async function PATCH(
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_UPDATE)
+    const { session, response } = await requirePermission(PERMISSIONS.WORK_ORDERS_UPDATE)
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -534,6 +535,25 @@ export async function PATCH(
       });
 
       const montos = await recalcularMontosOrden(tx, idOrdenDeTrabajo);
+
+      await registrarAuditoriaOrdenTrabajo(tx, {
+        idUsuario: session.user.idUsuario,
+        tipoOperacion: "modificacion_servicio",
+        idOrdenDeTrabajo,
+        valorAnterior: {
+          idLineaDeOrdenDeTrabajo: lineaServicio.idLineaDeOrdenDeTrabajo,
+          idServicio: lineaServicio.idServicio,
+          precioUnitario: lineaServicio.precioUnitario,
+          observacionesIngreso: orden.observacionesIngreso,
+        },
+        valorNuevo: {
+          idLineaDeOrdenDeTrabajo: lineaActualizada.idLineaDeOrdenDeTrabajo,
+          idServicio: lineaActualizada.idServicio,
+          precioUnitario: lineaActualizada.precioUnitario,
+          observacionesIngreso: diagnostico,
+        },
+        detalleCambio: "Modificacion de servicio tecnico de la orden",
+      });
 
       return {
         linea: lineaActualizada,
