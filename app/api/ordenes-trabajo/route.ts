@@ -173,6 +173,51 @@ function parsePositiveInteger(value: unknown) {
   return parsedValue;
 }
 
+const etapasOrdenTrabajo = [
+  "Por realizar",
+  "En curso",
+  "En espera",
+  "Listo para entregar",
+  "Entregado",
+  "Anulada",
+];
+
+function normalizarTextoFiltro(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function obtenerEtapaFiltro(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const etapaInput =
+    searchParams.get("etapa") ??
+    searchParams.get("estadoOrden") ??
+    searchParams.get("estado_orden") ??
+    searchParams.get("estado");
+
+  if (!etapaInput) {
+    return {
+      fueSolicitada: false,
+      etapa: null,
+    };
+  }
+
+  const etapaNormalizada = normalizarTextoFiltro(etapaInput);
+
+  return {
+    fueSolicitada: true,
+    etapa:
+      etapasOrdenTrabajo.find(
+        (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
+      ) ?? null,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(PERMISSIONS.WORK_ORDERS_CREATE)
@@ -590,7 +635,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_READ)
 
@@ -598,7 +643,25 @@ export async function GET() {
       return response
     }
 
+    const etapaFiltro = obtenerEtapaFiltro(req);
+
+    if (etapaFiltro.fueSolicitada && !etapaFiltro.etapa) {
+      return NextResponse.json(
+        {
+          code: "ETAPA_INVALIDA",
+          message: "La etapa seleccionada no es valida",
+          etapasDisponibles: etapasOrdenTrabajo,
+        },
+        { status: 400 }
+      );
+    }
+
     const ordenes = await db.ordenDeTrabajo.findMany({
+      where: etapaFiltro.etapa
+        ? {
+            estado: etapaFiltro.etapa,
+          }
+        : undefined,
       orderBy: {
         venta: {
           fechaRegistro: "desc",
@@ -666,6 +729,17 @@ export async function GET() {
         })),
       };
     });
+
+    if (etapaFiltro.etapa && ordenesConDetalle.length === 0) {
+      return NextResponse.json(
+        {
+          code: "SIN_TRABAJOS_EN_ETAPA",
+          message: "No se encontraron trabajos en esa etapa",
+          etapa: etapaFiltro.etapa,
+        },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(ordenesConDetalle);
   } catch (error) {

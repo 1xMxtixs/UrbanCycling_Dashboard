@@ -224,6 +224,51 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   return "venta";
 }
 
+const etapasOrdenTrabajo = [
+  "Por realizar",
+  "En curso",
+  "En espera",
+  "Listo para entregar",
+  "Entregado",
+  "Anulada",
+];
+
+function normalizarTextoFiltro(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function obtenerEtapaFiltro(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const etapaInput =
+    searchParams.get("etapa") ??
+    searchParams.get("estadoOrden") ??
+    searchParams.get("estado_orden") ??
+    searchParams.get("estado");
+
+  if (!etapaInput) {
+    return {
+      fueSolicitada: false,
+      etapa: null,
+    };
+  }
+
+  const etapaNormalizada = normalizarTextoFiltro(etapaInput);
+
+  return {
+    fueSolicitada: true,
+    etapa:
+      etapasOrdenTrabajo.find(
+        (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
+      ) ?? null,
+  };
+}
+
 function obtenerMetodoPago(rawData: any) {
   return rawData.pago?.metodo_pago ??
     rawData.pago?.metodoPago ??
@@ -788,7 +833,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)
 
@@ -796,7 +841,29 @@ export async function GET() {
       return response
     }
 
+    const etapaFiltro = obtenerEtapaFiltro(req);
+
+    if (etapaFiltro.fueSolicitada && !etapaFiltro.etapa) {
+      return NextResponse.json(
+        {
+          code: "ETAPA_INVALIDA",
+          message: "La etapa seleccionada no es valida",
+          etapasDisponibles: etapasOrdenTrabajo,
+        },
+        { status: 400 }
+      );
+    }
+
     const ventas = await prisma.venta.findMany({
+      where: etapaFiltro.etapa
+        ? {
+            ordenDeTrabajo: {
+              is: {
+                estado: etapaFiltro.etapa,
+              },
+            },
+          }
+        : undefined,
       orderBy: {
         fechaRegistro: "desc",
       },
@@ -835,7 +902,7 @@ export async function GET() {
     const operaciones = ventas.flatMap((venta: any) => {
       const items = [];
 
-      if (venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
+      if (!etapaFiltro.etapa && venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
         const ventaAdaptada = adaptarVenta(venta);
 
         items.push({
@@ -853,7 +920,10 @@ export async function GET() {
         });
       }
 
-      if (venta.ordenDeTrabajo) {
+      if (
+        venta.ordenDeTrabajo &&
+        (!etapaFiltro.etapa || venta.ordenDeTrabajo.estado === etapaFiltro.etapa)
+      ) {
         const ordenTrabajo = {
           ...venta.ordenDeTrabajo,
           venta,
@@ -882,6 +952,17 @@ export async function GET() {
       (a: any, b: any) =>
         new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime()
     );
+
+    if (etapaFiltro.etapa && operaciones.length === 0) {
+      return NextResponse.json(
+        {
+          code: "SIN_TRABAJOS_EN_ETAPA",
+          message: "No se encontraron trabajos en esa etapa",
+          etapa: etapaFiltro.etapa,
+        },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(operaciones);
   } catch (error) {
