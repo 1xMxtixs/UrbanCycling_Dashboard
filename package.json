@@ -7,9 +7,13 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
+    "test": "vitest",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:db:push": "dotenv -e .env.test -- npx prisma db push --accept-data-loss",
+    "test:integration": "npm run test:db:push && dotenv -e .env.test -- vitest run tests/integration",
+    "seed": "prisma db seed"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1058.0",
@@ -39,11 +43,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.7",
     "postcss": "^8",
@@ -51,6 +57,11 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.1",
-    "typescript": "^5.9.3"
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
