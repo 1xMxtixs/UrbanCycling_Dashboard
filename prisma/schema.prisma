@@ -360,11 +360,11 @@ model ProductoServicio {
 model Venta {
   idVenta       Int      @id @default(autoincrement()) @db.UnsignedInt @map("id_venta")
   idUsuario     Int      @db.UnsignedInt @map("id_usuario")
-  idCliente     Int      @db.UnsignedInt @map("id_cliente")
+  idCliente     Int?     @db.UnsignedInt @map("id_cliente")
   fechaRegistro DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
 
   usuario               Usuario                       @relation(fields: [idUsuario], references: [idUsuario])
-  cliente               Cliente                       @relation(fields: [idCliente], references: [idCliente])
+  cliente               Cliente?                      @relation(fields: [idCliente], references: [idCliente])
   ventaEnMostrador      VentaEnMostrador?
   ordenDeTrabajo        OrdenDeTrabajo?
   reclamosComoReclamada ReclamoGarantia[]             @relation("VentaReclamada")
@@ -584,7 +584,7 @@ model DocumentoTributario {
   tipoDte               Int      @db.UnsignedSmallInt @map("tipo_dte")
   numeroFolio           Int      @db.UnsignedInt   @map("numero_folio")
   rutEmisor             String   @db.VarChar(12)   @map("rut_emisor")
-  rutReceptor           String   @db.VarChar(12)   @map("rut_receptor")
+  rutReceptor           String?  @db.VarChar(12)   @map("rut_receptor")
   fechaRegistro         DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
   fechaEmision          DateTime @db.Date           @map("fecha_emision")
   montoSubtotal         Decimal  @db.Decimal(12, 0) @map("monto_subtotal")

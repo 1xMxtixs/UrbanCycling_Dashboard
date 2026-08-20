@@ -28,6 +28,11 @@ function createAdapter() {
     console.error("Error parseando DATABASE_URL en lib/db.ts", error);
     throw error;
   }
+
+  // Conexión local sin SSL
+  return new PrismaMariaDb(
+    rawUrl || "mariadb://mock_user:mock_pass@localhost:3306/mock_db"
+  );
 }
 
 // Ahora Prisma SIEMPRE usa el adaptador, tanto en local como en producción

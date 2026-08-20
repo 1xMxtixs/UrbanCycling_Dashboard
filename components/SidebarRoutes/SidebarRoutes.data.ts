@@ -2,8 +2,12 @@
 import {
     Bike,
     Building2,
+    FileText,
     Package,
     PanelsTopLeft,
+    Receipt,
+    ShoppingBag,
+    Store,
     UserCog,
     Users,
     Wrench
@@ -22,9 +26,9 @@ export const dataGeneralSidebar = [
 
 export const dataOperationSidebar = [
     {
-        icon: Wrench,
-        label: "Órdenes de Trabajo",
-        href: "/ordenes-trabajo",
+        icon: Store,
+        label: "Punto de Venta",
+        href: "/punto-ventas",
         permission: PERMISSIONS.WORK_ORDERS_READ
     },
     {
@@ -47,6 +51,12 @@ export const dataManagementSidebar = [
         label: "Bicicletas",
         href: "/bicicletas",
         permission: PERMISSIONS.BICYCLES_READ
+    },
+     {
+        icon: FileText,
+        label: "Historial de Boletas",
+        href: "/historial-boletas",
+        permission: PERMISSIONS.REPORTS_READ
     },
 ]
 

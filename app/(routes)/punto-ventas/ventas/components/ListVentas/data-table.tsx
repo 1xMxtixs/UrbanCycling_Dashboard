@@ -24,22 +24,33 @@ import {
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { type WorkOrder } from "./kpi-cards"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { SaleOperation } from "./columns"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  onViewDetails: (order: WorkOrder) => void
-  onStatusChange: (orderId: number, nextStatus: string) => void
+  onViewDetails: (op: SaleOperation) => void
+  onUpdateStatus: (idVenta: number, nextStatus: string, estadoVenta: string) => void
   updatingId: number | null
+  onPayClick?: (idVenta: number, total: number) => void
+  onGenerateReceipt?: (op: SaleOperation) => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   onViewDetails,
-  onStatusChange,
+  onUpdateStatus,
   updatingId,
+  onPayClick,
+  onGenerateReceipt,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -54,14 +65,23 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     initialState: {
+      meta: {
+        onViewDetails,
+        onUpdateStatus,
+        updatingId,
+        onPayClick,
+        onGenerateReceipt,
+      },
       pagination: {
         pageSize: 8,
       },
-    },
+    } as any,
     meta: {
       onViewDetails,
-      onStatusChange,
+      onUpdateStatus,
       updatingId,
+      onPayClick,
+      onGenerateReceipt,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -82,33 +102,35 @@ export function DataTable<TData, TValue>({
   }
 
   return (
-    <div className="mt-4 rounded-lg bg-background p-4 shadow-md border border-slate-100 dark:border-slate-800">
+    <div className="mt-4 rounded-lg bg-background p-4 shadow-md border border-slate-100 dark:border-slate-800 animate-in fade-in duration-300">
       <div className="mb-4 space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
             <Input
-              placeholder="Buscar por ID, Cliente o Bicicleta..."
+              placeholder="Buscar por ID o Cliente..."
               value={globalFilter ?? ""}
               onChange={(event) => setGlobalFilter(event.target.value)}
             />
           </div>
 
-          <select
-            className="border rounded-md px-3 py-2 h-10 bg-background text-sm cursor-pointer border-slate-200 focus:outline-none focus:ring-2 focus:ring-black transition-all"
+          <Select
             value={
-              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? ""
+              (table.getColumn("estadoPago")?.getFilterValue() as string) ?? "all"
             }
-            onChange={(event) =>
-              table.getColumn("estadoOrden")?.setFilterValue(event.target.value)
+            onValueChange={(value) =>
+              table.getColumn("estadoPago")?.setFilterValue(value === "all" ? "" : value)
             }
           >
-            <option value="">Todos los estados</option>
-            <option value="por-realizar">Por realizar</option>
-            <option value="activa">Activas (En curso)</option>
-            <option value="espera">En Espera</option>
-            <option value="completada">Completadas</option>
-            <option value="retrasada">Retrasadas</option>
-          </select>
+            <SelectTrigger className="w-56 h-10 border border-slate-200 bg-background text-sm">
+              <SelectValue placeholder="Todos los estados de pago" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="all">Todos los estados de pago</SelectItem>
+              <SelectItem value="pagada">Pagadas</SelectItem>
+              <SelectItem value="pendiente">Pendientes</SelectItem>
+              <SelectItem value="anulada">Anuladas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <p className="text-xs text-slate-500 font-semibold">
