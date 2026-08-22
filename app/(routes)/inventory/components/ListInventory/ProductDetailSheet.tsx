@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet"
 
 import type { ProductColumn } from "./columns"
+import { DataField } from "@/components/DataField"
 
 type ProductDetailSheetProps = {
   product: ProductColumn | null
@@ -102,44 +103,27 @@ export function ProductDetailSheet({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Hash className="size-3.5" />
-                    ID
-                  </div>
-                  <p className="mt-1 font-medium">#{product.idProducto}</p>
-                </div>
-
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Boxes className="size-3.5" />
-                    Tipo
-                  </div>
-                  <p className="mt-1 font-medium">{product.tipoProducto}</p>
-                </div>
-
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <AlertTriangle className="size-3.5" />
-                    Stock
-                  </div>
-                  <p className="mt-1 font-medium">
-                    {product.stockActual} disponibles
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Minimo: {product.stockMinimo}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CircleDollarSign className="size-3.5" />
-                    Precio venta
-                  </div>
-                  <p className="mt-1 font-medium">
-                    {formatPrice(product.precioVenta)}
-                  </p>
-                </div>
+                <DataField
+                  icon={Hash}
+                  label="ID"
+                  value={`#${product.idProducto}`}
+                />
+                <DataField
+                  icon={Boxes}
+                  label="Tipo"
+                  value={product.tipoProducto}
+                />
+                <DataField
+                  icon={AlertTriangle}
+                  label="Stock"
+                  value={`${product.stockActual} disponibles`}
+                  secondaryValue={`Mínimo: ${product.stockMinimo}`}
+                />
+                <DataField
+                  icon={CircleDollarSign}
+                  label="Precio venta"
+                  value={formatPrice(product.precioVenta)}
+                />
               </div>
 
               <div className="rounded-lg border p-4">

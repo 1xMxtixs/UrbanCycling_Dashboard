@@ -1,38 +1,31 @@
-"use client"
+"use client";
 
-import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ColumnDef, Row, Table } from "@tanstack/react-table";
+import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/StatusBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
+import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
 
-export type ClienteNatural = {
-  id: number
-  nombre: string // Nombres
-  apellido: string // Apellidos
-  rut: string
-  telefono: string
-  estado: string
+export type { ClienteNatural, ClienteJuridica };
+
+interface CellActionsProps<TData extends { id: number }> {
+  row: Row<TData>;
+  table: Table<TData>;
 }
 
-export type ClienteJuridica = {
-  id: number
-  nombre: string // Razón Social
-  giro: string
-  nombreContacto: string
-  rut: string
-  telefono: string
-  estado: string
-}
-
-const CellActions = ({ row, table }: { row: any; table: any }) => {
-  const client = row.original
-  const meta = table.options.meta as any
+const CellActions = <TData extends { id: number }>({
+  row,
+  table,
+}: CellActionsProps<TData>) => {
+  const client = row.original;
+  const meta = table.options.meta as ClientesTableMeta | undefined;
 
   return (
     <DropdownMenu>
@@ -44,7 +37,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
         <DropdownMenuItem
-          onClick={() => meta?.onViewDetails(client.id)}
+          onClick={() => meta?.onViewDetails?.(client.id)}
           className="flex cursor-pointer items-center gap-2"
         >
           <Eye className="h-4 w-4" />
@@ -52,8 +45,8 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
+  );
+};
 
 export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
   {
@@ -69,7 +62,7 @@ export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
           Nombres
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
   },
   {
@@ -88,35 +81,33 @@ export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
     accessorKey: "estado",
     header: "Estado",
     filterFn: (row, columnId, filterValue) => {
-      if (!filterValue) return true
-      return row.getValue(columnId) === filterValue
+      if (!filterValue) return true;
+      return (
+        String(row.getValue(columnId)).toLowerCase() ===
+        String(filterValue).toLowerCase()
+      );
     },
     cell: ({ row }) => {
-      const estado = row.getValue("estado")
+      const estado = String(row.getValue("estado"));
+      const isActivo = estado.toLowerCase() === "activo";
       return (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            String(estado).toLowerCase() === "activo"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {String(estado)}
-        </span>
-      )
+        <StatusBadge
+          status={isActivo ? "success" : "danger"}
+          label={estado}
+        />
+      );
     },
   },
   {
     id: "acciones",
     header: "Acciones",
-    cell: CellActions,
-  }
-]
+    cell: ({ row, table }) => <CellActions row={row} table={table} />,
+  },
+];
 
-// 2. Columnas para Personas Jurídicas
 export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
   {
-    accessorKey: "nombre", // Mapeado a Razón Social
+    accessorKey: "nombre",
     header: ({ column }) => {
       return (
         <Button
@@ -128,24 +119,30 @@ export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
           Razón Social
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
   },
   {
     accessorKey: "giro",
     header: "Giro",
     cell: ({ row }) => {
-      const giro = row.getValue("giro")
-      return <span className="text-slate-600">{String(giro || "-")}</span>
-    }
+      const giro = row.getValue("giro");
+      return (
+        <span className="text-muted-foreground">{String(giro || "-")}</span>
+      );
+    },
   },
   {
     accessorKey: "nombreContacto",
-    header: "Nombre de Contacto",
+    header: "Contacto",
     cell: ({ row }) => {
-      const contacto = row.getValue("nombreContacto")
-      return <span className="text-slate-600">{String(contacto || "-")}</span>
-    }
+      const contacto = row.getValue("nombreContacto");
+      return (
+        <span className="text-muted-foreground">
+          {String(contacto || "-")}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "rut",
@@ -159,27 +156,26 @@ export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
     accessorKey: "estado",
     header: "Estado",
     filterFn: (row, columnId, filterValue) => {
-      if (!filterValue) return true
-      return row.getValue(columnId) === filterValue
+      if (!filterValue) return true;
+      return (
+        String(row.getValue(columnId)).toLowerCase() ===
+        String(filterValue).toLowerCase()
+      );
     },
     cell: ({ row }) => {
-      const estado = row.getValue("estado")
+      const estado = String(row.getValue("estado"));
+      const isActivo = estado.toLowerCase() === "activo";
       return (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            String(estado).toLowerCase() === "activo"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {String(estado)}
-        </span>
-      )
+        <StatusBadge
+          status={isActivo ? "success" : "danger"}
+          label={estado}
+        />
+      );
     },
   },
   {
     id: "acciones",
     header: "Acciones",
-    cell: CellActions,
-  }
-]
+    cell: ({ row, table }) => <CellActions row={row} table={table} />,
+  },
+];

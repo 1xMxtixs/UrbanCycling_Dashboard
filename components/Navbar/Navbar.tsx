@@ -23,9 +23,9 @@ export function Navbar() {
                 </SheetContent>
             </Sheet>
         </div>
-        <div className="relative w-75 ">
-            <Input placeholder="Search..." className="rounded-lg" />
-            <Search strokeWidth={1} className="absolute top-1 right-2" />
+        <div className="relative w-64 md:w-80">
+            <Input placeholder="Buscar..." className="rounded-lg pr-9" />
+            <Search strokeWidth={1.5} className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         </div>
         <div className="flex gap-x-2 items-center">
             <ToggleTheme />

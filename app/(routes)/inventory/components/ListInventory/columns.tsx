@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
+import { StatusBadge } from "@/components/StatusBadge"
+import { DataField } from "@/components/DataField"
 
 export type ProductImage = {
   idImagenProducto: number
@@ -58,17 +60,15 @@ export function getColumns(
 ): ColumnDef<ProductColumn>[] {
   return [
   {
-    accessorKey: "idProducto",
-    header: "ID",
-    cell: ({ row }) => `#${row.original.idProducto}`,
-  },
-  {
     accessorKey: "nombre",
-    header: "Nombre",
-  },
-  {
-    accessorKey: "tipoProducto",
-    header: "Tipo",
+    header: "Nombre / Tipo",
+    cell: ({ row }) => (
+      <DataField
+        variant="table-cell"
+        value={row.original.nombre}
+        secondaryValue={row.original.tipoProducto}
+      />
+    ),
   },
   {
     accessorKey: "stockActual",
@@ -91,15 +91,10 @@ export function getColumns(
       const isLowStock = stockActual <= stockMinimo
 
       return (
-        <span
-          className={
-            isLowStock
-              ? "rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive"
-              : "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-          }
-        >
-          {stockActual} u
-        </span>
+        <StatusBadge
+          status={isLowStock ? "warning" : "info"}
+          label={`${stockActual} u`}
+        />
       )
     },
   },
@@ -107,15 +102,21 @@ export function getColumns(
     id: "stockStatus",
     header: "Estado stock",
     cell: ({ row }) => {
-      const status = getStockStatus(row.original)
+      const p = row.original
+      const statusKey =
+        p.stockActual === 0
+          ? "danger"
+          : p.stockActual <= p.stockMinimo
+          ? "warning"
+          : "success"
+      const label =
+        p.stockActual === 0
+          ? "Sin stock"
+          : p.stockActual <= p.stockMinimo
+          ? "Stock bajo"
+          : "Disponible"
 
-      return (
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}
-        >
-          {status.label}
-        </span>
-      )
+      return <StatusBadge status={statusKey} label={label} />
     },
   },
   {
@@ -136,18 +137,11 @@ export function getColumns(
     header: "Estado",
     cell: ({ row }) => {
       const estado = row.original.estado
-      const isActive = estado === "activo"
-
       return (
-        <span
-          className={
-            isActive
-              ? "rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 capitalize"
-              : "rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 capitalize"
-          }
-        >
-          {estado}
-        </span>
+        <StatusBadge
+          status={estado === "activo" ? "success" : "danger"}
+          label={estado}
+        />
       )
     },
   },

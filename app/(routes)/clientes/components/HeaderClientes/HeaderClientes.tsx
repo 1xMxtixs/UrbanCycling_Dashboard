@@ -3,16 +3,15 @@
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/FormDialog";
 import { useState } from "react";
-import { FormCreateCliente } from "../FormCreateCliente/FormCreateCliente";
+import { PageHeader } from "@/components/PageHeader";
+import { Plus } from "lucide-react";
+import { FormCreateCliente } from "../FormCreateCliente";
 import { useRouter } from "next/navigation";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 export function HeaderClientes() {
   const router = useRouter();
@@ -27,45 +26,30 @@ export function HeaderClientes() {
   };
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Clientes Registrados
-          </h1>
+    <PageHeader
+      title="Clientes"
+      description="Directorio y administración de clientes de Urban Cycling"
+    >
+      <Dialog
+        open={openModalCreate}
+        onOpenChange={setOpenModalCreate}
+      >
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" /> Registrar Cliente
+          </Button>
+        </DialogTrigger>
 
-          <p className="text-sm text-gray-500 mt-1">
-            Gestión de clientes de Urban Cycling
-          </p>
-        </div>
-
-        <Dialog
-          open={openModalCreate}
-          onOpenChange={setOpenModalCreate}
+        <FormDialog
+          title="Registrar Cliente"
+          description="Ingresa los datos del cliente"
+          size="lg"
         >
-          <DialogTrigger asChild>
-            <Button className="py-5">
-             + Registrar Cliente
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Registrar Cliente
-              </DialogTitle>
-
-              <DialogDescription>
-                Ingresa los datos del cliente
-              </DialogDescription>
-            </DialogHeader>
-
-            <FormCreateCliente
-              onSuccess={handleSuccess}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-    </>
+          <FormCreateCliente
+            onSuccess={handleSuccess}
+          />
+        </FormDialog>
+      </Dialog>
+    </PageHeader>
   );
 }
