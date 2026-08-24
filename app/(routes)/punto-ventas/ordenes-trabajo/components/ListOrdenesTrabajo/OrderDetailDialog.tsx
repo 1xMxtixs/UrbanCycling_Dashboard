@@ -3,7 +3,7 @@
 import { User, Calendar, FileText, ShoppingBag, Coins, Wrench, ChevronDown, ChevronUp } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/StatusBadge"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { DataField } from "@/components/DataField"
+import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { WorkOrder } from "../../types"
 

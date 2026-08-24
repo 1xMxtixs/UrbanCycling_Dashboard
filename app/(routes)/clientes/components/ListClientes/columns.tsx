@@ -3,7 +3,7 @@
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,

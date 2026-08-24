@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageUpload } from "@/components/ImageUpload";
+import { ImageUpload } from "@/components/forms/ImageUpload";
 
 const formSchema = z.object({
   marca: z.string().min(1, "La marca es obligatoria"),

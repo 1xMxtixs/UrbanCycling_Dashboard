@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/StatusBadge"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { DataField } from "@/components/DataField"
+import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { SaleOperation } from "../../types"
 

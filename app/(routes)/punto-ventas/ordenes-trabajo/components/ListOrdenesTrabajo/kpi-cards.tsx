@@ -1,7 +1,7 @@
 "use client"
 
 import { Play, Pause, CheckCircle2, AlertTriangle, PackageCheck } from "lucide-react"
-import { MetricCard } from "@/components/MetricCard"
+import { MetricCard } from "@/components/common/MetricCard"
 import { WorkOrder } from "../../types"
 
 interface KpiCardsProps {

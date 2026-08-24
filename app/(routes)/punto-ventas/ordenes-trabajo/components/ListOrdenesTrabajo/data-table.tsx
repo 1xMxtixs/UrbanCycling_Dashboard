@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/table"
 
 import { Input } from "@/components/ui/input"
-import { DataTableContainer } from "@/components/DataTableContainer"
-import { EmptyState } from "@/components/EmptyState"
+import { DataTableContainer } from "@/components/common/DataTableContainer"
+import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -101,10 +101,12 @@ export function DataTable<TData, TValue>({
 
   return (
     <DataTableContainer
+      title="Órdenes de Trabajo"
+      description={`${filteredRowCount} ${filteredRowCount === 1 ? "orden encontrada" : "órdenes encontradas"}`}
       toolbar={
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative w-full max-w-sm">
+            <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por ID, Cliente o Bicicleta..."

@@ -1,6 +1,6 @@
 "use client"
 
-import { PageHeader } from "@/components/PageHeader"
+import { PageHeader } from "@/components/common/PageHeader"
 
 export function HeaderHistorialBoletas() {
   return (

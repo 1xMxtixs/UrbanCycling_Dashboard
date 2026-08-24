@@ -6,9 +6,9 @@ import {
   Dialog,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { FormDialog } from "@/components/FormDialog"
-import { PageHeader } from "@/components/PageHeader"
-import { Plus } from "lucide-react"
+import { FormDialog } from "@/components/forms/FormDialog"
+import { PageHeader } from "@/components/common/PageHeader"
+import { Plus, PackagePlus } from "lucide-react"
 import { FormCreateInventory } from "../FormCreateInventory"
 
 export function HeaderInventory() {
@@ -16,19 +16,19 @@ export function HeaderInventory() {
 
   return (
     <PageHeader
-      title="Inventario"
-      description="Gestión y control de productos registrados en inventario"
+      title="Inventario de Productos"
+      description="Control de existencias, repuestos, precios y catálogo general del taller y mostrador."
     >
       <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
         <DialogTrigger asChild>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" /> Agregar Producto
+          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
+            <Plus className="h-4 w-4 mr-1.5" /> Agregar Producto
           </Button>
         </DialogTrigger>
 
         <FormDialog
-          title="Agregar producto"
-          description="Ingresa los datos del producto para registrarlo en inventario"
+          title="Nuevo Producto en Catálogo"
+          description="Completa la información técnica, categoría, precio de venta y niveles de stock mínimos."
           size="2xl"
         >
           <FormCreateInventory setOpenModalCreate={setOpenModalCreate} />

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { DataField } from "@/components/DataField"
+import { DataField } from "@/components/common/DataField"
 
 export interface Product {
   idProducto: number

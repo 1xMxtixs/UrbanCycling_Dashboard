@@ -1,7 +1,7 @@
 "use client"
 
 import { Package, Boxes, AlertTriangle, AlertCircle } from "lucide-react"
-import { MetricCard } from "@/components/MetricCard"
+import { MetricCard } from "@/components/common/MetricCard"
 import { type ProductColumn } from "./columns"
 
 interface KpiCardsProps {
@@ -16,46 +16,34 @@ export function KpiCards({ data }: KpiCardsProps) {
     (p) => p.stockActual > 0 && p.stockActual <= p.stockMinimo
   ).length
 
-  const kpis = [
-    {
-      title: "Total Productos",
-      value: totalProducts,
-      description: "Productos registrados en catálogo",
-      icon: Package,
-    },
-    {
-      title: "Stock Total",
-      value: `${totalStock} u`,
-      description: "Unidades totales en inventario",
-      icon: Boxes,
-    },
-    {
-      title: "Stock Bajo",
-      value: lowStockCount,
-      description: "Por debajo del mínimo definido",
-      icon: AlertTriangle,
-    },
-    {
-      title: "Sin Stock",
-      value: outOfStockCount,
-      description: "Sin unidades disponibles",
-      icon: AlertCircle,
-    },
-  ]
-
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-      {kpis.map((kpi) => {
-        return (
-          <MetricCard
-            key={kpi.title}
-            title={kpi.title}
-            value={kpi.value}
-            description={kpi.description}
-            icon={kpi.icon}
-          />
-        )
-      })}
+      <MetricCard
+        title="Catálogo General"
+        value={totalProducts}
+        description="Productos y repuestos registrados"
+        icon={Package}
+      />
+      <MetricCard
+        title="Stock Físico Total"
+        value={`${totalStock.toLocaleString("es-CL")} u`}
+        description="Unidades acumuladas en bodega"
+        icon={Boxes}
+      />
+      <MetricCard
+        title="Stock Bajo Mínimo"
+        value={lowStockCount}
+        description="Requieren reposición pronto"
+        icon={AlertTriangle}
+        trend={lowStockCount > 0 ? { value: "Alerta", isPositive: false } : undefined}
+      />
+      <MetricCard
+        title="Sin Existencias"
+        value={outOfStockCount}
+        description="Productos agotados en tienda"
+        icon={AlertCircle}
+        trend={outOfStockCount > 0 ? { value: "Agotado", isPositive: false } : undefined}
+      />
     </div>
   )
 }

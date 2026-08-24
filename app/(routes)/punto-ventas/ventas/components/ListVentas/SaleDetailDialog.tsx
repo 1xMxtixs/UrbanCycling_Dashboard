@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { DataField } from "@/components/DataField"
+import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { SaleOperation } from "../../types"
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, RotateCcw, Search, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Check, RotateCcw, Search, ShieldCheck, Trash2, Users, UserCheck, UserX, Shield } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,14 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
-import { StatusBadge } from "@/components/StatusBadge";
-import { EmptyState } from "@/components/EmptyState";
-import { DataTableContainer } from "@/components/DataTableContainer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { EmptyState } from "@/components/common/EmptyState";
+import { DataTableContainer } from "@/components/common/DataTableContainer";
+import { MetricCard } from "@/components/common/MetricCard";
 import { formatClientName } from "@/lib/formatters";
-import { DataField } from "@/components/DataField";
 import { User, Role, PENDING_ROLE_NAME } from "../../types";
 
 function formatDate(date: string | null) {
@@ -45,6 +46,12 @@ function getRoleStatus(roleName: string): "warning" | "info" | "success" {
   if (roleName === PENDING_ROLE_NAME) return "warning";
   if (roleName === "Administrador") return "info";
   return "success";
+}
+
+function getUserInitials(user: User): string {
+  const first = user.primerNombre?.[0] ?? "";
+  const last = user.apellidoPaterno?.[0] ?? "";
+  return `${first}${last}`.toUpperCase() || "U";
 }
 
 export function ListUsuarios() {
@@ -123,6 +130,12 @@ export function ListUsuarios() {
       return searchableText.includes(normalizedSearch);
     });
   }, [search, users]);
+
+  // KPI metrics
+  const totalUsers = users.length;
+  const activeUsers = users.filter((u) => u.estado?.toLowerCase() === "activo").length;
+  const pendingUsers = users.filter((u) => u.rol.nombre === PENDING_ROLE_NAME).length;
+  const adminUsers = users.filter((u) => u.rol.nombre === "Administrador").length;
 
   async function updateUserRole(user: User) {
     const selectedRoleId = Number(selectedRoles[user.idUsuario]);
@@ -213,18 +226,23 @@ export function ListUsuarios() {
   if (isLoading) {
     return (
       <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
         <Skeleton className="h-10 w-64 rounded-xl" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }
 
   if (errorMessage) {
     return (
-      <Card className="border-destructive/30">
+      <Card className="border-destructive/30 rounded-2xl">
         <CardContent className="p-6">
           <p className="text-sm font-medium text-destructive">{errorMessage}</p>
-          <Button variant="outline" className="mt-4" onClick={loadData}>
+          <Button variant="outline" className="mt-4 rounded-xl" onClick={loadData}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Reintentar
           </Button>
@@ -234,141 +252,171 @@ export function ListUsuarios() {
   }
 
   return (
-    <DataTableContainer
-      title="Gestión de roles y accesos"
-      description={`${filteredUsers.length} ${
-        filteredUsers.length === 1 ? "usuario encontrado" : "usuarios encontrados"
-      }`}
-      searchPlaceholder="Buscar por nombre, correo, RUT o rol..."
-      searchValue={search}
-      onSearchChange={setSearch}
-    >
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Usuario</TableHead>
-              <TableHead>RUT</TableHead>
-              <TableHead>Rol actual</TableHead>
-              <TableHead>Registro</TableHead>
-              <TableHead>Último acceso</TableHead>
-              <TableHead className="w-[360px]">Asignación de rol</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length ? (
-              filteredUsers.map((user) => {
-                const selectedRoleId = selectedRoles[user.idUsuario];
-                const hasRoleChanged =
-                  Number(selectedRoleId) !== user.rol.idRol;
-                const isSaving = isSavingUserId === user.idUsuario;
-                const isPending = user.rol.nombre === PENDING_ROLE_NAME;
-                const fullName = formatClientName(user);
-
-                return (
-                  <TableRow key={user.idUsuario}>
-                    <TableCell>
-                      <div className="min-w-44">
-                        <DataField
-                          variant="table-cell"
-                          value={fullName}
-                          secondaryValue={user.correoElectronico}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DataField
-                        variant="table-cell"
-                        value={user.rut}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <DataField
-                        variant="table-cell"
-                        value={
-                          <StatusBadge
-                            status={getRoleStatus(user.rol.nombre)}
-                            label={user.rol.nombre}
-                          />
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <DataField
-                        variant="table-cell"
-                        value={formatDate(user.fechaCreacion)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <DataField
-                        variant="table-cell"
-                        value={formatDate(user.ultimoAcceso)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex min-w-80 items-center gap-2">
-                        <Select
-                          value={selectedRoleId}
-                          onValueChange={(value) =>
-                            setSelectedRoles((currentRoles) => ({
-                              ...currentRoles,
-                              [user.idUsuario]: value,
-                            }))
-                          }
-                          disabled={isSaving}
-                        >
-                          <SelectTrigger className="w-44">
-                            <SelectValue placeholder="Seleccionar rol" />
-                          </SelectTrigger>
-                          <SelectContent position="popper">
-                            {roles.map((role) => (
-                              <SelectItem
-                                key={role.idRol}
-                                value={String(role.idRol)}
-                              >
-                                {role.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        <Button
-                          size="sm"
-                          onClick={() => updateUserRole(user)}
-                          disabled={!hasRoleChanged || isSaving}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Guardar
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeUserRole(user)}
-                          disabled={isPending || isSaving}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Quitar
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 p-0">
-                  <EmptyState
-                    icon={Users}
-                    title="No hay usuarios registrados"
-                    description="No se encontraron usuarios que coincidan con la búsqueda."
-                  />
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* KPIs de Gestión de Accesos */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total Usuarios"
+          value={totalUsers}
+          description="Cuentas en el sistema"
+          icon={Users}
+        />
+        <MetricCard
+          title="Usuarios Activos"
+          value={activeUsers}
+          description="Con acceso habilitado"
+          icon={UserCheck}
+        />
+        <MetricCard
+          title="Sin Rol Asignado"
+          value={pendingUsers}
+          description="Pendientes de configuración"
+          icon={UserX}
+        />
+        <MetricCard
+          title="Administradores"
+          value={adminUsers}
+          description="Cuentas con privilegios"
+          icon={Shield}
+        />
       </div>
-    </DataTableContainer>
+
+      <DataTableContainer
+        title="Gestión de Roles y Accesos"
+        description={`${filteredUsers.length} ${
+          filteredUsers.length === 1 ? "usuario encontrado" : "usuarios encontrados"
+        }`}
+        searchPlaceholder="Buscar por nombre, correo, RUT o rol..."
+        searchValue={search}
+        onSearchChange={setSearch}
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Usuario</TableHead>
+                <TableHead>RUT</TableHead>
+                <TableHead>Rol Actual</TableHead>
+                <TableHead>Registro</TableHead>
+                <TableHead>Último Acceso</TableHead>
+                <TableHead>Asignación de Rol</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.length ? (
+                filteredUsers.map((user) => {
+                  const selectedRoleId = selectedRoles[user.idUsuario];
+                  const hasRoleChanged =
+                    Number(selectedRoleId) !== user.rol.idRol;
+                  const isSaving = isSavingUserId === user.idUsuario;
+                  const isPending = user.rol.nombre === PENDING_ROLE_NAME;
+                  const fullName = formatClientName(user);
+                  const initials = getUserInitials(user);
+
+                  return (
+                    <TableRow key={user.idUsuario} className="group">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 rounded-xl shrink-0 border border-border shadow-2xs">
+                            <AvatarFallback className="rounded-xl text-xs font-bold bg-primary/10 text-primary">
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate">{fullName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.correoElectronico}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-mono font-semibold text-foreground bg-muted/50 px-2 py-1 rounded-lg border border-border/60">
+                          {user.rut}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          status={getRoleStatus(user.rol.nombre)}
+                          label={user.rol.nombre}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {formatDate(user.fechaCreacion)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {formatDate(user.ultimoAcceso)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={selectedRoleId}
+                            onValueChange={(value) =>
+                              setSelectedRoles((currentRoles) => ({
+                                ...currentRoles,
+                                [user.idUsuario]: value,
+                              }))
+                            }
+                            disabled={isSaving}
+                          >
+                            <SelectTrigger className="w-36 h-9 rounded-xl bg-background border-border/80 text-xs font-medium">
+                              <SelectValue placeholder="Seleccionar rol" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" className="rounded-xl border-border/80">
+                              {roles.map((role) => (
+                                <SelectItem
+                                  key={role.idRol}
+                                  value={String(role.idRol)}
+                                  className="text-xs"
+                                >
+                                  {role.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            size="icon"
+                            onClick={() => updateUserRole(user)}
+                            disabled={!hasRoleChanged || isSaving}
+                            title="Guardar rol"
+                            className="rounded-xl h-9 w-9 shrink-0 cursor-pointer"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            variant="destructive"
+                            onClick={() => removeUserRole(user)}
+                            disabled={isPending || isSaving}
+                            title="Quitar rol"
+                            className="rounded-xl h-9 w-9 shrink-0 cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 p-0">
+                    <EmptyState
+                      icon={Users}
+                      title="No hay usuarios registrados"
+                      description="No se encontraron usuarios que coincidan con la búsqueda."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DataTableContainer>
+    </div>
   );
 }

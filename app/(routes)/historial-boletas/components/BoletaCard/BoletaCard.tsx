@@ -1,8 +1,8 @@
 "use client";
 
-import { CalendarDays, Eye, Mail } from "lucide-react";
+import { CalendarDays, Eye, Mail, Receipt, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import type { DocumentoTributario } from "../../types";
 
@@ -11,6 +11,7 @@ interface BoletaCardProps {
 }
 
 function formatDate(value: string) {
+  if (!value) return "Sin fecha";
   const [year, month, day] = value.split("T")[0].split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("es-CL", {
     day: "2-digit",
@@ -27,53 +28,57 @@ function formatCurrency(value: number | string) {
 }
 
 function getTipoDteLabel(tipo: number) {
-  return tipo === 39 ? "Boleta" : tipo === 33 ? "Factura" : `DTE ${tipo}`;
+  return tipo === 39 ? "Boleta Electrónica" : tipo === 33 ? "Factura Electrónica" : `DTE Tipo ${tipo}`;
 }
 
 export function BoletaCard({ doc }: BoletaCardProps) {
   const isEmitido = doc.estado.toLowerCase() === "emitido";
 
   return (
-    <article className="flex flex-col gap-4 rounded-xl border bg-card p-4 transition-all duration-200 hover:border-primary/40 hover:shadow-xs lg:flex-row lg:items-center lg:justify-between">
-      <div className="space-y-1.5 min-w-0 flex-1">
+    <article className="group relative flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 transition-all duration-300 hover:border-primary/50 hover:shadow-md hover:shadow-primary/5 lg:flex-row lg:items-center lg:justify-between shadow-2xs">
+      <div className="space-y-2 min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="font-semibold text-[10px] uppercase">
+          <Badge variant="secondary" className="rounded-md font-bold text-[10px] tracking-wide uppercase px-2 bg-primary/10 text-primary border border-primary/20">
             {getTipoDteLabel(doc.tipoDte)}
           </Badge>
           <StatusBadge
             status={isEmitido ? "success" : "danger"}
             label={doc.estado}
           />
-          <span className="text-xs text-muted-foreground font-mono">
-            Folio #{doc.numeroFolio}
+          <span className="text-xs font-mono font-bold text-foreground px-2 py-0.5 rounded-md bg-muted/60 border border-border/60">
+            Folio N° {doc.numeroFolio}
           </span>
         </div>
-        <h4 className="text-base font-bold text-foreground truncate">
-          {doc.tipoMovimiento}
+
+        <h4 className="text-sm sm:text-base font-bold text-foreground truncate flex items-center gap-2">
+          <Receipt className="h-4 w-4 text-primary shrink-0" />
+          <span>{doc.tipoMovimiento || "Venta de Productos y Servicios"}</span>
         </h4>
-        <p className="text-xs text-muted-foreground">
-          Emisor: <span className="font-medium text-foreground">{doc.rutEmisor}</span> · Receptor:{" "}
-          <span className="font-medium text-foreground">{doc.rutReceptor}</span>
-        </p>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <p>
+            RUT Emisor: <span className="font-semibold text-foreground font-mono">{doc.rutEmisor}</span>
+          </p>
+          <span>•</span>
+          <p>
+            RUT Receptor: <span className="font-semibold text-foreground font-mono">{doc.rutReceptor}</span>
+          </p>
+        </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-4 lg:justify-end">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg border">
-          <CalendarDays className="h-3.5 w-3.5" />
+      <div className="flex shrink-0 flex-wrap items-center gap-3 sm:gap-4 lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-border/60">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/30 px-3 py-2 rounded-xl border border-border/60">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
           <span>{formatDate(doc.fechaEmision)}</span>
         </div>
 
-        <div className="text-sm font-bold text-foreground bg-muted/50 px-3 py-1.5 rounded-lg border">
-          {formatCurrency(doc.montoTotal)}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver detalles">
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Enviar por correo">
-            <Mail className="h-4 w-4" />
-          </Button>
+        <div className="flex flex-col text-right px-3.5 py-1.5 rounded-xl bg-primary/5 border border-primary/20">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Total DTE
+          </span>
+          <span className="text-base font-extrabold text-foreground tracking-tight">
+            {formatCurrency(doc.montoTotal)}
+          </span>
         </div>
       </div>
     </article>

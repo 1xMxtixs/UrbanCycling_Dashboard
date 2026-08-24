@@ -7,7 +7,7 @@ import { formatClientName } from "@/lib/formatters"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
-import { MetricCard } from "@/components/MetricCard"
+import { MetricCard } from "@/components/common/MetricCard"
 
 import { DataTable } from "./data-table"
 import { columns } from "./columns"

@@ -1,8 +1,8 @@
 "use client";
 
 import { Bike, CalendarDays, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
-import { StatusBadge, type StatusType } from "@/components/StatusBadge";
-import { DataField } from "@/components/DataField";
+import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
+import { DataField } from "@/components/common/DataField";
 import { formatClientName } from "@/lib/formatters";
 import type { Bicicleta } from "../../types";
 
@@ -26,9 +26,9 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   const statusType = mapEstadoToStatusType(estadoOrden);
 
   return (
-    <article className="group relative overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-primary/40 flex flex-col justify-between">
+    <article className="group relative overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 flex flex-col justify-between">
       <div>
-        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+        <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
           {bicicleta.imagenUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -38,12 +38,12 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Bike className="h-12 w-12 stroke-[1.5]" />
-              <span className="text-xs font-medium">Sin imagen</span>
+              <Bike className="h-12 w-12 stroke-[1.5] text-muted-foreground/60" />
+              <span className="text-xs font-medium">Sin imagen adjunta</span>
             </div>
           )}
 
-          <div className="absolute left-3 top-3 rounded-full bg-background/80 backdrop-blur-xs px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground border shadow-xs">
+          <div className="absolute left-3 top-3 rounded-full bg-background/85 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground border border-border/80 shadow-2xs">
             Orden #{bicicleta.idOrdenDeTrabajo}
           </div>
         </div>
@@ -61,33 +61,33 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between border-t pt-3">
+          <div className="flex items-center justify-between border-t border-border/60 pt-3">
             <DataField
               variant="inline"
               icon={UserRound}
               value={nombreCliente}
-              valueClassName="line-clamp-1 font-medium"
+              valueClassName="line-clamp-1 font-semibold"
             />
             <StatusBadge status={statusType} label={estadoOrden} />
           </div>
         </div>
       </div>
 
-      {/* Slide-up Panel informativo en Hover */}
-      <div className="absolute inset-x-0 bottom-0 h-[80%] translate-y-full rounded-t-xl border-t bg-background/95 p-4 backdrop-blur-md transition-transform duration-300 ease-out group-hover:translate-y-0 flex flex-col justify-between shadow-xl">
+      {/* Slide-up Drawer en Hover */}
+      <div className="absolute inset-x-0 bottom-0 h-[82%] translate-y-full rounded-t-2xl border-t border-border/80 bg-background/95 p-4.5 backdrop-blur-md transition-transform duration-300 ease-out group-hover:translate-y-0 flex flex-col justify-between shadow-2xl">
         <div className="space-y-3 overflow-hidden flex flex-col h-full">
-          <div className="flex items-center gap-2 text-primary border-b pb-2">
+          <div className="flex items-center gap-2 text-primary border-b border-border/60 pb-2">
             <Wrench className="h-4 w-4 stroke-[2]" />
             <span className="text-xs font-bold uppercase tracking-wider">
-              Observaciones del Taller
+              Diagnóstico & Taller
             </span>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto pr-1 text-xs text-muted-foreground leading-relaxed">
             {descripcion}
           </div>
 
-          <div className="border-t pt-2.5 space-y-2 text-xs">
+          <div className="border-t border-border/60 pt-2.5 space-y-2 text-xs">
             <DataField
               variant="inline"
               icon={UserRound}
@@ -100,13 +100,8 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               label="Orden"
               value={`#${bicicleta.idOrdenDeTrabajo}`}
             />
-            <div className="flex items-center justify-between text-foreground">
-              <DataField
-                variant="inline"
-                icon={CalendarDays}
-                label="Estado"
-                value=""
-              />
+            <div className="flex items-center justify-between text-foreground pt-0.5">
+              <span className="text-xs text-muted-foreground font-medium">Estado actual:</span>
               <StatusBadge status={statusType} label={estadoOrden} />
             </div>
           </div>

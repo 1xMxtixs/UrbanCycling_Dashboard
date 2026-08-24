@@ -4,7 +4,7 @@ import { DataTable } from "./data-table";
 import { columnsNaturales, columnsJuridicas, ClienteNatural, ClienteJuridica } from "./columns";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { User, Building2 } from "lucide-react";
-import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { SegmentedTabs } from "@/components/forms/SegmentedTabs";
 
 interface ClientesTabsViewProps {
   clientesNaturales: ClienteNatural[];
@@ -18,16 +18,28 @@ export function ClientesTabsView({
   onViewDetails,
 }: ClientesTabsViewProps) {
   return (
-    <div className="w-full space-y-4">
-      <Tabs defaultValue="natural" className="w-full">
-        <SegmentedTabs
-          items={[
-            { value: "natural", label: "Personas Naturales", icon: User, count: clientesNaturales.length },
-            { value: "juridica", label: "Personas Jurídicas", icon: Building2, count: clientesJuridicas.length },
-          ]}
-        />
+    <div className="w-full space-y-6">
+      <Tabs defaultValue="natural" className="w-full space-y-6">
+        <div className="flex items-center">
+          <SegmentedTabs
+            items={[
+              {
+                value: "natural",
+                label: "Personas Naturales",
+                icon: User,
+                count: clientesNaturales.length,
+              },
+              {
+                value: "juridica",
+                label: "Personas Jurídicas",
+                icon: Building2,
+                count: clientesJuridicas.length,
+              },
+            ]}
+          />
+        </div>
 
-        <TabsContent value="natural" className="mt-4">
+        <TabsContent value="natural" className="mt-0 focus-visible:outline-none">
           <DataTable
             columns={columnsNaturales}
             data={clientesNaturales}
@@ -35,7 +47,7 @@ export function ClientesTabsView({
           />
         </TabsContent>
 
-        <TabsContent value="juridica" className="mt-4">
+        <TabsContent value="juridica" className="mt-0 focus-visible:outline-none">
           <DataTable
             columns={columnsJuridicas}
             data={clientesJuridicas}

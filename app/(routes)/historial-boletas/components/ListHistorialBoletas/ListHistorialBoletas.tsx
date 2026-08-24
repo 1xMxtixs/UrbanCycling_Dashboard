@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/EmptyState";
-import { DataTableContainer } from "@/components/DataTableContainer";
+import { EmptyState } from "@/components/common/EmptyState";
+import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiCards } from "../KpiCards";
 import { BoletaCard } from "../BoletaCard";
@@ -114,11 +114,19 @@ export function ListHistorialBoletas() {
       (acc, item) => acc + Number(item.montoTotal || 0),
       0
     );
+    const neto = boletas.reduce(
+      (acc, item) => acc + Number(item.montoNeto || 0),
+      0
+    );
+    const iva = boletas.reduce(
+      (acc, item) => acc + Number(item.montoIva || 0),
+      0
+    );
     const emitidos = boletas.filter(
       (item) => item.estado.toLowerCase() === "emitido"
     ).length;
 
-    return { total, emitidos };
+    return { total, neto, iva, emitidos };
   }, [boletas]);
 
   const filteredDocuments = useMemo(() => {
@@ -163,26 +171,29 @@ export function ListHistorialBoletas() {
   if (loading) {
     return (
       <div className="w-full space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full animate-in fade-in duration-300">
       {/* Tarjetas de Resumen KPI */}
       <KpiCards
         total={formatCurrency(summary.total)}
         emitidos={summary.emitidos}
+        neto={formatCurrency(summary.neto)}
+        iva={formatCurrency(summary.iva)}
       />
 
       {/* Contenedor Estandarizado */}
       <DataTableContainer
-        title="Historial Reciente de Boletas"
+        title="Historial de Boletas Electrónicas"
         description={`${filteredDocuments.length} ${
           filteredDocuments.length === 1
             ? "documento encontrado"
@@ -197,19 +208,19 @@ export function ListHistorialBoletas() {
                   placeholder="Buscar por RUT o Folio..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-9.5 rounded-xl bg-background border-border/80 text-xs"
                 />
               </div>
 
               <div className="w-full sm:w-48 shrink-0">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-9 w-full">
+                  <SelectTrigger className="h-9.5 rounded-xl bg-background border-border/80 text-xs">
                     <SelectValue placeholder="Estado: Todos" />
                   </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="emitido">Emitidos</SelectItem>
-                    <SelectItem value="anulado">Anulados</SelectItem>
+                  <SelectContent position="popper" className="rounded-xl border-border/80">
+                    <SelectItem value="todos" className="text-xs">Todos los estados</SelectItem>
+                    <SelectItem value="emitido" className="text-xs">Emitidos</SelectItem>
+                    <SelectItem value="anulado" className="text-xs">Anulados</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -220,17 +231,17 @@ export function ListHistorialBoletas() {
               size="sm"
               onClick={handleExportCSV}
               disabled={filteredDocuments.length === 0}
-              className="font-medium shrink-0 self-start sm:self-auto"
+              className="rounded-xl font-semibold shrink-0 self-start sm:self-auto cursor-pointer"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4 mr-1.5" />
               Exportar CSV
             </Button>
           </div>
         }
       >
-        <div className="p-4">
+        <div className="p-4 md:p-6">
           {error ? (
-            <div className="text-destructive text-xs bg-destructive/10 p-3 rounded-lg border border-destructive/20">
+            <div className="text-destructive text-xs bg-destructive/10 p-3 rounded-xl border border-destructive/20">
               {error}
             </div>
           ) : filteredDocuments.length === 0 ? (
@@ -239,12 +250,12 @@ export function ListHistorialBoletas() {
               title="No se encontraron boletas"
               description={
                 boletas.length === 0
-                  ? "Aún no hay boletas registradas en el sistema."
-                  : "No se encontraron boletas que coincidan con tu búsqueda."
+                  ? "Aún no hay boletas electrónicas emitidas en el sistema."
+                  : "No se encontraron comprobantes que coincidan con los filtros ingresados."
               }
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {filteredDocuments.map((doc) => (
                 <BoletaCard key={doc.idDocumentoTributario} doc={doc} />
               ))}

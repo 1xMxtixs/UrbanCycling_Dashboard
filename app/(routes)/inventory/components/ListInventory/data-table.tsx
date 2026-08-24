@@ -30,8 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DataTableContainer } from "@/components/DataTableContainer"
-import { EmptyState } from "@/components/EmptyState"
+import { DataTableContainer } from "@/components/common/DataTableContainer"
+import { EmptyState } from "@/components/common/EmptyState"
 import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 
 import type { ProductColumn } from "./columns"
@@ -79,10 +79,12 @@ export function DataTable({
       <KpiCards data={data} />
 
       <DataTableContainer
+        title="Catálogo de Productos"
+        description={`${table.getFilteredRowModel().rows.length} ${table.getFilteredRowModel().rows.length === 1 ? "producto encontrado" : "productos encontrados"}`}
         toolbar={
           <div className="space-y-3">
             <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-              <div className="relative w-full max-w-sm">
+              <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar producto por nombre..."

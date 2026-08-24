@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { FormDialog } from "@/components/FormDialog";
+import { FormDialog } from "@/components/forms/FormDialog";
 import {
   Select,
   SelectContent,
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Plus } from "lucide-react";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
 import { formatClientName } from "@/lib/formatters";
@@ -72,8 +72,8 @@ export function HeaderBicicletas() {
 
   return (
     <PageHeader
-      title="Gestión de Bicicletas"
-      description="Monitoreo de inventario y estado de servicio técnico en tiempo real"
+      title="Registro de Bicicletas"
+      description="Catálogo de vehículos en servicio técnico, especificaciones y seguimiento por cliente."
     >
       <Dialog
         open={openModalCreate}
@@ -85,21 +85,21 @@ export function HeaderBicicletas() {
         }}
       >
         <DialogTrigger asChild>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" /> Registrar bicicleta
+          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
+            <Plus className="h-4 w-4 mr-1.5" /> Registrar Bicicleta
           </Button>
         </DialogTrigger>
 
         <FormDialog
-          title="Registrar bicicleta"
-          description="Ingresa los datos técnicos de la bicicleta y vincúla a una orden de trabajo existente."
+          title="Registrar Nueva Bicicleta"
+          description="Ingresa los datos técnicos de la bicicleta y vincúlala a una orden de trabajo existente."
           size="2xl"
         >
-          <div className="mb-6 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-xs transition-all duration-300">
+          <div className="mb-6 rounded-2xl border border-border/80 bg-muted/20 p-4 text-card-foreground shadow-2xs">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Vincular a orden de trabajo
+                <h2 className="text-sm font-bold text-foreground">
+                  Vincular a Orden de Trabajo
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   Selecciona la orden a la cual pertenece esta bicicleta.
@@ -111,7 +111,7 @@ export function HeaderBicicletas() {
                 onValueChange={(val) => setSelectedOrdenId(val === "none" ? "" : val)}
                 disabled={cargandoOrdenes}
               >
-                <SelectTrigger className="h-10 min-w-0 sm:w-72">
+                <SelectTrigger className="h-10 min-w-0 sm:w-72 rounded-xl bg-background border-border/80 text-xs">
                   <SelectValue
                     placeholder={
                       cargandoOrdenes
@@ -120,7 +120,7 @@ export function HeaderBicicletas() {
                     }
                   />
                 </SelectTrigger>
-                <SelectContent position="popper">
+                <SelectContent position="popper" className="rounded-xl border-border/80">
                   <SelectItem value="none">
                     {cargandoOrdenes
                       ? "Cargando órdenes..."
@@ -130,6 +130,7 @@ export function HeaderBicicletas() {
                     <SelectItem
                       key={orden.idOrdenDeTrabajo}
                       value={String(orden.idOrdenDeTrabajo)}
+                      className="rounded-lg text-xs"
                     >
                       Orden #{orden.idOrdenDeTrabajo} -{" "}
                       {formatClientName(orden.cliente)}
@@ -142,29 +143,28 @@ export function HeaderBicicletas() {
             </div>
 
             {errorOrdenes && (
-              <p className="mt-3 text-sm text-destructive">{errorOrdenes}</p>
+              <p className="mt-3 text-xs text-destructive">{errorOrdenes}</p>
             )}
 
             {selectedOrden && (
-              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-card-foreground shadow-xs animate-in fade-in duration-200">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between text-xs">
+              <div className="mt-4 rounded-xl border border-border/60 bg-card p-3.5 text-card-foreground shadow-2xs animate-in fade-in duration-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between text-xs gap-2">
                   <div>
-                    <p className="font-semibold text-foreground">
+                    <p className="font-bold text-foreground">
                       Orden #{selectedOrden.idOrdenDeTrabajo}
                     </p>
                     <p className="text-muted-foreground">
                       Cliente: {formatClientName(selectedOrden.cliente)}
                     </p>
                   </div>
-                  <div className="space-y-0.5 text-left text-muted-foreground sm:text-right">
-                    <p>Estado: {selectedOrden.estadoOrden}</p>
-                    <p>Pago: {selectedOrden.estadoPago}</p>
-                    <p>Total: ${Number(selectedOrden.total ?? 0).toLocaleString("es-CL")}</p>
+                  <div className="space-y-0.5 text-left sm:text-right text-muted-foreground">
+                    <p>Estado: <span className="font-semibold text-foreground">{selectedOrden.estadoOrden}</span></p>
+                    <p>Total: <span className="font-bold text-foreground">${Number(selectedOrden.total ?? 0).toLocaleString("es-CL")}</span></p>
                   </div>
                 </div>
 
-                <div className="mt-2.5 rounded-md border border-border bg-background p-2.5 text-xs">
-                  <p className="font-medium text-foreground">Bicicletas en la orden:</p>
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
+                  <p className="font-semibold text-foreground">Bicicletas previas en la orden:</p>
                   <ul className="mt-1 space-y-0.5">
                     {(selectedOrden.bicicletas ?? []).map((bicicleta, index) => (
                       <li key={index} className="text-muted-foreground">

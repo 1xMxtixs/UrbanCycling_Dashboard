@@ -1,6 +1,6 @@
-import {Navbar} from "@/components/Navbar"
-import {Sidebar} from "@/components/Sidebar"
-import {RouteTransition} from "@/components/RouteTransition"
+import {Navbar} from "@/components/layout/Navbar"
+import {Sidebar} from "@/components/layout/Sidebar"
+import {RouteTransition} from "@/components/layout/RouteTransition"
 import React from "react"
 
 export default function LayoutDashboard({ children }: { children: React.ReactNode }) {

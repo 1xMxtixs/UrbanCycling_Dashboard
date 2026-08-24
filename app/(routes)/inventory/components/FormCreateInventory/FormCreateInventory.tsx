@@ -25,7 +25,7 @@ import {
   SelectValue,
   SelectContent,
 } from "@/components/ui/select";
-import { ImageUpload } from "@/components/ImageUpload";
+import { ImageUpload } from "@/components/forms/ImageUpload";
 import type { FormCreateInventoryProps } from "../../types";
 
 const numericField = (fieldName: string) =>

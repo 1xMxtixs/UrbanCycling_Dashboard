@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ClientesTabsView } from "./ClientesTabsView";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { MetricCard } from "@/components/common/MetricCard";
 import {
   Dialog,
   DialogContent,
@@ -22,9 +23,11 @@ import {
   Calendar,
   ClipboardList,
   Info,
+  Users,
+  Wrench,
 } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
-import { DataField } from "@/components/DataField";
+import { DataField } from "@/components/common/DataField";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 
 export function ListClientes() {
@@ -112,17 +115,53 @@ export function ListClientes() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border bg-card p-6 shadow-xs">
-        <Skeleton className="mb-3 h-5 w-56" />
-        <Skeleton className="h-4 w-80 max-w-full" />
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }
 
   const selectedCliente = rawClientes.find((c) => c.idCliente === selectedClienteId);
 
+  const totalClientes = rawClientes.length;
+  const clientesActivos = rawClientes.filter((c) => c.estado.toLowerCase() === "activo").length;
+  const totalOrdenesAsociadas = rawClientes.reduce((acc, c) => acc + (c.ordenesDeTrabajo?.length || 0), 0);
+
   return (
-    <>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* KPIs de Cartera de Clientes */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total Clientes"
+          value={totalClientes}
+          description="Clientes registrados"
+          icon={Users}
+        />
+        <MetricCard
+          title="Personas Naturales"
+          value={clientesNaturales.length}
+          description="Ciclistas y particulares"
+          icon={User}
+        />
+        <MetricCard
+          title="Personas Jurídicas"
+          value={clientesJuridicas.length}
+          description="Empresas y convenios"
+          icon={Building2}
+        />
+        <MetricCard
+          title="Historial de Órdenes"
+          value={totalOrdenesAsociadas}
+          description="Servicios acumulados"
+          icon={Wrench}
+        />
+      </div>
+
       <ClientesTabsView
         clientesNaturales={clientesNaturales}
         clientesJuridicas={clientesJuridicas}
@@ -130,7 +169,7 @@ export function ListClientes() {
       />
 
       <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
-        <DialogContent className="sm:max-w-3xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-xl border bg-card text-card-foreground shadow-xl">
+        <DialogContent className="sm:max-w-3xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl">
           {selectedCliente && (() => {
             const isNatural = selectedCliente.tipoCliente === "natural";
             const fullName = formatClientName(selectedCliente);
@@ -151,17 +190,17 @@ export function ListClientes() {
                 </DialogHeader>
 
                 {/* Header Section */}
-                <div className="p-6 border-b bg-muted/40">
+                <div className="p-6 border-b border-border/60 bg-muted/30">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <Avatar className="h-14 w-14 border shadow-xs">
-                        <AvatarFallback className="font-bold text-lg bg-primary/10 text-primary">
+                      <Avatar className="h-14 w-14 rounded-2xl border border-border shadow-xs">
+                        <AvatarFallback className="rounded-2xl font-bold text-lg bg-primary/10 text-primary">
                           {initials || <User className="h-6 w-6" />}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2.5 flex-wrap">
                           <h3 className="text-xl font-bold tracking-tight text-foreground">
                             {fullName}
                           </h3>
@@ -171,17 +210,15 @@ export function ListClientes() {
                           />
                         </div>
 
-                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                           {isNatural ? (
-                            <>
-                              <User className="h-3.5 w-3.5 text-primary" />
-                              <span>Persona Natural</span>
-                            </>
+                            <span className="inline-flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 text-primary" /> Persona Natural
+                            </span>
                           ) : (
-                            <>
-                              <Building2 className="h-3.5 w-3.5 text-primary" />
-                              <span>Persona Jurídica</span>
-                            </>
+                            <span className="inline-flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5 text-primary" /> Persona Jurídica
+                            </span>
                           )}
                           <span>•</span>
                           <span>RUT: {selectedCliente.rut}</span>
@@ -196,8 +233,8 @@ export function ListClientes() {
                   {/* Left Column */}
                   <div className="md:col-span-3 space-y-4">
                     {!isNatural && (
-                      <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                        <h4 className="flex items-center gap-1.5 font-semibold text-foreground border-b pb-2 text-xs uppercase tracking-wider">
+                      <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                        <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border/40 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
                           <Info className="h-4 w-4 text-primary" />
                           Detalles de la Empresa
                         </h4>
@@ -215,25 +252,25 @@ export function ListClientes() {
                     )}
 
                     {/* Contact Details */}
-                    <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-                      <h4 className="flex items-center gap-1.5 font-semibold text-foreground border-b pb-2 text-xs uppercase tracking-wider">
+                    <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border/40 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
                         <Phone className="h-4 w-4 text-primary" />
                         Información de Contacto
                       </h4>
 
                       <div className="space-y-3 text-xs">
                         <div>
-                          <span className="text-muted-foreground block mb-1 font-semibold uppercase tracking-wider text-[10px]">
+                          <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
                             Teléfono(s)
                           </span>
                           {selectedCliente.telefonos && selectedCliente.telefonos.length > 0 ? (
                             <div className="space-y-1.5">
                               {selectedCliente.telefonos.map((t) => (
                                 <div key={t.idTelefonoCliente} className="flex items-center gap-2 text-foreground">
-                                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="font-medium">{t.telefono}</span>
+                                  <Phone className="h-3.5 w-3.5 text-primary" />
+                                  <span className="font-semibold">{t.telefono}</span>
                                   {t.descripcion && (
-                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-px rounded border">
+                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md border border-border/60">
                                       {t.descripcion}
                                     </span>
                                   )}
@@ -246,17 +283,17 @@ export function ListClientes() {
                         </div>
 
                         <div>
-                          <span className="text-muted-foreground block mb-1 font-semibold uppercase tracking-wider text-[10px]">
+                          <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
                             Correo(s)
                           </span>
                           {selectedCliente.correos && selectedCliente.correos.length > 0 ? (
                             <div className="space-y-1.5">
                               {selectedCliente.correos.map((m) => (
                                 <div key={m.idCorreoCliente} className="flex items-center gap-2 text-foreground">
-                                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="font-medium">{m.correo}</span>
+                                  <Mail className="h-3.5 w-3.5 text-primary" />
+                                  <span className="font-semibold">{m.correo}</span>
                                   {m.descripcion && (
-                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-px rounded border">
+                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md border border-border/60">
                                       {m.descripcion}
                                     </span>
                                   )}
@@ -269,7 +306,7 @@ export function ListClientes() {
                         </div>
 
                         <div>
-                          <span className="text-muted-foreground block mb-1 font-semibold uppercase tracking-wider text-[10px]">
+                          <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
                             Dirección(es)
                           </span>
                           {selectedCliente.direcciones && selectedCliente.direcciones.length > 0 ? (
@@ -280,9 +317,9 @@ export function ListClientes() {
                                 }, ${d.comuna}, ${d.ciudad}`;
                                 return (
                                   <div key={d.idDireccionCliente} className="flex items-start gap-2 text-foreground">
-                                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                                    <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                                     <div>
-                                      <span className="font-medium leading-relaxed block">{formattedAddress}</span>
+                                      <span className="font-semibold leading-relaxed block">{formattedAddress}</span>
                                       <span className="text-[10px] text-muted-foreground">{d.region}</span>
                                     </div>
                                   </div>
@@ -311,7 +348,7 @@ export function ListClientes() {
 
                   {/* Right Column: Work Orders History */}
                   <div className="md:col-span-2 space-y-4">
-                    <h4 className="flex items-center gap-1.5 font-semibold text-foreground text-xs uppercase tracking-wider">
+                    <h4 className="flex items-center gap-1.5 font-bold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
                       <ClipboardList className="h-4 w-4 text-primary" />
                       Historial de Órdenes ({selectedCliente.ordenesDeTrabajo?.length || 0})
                     </h4>
@@ -325,7 +362,7 @@ export function ListClientes() {
                           return (
                             <div
                               key={order.idOrdenDeTrabajo}
-                              className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 hover:bg-muted/40 p-3 transition-colors"
+                              className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 p-3 transition-colors"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-bold text-foreground text-xs">
@@ -345,7 +382,7 @@ export function ListClientes() {
                                     timeZone: "UTC",
                                   })}
                                 </span>
-                                <span className="font-bold text-foreground">
+                                <span className="font-extrabold text-foreground">
                                   ${Number(order.total).toLocaleString("es-CL")}
                                 </span>
                               </div>
@@ -354,16 +391,16 @@ export function ListClientes() {
                         })}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed rounded-lg bg-muted/20">
-                        <ClipboardList className="h-6 w-6 text-muted-foreground mb-1" />
+                      <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-border/80 rounded-xl bg-muted/20">
+                        <ClipboardList className="h-6 w-6 text-muted-foreground mb-1 stroke-[1.5]" />
                         <span className="text-xs text-muted-foreground">Sin órdenes asociadas</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 border-t p-4 bg-muted/20">
-                  <Button variant="outline" size="sm" onClick={() => setOpenDetailsModal(false)}>
+                <div className="flex justify-end gap-2 border-t border-border/60 p-4 bg-muted/20">
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setOpenDetailsModal(false)}>
                     Cerrar
                   </Button>
                 </div>
@@ -372,6 +409,6 @@ export function ListClientes() {
           })()}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
