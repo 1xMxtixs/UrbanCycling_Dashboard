@@ -6,7 +6,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
-const prisma = db as any;
+const prisma = db;
 
 type ProductoInput = {
   id_producto?: unknown;
