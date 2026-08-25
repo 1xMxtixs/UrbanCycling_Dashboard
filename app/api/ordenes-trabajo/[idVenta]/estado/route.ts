@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
 const transicionesPermitidas: Record<string, string[]> = {
@@ -9,6 +10,7 @@ const transicionesPermitidas: Record<string, string[]> = {
   "En espera": ["En curso", "Listo para entregar"],
   "Listo para entregar": ["Entregado", "En curso"],
   "Entregado": [],
+  "Anulada": [],
 };
 
 export async function PATCH(
@@ -16,11 +18,11 @@ export async function PATCH(
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
-    const { response } = await requirePermission(
+    const { session, response } = await requirePermission(
       PERMISSIONS.WORK_ORDERS_UPDATE_STATUS
     )
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -52,12 +54,23 @@ export async function PATCH(
       return NextResponse.json(
         {
           code: "ORDEN_NO_EXISTE",
-          message: "La orden de trabajo no existe",
+          message: "La orden no existe",
         },
         { status: 404 }
       );
     }
 
+    if (estado === "Anulada") {
+      if (["Entregado", "Anulada"].includes(ordenTrabajo.estado)) {
+        return NextResponse.json(
+          {
+            code: "ANULACION_NO_PERMITIDA",
+            message: "La orden ya se encuentra Entregada o Anulada",
+          },
+          { status: 409 }
+        );
+      }
+    } else {
     const estadosSiguientes =
       transicionesPermitidas[ordenTrabajo.estado] ?? [];
 
@@ -70,15 +83,38 @@ export async function PATCH(
         { status: 409 }
       );
     }
+    }
 
-    const ordenActualizada = await db.ordenDeTrabajo.update({
-      where: {
+    const ordenActualizada = await db.$transaction(async (tx) => {
+      const orden = await tx.ordenDeTrabajo.update({
+        where: {
+          idOrdenDeTrabajo,
+        },
+        data: {
+          estado,
+          fechaEntregaReal: ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined,
+        },
+      });
+
+      await registrarAuditoriaOrdenTrabajo(tx, {
+        idUsuario: session.user.idUsuario,
+        tipoOperacion: estado === "Anulada" ? "anulacion_orden" : "cambio_estado",
         idOrdenDeTrabajo,
-      },
-      data: {
-        estado,
-        fechaEntregaReal: ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined,
-      },
+        valorAnterior: {
+          estado: ordenTrabajo.estado,
+          fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
+        },
+        valorNuevo: {
+          estado: orden.estado,
+          fechaEntregaReal: orden.fechaEntregaReal,
+        },
+        detalleCambio:
+          estado === "Anulada"
+            ? "Anulacion de orden de trabajo"
+            : `Cambio de estado de orden a ${estado}`,
+      });
+
+      return orden;
     });
 
     return NextResponse.json({
