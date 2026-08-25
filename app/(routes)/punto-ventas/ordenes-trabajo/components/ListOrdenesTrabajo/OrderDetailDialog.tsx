@@ -37,7 +37,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
     .reduce((sum, l) => sum + (l.cantidad * Number(l.precioUnitario)), 0)
 
   const renderStatusBadge = (ord: WorkOrder) => {
-    const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(ord.estadoOrden)
+    const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(ord.estadoOrden)
     const dEstimada = new Date(ord.fechaEntregaEstimada)
     const localEndDay = new Date(
       dEstimada.getUTCFullYear(),
@@ -65,6 +65,8 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
         return <StatusBadge status="warning" label="Por Entregar" />
       case "Entregado":
         return <StatusBadge status="success" label="Completada" />
+      case "Anulada":
+        return <StatusBadge status="danger" label="Anulada" />
       default:
         return <StatusBadge status="neutral" label={ord.estadoOrden} />
     }
@@ -74,7 +76,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-xl font-black">
+          <DialogTitle className="flex items-center justify-between border-b border-border pb-2 text-xl font-black">
             <span>Orden de Trabajo #{order.idOrdenDeTrabajo}</span>
             <div className="mr-6">{renderStatusBadge(order)}</div>
           </DialogTitle>
@@ -85,8 +87,8 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
 
         <div className="overflow-y-auto flex-1 py-4 pr-1 space-y-5 text-sm">
           {/* 1. Datos Cliente */}
-          <div className="space-y-2 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <User className="h-4 w-4 text-primary" />
               Información del Cliente
             </h4>
@@ -109,8 +111,8 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
           </div>
 
           {/* 2. Detalles de Fechas */}
-          <div className="space-y-2 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <Calendar className="h-4 w-4 text-primary" />
               Fechas y Registro
             </h4>
@@ -148,8 +150,8 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
           </div>
 
           {/* 3. Trabajo a Realizar */}
-          <div className="space-y-2 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <FileText className="h-4 w-4 text-primary" />
               Descripción del Trabajo
             </h4>
@@ -159,8 +161,8 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
           </div>
 
           {/* 3.5. Costos y Repuestos */}
-          <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+          <div className="space-y-3 rounded-xl bg-muted/30 border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <ShoppingBag className="h-4 w-4 text-primary" />
               Detalle de Costos y Repuestos
             </h4>
@@ -171,28 +173,28 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
                 <div className="rounded-lg border border-border bg-background overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                      <tr className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
                         <th className="px-3 py-2">Producto</th>
                         <th className="px-3 py-2 text-center">Cant</th>
                         <th className="px-3 py-2 text-right">Precio Unit.</th>
                         <th className="px-3 py-2 text-right">Subtotal</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-border">
                       {productLines.map((line) => {
                         const subtotal = line.cantidad * Number(line.precioUnitario)
                         return (
                           <tr key={line.idLineaDeOrdenDeTrabajo}>
-                            <td className="px-3 py-2 font-medium">
+                            <td className="px-3 py-2 font-medium text-foreground">
                               {line.producto?.nombre || `Producto #${line.idProducto}`}
                             </td>
-                            <td className="px-3 py-2 text-center font-bold">
+                            <td className="px-3 py-2 text-center font-bold text-foreground">
                               {line.cantidad}
                             </td>
-                            <td className="px-3 py-2 text-right">
+                            <td className="px-3 py-2 text-right text-foreground">
                               ${Number(line.precioUnitario).toLocaleString("es-CL")}
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-slate-800 dark:text-slate-200">
+                            <td className="px-3 py-2 text-right font-bold text-foreground">
                               ${subtotal.toLocaleString("es-CL")}
                             </td>
                           </tr>
@@ -204,7 +206,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3 border-t border-slate-200/50 pt-4">
+            <div className="grid grid-cols-3 gap-3 border-t border-border/50 pt-4">
               <DataField label="Total repuestos" value={`$${productsCost.toLocaleString("es-CL")}`} />
               <DataField label="Monto servicio" value={`$${laborCost.toLocaleString("es-CL")}`} />
               <DataField label="Monto total" value={`$${Number(order.total).toLocaleString("es-CL")}`} />
@@ -213,7 +215,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
 
           {/* 3.6. Historial de Pagos */}
           <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <Coins className="h-4 w-4 text-primary" />
               Estado de Pago e Historial
             </h4>
@@ -222,10 +224,10 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
                 <span className="text-muted-foreground block text-[10px] uppercase font-bold mb-0.5">Estado de Pago</span>
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
                   order.estadoPago?.toLowerCase() === "pagada" || order.estadoPago?.toLowerCase() === "pagado"
-                    ? "bg-green-50 border border-green-200 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400"
+                    ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
                     : order.estadoPago?.toLowerCase() === "abono"
-                      ? "bg-blue-50 border border-blue-200 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400"
-                      : "bg-yellow-50 border border-yellow-200 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-400"
+                      ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
+                      : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
                 }`}>
                   {order.estadoPago?.toLowerCase() === "pagada" || order.estadoPago?.toLowerCase() === "pagado" ? "Pagada" : order.estadoPago}
                 </span>
@@ -234,10 +236,10 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
                 <span className="text-muted-foreground block text-[10px] uppercase font-bold mb-0.5">Saldo Restante</span>
                 <span className={`font-bold text-sm ${
                   (order.estadoPago?.toLowerCase() === "pagada" || order.estadoPago?.toLowerCase() === "pagado")
-                    ? "text-green-600 dark:text-green-400"
+                    ? "text-emerald-600 dark:text-emerald-400"
                     : (Number(order.total) - Number(order.totalPagado || 0)) > 0
-                      ? "text-red-500"
-                      : "text-green-600 dark:text-green-400"
+                      ? "text-rose-500"
+                      : "text-emerald-600 dark:text-emerald-400"
                 }`}>
                   $
                   {(order.estadoPago?.toLowerCase() === "pagada" || order.estadoPago?.toLowerCase() === "pagado"
@@ -249,15 +251,15 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
             </div>
 
             {order.pagos && order.pagos.length > 0 ? (
-              <div className="mt-3 space-y-1.5 border-t border-dashed border-slate-200 dark:border-slate-800 pt-2 font-mono">
+              <div className="mt-3 space-y-1.5 border-t border-dashed border-border pt-2 font-mono">
                 <span className="text-[10px] text-muted-foreground font-sans uppercase font-bold block mb-1">Pagos Registrados:</span>
                 {order.pagos.map((pago: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center text-xs bg-background p-2 rounded border border-border">
                     <div className="space-y-0.5">
-                      <span className="font-semibold block capitalize font-sans">Pago #{idx + 1} ({pago.metodoPago})</span>
+                      <span className="font-semibold block capitalize font-sans text-foreground">Pago #{idx + 1} ({pago.metodoPago})</span>
                       <span className="text-[10px] text-muted-foreground">{new Date(pago.fechaRegistro).toLocaleString("es-CL")}</span>
                     </div>
-                    <span className="font-bold text-green-600 dark:text-green-400">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
                       +${Number(pago.monto).toLocaleString("es-CL")}
                     </span>
                   </div>
@@ -270,7 +272,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
 
           {/* 4. Bicicletas */}
           <div className="space-y-3">
-            <h4 className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground">
               <Wrench className="h-4.5 w-4.5 text-primary" />
               Bicicletas ({order.bicicletas?.length || 0})
             </h4>
@@ -279,11 +281,11 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
               {order.bicicletas?.map((bike) => (
                 <div
                   key={bike.idBicicleta}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-4 transition-all"
+                  className="rounded-xl border border-border bg-muted/30 p-4 transition-all"
                 >
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <h5 className="font-bold text-slate-900 dark:text-white">
+                      <h5 className="font-bold text-foreground">
                         {bike.marca} {bike.modelo}
                       </h5>
                       <p className="text-xs text-muted-foreground">
@@ -312,7 +314,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
                   </div>
 
                   {openBikes[bike.idBicicleta] && (
-                    <div className="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-4">
+                    <div className="mt-4 pt-4 border-t border-border space-y-4">
                       {bike.descripcion && (
                         <div>
                           <span className="text-xs text-muted-foreground block mb-1">Descripción / Estado inicial</span>

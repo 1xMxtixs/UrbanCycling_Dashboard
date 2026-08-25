@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -23,6 +23,7 @@ function getAvailableTransitions(currentStatus: string) {
     "En espera": ["En curso", "Listo para entregar"],
     "Listo para entregar": ["Entregado", "En curso"],
     Entregado: [],
+    Anulada: [],
   }
   return map[currentStatus] || []
 }
@@ -31,6 +32,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
   const order = row.original as WorkOrder
   const meta = table.options.meta as any
   const transitions = getAvailableTransitions(order.estadoOrden)
+  const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
 
   const total = Number(order.total)
   const totalPagado = Number(order.totalPagado || 0)
@@ -78,6 +80,24 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           >
             <Coins className="h-4 w-4" />
             Registrar Pago
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuItem
+          onClick={() => meta?.onRescheduleClick?.(order)}
+          className="flex cursor-pointer items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Reprogramar Entrega
+        </DropdownMenuItem>
+
+        {canCancel && (
+          <DropdownMenuItem
+            onClick={() => meta?.onCancelClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold"
+          >
+            <XCircle className="h-4 w-4" />
+            Anular Orden
           </DropdownMenuItem>
         )}
 
@@ -181,7 +201,7 @@ export const columns: ColumnDef<WorkOrder>[] = [
         59,
         999
       )
-      const isFullyCompleted = ["Listo para entregar", "Entregado"].includes(order.estadoOrden)
+      const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(order.estadoOrden)
       const isDelayed = localEndDay < new Date() && !isFullyCompleted
 
       if (filterValue === "retrasada") {
@@ -192,6 +212,8 @@ export const columns: ColumnDef<WorkOrder>[] = [
         return order.estadoOrden === "En espera"
       } else if (filterValue === "completada") {
         return isCompleted
+      } else if (filterValue === "anulada") {
+        return order.estadoOrden === "Anulada"
       } else if (filterValue === "por-entregar") {
         return order.estadoOrden === "Listo para entregar"
       } else if (filterValue === "por-realizar") {
@@ -201,7 +223,7 @@ export const columns: ColumnDef<WorkOrder>[] = [
     },
     cell: ({ row }) => {
       const order = row.original
-      const isCompleted = ["Listo para entregar", "Entregado"].includes(
+      const isCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(
         order.estadoOrden
       )
       const dEstimada = new Date(order.fechaEntregaEstimada)
@@ -231,6 +253,8 @@ export const columns: ColumnDef<WorkOrder>[] = [
           return <StatusBadge status="warning" label="Por Entregar" />
         case "Entregado":
           return <StatusBadge status="success" label="Completada" />
+        case "Anulada":
+          return <StatusBadge status="danger" label="Anulada" />
         default:
           return <StatusBadge status="neutral" label={order.estadoOrden} />
       }

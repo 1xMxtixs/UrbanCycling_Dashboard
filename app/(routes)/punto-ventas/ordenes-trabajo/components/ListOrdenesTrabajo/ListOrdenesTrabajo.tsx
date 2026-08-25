@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { formatClientName } from "@/lib/formatters"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { KpiCards } from "./kpi-cards"
@@ -13,7 +12,19 @@ import { columns } from "./columns"
 import { OrderDetailDialog } from "./OrderDetailDialog"
 import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
+import { RescheduleDialog } from "./RescheduleDialog"
+import { CancelOrderDialog } from "./CancelOrderDialog"
 import { WorkOrder } from "../../types"
+
+function toDateInputValue(dateInput: string | Date | null | undefined) {
+  if (!dateInput) return ""
+
+  if (typeof dateInput === "string") {
+    return dateInput.split("T")[0] ?? ""
+  }
+
+  return dateInput.toISOString().split("T")[0] ?? ""
+}
 
 export function ListOrdenesTrabajo() {
   const router = useRouter()
@@ -28,9 +39,19 @@ export function ListOrdenesTrabajo() {
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
   const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
+
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
+
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false)
+  const [orderToReschedule, setOrderToReschedule] = useState<WorkOrder | null>(null)
+  const [newDeliveryDate, setNewDeliveryDate] = useState("")
+  const [isRescheduling, setIsRescheduling] = useState(false)
+
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [orderToCancel, setOrderToCancel] = useState<WorkOrder | null>(null)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
   const getOrders = async () => {
     try {
@@ -107,6 +128,108 @@ export function ListOrdenesTrabajo() {
     setOrderToPay(order)
     setSelectedMetodoPago("efectivo")
     setPayModalOpen(true)
+  }
+
+  const handleRescheduleClick = (order: WorkOrder) => {
+    setOrderToReschedule(order)
+    setNewDeliveryDate(toDateInputValue(order.fechaEntregaEstimada))
+    setRescheduleModalOpen(true)
+  }
+
+  const handleCancelClick = (order: WorkOrder) => {
+    setOrderToCancel(order)
+    setCancelModalOpen(true)
+  }
+
+  const handleConfirmCancelOrder = async () => {
+    if (!orderToCancel) return
+
+    setIsCancellingOrder(true)
+
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ estado: "Anulada" }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(
+          err.code === "ANULACION_NO_PERMITIDA"
+            ? "No es posible anular esta orden"
+            : err.message || "No se pudo anular la orden"
+        )
+        return
+      }
+
+      toast.success("Orden de trabajo anulada correctamente.")
+
+      if (selectedOrder?.idOrdenDeTrabajo === orderToCancel.idOrdenDeTrabajo) {
+        setSelectedOrder({
+          ...selectedOrder,
+          estadoOrden: "Anulada",
+        })
+      }
+
+      setCancelModalOpen(false)
+      setOrderToCancel(null)
+      getOrders()
+      router.refresh()
+    } catch {
+      toast.error("No se pudo anular la orden")
+    } finally {
+      setIsCancellingOrder(false)
+    }
+  }
+
+  const handleConfirmReschedule = async () => {
+    if (!orderToReschedule) return
+
+    if (!newDeliveryDate) {
+      toast.error("Debe ingresar una fecha estimada de entrega")
+      return
+    }
+
+    setIsRescheduling(true)
+
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fechaEntregaEstimada: newDeliveryDate,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.message || "No se pudo reprogramar la entrega")
+        return
+      }
+
+      toast.success("Fecha estimada de entrega actualizada correctamente.")
+
+      if (selectedOrder?.idOrdenDeTrabajo === orderToReschedule.idOrdenDeTrabajo) {
+        setSelectedOrder({
+          ...selectedOrder,
+          fechaEntregaEstimada: newDeliveryDate,
+        })
+      }
+
+      setRescheduleModalOpen(false)
+      setOrderToReschedule(null)
+      getOrders()
+      router.refresh()
+    } catch {
+      toast.error("No se pudo reprogramar la entrega")
+    } finally {
+      setIsRescheduling(false)
+    }
   }
 
   const handleConfirmPayment = async () => {
@@ -191,7 +314,9 @@ export function ListOrdenesTrabajo() {
       return
     }
 
-    const clientLabel = formatClientName(order?.cliente)
+    const clientLabel = order?.cliente
+      ? order.cliente.razonSocial || `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
+      : "Cliente General"
     const lineas = order?.lineasDeOrdenDeTrabajo || []
 
     const content = `
@@ -301,6 +426,8 @@ export function ListOrdenesTrabajo() {
         updatingId={updatingId}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
+        onRescheduleClick={handleRescheduleClick}
+        onCancelClick={handleCancelClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -331,6 +458,26 @@ export function ListOrdenesTrabajo() {
         activeReceipt={activeReceipt}
         onPrint={() => handlePrintReceipt(activeReceipt, selectedOrder)}
         isGeneratingReceipt={isGeneratingReceipt}
+      />
+
+      {/* 7. Modal de Reprogramación de Entrega */}
+      <RescheduleDialog
+        open={rescheduleModalOpen}
+        onOpenChange={setRescheduleModalOpen}
+        order={orderToReschedule}
+        newDeliveryDate={newDeliveryDate}
+        onNewDeliveryDateChange={setNewDeliveryDate}
+        onConfirmReschedule={handleConfirmReschedule}
+        isRescheduling={isRescheduling}
+      />
+
+      {/* 8. Modal de Confirmación de Anulación */}
+      <CancelOrderDialog
+        open={cancelModalOpen}
+        onOpenChange={setCancelModalOpen}
+        order={orderToCancel}
+        onConfirmCancel={handleConfirmCancelOrder}
+        isCancelling={isCancellingOrder}
       />
     </div>
   )

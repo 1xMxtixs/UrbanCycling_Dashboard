@@ -44,6 +44,8 @@ interface DataTableProps<TData, TValue> {
   updatingId: number | null
   onPayClick?: (order: WorkOrder) => void
   onGenerateReceipt?: (order: WorkOrder) => void
+  onRescheduleClick?: (order: WorkOrder) => void
+  onCancelClick?: (order: WorkOrder) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -54,6 +56,8 @@ export function DataTable<TData, TValue>({
   updatingId,
   onPayClick,
   onGenerateReceipt,
+  onRescheduleClick,
+  onCancelClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -78,6 +82,8 @@ export function DataTable<TData, TValue>({
       updatingId,
       onPayClick,
       onGenerateReceipt,
+      onRescheduleClick,
+      onCancelClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -104,44 +110,39 @@ export function DataTable<TData, TValue>({
       title="Órdenes de Trabajo"
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "orden encontrada" : "órdenes encontradas"}`}
       toolbar={
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por ID, Cliente o Bicicleta..."
-                value={globalFilter ?? ""}
-                onChange={(event) => setGlobalFilter(event.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <Select
-              value={
-                (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
-              }
-              onValueChange={(value) =>
-                table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
-              }
-            >
-              <SelectTrigger className="h-9 w-full sm:w-48">
-                <SelectValue placeholder="Todos los estados" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="por-realizar">Por realizar</SelectItem>
-                <SelectItem value="activa">Activas (En curso)</SelectItem>
-                <SelectItem value="espera">En Espera</SelectItem>
-                <SelectItem value="por-entregar">Por entregar</SelectItem>
-                <SelectItem value="completada">Completadas</SelectItem>
-                <SelectItem value="retrasada">Retrasadas</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por ID, Cliente o Bicicleta..."
+              value={globalFilter ?? ""}
+              onChange={(event) => setGlobalFilter(event.target.value)}
+              className="pl-9"
+            />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            {filteredRowCount} {filteredRowCount === 1 ? "orden encontrada" : "órdenes encontradas"}
-          </p>
+          <Select
+            value={
+              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
+            }
+            onValueChange={(value) =>
+              table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
+            }
+          >
+            <SelectTrigger className="h-9 w-full sm:w-56">
+              <SelectValue placeholder="Todos los estados" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="por-realizar">Por realizar</SelectItem>
+              <SelectItem value="activa">Activas (En curso)</SelectItem>
+              <SelectItem value="espera">En Espera</SelectItem>
+              <SelectItem value="por-entregar">Por entregar</SelectItem>
+              <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+              <SelectItem value="anulada">Anuladas</SelectItem>
+              <SelectItem value="retrasada">Retrasadas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       }
       footer={
@@ -217,4 +218,3 @@ export function DataTable<TData, TValue>({
     </DataTableContainer>
   )
 }
-
