@@ -438,6 +438,10 @@ export function ListOrdenesTrabajo() {
         open={openDetailsModal}
         onOpenChange={setOpenDetailsModal}
         order={selectedOrder}
+        onPayClick={handlePayClick}
+        onRescheduleClick={handleRescheduleClick}
+        onCancelClick={handleCancelClick}
+        onStatusChange={handleStatusChange}
       />
 
       {/* 5. Modal de Pago Restante */}
