@@ -6,8 +6,6 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
-const prisma = db as any;
-
 type ProductoInput = {
   id_producto?: unknown;
   idProducto?: unknown;
@@ -507,7 +505,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const usuario = await prisma.usuario.findUnique({
+    const usuario = await db.usuario.findUnique({
       where: {
         idUsuario,
       },
@@ -524,7 +522,7 @@ export async function POST(req: Request) {
     }
 
     if (idCliente !== null) {
-      const cliente = await prisma.cliente.findUnique({
+      const cliente = await db.cliente.findUnique({
         where: {
           idCliente,
         },
@@ -543,7 +541,7 @@ export async function POST(req: Request) {
 
     const productosAgrupados = agruparProductos([...productosVenta, ...productosOrden]);
     const productos: any[] = productosAgrupados.length
-      ? await prisma.producto.findMany({
+      ? await db.producto.findMany({
           where: {
             idProducto: {
               in: productosAgrupados.map((item) => item.idProducto),
@@ -598,7 +596,7 @@ export async function POST(req: Request) {
     }
 
     const servicios: any[] = serviciosOrden.length
-      ? await prisma.servicio.findMany({
+      ? await db.servicio.findMany({
           where: {
             idServicio: {
               in: serviciosOrden.map((item) => item.idServicio),
@@ -626,14 +624,14 @@ export async function POST(req: Request) {
     let servicioGenerico = null;
 
     if (montoServicioOrden > 0) {
-      servicioGenerico = await prisma.servicio.findUnique({
+      servicioGenerico = await db.servicio.findUnique({
         where: {
           nombre: "Servicio de Taller",
         },
       });
 
       if (!servicioGenerico) {
-        servicioGenerico = await prisma.servicio.create({
+        servicioGenerico = await db.servicio.create({
           data: {
             nombre: "Servicio de Taller",
             descripcion: "Mano de obra y servicios tecnicos generales",
@@ -726,7 +724,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const resultado = await prisma.$transaction(async (tx: any) => {
+    const resultado = await db.$transaction(async (tx) => {
       const ventaBase = await tx.venta.create({
         data: {
           idUsuario,
@@ -986,7 +984,7 @@ export async function GET(req: Request) {
       });
     }
 
-    const ventas = await prisma.venta.findMany({
+    const ventas = await db.venta.findMany({
       where: filtrosVenta.length
         ? {
             AND: filtrosVenta,

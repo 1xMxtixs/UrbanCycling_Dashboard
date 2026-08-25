@@ -9,8 +9,6 @@ import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
-const prisma = db as any
-
 const transicionesOrdenPermitidas: Record<string, string[]> = {
   "Por realizar": ["En curso", "En espera"],
   "En curso": ["Listo para entregar", "En espera"],
@@ -148,8 +146,8 @@ export async function PATCH(
       }
 
       if (estadoPago?.toLowerCase() === "pagada" && metodoPago) {
-        const resultado = await prisma.$transaction(
-          async (tx: Prisma.TransactionClient) => {
+        const resultado = await db.$transaction(
+          async (tx) => {
             const ventaObj = await tx.venta.findUnique({
               where: { idVenta: parsed.id },
               include: {
@@ -230,8 +228,8 @@ export async function PATCH(
         })
       }
 
-      const ventaActualizada = await prisma.$transaction(
-        async (tx: Prisma.TransactionClient) => {
+      const ventaActualizada = await db.$transaction(
+        async (tx) => {
           return tx.venta.update({
             where: {
               idVenta: parsed.id,
@@ -273,7 +271,7 @@ export async function PATCH(
       )
     }
 
-    const ordenTrabajo = await prisma.ordenDeTrabajo.findUnique({
+    const ordenTrabajo = await db.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo: parsed.id,
       },
@@ -351,8 +349,8 @@ export async function PATCH(
       finalEstadoPago = "pagada"
     }
 
-    const resultado = await prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
+    const resultado = await db.$transaction(
+      async (tx) => {
         let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
 
         if (
