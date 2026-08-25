@@ -5,6 +5,7 @@
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
@@ -16,6 +17,7 @@ const transicionesOrdenPermitidas: Record<string, string[]> = {
   "En espera": ["En curso", "Listo para entregar"],
   "Listo para entregar": ["Entregado", "En curso"],
   Entregado: [],
+  Anulada: [],
 }
 
 function parseIdPuntoVenta(idPuntoVenta: string) {
@@ -121,9 +123,9 @@ export async function PATCH(
       parsed.tipo === "venta"
         ? PERMISSIONS.SALES_CREATE
         : PERMISSIONS.WORK_ORDERS_UPDATE_STATUS
-    const { response } = await requirePermission(requiredPermission)
+    const { session, response } = await requirePermission(requiredPermission)
 
-    if (response) {
+    if (response || !session) {
       return response
     }
 
@@ -292,13 +294,24 @@ export async function PATCH(
       return NextResponse.json(
         {
           code: "ORDEN_NO_EXISTE",
-          message: "La orden de trabajo no existe",
+          message: "La orden no existe",
         },
         { status: 404 }
       )
     }
 
     if (estadoOrden) {
+      if (estadoOrden === "Anulada") {
+        if (["Entregado", "Anulada"].includes(ordenTrabajo.estado)) {
+          return NextResponse.json(
+            {
+              code: "ANULACION_NO_PERMITIDA",
+              message: "La orden ya se encuentra Entregada o Anulada",
+            },
+            { status: 409 }
+          )
+        }
+      } else {
       const estadosSiguientes =
         transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
 
@@ -310,6 +323,7 @@ export async function PATCH(
           },
           { status: 409 }
         )
+      }
       }
     }
 
@@ -415,6 +429,29 @@ export async function PATCH(
             mecanico: true,
           },
         })
+
+        if (estadoOrden) {
+          await registrarAuditoriaOrdenTrabajo(tx, {
+            idUsuario: session.user.idUsuario,
+            tipoOperacion:
+              estadoOrden === "Anulada" ? "anulacion_orden" : "cambio_estado",
+            idOrdenDeTrabajo: parsed.id,
+            valorAnterior: {
+              estado: ordenTrabajo.estado,
+              estadoPago: ordenTrabajo.estadoPago,
+              fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
+            },
+            valorNuevo: {
+              estado: ordenActualizada.estado,
+              estadoPago: ordenActualizada.estadoPago,
+              fechaEntregaReal: ordenActualizada.fechaEntregaReal,
+            },
+            detalleCambio:
+              estadoOrden === "Anulada"
+                ? "Anulacion de orden de trabajo"
+                : `Cambio de estado de orden a ${estadoOrden}`,
+          })
+        }
 
         return { orden: ordenActualizada, pago: nuevoPago }
       }

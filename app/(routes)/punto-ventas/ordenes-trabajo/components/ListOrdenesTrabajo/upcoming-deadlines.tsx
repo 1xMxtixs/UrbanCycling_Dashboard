@@ -14,7 +14,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
   // Filter uncompleted orders that are due or overdue
   const upcomingOrders = orders
     .filter((o) => {
-      const isCompleted = ["Listo para entregar", "Entregado"].includes(o.estadoOrden)
+      const isCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(o.estadoOrden)
       if (isCompleted) return false
       const rawDate = new Date(o.fechaEntregaEstimada)
       const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())

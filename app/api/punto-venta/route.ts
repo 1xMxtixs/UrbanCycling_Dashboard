@@ -224,6 +224,154 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   return "venta";
 }
 
+const etapasOrdenTrabajo = [
+  "Por realizar",
+  "En curso",
+  "En espera",
+  "Listo para entregar",
+  "Entregado",
+  "Anulada",
+];
+
+function normalizarTextoFiltro(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function obtenerEtapaFiltro(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const etapaInput =
+    searchParams.get("etapa") ??
+    searchParams.get("estadoOrden") ??
+    searchParams.get("estado_orden") ??
+    searchParams.get("estado");
+
+  if (!etapaInput) {
+    return {
+      fueSolicitada: false,
+      etapa: null,
+    };
+  }
+
+  const etapaNormalizada = normalizarTextoFiltro(etapaInput);
+
+  return {
+    fueSolicitada: true,
+    etapa:
+      etapasOrdenTrabajo.find(
+        (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
+      ) ?? null,
+  };
+}
+
+function obtenerParametroFecha(searchParams: URLSearchParams, keys: string[]) {
+  for (const key of keys) {
+    if (searchParams.has(key)) {
+      return searchParams.get(key);
+    }
+  }
+
+  return null;
+}
+
+function parseFechaFiltro(value: string | null) {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const fechaInput = value.trim();
+  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? [];
+
+  if (!datePart) {
+    return null;
+  }
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  const fecha = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    fecha.getUTCFullYear() !== year ||
+    fecha.getUTCMonth() !== month - 1 ||
+    fecha.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return fecha;
+}
+
+function obtenerPeriodoFiltro(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const fechaInicioInput = obtenerParametroFecha(searchParams, [
+    "fechaInicio",
+    "fecha_inicio",
+    "fechaDesde",
+    "fecha_desde",
+    "desde",
+    "inicio",
+  ]);
+  const fechaFinInput = obtenerParametroFecha(searchParams, [
+    "fechaFin",
+    "fecha_fin",
+    "fechaHasta",
+    "fecha_hasta",
+    "hasta",
+    "fin",
+  ]);
+  const fueSolicitado = fechaInicioInput !== null || fechaFinInput !== null;
+
+  if (!fueSolicitado) {
+    return {
+      fueSolicitado,
+      error: null,
+      inicio: null,
+      finExclusivo: null,
+    };
+  }
+
+  if (!fechaInicioInput?.trim() || !fechaFinInput?.trim()) {
+    return {
+      fueSolicitado,
+      error: {
+        code: "FECHAS_INCOMPLETAS",
+        message: "Debe completar fecha de inicio y fecha de fin",
+      },
+      inicio: null,
+      finExclusivo: null,
+    };
+  }
+
+  const inicio = parseFechaFiltro(fechaInicioInput);
+  const fin = parseFechaFiltro(fechaFinInput);
+
+  if (!inicio || !fin || inicio > fin) {
+    return {
+      fueSolicitado,
+      error: {
+        code: "RANGO_FECHAS_INVALIDO",
+        message: "El rango de fechas no es valido. Corrija las fechas ingresadas",
+      },
+      inicio: null,
+      finExclusivo: null,
+    };
+  }
+
+  const finExclusivo = new Date(fin);
+  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1);
+
+  return {
+    fueSolicitado,
+    error: null,
+    inicio,
+    finExclusivo,
+  };
+}
+
 function obtenerMetodoPago(rawData: any) {
   return rawData.pago?.metodo_pago ??
     rawData.pago?.metodoPago ??
@@ -788,7 +936,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)
 
@@ -796,7 +944,54 @@ export async function GET() {
       return response
     }
 
+    const etapaFiltro = obtenerEtapaFiltro(req);
+    const periodoFiltro = obtenerPeriodoFiltro(req);
+
+    if (etapaFiltro.fueSolicitada && !etapaFiltro.etapa) {
+      return NextResponse.json(
+        {
+          code: "ETAPA_INVALIDA",
+          message: "La etapa seleccionada no es valida",
+          etapasDisponibles: etapasOrdenTrabajo,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (periodoFiltro.error) {
+      return NextResponse.json(periodoFiltro.error, { status: 400 });
+    }
+
+    const filtrosVenta = [];
+
+    if (etapaFiltro.etapa) {
+      filtrosVenta.push({
+        ordenDeTrabajo: {
+          is: {
+            estado: etapaFiltro.etapa,
+          },
+        },
+      });
+    }
+
+    if (periodoFiltro.inicio && periodoFiltro.finExclusivo) {
+      filtrosVenta.push({
+        ordenDeTrabajo: {
+          isNot: null,
+        },
+        fechaRegistro: {
+          gte: periodoFiltro.inicio,
+          lt: periodoFiltro.finExclusivo,
+        },
+      });
+    }
+
     const ventas = await prisma.venta.findMany({
+      where: filtrosVenta.length
+        ? {
+            AND: filtrosVenta,
+          }
+        : undefined,
       orderBy: {
         fechaRegistro: "desc",
       },
@@ -835,7 +1030,7 @@ export async function GET() {
     const operaciones = ventas.flatMap((venta: any) => {
       const items = [];
 
-      if (venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
+      if (!etapaFiltro.etapa && !periodoFiltro.fueSolicitado && venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
         const ventaAdaptada = adaptarVenta(venta);
 
         items.push({
@@ -853,7 +1048,10 @@ export async function GET() {
         });
       }
 
-      if (venta.ordenDeTrabajo) {
+      if (
+        venta.ordenDeTrabajo &&
+        (!etapaFiltro.etapa || venta.ordenDeTrabajo.estado === etapaFiltro.etapa)
+      ) {
         const ordenTrabajo = {
           ...venta.ordenDeTrabajo,
           venta,
@@ -882,6 +1080,37 @@ export async function GET() {
       (a: any, b: any) =>
         new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime()
     );
+
+    if (etapaFiltro.etapa && operaciones.length === 0) {
+      if (periodoFiltro.fueSolicitado) {
+        return NextResponse.json(
+          {
+            code: "SIN_ORDENES_EN_PERIODO",
+            message: "No hay ordenes de trabajo dentro del rango ingresado",
+          },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          code: "SIN_TRABAJOS_EN_ETAPA",
+          message: "No se encontraron trabajos en esa etapa",
+          etapa: etapaFiltro.etapa,
+        },
+        { status: 404 }
+      );
+    }
+
+    if (periodoFiltro.fueSolicitado && operaciones.length === 0) {
+      return NextResponse.json(
+        {
+          code: "SIN_ORDENES_EN_PERIODO",
+          message: "No hay ordenes de trabajo dentro del rango ingresado",
+        },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(operaciones);
   } catch (error) {
