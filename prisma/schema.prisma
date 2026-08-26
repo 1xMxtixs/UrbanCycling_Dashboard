@@ -581,7 +581,7 @@ model DocumentoTributario {
   idUsuario             Int      @db.UnsignedInt @map("id_usuario")
   idCliente             Int?     @db.UnsignedInt @map("id_cliente")
   tipoMovimiento        String   @db.VarChar(20)   @map("tipo_movimiento")
-  tipoDte               Int      @db.UnsignedSmallInt @map("tipo_dte")
+  tipoDte               Int      @db.UnsignedInt @map("tipo_dte")
   numeroFolio           Int      @db.UnsignedInt   @map("numero_folio")
   rutEmisor             String   @db.VarChar(12)   @map("rut_emisor")
   rutReceptor           String?  @db.VarChar(12)   @map("rut_receptor")
@@ -622,7 +622,7 @@ model ReferenciaDte {
   idReferenciaDte   Int      @id @default(autoincrement()) @db.UnsignedInt @map("id_referencia_dte")
   idDteOriginador   Int      @db.UnsignedInt @map("id_dte_originador")
   idDteReferenciado Int      @db.UnsignedInt @map("id_dte_referenciado")
-  codigoReferencia  Int      @db.UnsignedTinyInt @map("codigo_referencia")
+  codigoReferencia  Int      @db.UnsignedSmallInt @map("codigo_referencia")
   razonReferencia   String   @db.VarChar(90) @map("razon_referencia")
   fechaReferencia   DateTime @db.Date @map("fecha_referencia")
 
@@ -633,10 +633,10 @@ model ReferenciaDte {
 }
 
 model ContadorFolio {
-  idContador    Int @id @default(autoincrement()) @db.UnsignedInt @map("id_contador")
-  tipoDte       Int @unique @db.UnsignedInt @map("tipo_dte")
-  ultimoFolio   Int @default(0) @db.UnsignedInt @map("ultimo_folio")
-  actualizadoEn DateTime @default(now()) @updatedAt @db.Timestamp(0) @map("actualizado_en")
+  idContador    Int       @id @default(autoincrement()) @db.UnsignedInt @map("id_contador")
+  tipoDte       Int       @unique @db.UnsignedInt @map("tipo_dte")
+  ultimoFolio   Int       @default(0) @db.UnsignedInt @map("ultimo_folio")
+  actualizadoEn DateTime  @default(now()) @updatedAt @db.Timestamp(0) @map("actualizado_en")
 
   @@map("contadores_folios")  
 }
