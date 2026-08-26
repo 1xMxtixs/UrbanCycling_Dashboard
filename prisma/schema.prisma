@@ -599,6 +599,8 @@ model DocumentoTributario {
   referencias  ReferenciaDte[]              @relation("DteOrigen")
   referenciado ReferenciaDte[]              @relation("DteReferenciado")
 
+  @@unique([rutEmisor, tipoDte, numeroFolio])
+
   @@map("documentos_tributarios")
 }
 
@@ -628,4 +630,13 @@ model ReferenciaDte {
   dteReferenciado DocumentoTributario @relation("DteReferenciado", fields: [idDteReferenciado],  references: [idDocumentoTributario])
 
   @@map("referencias_dte")
+}
+
+model ContadorFolio {
+  idContador    Int @id @default(autoincrement()) @db.UnsignedInt @map("id_contador")
+  tipoDte       Int @unique @db.UnsignedInt @map("tipo_dte")
+  ultimoFolio   Int @default(0) @db.UnsignedInt @map("ultimo_folio")
+  actualizadoEn DateTime @default(now()) @updatedAt @db.Timestamp(0) @map("actualizado_en")
+
+  @@map("contadores_folios")  
 }
