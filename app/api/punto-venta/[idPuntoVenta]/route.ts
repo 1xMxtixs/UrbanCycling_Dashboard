@@ -8,6 +8,8 @@ import { requirePermission } from "@/lib/require-permission";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
+const prisma = db;
+
 function parseIdPuntoVenta(idPuntoVenta: string) {
   const [tipo, id] = idPuntoVenta.split("-");
   const parsedId = Number(id);
@@ -231,7 +233,7 @@ export async function GET(
     }
 
     if (parsed.tipo === "venta") {
-      const venta = await db.venta.findUnique({
+      const venta = await prisma.venta.findUnique({
         where: {
           idVenta: parsed.id,
         },
@@ -272,7 +274,7 @@ export async function GET(
       });
     }
 
-    const ordenTrabajo = await db.ordenDeTrabajo.findUnique({
+    const ordenTrabajo = await prisma.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo: parsed.id,
       },
@@ -359,7 +361,7 @@ export async function PATCH(
     const data = (await req.json()) as Record<string, unknown>;
 
     if (parsed.tipo === "venta") {
-      const ventaActualizada = await db.venta.update({
+      const ventaActualizada = await prisma.venta.update({
         where: {
           idVenta: parsed.id,
         },
@@ -494,7 +496,7 @@ export async function PATCH(
       );
     }
 
-    const ordenTrabajoActual = await db.ordenDeTrabajo.findUnique({
+    const ordenTrabajoActual = await prisma.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo: parsed.id,
       },
@@ -529,7 +531,7 @@ export async function PATCH(
     }
 
     if (idMecanicoAsignado) {
-      const mecanico = await db.usuario.findUnique({
+      const mecanico = await prisma.usuario.findUnique({
         where: {
           idUsuario: idMecanicoAsignado,
         },
@@ -566,7 +568,7 @@ export async function PATCH(
       observacionesIngreso: updateData.observacionesIngreso,
     });
 
-    const ordenActualizada = await db.$transaction(async (tx) => {
+    const ordenActualizada = await prisma.$transaction(async (tx: any) => {
       const orden = await tx.ordenDeTrabajo.update({
         where: {
           idOrdenDeTrabajo: parsed.id,
