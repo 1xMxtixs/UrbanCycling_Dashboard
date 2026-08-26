@@ -726,7 +726,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const resultado = await prisma.$transaction(async (tx: any) => {
+    const resultado = await prisma.$transaction(async (tx) => {
       const ventaBase = await tx.venta.create({
         data: {
           idUsuario,

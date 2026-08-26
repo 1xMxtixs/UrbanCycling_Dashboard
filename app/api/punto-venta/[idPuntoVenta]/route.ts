@@ -568,7 +568,7 @@ export async function PATCH(
       observacionesIngreso: updateData.observacionesIngreso,
     });
 
-    const ordenActualizada = await prisma.$transaction(async (tx: any) => {
+    const ordenActualizada = await prisma.$transaction(async (tx) => {
       const orden = await tx.ordenDeTrabajo.update({
         where: {
           idOrdenDeTrabajo: parsed.id,
