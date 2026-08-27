@@ -8,7 +8,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
-const prisma = db as any;
+const prisma = db;
 
 function parseIdPuntoVenta(idPuntoVenta: string) {
   const [tipo, id] = idPuntoVenta.split("-");
@@ -568,7 +568,7 @@ export async function PATCH(
       observacionesIngreso: updateData.observacionesIngreso,
     });
 
-    const ordenActualizada = await prisma.$transaction(async (tx: any) => {
+    const ordenActualizada = await prisma.$transaction(async (tx) => {
       const orden = await tx.ordenDeTrabajo.update({
         where: {
           idOrdenDeTrabajo: parsed.id,

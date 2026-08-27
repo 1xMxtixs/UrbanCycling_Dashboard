@@ -6,7 +6,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
-const prisma = db as any;
+const prisma = db;
 
 type ProductoInput = {
   id_producto?: unknown;
@@ -726,7 +726,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const resultado = await prisma.$transaction(async (tx: any) => {
+    const resultado = await prisma.$transaction(async (tx) => {
       const ventaBase = await tx.venta.create({
         data: {
           idUsuario,
