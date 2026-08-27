@@ -34,15 +34,6 @@ BEGIN
     -- declaracion de handler para el loop
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = TRUE;
     
-    -- declaración de handler para errores
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    START TRANSACTION;
-    
     -- se recorre el cursor
     OPEN cursor_items;
 
@@ -106,8 +97,6 @@ BEGIN
     END LOOP;
 
     CLOSE cursor_items;
-
-    COMMIT;
 
     SELECT TRUE AS success;
 
