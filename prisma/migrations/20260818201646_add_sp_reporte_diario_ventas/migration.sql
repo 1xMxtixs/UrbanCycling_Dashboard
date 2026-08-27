@@ -6,10 +6,8 @@ CREATE PROCEDURE sp_reporte_diario_ventas(
 
 BEGIN
     DECLARE v_inicio_dia TIMESTAMP;
-    DECLARE v_fin_dia TIMESTAMP;
 
     SET v_inicio_dia = TIMESTAMP(p_fecha, '00:00:00');
-    SET v_fin_dia = TIMESTAMP(p_fecha, '23:59:59');
 
     SELECT 
         p_fecha AS fecha,
@@ -26,6 +24,6 @@ BEGIN
     FROM ventas v
     LEFT JOIN ventas_en_mostrador vm ON v.id_venta = vm.id_venta
     LEFT JOIN ordenes_de_trabajo ot ON v.id_venta = ot.id_venta
-    WHERE v.fecha_registro BETWEEN v_inicio_dia AND v_fin_dia;
-
+    WHERE v.fecha_registro >= v_inicio_dia
+      AND v.fecha_registro < v_inicio_dia + INTERVAL 1 DAY;
 END;
