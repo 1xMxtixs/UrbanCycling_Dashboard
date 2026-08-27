@@ -15,15 +15,6 @@ BEGIN
     DECLARE v_id_ajuste INT UNSIGNED;
     DECLARE v_id_linea_ajuste INT UNSIGNED;
 
-    -- handler para manejar errores
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    START TRANSACTION;
-
     SELECT stock_actual, costo_promedio
     INTO v_stock_anterior, v_costo_promedio
     FROM productos
@@ -95,8 +86,6 @@ BEGIN
     UPDATE productos
     SET stock_actual = p_stock_nuevo
     WHERE id_producto = p_id_producto;
-
-    COMMIT;
 
     SELECT TRUE AS success;
 END;
