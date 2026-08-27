@@ -58,6 +58,9 @@ BEGIN
             LEAVE read_loop;
         END IF;
 
+        SET v_stock_actual = NULL;
+        SET v_costo_promedio = NULL;
+
         -- bloquear stock
         SELECT stock_actual, costo_promedio
         INTO v_stock_actual, v_costo_promedio
@@ -69,7 +72,11 @@ BEGIN
         IF v_stock_actual IS NULL THEN
             SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT = 'Producto no encontrado';
-        ELSEIF v_stock_actual < v_cantidad_a_descontar THEN
+        END IF;
+
+        SET v_done = FALSE;
+
+        IF v_stock_actual < v_cantidad_a_descontar THEN
             SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT = 'Stock insuficiente para el producto solicitado';
         END IF;
