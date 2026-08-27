@@ -14,25 +14,11 @@ CREATE PROCEDURE sp_obtener_siguiente_folio (
     IN p_tipo_dte INT UNSIGNED
 )
 BEGIN
-    DECLARE v_folio_actual INT UNSIGNED DEFAULT 0;
-    DECLARE v_siguiente_folio INT UNSIGNED DEFAULT 0;
-
     INSERT INTO contadores_folios (tipo_dte, ultimo_folio, actualizado_en)
-    VALUES (p_tipo_dte, 0, NOW())
-    ON DUPLICATE KEY UPDATE tipo_dte = tipo_dte;
+    VALUES (p_tipo_dte, LAST_INSERT_ID(1), NOW())
+    ON DUPLICATE KEY UPDATE
+        ultimo_folio = LAST_INSERT_ID(ultimo_folio + 1),
+        actualizado_en = NOW();
 
-    SELECT ultimo_folio
-    INTO v_folio_actual
-    FROM contadores_folios
-    WHERE tipo_dte = p_tipo_dte
-    FOR UPDATE;
-
-    SET v_siguiente_folio = v_folio_actual + 1;
-
-    UPDATE contadores_folios
-    SET ultimo_folio = v_siguiente_folio,
-        actualizado_en = NOW()
-    WHERE tipo_dte = p_tipo_dte;
-
-    SELECT v_siguiente_folio AS siguienteFolio;
+    SELECT LAST_INSERT_ID() AS siguiente_folio;
 END;
