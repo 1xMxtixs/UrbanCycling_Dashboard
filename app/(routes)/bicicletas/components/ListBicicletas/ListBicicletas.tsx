@@ -1,21 +1,14 @@
-"use client"
+"use client";
 
 import { useEffect, useState } from "react";
-
-import { Input } from "@/components/ui/input";
-
 import { BikeCard } from "./BikeCard";
-import type { Bicicleta } from "./columns";
-
-function getNombreCliente(cliente: Bicicleta["ordenDeTrabajo"]["cliente"]) {
-  return (
-    cliente.razonSocial ||
-    [cliente.primerNombre, cliente.apellidoPaterno, cliente.apellidoMaterno]
-      .filter(Boolean)
-      .join(" ") ||
-    "Sin cliente"
-  );
-}
+import { EmptyState } from "@/components/common/EmptyState";
+import { DataTableContainer } from "@/components/common/DataTableContainer";
+import { MetricCard } from "@/components/common/MetricCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Bike, Wrench, CheckCircle2, Tag } from "lucide-react";
+import { formatClientName } from "@/lib/formatters";
+import type { Bicicleta } from "../../types";
 
 export function ListBicicletas() {
   const [bicicletas, setBicicletas] = useState<Bicicleta[]>([]);
@@ -53,8 +46,13 @@ export function ListBicicletas() {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg bg-background p-6 text-sm text-muted-foreground shadow-md animate-pulse">
-        Cargando bicicletas...
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }
@@ -70,7 +68,7 @@ export function ListBicicletas() {
           bicicleta.color,
           bicicleta.descripcion,
           bicicleta.ordenDeTrabajo?.estadoOrden,
-          cliente ? getNombreCliente(cliente) : "",
+          cliente ? formatClientName(cliente) : "",
           cliente?.rut,
         ]
           .filter(Boolean)
@@ -81,30 +79,75 @@ export function ListBicicletas() {
       })
     : bicicletas;
 
+  // Métricas
+  const totalBikes = bicicletas.length;
+  const inServiceBikes = bicicletas.filter((b) => {
+    const estado = b.ordenDeTrabajo?.estadoOrden?.toLowerCase();
+    return estado === "en curso" || estado === "en espera" || estado === "por realizar";
+  }).length;
+  const readyBikes = bicicletas.filter((b) => {
+    const estado = b.ordenDeTrabajo?.estadoOrden?.toLowerCase();
+    return estado === "listo para entregar" || estado === "entregado";
+  }).length;
+  const uniqueBrands = new Set(bicicletas.map((b) => b.marca?.toLowerCase().trim()).filter(Boolean)).size;
+
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      <div className="rounded-lg bg-background p-4 shadow-md">
-        <Input
-          placeholder="Buscar por marca, modelo, cliente u orden..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* KPIs de Flota de Bicicletas */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total Bicicletas"
+          value={totalBikes}
+          description="Vehículos registrados"
+          icon={Bike}
         />
-        <p className="mt-2 text-sm text-muted-foreground">
-          {filteredBicicletas.length} bicicletas encontradas
-        </p>
+        <MetricCard
+          title="En Servicio Técnico"
+          value={inServiceBikes}
+          description="En proceso de reparación"
+          icon={Wrench}
+        />
+        <MetricCard
+          title="Listas / Entregadas"
+          value={readyBikes}
+          description="Mantención finalizada"
+          icon={CheckCircle2}
+        />
+        <MetricCard
+          title="Marcas Atendidas"
+          value={uniqueBrands}
+          description="Diversidad de fabricantes"
+          icon={Tag}
+        />
       </div>
 
-      {filteredBicicletas.length === 0 ? (
-        <div className="rounded-lg border bg-background p-8 text-center text-sm text-muted-foreground shadow-sm">
-          No hay bicicletas registradas.
+      <DataTableContainer
+        title="Catálogo de Bicicletas"
+        description={`${filteredBicicletas.length} ${filteredBicicletas.length === 1 ? "bicicleta encontrada" : "bicicletas encontradas"}`}
+        searchPlaceholder="Buscar por marca, modelo, cliente u orden..."
+        searchValue={search}
+        onSearchChange={setSearch}
+      >
+        <div className="p-4 md:p-6">
+          {filteredBicicletas.length === 0 ? (
+            <EmptyState
+              icon={Bike}
+              title="No se encontraron bicicletas"
+              description={
+                search
+                  ? "No hay resultados que coincidan con tu criterio de búsqueda."
+                  : "Aún no hay bicicletas registradas en el sistema."
+              }
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredBicicletas.map((bicicleta) => (
+                <BikeCard key={bicicleta.idBicicleta} bicicleta={bicicleta} />
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filteredBicicletas.map((bicicleta) => (
-            <BikeCard key={bicicleta.idBicicleta} bicicleta={bicicleta} />
-          ))}
-        </div>
-      )}
+      </DataTableContainer>
     </div>
   );
 }

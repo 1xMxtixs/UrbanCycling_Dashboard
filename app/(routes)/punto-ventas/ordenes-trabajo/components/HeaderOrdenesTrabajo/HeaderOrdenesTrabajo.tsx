@@ -4,45 +4,36 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
+import { PageHeader } from "@/components/common/PageHeader"
+import { Plus, Wrench } from "lucide-react"
 import { FormCreateOrder } from "../FormCreateOrder"
-import { ClipboardList } from "lucide-react"
 
 export function HeaderOrdenesTrabajo() {
   const [openModalCreate, setOpenModalCreate] = useState(false)
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-black flex items-center gap-2 tracking-tight">
-          Órdenes de Trabajo
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gestión y seguimiento de reparaciones y mantención de bicicletas
-        </p>
-      </div>
-
+    <PageHeader
+      title="Órdenes de Trabajo"
+      description="Recepción, asignación técnica y seguimiento en tiempo real del taller de bicicletas."
+    >
       <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
         <DialogTrigger asChild>
-          <Button className="py-5 font-semibold">+ Nueva Orden</Button>
+          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
+            <Plus className="h-4 w-4 mr-1.5" /> Nueva Orden
+          </Button>
         </DialogTrigger>
 
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nueva Orden de Trabajo</DialogTitle>
-            <DialogDescription>
-              Ingresa los datos principales de la orden de ingreso y asocia los vehículos del cliente.
-            </DialogDescription>
-          </DialogHeader>
-
+        <FormDialog
+          title="Ingreso de Orden de Trabajo"
+          description="Completa los datos del cliente, selecciona los vehículos y define los servicios y repuestos requeridos."
+          size="3xl"
+        >
           <FormCreateOrder setOpenModalCreate={setOpenModalCreate} />
-        </DialogContent>
+        </FormDialog>
       </Dialog>
-    </div>
+    </PageHeader>
   )
 }

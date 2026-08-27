@@ -3,6 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +12,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { type WorkOrder } from "./kpi-cards"
+import { DataField } from "@/components/common/DataField"
+import { formatClientName } from "@/lib/formatters"
+import { WorkOrder } from "../../types"
 
 function getAvailableTransitions(currentStatus: string) {
   const map: Record<string, string[]> = {
@@ -37,7 +40,6 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
     order.estadoPago?.toLowerCase() === "pagada" ||
     order.estadoPago?.toLowerCase() === "pagado" ||
     Math.max(0, total - totalPagado) === 0
-  const saldoPendiente = isPaid ? 0 : Math.max(0, total - totalPagado)
 
   return (
     <DropdownMenu>
@@ -64,7 +66,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         {isPaid && (
           <DropdownMenuItem
             onClick={() => meta?.onGenerateReceipt?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-blue-600 font-semibold"
+            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
           >
             <FileText className="h-4 w-4" />
             Generar Boleta
@@ -74,7 +76,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         {order.estadoPago?.toLowerCase() !== "pagada" && (
           <DropdownMenuItem
             onClick={() => meta?.onPayClick?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-green-600 font-semibold"
+            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
           >
             <Coins className="h-4 w-4" />
             Registrar Pago
@@ -83,7 +85,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
 
         <DropdownMenuItem
           onClick={() => meta?.onRescheduleClick?.(order)}
-          className="flex cursor-pointer items-center gap-2 text-amber-700 font-semibold"
+          className="flex cursor-pointer items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold"
         >
           <CalendarClock className="h-4 w-4" />
           Reprogramar Entrega
@@ -92,7 +94,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         {canCancel && (
           <DropdownMenuItem
             onClick={() => meta?.onCancelClick?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-red-600 font-semibold"
+            className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold"
           >
             <XCircle className="h-4 w-4" />
             Anular Orden
@@ -102,7 +104,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         {transitions.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               Cambiar Estado
             </DropdownMenuLabel>
             {transitions.map((nextState: string) => (
@@ -129,9 +131,7 @@ export const columns: ColumnDef<WorkOrder>[] = [
     accessorKey: "idOrdenDeTrabajo",
     header: "ID Orden",
     cell: ({ row }) => (
-      <span className="font-bold text-slate-900 dark:text-white">
-        #{row.getValue("idOrdenDeTrabajo")}
-      </span>
+      <DataField variant="table-cell" value={`#${row.getValue("idOrdenDeTrabajo")}`} />
     ),
   },
   {
@@ -146,22 +146,14 @@ export const columns: ColumnDef<WorkOrder>[] = [
     },
     cell: ({ row }) => {
       const order = row.original
-      const clientName = order.cliente
-        ? order.cliente.razonSocial ||
-          `${order.cliente.primerNombre} ${order.cliente.apellidoPaterno || ""}`.trim()
-        : "Cliente Desconocido"
+      const clientName = formatClientName(order.cliente)
 
       return (
-        <div>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">
-            {clientName}
-          </span>
-          {order.cliente && (
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              RUT: {order.cliente.rut}
-            </span>
-          )}
-        </div>
+        <DataField
+          variant="table-cell"
+          value={clientName}
+          secondaryValue={order.cliente?.rut ? `RUT: ${order.cliente.rut}` : undefined}
+        />
       )
     },
   },
@@ -182,11 +174,9 @@ export const columns: ColumnDef<WorkOrder>[] = [
 
       return (
         <div className="flex items-center gap-1.5">
-          <span className="dark:text-slate-350 font-medium text-slate-700">
-            {firstBike}
-          </span>
+          <DataField variant="table-cell" value={firstBike} />
           {extraCount > 0 && (
-            <span className="dark:bg-slate-850 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-extrabold text-slate-500 uppercase">
+            <span className="inline-flex rounded-full bg-muted border border-border px-2 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
               +{extraCount} más
             </span>
           )}
@@ -249,57 +239,24 @@ export const columns: ColumnDef<WorkOrder>[] = [
       const isDelayed = localEndDay < new Date() && !isCompleted
 
       if (isDelayed) {
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-red-700 shadow-sm dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-            <span className="h-1.5 w-1.5 animate-ping rounded-full bg-red-500" />
-            Retrasada
-          </span>
-        )
+        return <StatusBadge status="danger" label="Retrasada" />
       }
 
       switch (order.estadoOrden) {
         case "Por realizar":
-          return (
-            <span className="dark:text-slate-350 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800">
-              Por realizar
-            </span>
-          )
+          return <StatusBadge status="neutral" label="Por realizar" />
         case "En curso":
-          return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400">
-              Activa
-            </span>
-          )
+          return <StatusBadge status="info" label="Activa" />
         case "En espera":
-          return (
-            <span className="border-yellow-250 text-yellow-750 dark:text-yellow-450 inline-flex items-center gap-1 rounded-full border bg-yellow-50 px-2.5 py-0.5 text-xs font-bold tracking-wider dark:border-yellow-800 dark:bg-yellow-950/40">
-              En Espera
-            </span>
-          )
+          return <StatusBadge status="warning" label="En Espera" />
         case "Listo para entregar":
-          return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-              Por Entregar
-            </span>
-          )
+          return <StatusBadge status="warning" label="Por Entregar" />
         case "Entregado":
-          return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400">
-              Completada
-            </span>
-          )
+          return <StatusBadge status="success" label="Completada" />
         case "Anulada":
-          return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-bold tracking-wider text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-              Anulada
-            </span>
-          )
+          return <StatusBadge status="danger" label="Anulada" />
         default:
-          return (
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-              {order.estadoOrden}
-            </span>
-          )
+          return <StatusBadge status="neutral" label={order.estadoOrden} />
       }
     },
   },
@@ -308,9 +265,9 @@ export const columns: ColumnDef<WorkOrder>[] = [
     header: ({ column }) => {
       return (
         <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="cursor-pointer p-0 font-semibold hover:bg-transparent"
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
         >
           Fecha Entrega
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -320,14 +277,15 @@ export const columns: ColumnDef<WorkOrder>[] = [
     cell: ({ row }) => {
       const date = new Date(row.getValue("fechaEntregaEstimada"))
       return (
-        <span className="dark:text-slate-350 font-medium text-slate-700">
-          {date.toLocaleDateString("es-ES", {
+        <DataField
+          variant="table-cell"
+          value={date.toLocaleDateString("es-ES", {
             day: "2-digit",
             month: "short",
             year: "numeric",
             timeZone: "UTC",
           })}
-        </span>
+        />
       )
     },
   },

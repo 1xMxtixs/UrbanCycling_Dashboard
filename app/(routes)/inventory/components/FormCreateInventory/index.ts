@@ -1,1 +1,1 @@
-export * from "./FormCreateInventory"
+export * from "./FormCreateInventory";

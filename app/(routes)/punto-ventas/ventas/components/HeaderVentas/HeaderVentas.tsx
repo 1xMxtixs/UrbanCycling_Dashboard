@@ -4,44 +4,36 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
+import { PageHeader } from "@/components/common/PageHeader"
+import { Plus, ShoppingCart } from "lucide-react"
 import { FormCreateVenta } from "../FormCreateVenta/FormCreateVenta"
 
 export function HeaderVentas() {
   const [openModalCreate, setOpenModalCreate] = useState(false)
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-black flex items-center gap-2 tracking-tight">
-          Ventas en Mostrador
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gestión y registro de ventas directas de repuestos y accesorios en mostrador
-        </p>
-      </div>
-
+    <PageHeader
+      title="Ventas en Mostrador"
+      description="Facturación directa, cobro en caja y emisión de boletas de repuestos y accesorios."
+    >
       <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
         <DialogTrigger asChild>
-          <Button className="py-5 font-semibold">+ Nueva Venta</Button>
+          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
+            <Plus className="h-4 w-4 mr-1.5" /> Nueva Venta
+          </Button>
         </DialogTrigger>
 
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Registrar Nueva Venta</DialogTitle>
-            <DialogDescription>
-              Selecciona el cliente, añade los productos y registra el pago para completar la venta directa.
-            </DialogDescription>
-          </DialogHeader>
-
+        <FormDialog
+          title="Registrar Venta Directa"
+          description="Selecciona el cliente, añade los productos y registra el pago para completar la transacción."
+          size="2xl"
+        >
           <FormCreateVenta setOpenModalCreate={setOpenModalCreate} />
-        </DialogContent>
+        </FormDialog>
       </Dialog>
-    </div>
+    </PageHeader>
   )
 }
