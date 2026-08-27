@@ -85,7 +85,7 @@ BEGIN
         cantidad,
         costo_unitario
     ) VALUES (
-        v_id_linea_de_ajuste,
+        v_id_linea_ajuste,
         NOW(),
         v_direccion,
         v_diferencia,
