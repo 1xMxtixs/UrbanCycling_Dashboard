@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -62,6 +62,16 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           <Eye className="h-4 w-4" />
           Ver Detalle
         </DropdownMenuItem>
+
+        {canCancel && (
+          <DropdownMenuItem
+            onClick={() => meta?.onAssignSuppliesClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-primary font-medium"
+          >
+            <Wrench className="h-4 w-4" />
+            Asignar Insumos / Valorizar
+          </DropdownMenuItem>
+        )}
 
         {isPaid && (
           <DropdownMenuItem

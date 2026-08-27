@@ -14,6 +14,7 @@ import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
+import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -34,6 +35,9 @@ export function ListOrdenesTrabajo() {
 
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
   const [openDetailsModal, setOpenDetailsModal] = useState(false)
+
+  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
+  const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
@@ -122,6 +126,11 @@ export function ListOrdenesTrabajo() {
     } finally {
       setUpdatingId(null)
     }
+  }
+
+  const handleAssignSuppliesClick = (order: WorkOrder) => {
+    setOrderToAssignSupplies(order)
+    setSuppliesModalOpen(true)
   }
 
   const handlePayClick = (order: WorkOrder) => {
@@ -428,6 +437,7 @@ export function ListOrdenesTrabajo() {
         onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
+        onAssignSuppliesClick={handleAssignSuppliesClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -442,6 +452,18 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
+        onAssignSuppliesClick={handleAssignSuppliesClick}
+      />
+
+      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
+      <AssignSuppliesDialog
+        open={suppliesModalOpen}
+        onOpenChange={setSuppliesModalOpen}
+        order={orderToAssignSupplies}
+        onSuccess={() => {
+          getOrders()
+          router.refresh()
+        }}
       />
 
       {/* 5. Modal de Pago Restante */}

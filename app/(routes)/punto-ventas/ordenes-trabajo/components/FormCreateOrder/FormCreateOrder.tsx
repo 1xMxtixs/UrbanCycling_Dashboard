@@ -356,7 +356,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          id_usuario: 1,
           id_cliente: Number(selectedClientId),
           estado_pago: estadoPago,
           metodo_pago: estadoPago === "pendiente" ? null : metodoPago,
