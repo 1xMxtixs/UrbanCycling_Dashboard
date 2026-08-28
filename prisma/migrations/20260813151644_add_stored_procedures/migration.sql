@@ -32,6 +32,18 @@ BEGIN
     DECLARE v_total DECIMAL(12,0) DEFAULT 0;
     DECLARE v_neto DECIMAL(12,0) DEFAULT 0;
     DECLARE  v_iva DECIMAL(12,0) DEFAULT 0;
+    DECLARE v_existe_ot INT DEFAULT 0;
+
+    -- validar que exista la orden de trabajo y traer descuento global
+    SELECT 1, COALESCE(descuento_global, 0)
+    INTO v_existe_ot, v_descuento_global
+    FROM ordenes_de_trabajo
+    WHERE id_orden_de_trabajo = p_id_orden_de_trabajo;
+
+    IF v_existe_ot = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Orden de trabajo no encontrada';
+    END IF;
 
     -- calcular subtotal bruto y total de descuentos
     SELECT 
@@ -43,12 +55,11 @@ BEGIN
     FROM lineas_de_orden_de_trabajo
     WHERE id_orden_de_trabajo = p_id_orden_de_trabajo;
 
-    -- calcular descuento global
-    SELECT 
-        COALESCE(descuento_global, 0)
-    INTO v_descuento_global
-    FROM ordenes_de_trabajo
-    WHERE id_orden_de_trabajo = p_id_orden_de_trabajo;
+    -- validacion para evitar totales negativos
+    IF (v_descuento_prod + v_descuento_global) > v_subtotal THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El descuento total aplicado supera el subtotal de la orden de trabajo';
+    END IF;
 
     -- calcular total y desglose iva
     -- total = subtotal - descuentos
