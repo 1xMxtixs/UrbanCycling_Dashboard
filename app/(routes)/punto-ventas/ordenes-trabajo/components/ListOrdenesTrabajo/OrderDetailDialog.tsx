@@ -11,6 +11,11 @@ import {
   ChevronUp,
   CalendarClock,
   XCircle,
+  Printer,
+  Download,
+  Mail,
+  History,
+  Pencil,
 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -51,6 +56,7 @@ interface OrderDetailDialogProps {
   onPayClick?: (order: WorkOrder) => void
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
+  onEditClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
 }
 
@@ -475,6 +481,36 @@ export function OrderDetailDialog({
                 Reprogramar
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => console.log("Imprimir boleta", order.idOrdenDeTrabajo)}
+              className="gap-1.5"
+              >
+                <Printer className="h-4 w-4" />
+                Imrpimir
+              </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => console.log("Descargar PDF", order.idOrdenDeTrabajo)}
+              className="gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => console.log("Enviar por correo", order.idOrdenDeTrabajo)}
+              className="gap-1.5"
+            >
+              <Mail className="h-4 w-4" />
+              Correo
+            </Button>
+
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cerrar
             </Button>
