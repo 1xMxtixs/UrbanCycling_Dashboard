@@ -324,18 +324,25 @@ async function main() {
   // 6. SERVICIOS
   // ──────────────────────────────────────────────
   console.log("🔧 Creando servicios...");
-  const servicios = await Promise.all([
-    db.servicio.create({ data: { nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: "activo" } }),
-    db.servicio.create({ data: { nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: "activo" } }),
-  ]);
+  const serviciosData = [
+    { codigo: "SERV-AJCAM", nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: "activo" },
+    { codigo: "SERV-AJFRE", nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: "activo" },
+    { codigo: "SERV-CAD", nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: "activo" },
+    { codigo: "SERV-CENRU", nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: "activo" },
+    { codigo: "SERV-CUB", nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: "activo" },
+    { codigo: "SERV-MTB", nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: "activo" },
+    { codigo: "SERV-RUTA", nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: "activo" },
+    { codigo: "SERV-SANG", nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: "activo" },
+    { codigo: "SERV-MONT", nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: "activo" },
+    { codigo: "SERV-DIAG", nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: "activo" },
+  ];
+  const servicios = await Promise.all(
+    serviciosData.map((servicio) =>
+      db.servicio.create({
+        data: servicio,
+      })
+    )
+  );
   console.log(`  ${servicios.length} servicios creados.`);
 
   // ──────────────────────────────────────────────
