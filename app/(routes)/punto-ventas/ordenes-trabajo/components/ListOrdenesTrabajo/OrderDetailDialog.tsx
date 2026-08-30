@@ -67,6 +67,7 @@ export function OrderDetailDialog({
   onPayClick,
   onRescheduleClick,
   onCancelClick,
+  onEditClick,
   onStatusChange,
 }: OrderDetailDialogProps) {
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
@@ -459,6 +460,17 @@ export function OrderDetailDialog({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {onEditClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditClick(order)}
+                className="gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                <Pencil className="h-4 w-4" />
+                Editar
+              </Button>
+            )}
             {canCancel && onCancelClick && (
               <Button
                 variant="outline"
@@ -511,9 +523,6 @@ export function OrderDetailDialog({
               Correo
             </Button>
 
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Cerrar
-            </Button>
             {transitions.length > 0 && onStatusChange && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -538,6 +547,9 @@ export function OrderDetailDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Cerrar
+            </Button>
           </div>
         </div>
       </DialogContent>
