@@ -5,6 +5,8 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+const MAX_BICYCLE_IMAGES = 8
+
 function getErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error) {
     return String(error.code)
@@ -16,7 +18,7 @@ function getErrorCode(error: unknown) {
 type BicycleWithRelations = Awaited<
   ReturnType<typeof db.bicicleta.findMany>
 >[number] & {
-  imagenes?: Array<{ urlImagen: string }>
+  imagenes?: Array<{ idImagenBicicleta: number; urlImagen: string }>
   ordenDeTrabajo?: {
     estado: string
     montoTotal: unknown
@@ -32,8 +34,41 @@ type BicycleWithRelations = Awaited<
   }
 }
 
+function normalizarImagenes(data: Record<string, unknown>) {
+  const rawImages = data.imagenes ?? data.imagenesUrl ?? data.imagenesUrls
+  const urls = Array.isArray(rawImages)
+    ? rawImages
+        .map((image) => {
+          if (typeof image === "string") {
+            return image.trim()
+          }
+
+          if (image && typeof image === "object" && "urlImagen" in image) {
+            return String(image.urlImagen ?? "").trim()
+          }
+
+          if (image && typeof image === "object" && "url" in image) {
+            return String(image.url ?? "").trim()
+          }
+
+          return ""
+        })
+        .filter(Boolean)
+    : []
+
+  const imagenUrl = data.imagenUrl ? String(data.imagenUrl).trim() : ""
+
+  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)))
+}
+
 function mapBicycleResponse(bicycle: BicycleWithRelations) {
   const imagenUrl = bicycle.imagenes?.[0]?.urlImagen ?? null
+  const imagenes =
+    bicycle.imagenes?.map((imagen) => ({
+      idImagenBicicleta: imagen.idImagenBicicleta,
+      urlImagen: imagen.urlImagen,
+      url: imagen.urlImagen,
+    })) ?? []
   const ordenDeTrabajo = bicycle.ordenDeTrabajo
     ? {
         ...bicycle.ordenDeTrabajo,
@@ -46,6 +81,8 @@ function mapBicycleResponse(bicycle: BicycleWithRelations) {
   return {
     ...bicycle,
     descripcion: bicycle.descripcionAdicional,
+    imagenes,
+    imagenesUrl: imagenes.map((imagen) => imagen.urlImagen),
     imagenUrl,
     ordenDeTrabajo,
   }
@@ -98,7 +135,7 @@ export async function POST(request: Request) {
     const marca = String(data.marca ?? "").trim()
     const modelo = String(data.modelo ?? "").trim()
     const color = String(data.color ?? "").trim()
-    const imagenUrl = data.imagenUrl ? String(data.imagenUrl).trim() : null
+    const imagenes = normalizarImagenes(data)
 
     if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
       return new NextResponse("Invalid work order id", { status: 400 })
@@ -108,6 +145,16 @@ export async function POST(request: Request) {
       return new NextResponse("Tipo, marca, modelo y color son obligatorios", {
         status: 400,
       })
+    }
+
+    if (imagenes.length > MAX_BICYCLE_IMAGES) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      )
     }
 
     const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
@@ -128,11 +175,11 @@ export async function POST(request: Request) {
         modelo,
         color,
         descripcionAdicional: data.descripcion ?? data.descripcionAdicional ?? null,
-        imagenes: imagenUrl
+        imagenes: imagenes.length
           ? {
-              create: {
-                urlImagen: imagenUrl,
-              },
+              create: imagenes.map((urlImagen) => ({
+                urlImagen,
+              })),
             }
           : undefined,
       },

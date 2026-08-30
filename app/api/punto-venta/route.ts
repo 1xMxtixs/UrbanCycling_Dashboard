@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 const prisma = db;
+const MAX_BICYCLE_IMAGES = 8;
 
 type ProductoInput = {
   id_producto?: unknown;
@@ -39,6 +40,9 @@ type BicicletaInput = {
   color?: unknown;
   descripcion?: unknown;
   imagenUrl?: unknown;
+  imagenes?: unknown;
+  imagenesUrl?: unknown;
+  imagenesUrls?: unknown;
 };
 
 function parsePositiveInteger(value: unknown) {
@@ -186,6 +190,32 @@ function mapearServicio(item: ServicioInput) {
   };
 }
 
+function normalizarImagenesBicicleta(item: BicicletaInput) {
+  const rawImages = item.imagenes ?? item.imagenesUrl ?? item.imagenesUrls;
+  const urls = Array.isArray(rawImages)
+    ? rawImages
+        .map((image) => {
+          if (typeof image === "string") {
+            return image.trim();
+          }
+
+          if (image && typeof image === "object" && "urlImagen" in image) {
+            return String(image.urlImagen ?? "").trim();
+          }
+
+          if (image && typeof image === "object" && "url" in image) {
+            return String(image.url ?? "").trim();
+          }
+
+          return "";
+        })
+        .filter(Boolean)
+    : [];
+  const imagenUrl = item.imagenUrl ? String(item.imagenUrl).trim() : "";
+
+  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)));
+}
+
 function mapearBicicleta(item: BicicletaInput) {
   return {
     tipo: String(item.tipo ?? "bicicleta").trim(),
@@ -193,6 +223,7 @@ function mapearBicicleta(item: BicicletaInput) {
     modelo: String(item.modelo ?? "").trim(),
     color: String(item.color ?? "").trim(),
     descripcionAdicional: item.descripcion ? String(item.descripcion).trim() : null,
+    imagenes: normalizarImagenesBicicleta(item),
   };
 }
 
@@ -497,6 +528,20 @@ export async function POST(req: Request) {
       );
     }
 
+    const bicicletaConDemasiadasImagenes = bicicletas.find(
+      (item) => item.imagenes.length > MAX_BICYCLE_IMAGES
+    );
+
+    if (bicicletaConDemasiadasImagenes) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      );
+    }
+
     if (!productosVenta.length && !tieneOrden) {
       return NextResponse.json(
         {
@@ -789,7 +834,20 @@ export async function POST(req: Request) {
                   montoIva: montosOrden.montoIva,
                   bicicletas: bicicletas.length
                     ? {
-                        create: bicicletas,
+                        create: bicicletas.map((bicicleta) => ({
+                          tipo: bicicleta.tipo,
+                          marca: bicicleta.marca,
+                          modelo: bicicleta.modelo,
+                          color: bicicleta.color,
+                          descripcionAdicional: bicicleta.descripcionAdicional,
+                          imagenes: bicicleta.imagenes.length
+                            ? {
+                                create: bicicleta.imagenes.map((urlImagen) => ({
+                                  urlImagen,
+                                })),
+                              }
+                            : undefined,
+                        })),
                       }
                     : undefined,
                   lineasDeOrdenDeTrabajo:
@@ -827,7 +885,11 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
-              bicicletas: true,
+              bicicletas: {
+                include: {
+                  imagenes: true,
+                },
+              },
               lineasDeOrdenDeTrabajo: {
                 include: {
                   producto: true,
@@ -1015,7 +1077,11 @@ export async function GET(req: Request) {
         ordenDeTrabajo: {
           include: {
             mecanico: true,
-            bicicletas: true,
+            bicicletas: {
+              include: {
+                imagenes: true,
+              },
+            },
             lineasDeOrdenDeTrabajo: {
               include: {
                 producto: true,

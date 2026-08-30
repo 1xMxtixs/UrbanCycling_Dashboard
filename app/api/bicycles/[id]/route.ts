@@ -5,6 +5,8 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+const MAX_BICYCLE_IMAGES = 8
+
 type RouteContext = {
   params: Promise<{
     id: string
@@ -19,7 +21,7 @@ type BicycleResponse = {
   modelo: string
   color: string
   descripcionAdicional: string | null
-  imagenes?: Array<{ urlImagen: string }>
+  imagenes?: Array<{ idImagenBicicleta: number; urlImagen: string }>
   ordenDeTrabajo?: unknown
 }
 
@@ -34,11 +36,47 @@ function parseBicycleId(id: string): number {
 }
 
 function mapBicycleResponse(bicycle: BicycleResponse) {
+  const imagenes =
+    bicycle.imagenes?.map((imagen) => ({
+      idImagenBicicleta: imagen.idImagenBicicleta,
+      urlImagen: imagen.urlImagen,
+      url: imagen.urlImagen,
+    })) ?? []
+
   return {
     ...bicycle,
     descripcion: bicycle.descripcionAdicional,
-    imagenUrl: bicycle.imagenes?.[0]?.urlImagen ?? null,
+    imagenes,
+    imagenesUrl: imagenes.map((imagen) => imagen.urlImagen),
+    imagenUrl: imagenes[0]?.urlImagen ?? null,
   }
+}
+
+function normalizarImagenes(data: Record<string, unknown>) {
+  const rawImages = data.imagenes ?? data.imagenesUrl ?? data.imagenesUrls
+  const urls = Array.isArray(rawImages)
+    ? rawImages
+        .map((image) => {
+          if (typeof image === "string") {
+            return image.trim()
+          }
+
+          if (image && typeof image === "object" && "urlImagen" in image) {
+            return String(image.urlImagen ?? "").trim()
+          }
+
+          if (image && typeof image === "object" && "url" in image) {
+            return String(image.url ?? "").trim()
+          }
+
+          return ""
+        })
+        .filter(Boolean)
+    : []
+
+  const imagenUrl = data.imagenUrl ? String(data.imagenUrl).trim() : ""
+
+  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)))
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -124,6 +162,23 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
+    const imagenes = normalizarImagenes(data)
+    const replaceImages =
+      "imagenes" in data ||
+      "imagenesUrl" in data ||
+      "imagenesUrls" in data ||
+      "imagenUrl" in data
+
+    if (replaceImages && imagenes.length > MAX_BICYCLE_IMAGES) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      )
+    }
+
     const bicycle = await db.bicicleta.update({
       where: {
         idBicicleta: bicycleId,
@@ -136,6 +191,14 @@ export async function PATCH(request: Request, context: RouteContext) {
         color: data.color,
         descripcionAdicional:
           data.descripcionAdicional ?? data.descripcion ?? undefined,
+        imagenes: replaceImages
+          ? {
+              deleteMany: {},
+              create: imagenes.map((urlImagen) => ({
+                urlImagen,
+              })),
+            }
+          : undefined,
       },
       include: {
         imagenes: true,
