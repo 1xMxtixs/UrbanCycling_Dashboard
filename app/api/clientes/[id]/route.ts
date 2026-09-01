@@ -1,7 +1,13 @@
-// Endpoint para actualizar la ficha de un cliente por ID.
+// Endpoint para actualizar parcialmente la ficha de un cliente por ID.
 import type { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
+import {
+  normalizarTexto,
+  normalizarTextoOpcional,
+  separarApellidos,
+  separarNombres,
+} from "@/lib/client-helpers"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -33,41 +39,6 @@ function parseClienteId(id: string): number {
   return idCliente
 }
 
-function normalizarTexto(value: unknown): string {
-  if (typeof value !== "string") {
-    return ""
-  }
-
-  return value.trim().replace(/\s+/g, " ")
-}
-
-function normalizarTextoOpcional(value: unknown): string | null {
-  const texto = normalizarTexto(value)
-  return texto || null
-}
-
-function separarNombres(nombres: string) {
-  const partes = nombres.split(" ")
-
-  return {
-    primerNombre: partes[0],
-    segundoNombre: partes.slice(1).join(" ") || null,
-  }
-}
-
-function separarApellidos(apellidos: string) {
-  const partes = apellidos.split(" ")
-
-  return {
-    apellidoPaterno: partes[0],
-    apellidoMaterno: partes.slice(1).join(" ") || null,
-  }
-}
-
-function errorResponse(code: string, message: string, status: number) {
-  return NextResponse.json({ code, message }, { status })
-}
-
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_UPDATE)
@@ -80,11 +51,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     const idCliente = parseClienteId(id)
 
     if (Number.isNaN(idCliente)) {
-      return errorResponse(
-        "ID_CLIENTE_INVALIDO",
-        "El ID del cliente no es válido",
-        400
-      )
+      return new NextResponse("El ID del cliente no es válido", {
+        status: 400,
+      })
     }
 
     let data: UpdateClienteBody
@@ -92,19 +61,18 @@ export async function PATCH(request: Request, context: RouteContext) {
     try {
       data = await request.json()
     } catch {
-      return errorResponse(
-        "JSON_INVALIDO",
+      return new NextResponse(
         "El cuerpo de la solicitud no contiene un JSON válido",
-        400
+        {
+          status: 400,
+        }
       )
     }
 
     if (!data || typeof data !== "object" || Array.isArray(data)) {
-      return errorResponse(
-        "CUERPO_INVALIDO",
-        "Los datos enviados no son válidos",
-        400
-      )
+      return new NextResponse("Los datos enviados no son válidos", {
+        status: 400,
+      })
     }
 
     const clienteActual = await db.cliente.findUnique({
@@ -117,17 +85,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     })
 
     if (!clienteActual) {
-      return errorResponse("CLIENTE_NO_ENCONTRADO", "El cliente no existe", 404)
-    }
-
-    const telefono = normalizarTexto(data.telefono)
-
-    if (!telefono) {
-      return errorResponse(
-        "CAMPOS_OBLIGATORIOS_VACIOS",
-        "Debe ingresar el teléfono del cliente",
-        400
-      )
+      return new NextResponse("El cliente no existe", { status: 404 })
     }
 
     const esPersonaNatural = clienteActual.tipoCliente === "natural"
@@ -136,51 +94,60 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
 
     if (!esPersonaNatural && !esPersonaJuridica) {
-      return errorResponse(
-        "TIPO_CLIENTE_INVALIDO",
-        "El cliente posee un tipo no reconocido",
-        409
-      )
+      return new NextResponse("El cliente posee un tipo no reconocido", {
+        status: 409,
+      })
     }
 
-    let clienteData: Prisma.ClienteUpdateInput
+    const clienteData: Prisma.ClienteUpdateInput = {}
 
     if (esPersonaNatural) {
-      const nombres = normalizarTexto(data.nombre)
-      const apellidos = normalizarTexto(data.apellido)
+      if (data.nombre !== undefined) {
+        const nombres = normalizarTexto(data.nombre)
 
-      if (!nombres || !apellidos) {
-        return errorResponse(
-          "CAMPOS_OBLIGATORIOS_VACIOS",
-          "Debe ingresar el nombre y apellido del cliente",
-          400
+        if (!nombres) {
+          return new NextResponse("El nombre no puede quedar vacío", {
+            status: 400,
+          })
+        }
+
+        Object.assign(clienteData, separarNombres(nombres))
+      }
+
+      if (data.apellido !== undefined) {
+        const apellidos = normalizarTexto(data.apellido)
+
+        if (!apellidos) {
+          return new NextResponse("El apellido no puede quedar vacío", {
+            status: 400,
+          })
+        }
+
+        Object.assign(clienteData, separarApellidos(apellidos))
+      }
+    }
+
+    if (esPersonaJuridica) {
+      if (data.razonSocial !== undefined) {
+        const razonSocial = normalizarTexto(data.razonSocial)
+
+        if (!razonSocial) {
+          return new NextResponse("La razón social no puede quedar vacía", {
+            status: 400,
+          })
+        }
+
+        clienteData.razonSocial = razonSocial
+      }
+
+      if (data.giro !== undefined) {
+        clienteData.giro = normalizarTextoOpcional(data.giro)
+      }
+
+      if (data.nombreContacto !== undefined) {
+        clienteData.nombreContacto = normalizarTextoOpcional(
+          data.nombreContacto
         )
-      }
-
-      const { primerNombre, segundoNombre } = separarNombres(nombres)
-      const { apellidoPaterno, apellidoMaterno } = separarApellidos(apellidos)
-
-      clienteData = {
-        primerNombre,
-        segundoNombre,
-        apellidoPaterno,
-        apellidoMaterno,
-      }
-    } else {
-      const razonSocial = normalizarTexto(data.razonSocial)
-
-      if (!razonSocial) {
-        return errorResponse(
-          "CAMPOS_OBLIGATORIOS_VACIOS",
-          "Debe ingresar la razón social del cliente",
-          400
-        )
-      }
-
-      clienteData = {
-        razonSocial,
-        giro: normalizarTextoOpcional(data.giro),
-        nombreContacto: normalizarTextoOpcional(data.nombreContacto),
       }
     }
 
@@ -188,68 +155,91 @@ export async function PATCH(request: Request, context: RouteContext) {
       const correo = normalizarTexto(data.correo).toLowerCase()
 
       if (!correo) {
-        return errorResponse(
-          "CORREO_VACIO",
-          "El correo no puede quedar vacío",
-          400
-        )
+        return new NextResponse("El correo no puede quedar vacío", {
+          status: 400,
+        })
       }
 
       clienteData.correo = correo
     }
 
-    let telefonoActual: (typeof clienteActual.telefonos)[number] | undefined =
-      clienteActual.telefonos[0]
+    const actualizaTelefono = data.telefono !== undefined
+    let telefono: string | undefined
+    let telefonoActual: (typeof clienteActual.telefonos)[number] | undefined
 
-    if (data.idTelefonoCliente !== undefined) {
-      const idTelefonoCliente = Number(data.idTelefonoCliente)
+    if (actualizaTelefono) {
+      telefono = normalizarTexto(data.telefono)
 
-      if (!Number.isInteger(idTelefonoCliente) || idTelefonoCliente <= 0) {
-        return errorResponse(
-          "ID_TELEFONO_INVALIDO",
-          "El ID del teléfono no es válido",
-          400
-        )
+      if (!telefono) {
+        return new NextResponse("El teléfono no puede quedar vacío", {
+          status: 400,
+        })
       }
 
-      telefonoActual = clienteActual.telefonos.find(
-        (item) => item.idTelefonoCliente === idTelefonoCliente
-      )
+      telefonoActual = clienteActual.telefonos[0]
 
-      if (!telefonoActual) {
-        return errorResponse(
-          "TELEFONO_NO_ENCONTRADO",
-          "El teléfono no pertenece al cliente",
-          404
+      if (data.idTelefonoCliente !== undefined) {
+        const idTelefonoCliente = Number(data.idTelefonoCliente)
+
+        if (!Number.isInteger(idTelefonoCliente) || idTelefonoCliente <= 0) {
+          return new NextResponse("El ID del teléfono no es válido", {
+            status: 400,
+          })
+        }
+
+        telefonoActual = clienteActual.telefonos.find(
+          (item) => item.idTelefonoCliente === idTelefonoCliente
         )
+
+        if (!telefonoActual) {
+          return new NextResponse("El teléfono no pertenece al cliente", {
+            status: 404,
+          })
+        }
       }
+    } else if (data.idTelefonoCliente !== undefined) {
+      return new NextResponse("Debe enviar un teléfono para actualizarlo", {
+        status: 400,
+      })
+    }
+
+    const hayCambiosCliente = Object.keys(clienteData).length > 0
+
+    if (!hayCambiosCliente && !actualizaTelefono) {
+      return new NextResponse("No se enviaron campos para actualizar", {
+        status: 400,
+      })
     }
 
     const clienteActualizado = await db.$transaction(async (tx) => {
-      await tx.cliente.update({
-        where: {
-          idCliente,
-        },
-        data: clienteData,
-      })
-
-      if (telefonoActual) {
-        await tx.telefonoCliente.update({
+      if (hayCambiosCliente) {
+        await tx.cliente.update({
           where: {
-            idTelefonoCliente: telefonoActual.idTelefonoCliente,
-          },
-          data: {
-            telefono,
-          },
-        })
-      } else {
-        await tx.telefonoCliente.create({
-          data: {
             idCliente,
-            telefono,
-            descripcion: "Principal",
           },
+          data: clienteData,
         })
+      }
+
+      if (actualizaTelefono && telefono) {
+        if (telefonoActual) {
+          await tx.telefonoCliente.update({
+            where: {
+              idTelefonoCliente: telefonoActual.idTelefonoCliente,
+            },
+            data: {
+              telefono,
+            },
+          })
+        } else {
+          await tx.telefonoCliente.create({
+            data: {
+              idCliente,
+              telefono,
+              descripcion: "Principal",
+            },
+          })
+        }
       }
 
       return tx.cliente.findUniqueOrThrow({
@@ -267,6 +257,6 @@ export async function PATCH(request: Request, context: RouteContext) {
   } catch (error) {
     console.log("[CLIENTES_ID_PATCH]", error)
 
-    return errorResponse("ERROR_INTERNO", "Internal Server Error", 500)
+    return new NextResponse("Internal Server Error", { status: 500 })
   }
 }
