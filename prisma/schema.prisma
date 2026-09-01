@@ -634,9 +634,11 @@ model ReferenciaDte {
 
 model ContadorFolio {
   idContador    Int       @id @default(autoincrement()) @db.UnsignedInt @map("id_contador")
-  tipoDte       Int       @unique @db.UnsignedInt @map("tipo_dte")
+  rutEmisor     String    @db.VarChar(12) @map("rut_emisor")
+  tipoDte       Int       @db.UnsignedInt @map("tipo_dte")
   ultimoFolio   Int       @default(0) @db.UnsignedInt @map("ultimo_folio")
   actualizadoEn DateTime  @default(now()) @updatedAt @db.Timestamp(0) @map("actualizado_en")
 
+  @@unique([rutEmisor, tipoDte], map: "contadores_folios_rut_emisor_tipo_dte_unique")
   @@map("contadores_folios")  
 }

@@ -13,11 +13,12 @@ ALTER TABLE `referencias_dte` MODIFY `codigo_referencia` SMALLINT UNSIGNED NOT N
 -- CreateTable
 CREATE TABLE `contadores_folios` (
     `id_contador` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `rut_emisor` VARCHAR(12) NOT NULL,
     `tipo_dte` INTEGER UNSIGNED NOT NULL,
     `ultimo_folio` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `actualizado_en` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
 
-    UNIQUE INDEX `contadores_folios_tipo_dte_key`(`tipo_dte`),
+    UNIQUE INDEX `contadores_folios_rut_emisor_tipo_dte_unique`(`rut_emisor`,`tipo_dte`),
     PRIMARY KEY (`id_contador`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
