@@ -112,7 +112,15 @@ export async function PATCH(request: Request) {
       return response
     }
 
-    const data = await request.json()
+    let data: Record<string, unknown>
+
+    try {
+      data = await request.json()
+    } catch {
+      return new NextResponse("El cuerpo de la solicitud no es valido", {
+        status: 400,
+      })
+    }
 
     const primerNombre = normalizeRequiredText(data.primerNombre)
     const segundoNombre = normalizeOptionalText(data.segundoNombre)
