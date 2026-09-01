@@ -1,11 +1,13 @@
 // Endpoints generales de bicicletas para listar y registrar bicicletas vinculadas.
 import { NextResponse } from "next/server"
 
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
-
-const MAX_BICYCLE_IMAGES = 8
 
 function getErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error) {
@@ -32,33 +34,6 @@ type BicycleWithRelations = Awaited<
       } | null
     }
   }
-}
-
-function normalizarImagenes(data: Record<string, unknown>) {
-  const rawImages = data.imagenes ?? data.imagenesUrl ?? data.imagenesUrls
-  const urls = Array.isArray(rawImages)
-    ? rawImages
-        .map((image) => {
-          if (typeof image === "string") {
-            return image.trim()
-          }
-
-          if (image && typeof image === "object" && "urlImagen" in image) {
-            return String(image.urlImagen ?? "").trim()
-          }
-
-          if (image && typeof image === "object" && "url" in image) {
-            return String(image.url ?? "").trim()
-          }
-
-          return ""
-        })
-        .filter(Boolean)
-    : []
-
-  const imagenUrl = data.imagenUrl ? String(data.imagenUrl).trim() : ""
-
-  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)))
 }
 
 function mapBicycleResponse(bicycle: BicycleWithRelations) {
@@ -135,7 +110,7 @@ export async function POST(request: Request) {
     const marca = String(data.marca ?? "").trim()
     const modelo = String(data.modelo ?? "").trim()
     const color = String(data.color ?? "").trim()
-    const imagenes = normalizarImagenes(data)
+    const imagenes = normalizarImagenesBicicleta(data)
 
     if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
       return new NextResponse("Invalid work order id", { status: 400 })

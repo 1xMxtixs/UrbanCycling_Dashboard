@@ -1,13 +1,16 @@
 // Capa referencial del nuevo punto de venta.
 // Mientras no exista una tabla punto_venta, registra ventas y ordenes en sus
 // tablas actuales y responde con una forma unificada para el front.
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 
 const prisma = db;
-const MAX_BICYCLE_IMAGES = 8;
 
 type ProductoInput = {
   id_producto?: unknown;
@@ -57,6 +60,12 @@ function parsePositiveInteger(value: unknown) {
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
+}
+
+function toOptionalNumber(value: unknown) {
+  return value === null || value === undefined || value === ""
+    ? undefined
+    : Number(value);
 }
 
 function normalizarProductos(input: unknown): ProductoInput[] {
@@ -170,7 +179,7 @@ function mapearProducto(item: ProductoInput) {
   return {
     idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
     cantidad: parsePositiveInteger(item.cantidad),
-    precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+    precioUnitario: toOptionalNumber(item.precio_unitario ?? item.precioUnitario),
     descuentoUnitario: Number(
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
@@ -188,32 +197,6 @@ function mapearServicio(item: ServicioInput) {
     ),
     costoUnitario: Number(item.costo_unitario ?? item.costoUnitario ?? 0),
   };
-}
-
-function normalizarImagenesBicicleta(item: BicicletaInput) {
-  const rawImages = item.imagenes ?? item.imagenesUrl ?? item.imagenesUrls;
-  const urls = Array.isArray(rawImages)
-    ? rawImages
-        .map((image) => {
-          if (typeof image === "string") {
-            return image.trim();
-          }
-
-          if (image && typeof image === "object" && "urlImagen" in image) {
-            return String(image.urlImagen ?? "").trim();
-          }
-
-          if (image && typeof image === "object" && "url" in image) {
-            return String(image.url ?? "").trim();
-          }
-
-          return "";
-        })
-        .filter(Boolean)
-    : [];
-  const imagenUrl = item.imagenUrl ? String(item.imagenUrl).trim() : "";
-
-  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)));
 }
 
 function mapearBicicleta(item: BicicletaInput) {
@@ -691,7 +674,7 @@ export async function POST(req: Request) {
 
     const lineasVenta = productosVenta.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario = item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -703,7 +686,7 @@ export async function POST(req: Request) {
     });
     const lineasOrdenProductos = productosOrden.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario = item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -717,13 +700,12 @@ export async function POST(req: Request) {
     const lineasOrdenServicios = [
       ...serviciosOrden.map((item) => {
         const servicio = serviciosPorId.get(item.idServicio)!;
-        const precioUnitario = item.precioUnitario || toNumber(servicio.precioVenta);
 
         return {
           idProducto: null,
           idServicio: servicio.idServicio,
           cantidad: item.cantidad,
-          precioUnitario,
+          precioUnitario: item.precioUnitario,
           descuentoUnitario: item.descuentoUnitario,
           costoUnitario: item.costoUnitario,
         };

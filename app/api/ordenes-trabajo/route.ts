@@ -1,11 +1,13 @@
 // Endpoints generales para registrar y listar ordenes de trabajo.
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 import { z } from "zod"
-
-const MAX_BICYCLE_IMAGES = 8;
 
 const imagenBicicletaSchema = z.union([
   z.string(),
@@ -21,9 +23,9 @@ const bicicletaSchema = z.object({
   color: z.string().min(1),
   descripcion: z.string().optional().nullable(),
   imagenUrl: z.string().optional().nullable(),
-  imagenes: z.array(imagenBicicletaSchema).optional().default([]),
-  imagenesUrl: z.array(z.string()).optional().default([]),
-  imagenesUrls: z.array(z.string()).optional().default([]),
+  imagenes: z.array(imagenBicicletaSchema).optional(),
+  imagenesUrl: z.array(z.string()).optional(),
+  imagenesUrls: z.array(z.string()).optional(),
 })
 
 const productoSchema = z.object({
@@ -203,32 +205,6 @@ function normalizarBicicletas(data: Record<string, unknown>) {
   }
 
   return [];
-}
-
-function normalizarImagenesBicicleta(bicicleta: BicicletaInput) {
-  const rawImages = bicicleta.imagenes ?? bicicleta.imagenesUrl ?? bicicleta.imagenesUrls;
-  const urls = Array.isArray(rawImages)
-    ? rawImages
-        .map((image) => {
-          if (typeof image === "string") {
-            return image.trim();
-          }
-
-          if (image && typeof image === "object" && "urlImagen" in image) {
-            return String(image.urlImagen ?? "").trim();
-          }
-
-          if (image && typeof image === "object" && "url" in image) {
-            return String(image.url ?? "").trim();
-          }
-
-          return "";
-        })
-        .filter(Boolean)
-    : [];
-  const imagenUrl = bicicleta.imagenUrl ? String(bicicleta.imagenUrl).trim() : "";
-
-  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)));
 }
 
 function mapearBicicleta(bicicleta: BicicletaInput): BicicletaData {
@@ -476,10 +452,9 @@ export async function POST(req: Request) {
                 item.id_servicio ?? item.idServicio
               ),
               cantidad: Number(item.cantidad),
-              precioUnitario:
-                item.precio_unitario ?? item.precioUnitario
-                  ? Number(item.precio_unitario ?? item.precioUnitario)
-                  : undefined,
+              precioUnitario: Number(
+                item.precio_unitario ?? item.precioUnitario ?? 0
+              ),
             })
           )
         : [],
@@ -768,8 +743,7 @@ export async function POST(req: Request) {
         idServicio: servicio.idServicio,
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
-        precioUnitario:
-          servicioSolicitado.precioUnitario || toNumber(servicio.precioVenta),
+        precioUnitario: servicioSolicitado.precioUnitario,
         descuentoUnitario: 0,
         costoUnitario: 0,
       });

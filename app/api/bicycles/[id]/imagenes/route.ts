@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
-
-const MAX_BICYCLE_IMAGES = 8
 
 type RouteContext = {
   params: Promise<{
@@ -20,34 +22,6 @@ function parsePositiveInteger(value: string) {
   }
 
   return parsedValue
-}
-
-function normalizarImagenes(data: Record<string, unknown>) {
-  const rawImages = data.imagenes ?? data.imagenesUrl ?? data.imagenesUrls
-  const urls = Array.isArray(rawImages)
-    ? rawImages
-        .map((image) => {
-          if (typeof image === "string") {
-            return image.trim()
-          }
-
-          if (image && typeof image === "object" && "urlImagen" in image) {
-            return String(image.urlImagen ?? "").trim()
-          }
-
-          if (image && typeof image === "object" && "url" in image) {
-            return String(image.url ?? "").trim()
-          }
-
-          return ""
-        })
-        .filter(Boolean)
-    : []
-
-  const singleUrl = data.urlImagen ?? data.url ?? data.imagenUrl
-  const imagenUrl = singleUrl ? String(singleUrl).trim() : ""
-
-  return Array.from(new Set([imagenUrl, ...urls].filter(Boolean)))
 }
 
 export async function POST(req: Request, context: RouteContext) {
@@ -66,7 +40,7 @@ export async function POST(req: Request, context: RouteContext) {
     }
 
     const data = (await req.json().catch(() => ({}))) as Record<string, unknown>
-    const imagenes = normalizarImagenes(data)
+    const imagenes = normalizarImagenesBicicleta(data)
 
     if (imagenes.length === 0) {
       return NextResponse.json(

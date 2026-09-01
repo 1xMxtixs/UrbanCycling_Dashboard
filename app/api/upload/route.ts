@@ -21,7 +21,13 @@ const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 
 class UploadValidationError extends Error {}
 
-async function saveFile(file: File) {
+type UploadedFile = {
+  url: string
+  localPath?: string
+  r2Key?: string
+}
+
+function validateFile(file: File) {
   if (!allowedTypes.includes(file.type)) {
     throw new UploadValidationError(
       "Tipo de archivo no permitido. Solo se aceptan: JPG, PNG, WEBP, GIF"
@@ -31,23 +37,54 @@ async function saveFile(file: File) {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new UploadValidationError("El archivo supera el tamaño máximo de 5 MB")
   }
+}
+
+async function createR2Client() {
+  const { S3Client } = await import("@aws-sdk/client-s3")
+
+  return new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
+    },
+  })
+}
+
+async function deleteUploadedFile(file: UploadedFile) {
+  try {
+    if (file.localPath && fs.existsSync(file.localPath)) {
+      fs.unlinkSync(file.localPath)
+      return
+    }
+
+    if (file.r2Key) {
+      const { DeleteObjectCommand } = await import("@aws-sdk/client-s3")
+      const s3 = await createR2Client()
+
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+          Key: file.r2Key,
+        })
+      )
+    }
+  } catch (error) {
+    console.error("[UPLOAD_CLEANUP]", error)
+  }
+}
+
+async function saveFile(file: File): Promise<UploadedFile> {
+  validateFile(file)
 
   const buffer = Buffer.from(await file.arrayBuffer())
   const ext = path.extname(file.name) || ".jpg"
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
 
   if (isR2Configured) {
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3")
-
-    const s3 = new S3Client({
-      region: "auto",
-      endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
-      },
-    })
-
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3")
+    const s3 = await createR2Client()
     const key = `productos/${fileName}`
 
     await s3.send(
@@ -59,7 +96,10 @@ async function saveFile(file: File) {
       })
     )
 
-    return `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`
+    return {
+      url: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`,
+      r2Key: key,
+    }
   }
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads")
@@ -71,7 +111,10 @@ async function saveFile(file: File) {
   const filePath = path.join(uploadsDir, fileName)
   fs.writeFileSync(filePath, buffer)
 
-  return `/uploads/${fileName}`
+  return {
+    url: `/uploads/${fileName}`,
+    localPath: filePath,
+  }
 }
 
 export async function POST(req: Request) {
@@ -93,7 +136,20 @@ export async function POST(req: Request) {
       )
     }
 
-    const urls = await Promise.all(files.map(saveFile))
+    files.forEach(validateFile)
+
+    const uploadedFiles: UploadedFile[] = []
+
+    try {
+      for (const file of files) {
+        uploadedFiles.push(await saveFile(file))
+      }
+    } catch (error) {
+      await Promise.all(uploadedFiles.map(deleteUploadedFile))
+      throw error
+    }
+
+    const urls = uploadedFiles.map((file) => file.url)
     const status = 201
 
     if (urls.length === 1) {
