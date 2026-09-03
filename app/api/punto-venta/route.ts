@@ -4,6 +4,11 @@
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import {
+  descontarStockProductos,
+  InventoryStockError,
+  recalcularTotalesOrdenTrabajo,
+} from "@/lib/stored-procedures";
 import { NextResponse } from "next/server";
 
 const prisma = db;
@@ -67,8 +72,15 @@ function normalizarBicicletas(input: unknown): BicicletaInput[] {
   return Array.isArray(input) ? input : [];
 }
 
-function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
-  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal);
+function calcularMontos(
+  montoSubtotal: number,
+  descuentoGlobal: number,
+  descuentoLineas = 0
+) {
+  const montoTotal = Math.max(
+    0,
+    montoSubtotal - descuentoLineas - descuentoGlobal
+  );
   const montoNeto = Math.round(montoTotal / 1.19);
   const montoIva = montoTotal - montoNeto;
 
@@ -166,7 +178,10 @@ function mapearProducto(item: ProductoInput) {
   return {
     idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
     cantidad: parsePositiveInteger(item.cantidad),
-    precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+    precioUnitario:
+      item.precio_unitario !== undefined || item.precioUnitario !== undefined
+        ? Number(item.precio_unitario ?? item.precioUnitario)
+        : null,
     descuentoUnitario: Number(
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
@@ -178,12 +193,28 @@ function mapearServicio(item: ServicioInput) {
   return {
     idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
     cantidad: parsePositiveInteger(item.cantidad),
-    precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+    precioUnitario:
+      item.precio_unitario !== undefined || item.precioUnitario !== undefined
+        ? Number(item.precio_unitario ?? item.precioUnitario)
+        : null,
     descuentoUnitario: Number(
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
     costoUnitario: Number(item.costo_unitario ?? item.costoUnitario ?? 0),
   };
+}
+
+function validarValoresLinea(
+  precioUnitario: number,
+  descuentoUnitario: number
+) {
+  return (
+    Number.isFinite(precioUnitario) &&
+    precioUnitario >= 0 &&
+    Number.isFinite(descuentoUnitario) &&
+    descuentoUnitario >= 0 &&
+    descuentoUnitario <= precioUnitario
+  );
 }
 
 function mapearBicicleta(item: BicicletaInput) {
@@ -380,7 +411,7 @@ function obtenerMetodoPago(rawData: any) {
     null;
 }
 
-function obtenerMontoPago(rawData: any, montoPorDefecto: number) {
+function obtenerMontoPago(rawData: any): number | null {
   const monto =
     rawData.pago?.monto_pagado ??
     rawData.pago?.montoPagado ??
@@ -389,7 +420,7 @@ function obtenerMontoPago(rawData: any, montoPorDefecto: number) {
     rawData.montoPagado ??
     null;
 
-  return monto === null || monto === undefined ? montoPorDefecto : Number(monto);
+  return monto === null || monto === undefined ? null : Number(monto);
 }
 
 function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
@@ -443,7 +474,9 @@ export async function POST(req: Request) {
       (item) =>
         Number.isNaN(item.idProducto) ||
         Number.isNaN(item.cantidad) ||
-        Number.isNaN(item.precioUnitario)
+        (item.precioUnitario !== null && !Number.isFinite(item.precioUnitario)) ||
+        !Number.isFinite(item.descuentoUnitario) ||
+        item.descuentoUnitario < 0
     );
 
     if (productosInvalidos) {
@@ -460,7 +493,9 @@ export async function POST(req: Request) {
       (item) =>
         Number.isNaN(item.idServicio) ||
         Number.isNaN(item.cantidad) ||
-        Number.isNaN(item.precioUnitario)
+        (item.precioUnitario !== null && !Number.isFinite(item.precioUnitario)) ||
+        !Number.isFinite(item.descuentoUnitario) ||
+        item.descuentoUnitario < 0
     );
 
     if (serviciosInvalidos) {
@@ -468,6 +503,16 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_INVALIDO",
           message: "Todos los servicios deben tener ID, cantidad y precio validos",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (Number.isNaN(descuento) || descuento < 0) {
+      return NextResponse.json(
+        {
+          code: "DESCUENTO_GLOBAL_INVALIDO",
+          message: "El descuento global debe ser un numero mayor o igual a cero",
         },
         { status: 400 }
       );
@@ -541,7 +586,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const productosAgrupados = agruparProductos([...productosVenta, ...productosOrden]);
+    const productosVentaAgrupados = agruparProductos(productosVenta);
+    const productosAgrupados = agruparProductos([
+      ...productosVenta,
+      ...productosOrden,
+    ]);
     const productos: any[] = productosAgrupados.length
       ? await prisma.producto.findMany({
           where: {
@@ -604,6 +653,9 @@ export async function POST(req: Request) {
               in: serviciosOrden.map((item) => item.idServicio),
             },
           },
+          include: {
+            productosServicio: true,
+          },
         })
       : [];
     const serviciosPorId = new Map<number, any>(
@@ -646,7 +698,8 @@ export async function POST(req: Request) {
 
     const lineasVenta = productosVenta.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario =
+        item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -658,7 +711,8 @@ export async function POST(req: Request) {
     });
     const lineasOrdenProductos = productosOrden.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario =
+        item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -672,7 +726,8 @@ export async function POST(req: Request) {
     const lineasOrdenServicios = [
       ...serviciosOrden.map((item) => {
         const servicio = serviciosPorId.get(item.idServicio)!;
-        const precioUnitario = item.precioUnitario || toNumber(servicio.precioVenta);
+        const precioUnitario =
+          item.precioUnitario ?? toNumber(servicio.precioVenta);
 
         return {
           idProducto: null,
@@ -696,27 +751,89 @@ export async function POST(req: Request) {
           ]
         : []),
     ];
+    const lineaConValoresInvalidos = [
+      ...lineasVenta,
+      ...lineasOrdenProductos,
+      ...lineasOrdenServicios,
+    ].find(
+      (linea) =>
+        !validarValoresLinea(linea.precioUnitario, linea.descuentoUnitario)
+    );
+
+    if (lineaConValoresInvalidos) {
+      return NextResponse.json(
+        {
+          code: "VALORES_LINEA_INVALIDOS",
+          message:
+            "El precio unitario debe ser mayor o igual a cero y el descuento no puede superar el precio",
+        },
+        { status: 400 }
+      );
+    }
+    const descuentoVentaLineas = lineasVenta.reduce(
+      (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
+      0
+    );
+    const descuentoOrdenLineas = [
+      ...lineasOrdenProductos,
+      ...lineasOrdenServicios,
+    ].reduce(
+      (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
+      0
+    );
     const totalVenta = lineasVenta.reduce(
-      (total, linea) =>
-        total + linea.cantidad * (linea.precioUnitario - linea.descuentoUnitario),
+      (total, linea) => total + linea.cantidad * linea.precioUnitario,
       0
     );
-    const totalOrden = [...lineasOrdenProductos, ...lineasOrdenServicios].reduce(
-      (total, linea) =>
-        total + linea.cantidad * (linea.precioUnitario - linea.descuentoUnitario),
-      0
-    );
+    const totalOrden = [
+      ...lineasOrdenProductos,
+      ...lineasOrdenServicios,
+    ].reduce((total, linea) => total + linea.cantidad * linea.precioUnitario, 0);
     const totalBruto = totalVenta + totalOrden;
     const ventaDescuentoGlobal = tieneOrden ? 0 : descuento;
     const ordenDescuentoGlobal = tieneOrden ? descuento : 0;
-    const montosVenta = calcularMontos(totalVenta, ventaDescuentoGlobal);
-    const montosOrden = calcularMontos(totalOrden, ordenDescuentoGlobal);
-    const montosOperacion = calcularMontos(totalBruto, descuento);
+    const montosVenta = calcularMontos(
+      totalVenta,
+      ventaDescuentoGlobal,
+      descuentoVentaLineas
+    );
+    const montosOrden = calcularMontos(
+      totalOrden,
+      ordenDescuentoGlobal,
+      descuentoOrdenLineas
+    );
+    const subtotalOrdenDescontado = totalOrden - descuentoOrdenLineas;
+    const subtotalOperacionDescontado =
+      totalBruto - descuentoVentaLineas - descuentoOrdenLineas;
+
+    if (descuento > subtotalOperacionDescontado) {
+      return NextResponse.json(
+        {
+          code: "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL",
+          message: "El descuento global no puede superar el subtotal descontado",
+        },
+        { status: 400 }
+      );
+    }
+    if (tieneOrden && descuento > subtotalOrdenDescontado) {
+      return NextResponse.json(
+        {
+          code: "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL_OT",
+          message:
+            "El descuento global no puede superar el subtotal de la orden de trabajo",
+        },
+        { status: 400 }
+      );
+    }
     const metodoPago = obtenerMetodoPago(rawData);
-    const montoPago = obtenerMontoPago(rawData, montosOperacion.montoTotal);
+    const montoPagoSolicitado = obtenerMontoPago(rawData);
     const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago);
 
-    if (metodoPago && (Number.isNaN(montoPago) || montoPago <= 0)) {
+    if (
+      metodoPago &&
+      montoPagoSolicitado !== null &&
+      (Number.isNaN(montoPagoSolicitado) || montoPagoSolicitado <= 0)
+    ) {
       return NextResponse.json(
         {
           code: "MONTO_PAGO_INVALIDO",
@@ -782,7 +899,7 @@ export async function POST(req: Request) {
                     ordenInput.observacionesIngreso ??
                     null,
                   montoSubtotal: montosOrden.montoSubtotal,
-                  descuentoProductosServicios: 0,
+                  descuentoProductosServicios: descuentoOrdenLineas,
                   descuentoGlobal: montosOrden.descuentoGlobal,
                   montoTotal: montosOrden.montoTotal,
                   montoNeto: montosOrden.montoNeto,
@@ -792,22 +909,6 @@ export async function POST(req: Request) {
                         create: bicicletas,
                       }
                     : undefined,
-                  lineasDeOrdenDeTrabajo:
-                    lineasOrdenProductos.length || lineasOrdenServicios.length
-                      ? {
-                          create: [
-                            ...lineasOrdenProductos,
-                            ...lineasOrdenServicios,
-                          ].map((linea) => ({
-                            idProducto: linea.idProducto,
-                            idServicio: linea.idServicio,
-                            cantidad: linea.cantidad,
-                            precioUnitario: linea.precioUnitario,
-                            descuentoUnitario: linea.descuentoUnitario,
-                            costoUnitario: linea.costoUnitario,
-                          })),
-                        }
-                      : undefined,
                 },
               }
             : undefined,
@@ -849,6 +950,94 @@ export async function POST(req: Request) {
           }
         : null;
 
+      const lineasOrden = [
+        ...lineasOrdenProductos,
+        ...lineasOrdenServicios,
+      ];
+      const lineasOrdenCreadas = [];
+
+      for (const item of productosVentaAgrupados) {
+        const producto = productosPorId.get(item.idProducto)!;
+
+        await tx.producto.update({
+          where: {
+            idProducto: item.idProducto,
+          },
+          data: {
+            stockActual: producto.stockActual - item.cantidad,
+          },
+        });
+      }
+
+      if (ordenTrabajo) {
+        for (const linea of lineasOrden) {
+          const lineaCreada = await tx.lineaDeOrdenDeTrabajo.create({
+            data: {
+              idOrdenDeTrabajo: ordenTrabajo.idOrdenDeTrabajo,
+              idProducto: linea.idProducto,
+              idServicio: linea.idServicio,
+              cantidad: linea.cantidad,
+              precioUnitario: linea.precioUnitario,
+              descuentoUnitario: linea.descuentoUnitario,
+              costoUnitario: linea.costoUnitario,
+            },
+          });
+
+          lineasOrdenCreadas.push(lineaCreada);
+        }
+
+        const itemsStockOrden = lineasOrdenCreadas.flatMap((linea) => {
+          const items = [];
+
+          if (linea.idProducto) {
+            items.push({
+              idProducto: linea.idProducto,
+              cantidad: linea.cantidad,
+              idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
+            });
+          }
+
+          if (linea.idServicio) {
+            const servicio = serviciosPorId.get(linea.idServicio);
+
+            for (const insumo of servicio?.productosServicio ?? []) {
+              items.push({
+                idProducto: insumo.idProducto,
+                cantidad: insumo.cantidad * linea.cantidad,
+                idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
+              });
+            }
+          }
+
+          return items;
+        });
+
+        await descontarStockProductos(tx, itemsStockOrden);
+        await recalcularTotalesOrdenTrabajo(tx, ordenTrabajo.idOrdenDeTrabajo);
+      }
+
+      const ordenTrabajoActualizada = ordenTrabajo
+        ? await tx.ordenDeTrabajo.findUniqueOrThrow({
+            where: {
+              idOrdenDeTrabajo: ordenTrabajo.idOrdenDeTrabajo,
+            },
+            include: {
+              mecanico: true,
+              bicicletas: true,
+              lineasDeOrdenDeTrabajo: {
+                include: {
+                  producto: true,
+                  servicio: true,
+                },
+              },
+            },
+          })
+        : null;
+      const totalOperacionFinal =
+        Number(ordenTrabajoActualizada?.montoTotal ?? 0) +
+        Number(venta?.ventaEnMostrador?.montoTotal ?? 0);
+      const montoPago = montoPagoSolicitado ?? totalOperacionFinal;
+
       const pago = metodoPago
         ? await tx.pago.create({
             data: {
@@ -869,27 +1058,21 @@ export async function POST(req: Request) {
             idOrdenDeCompra: null,
             montoAsociado: montoPago,
             tipoAbono:
-              montoPago >= montosOperacion.montoTotal ? "pago_total" : "abono",
-          },
-        });
-      }
-
-      for (const item of productosAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!;
-
-        await tx.producto.update({
-          where: {
-            idProducto: item.idProducto,
-          },
-          data: {
-            stockActual: producto.stockActual - item.cantidad,
+              montoPago >= totalOperacionFinal ? "pago_total" : "abono",
           },
         });
       }
 
       return {
         venta,
-        ordenTrabajo,
+        ordenTrabajo: ordenTrabajoActualizada
+          ? {
+              ...ordenTrabajoActualizada,
+              venta: ventaBase,
+              usuario: ventaBase.usuario,
+              cliente: ventaBase.cliente,
+            }
+          : null,
         pago,
       };
     });
@@ -897,6 +1080,17 @@ export async function POST(req: Request) {
     const venta = adaptarVenta(resultado.venta);
     const ordenTrabajo = adaptarOrdenTrabajo(resultado.ordenTrabajo);
     const tipoOperacion = calcularTipoOperacion(Boolean(venta), Boolean(ordenTrabajo));
+    const montosOperacionFinal = {
+      montoSubtotal:
+        Number(venta?.montoSubtotal ?? 0) +
+        Number(ordenTrabajo?.montoSubtotal ?? 0),
+      montoTotal:
+        Number(venta?.montoTotal ?? 0) + Number(ordenTrabajo?.montoTotal ?? 0),
+      montoNeto:
+        Number(venta?.montoNeto ?? 0) + Number(ordenTrabajo?.montoNeto ?? 0),
+      montoIva:
+        Number(venta?.montoIva ?? 0) + Number(ordenTrabajo?.montoIva ?? 0),
+    };
 
     return NextResponse.json(
       {
@@ -915,11 +1109,11 @@ export async function POST(req: Request) {
         },
         totalBruto,
         descuento,
-        total: montosOperacion.montoTotal,
-        montoSubtotal: montosOperacion.montoSubtotal,
-        montoTotal: montosOperacion.montoTotal,
-        montoNeto: montosOperacion.montoNeto,
-        montoIva: montosOperacion.montoIva,
+        total: montosOperacionFinal.montoTotal,
+        montoSubtotal: montosOperacionFinal.montoSubtotal,
+        montoTotal: montosOperacionFinal.montoTotal,
+        montoNeto: montosOperacionFinal.montoNeto,
+        montoIva: montosOperacionFinal.montoIva,
         venta,
         ordenTrabajo,
         pago: resultado.pago,
@@ -927,6 +1121,16 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof InventoryStockError) {
+      return NextResponse.json(
+        {
+          code: error.code,
+          message: error.message,
+        },
+        { status: error.code === "STOCK_INSUFICIENTE" ? 409 : 404 }
+      );
+    }
+
     console.log("[PUNTO_VENTA_POST]", error);
 
     return NextResponse.json(

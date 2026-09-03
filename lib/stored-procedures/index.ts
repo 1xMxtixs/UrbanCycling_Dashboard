@@ -1,8 +1,8 @@
 export {
-  DEFAULT_WORK_ORDER_IVA_RATE,
   recalcularTotalesOrdenTrabajo,
 } from "./work-order-totals";
 export {
   descontarStockProductos,
+  InventoryStockError,
   type ProductoParaDescontar,
 } from "./inventory-stock";

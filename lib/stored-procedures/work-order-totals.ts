@@ -1,7 +1,5 @@
 import type { Prisma } from "@/generated/prisma";
 
-export const DEFAULT_WORK_ORDER_IVA_RATE = 0.19;
-
 type StoredProcedureOutput = {
   montoTotal: number | string | null;
 };
@@ -9,13 +7,11 @@ type StoredProcedureOutput = {
 /** Recalcula y persiste los montos de una orden dentro de la transaccion actual. */
 export async function recalcularTotalesOrdenTrabajo(
   tx: Prisma.TransactionClient,
-  idOrdenDeTrabajo: number,
-  tasaIva = DEFAULT_WORK_ORDER_IVA_RATE
+  idOrdenDeTrabajo: number
 ) {
   await tx.$executeRaw`
     CALL sp_calcular_total_orden_de_trabajo(
       ${idOrdenDeTrabajo},
-      ${tasaIva},
       @monto_total_orden_trabajo
     )
   `;
