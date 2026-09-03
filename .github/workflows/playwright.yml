@@ -1,7 +1,7 @@
 name: Playwright Tests
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, rama-tests ]
   pull_request:
     branches: [ main, master ]
 jobs:
@@ -18,6 +18,10 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
+      env:
+        E2E_BASE_URL: https://urban-cycling-dashboard-mxtixs-projects.vercel.app
+        E2E_EMAIL: qa.admin.db@urbancycling.cl
+        E2E_PASSWORD: ${{ secrets.E2E_QA_PASSWORD }}
       run: npx playwright test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
