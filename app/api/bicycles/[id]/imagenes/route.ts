@@ -61,7 +61,7 @@ export async function POST(req: Request, context: RouteContext) {
     }
 
     const created = await db.$transaction(async (tx) => {
-      // El bloqueo de la bicicleta serializa POST concurrentes, incluso entre instancias.
+      // El bloqueo de la bicicleta serializa POST concurrentes/simultaneos, incluso entre instancias.
       const bicycles = await tx.$queryRaw<Array<{ idBicicleta: number }>>`
         SELECT id_bicicleta AS idBicicleta
         FROM bicicletas
