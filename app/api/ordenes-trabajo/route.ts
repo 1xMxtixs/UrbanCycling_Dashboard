@@ -701,7 +701,7 @@ export async function POST(req: Request) {
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
         precioUnitario:
-          servicioSolicitado.precioUnitario || toNumber(servicio.precioVenta),
+          servicioSolicitado.precioUnitario ?? toNumber(servicio.precioVenta),
         descuentoUnitario: 0,
         costoUnitario: 0,
       });

@@ -12,11 +12,11 @@ type RouteContext = {
 }
 
 type ServicioRow = {
-  idServicio: number | bigint
+  idServicio: number
   codigo: string
   nombre: string
   descripcion: string | null
-  precioVenta: number | string
+  precioVenta: unknown
   estado: string
 }
 
@@ -47,20 +47,11 @@ function normalizarServicio(servicio: ServicioRow) {
 }
 
 async function obtenerServicio(serviceId: number) {
-  const [servicio] = await db.$queryRaw<ServicioRow[]>`
-    SELECT
-      id_servicio AS idServicio,
-      codigo,
-      nombre,
-      descripcion,
-      precio_venta AS precioVenta,
-      estado
-    FROM servicios
-    WHERE id_servicio = ${serviceId}
-    LIMIT 1
-  `
-
-  return servicio ?? null
+  return db.servicio.findUnique({
+    where: {
+      idServicio: serviceId,
+    },
+  })
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -132,15 +123,32 @@ export async function PATCH(req: Request, context: RouteContext) {
     const precioVenta = data.precioVenta ?? Number(servicioActual.precioVenta)
     const estado = data.estado ?? servicioActual.estado
 
-    const duplicados = await db.$queryRaw<{ idServicio: number }[]>`
-      SELECT id_servicio AS idServicio
-      FROM servicios
-      WHERE (codigo = ${codigo} OR nombre = ${nombre})
-        AND id_servicio <> ${serviceId}
-      LIMIT 1
-    `
+    const duplicado = await db.servicio.findFirst({
+      where: {
+        AND: [
+          {
+            OR: [
+              {
+                codigo,
+              },
+              {
+                nombre,
+              },
+            ],
+          },
+          {
+            idServicio: {
+              not: serviceId,
+            },
+          },
+        ],
+      },
+      select: {
+        idServicio: true,
+      },
+    })
 
-    if (duplicados.length > 0) {
+    if (duplicado) {
       return NextResponse.json(
         {
           code: "SERVICIO_DUPLICADO",
@@ -150,20 +158,20 @@ export async function PATCH(req: Request, context: RouteContext) {
       )
     }
 
-    await db.$executeRaw`
-      UPDATE servicios
-      SET
-        codigo = ${codigo},
-        nombre = ${nombre},
-        descripcion = ${descripcion},
-        precio_venta = ${precioVenta},
-        estado = ${estado}
-      WHERE id_servicio = ${serviceId}
-    `
+    const servicio = await db.servicio.update({
+      where: {
+        idServicio: serviceId,
+      },
+      data: {
+        codigo,
+        nombre,
+        descripcion,
+        precioVenta,
+        estado,
+      },
+    })
 
-    const servicio = await obtenerServicio(serviceId)
-
-    return NextResponse.json(normalizarServicio(servicio!))
+    return NextResponse.json(normalizarServicio(servicio))
   } catch (error) {
     console.log("[SERVICIOS_ID_PATCH]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -191,28 +199,37 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return new NextResponse("Service not found", { status: 404 })
     }
 
-    const [{ total }] = await db.$queryRaw<{ total: bigint | number }[]>`
-      SELECT COUNT(*) AS total
-      FROM lineas_de_orden_de_trabajo
-      WHERE id_servicio = ${serviceId}
-    `
+    const [totalLineas, totalProductosServicio] = await Promise.all([
+      db.lineaDeOrdenDeTrabajo.count({
+        where: {
+          idServicio: serviceId,
+        },
+      }),
+      db.productoServicio.count({
+        where: {
+          idServicio: serviceId,
+        },
+      }),
+    ])
 
-    if (Number(total) > 0) {
-      await db.$executeRaw`
-        UPDATE servicios
-        SET estado = 'inactivo'
-        WHERE id_servicio = ${serviceId}
-      `
+    if (totalLineas > 0 || totalProductosServicio > 0) {
+      const servicioInactivo = await db.servicio.update({
+        where: {
+          idServicio: serviceId,
+        },
+        data: {
+          estado: "inactivo",
+        },
+      })
 
-      const servicioInactivo = await obtenerServicio(serviceId)
-
-      return NextResponse.json(normalizarServicio(servicioInactivo!))
+      return NextResponse.json(normalizarServicio(servicioInactivo))
     }
 
-    await db.$executeRaw`
-      DELETE FROM servicios
-      WHERE id_servicio = ${serviceId}
-    `
+    await db.servicio.delete({
+      where: {
+        idServicio: serviceId,
+      },
+    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

@@ -6,11 +6,11 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
 type ServicioRow = {
-  idServicio: number | bigint
+  idServicio: number
   codigo: string
   nombre: string
   descripcion: string | null
-  precioVenta: number | string
+  precioVenta: unknown
   estado: string
 }
 
@@ -46,30 +46,16 @@ export async function GET(req: Request) {
     }
 
     const estado = obtenerEstadoFiltro(req)
-    const servicios = estado
-      ? await db.$queryRaw<ServicioRow[]>`
-          SELECT
-            id_servicio AS idServicio,
-            codigo,
-            nombre,
-            descripcion,
-            precio_venta AS precioVenta,
-            estado
-          FROM servicios
-          WHERE estado = ${estado}
-          ORDER BY nombre ASC
-        `
-      : await db.$queryRaw<ServicioRow[]>`
-          SELECT
-            id_servicio AS idServicio,
-            codigo,
-            nombre,
-            descripcion,
-            precio_venta AS precioVenta,
-            estado
-          FROM servicios
-          ORDER BY nombre ASC
-        `
+    const servicios = await db.servicio.findMany({
+      where: estado
+        ? {
+            estado,
+          }
+        : undefined,
+      orderBy: {
+        nombre: "asc",
+      },
+    })
 
     return NextResponse.json(servicios.map(normalizarServicio))
   } catch (error) {
@@ -99,14 +85,23 @@ export async function POST(req: Request) {
     }
 
     const data = validation.data
-    const existentes = await db.$queryRaw<{ idServicio: number }[]>`
-      SELECT id_servicio AS idServicio
-      FROM servicios
-      WHERE codigo = ${data.codigo} OR nombre = ${data.nombre}
-      LIMIT 1
-    `
+    const existente = await db.servicio.findFirst({
+      where: {
+        OR: [
+          {
+            codigo: data.codigo,
+          },
+          {
+            nombre: data.nombre,
+          },
+        ],
+      },
+      select: {
+        idServicio: true,
+      },
+    })
 
-    if (existentes.length > 0) {
+    if (existente) {
       return NextResponse.json(
         {
           code: "SERVICIO_DUPLICADO",
@@ -116,29 +111,15 @@ export async function POST(req: Request) {
       )
     }
 
-    await db.$executeRaw`
-      INSERT INTO servicios (codigo, nombre, descripcion, precio_venta, estado)
-      VALUES (
-        ${data.codigo},
-        ${data.nombre},
-        ${data.descripcion ?? null},
-        ${data.precioVenta},
-        ${data.estado}
-      )
-    `
-
-    const [servicio] = await db.$queryRaw<ServicioRow[]>`
-      SELECT
-        id_servicio AS idServicio,
-        codigo,
-        nombre,
-        descripcion,
-        precio_venta AS precioVenta,
-        estado
-      FROM servicios
-      WHERE codigo = ${data.codigo}
-      LIMIT 1
-    `
+    const servicio = await db.servicio.create({
+      data: {
+        codigo: data.codigo,
+        nombre: data.nombre,
+        descripcion: data.descripcion ?? null,
+        precioVenta: data.precioVenta,
+        estado: data.estado,
+      },
+    })
 
     return NextResponse.json(normalizarServicio(servicio), { status: 201 })
   } catch (error) {
