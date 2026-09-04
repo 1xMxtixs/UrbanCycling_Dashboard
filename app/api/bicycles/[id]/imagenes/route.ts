@@ -14,6 +14,14 @@ type RouteContext = {
   }>
 }
 
+const POST_DELAY_MS = 1_000
+
+function esperar(milisegundos: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milisegundos)
+  })
+}
+
 function parsePositiveInteger(value: string) {
   const parsedValue = Number(value)
 
@@ -52,39 +60,43 @@ export async function POST(req: Request, context: RouteContext) {
       )
     }
 
-    const bicycle = await db.bicicleta.findUnique({
-      where: {
-        idBicicleta: bicycleId,
-      },
-      include: {
-        imagenes: true,
-      },
+    const created = await db.$transaction(async (tx) => {
+      // El bloqueo de la bicicleta serializa POST concurrentes, incluso entre instancias.
+      const bicycles = await tx.$queryRaw<Array<{ idBicicleta: number }>>`
+        SELECT id_bicicleta AS idBicicleta
+        FROM bicicletas
+        WHERE id_bicicleta = ${bicycleId}
+        FOR UPDATE
+      `
+
+      if (bicycles.length === 0) {
+        throw new BicycleNotFoundError()
+      }
+
+      await esperar(POST_DELAY_MS)
+
+      const imagenesActuales = await tx.imagenBicicleta.count({
+        where: { idBicicleta: bicycleId },
+      })
+
+      if (imagenesActuales + imagenes.length > MAX_BICYCLE_IMAGES) {
+        throw new BicycleImagesLimitError()
+      }
+
+      return Promise.all(
+        imagenes.map((urlImagen) =>
+          tx.imagenBicicleta.create({
+            data: {
+              idBicicleta: bicycleId,
+              urlImagen,
+            },
+          })
+        )
+      )
+    }, {
+      maxWait: 30_000,
+      timeout: 30_000,
     })
-
-    if (!bicycle) {
-      return new NextResponse("Bicycle not found", { status: 404 })
-    }
-
-    if (bicycle.imagenes.length + imagenes.length > MAX_BICYCLE_IMAGES) {
-      return NextResponse.json(
-        {
-          code: "MAX_IMAGENES_BICICLETA",
-          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
-        },
-        { status: 400 }
-      )
-    }
-
-    const created = await db.$transaction(
-      imagenes.map((urlImagen) =>
-        db.imagenBicicleta.create({
-          data: {
-            idBicicleta: bicycleId,
-            urlImagen,
-          },
-        })
-      )
-    )
 
     return NextResponse.json(
       created.map((imagen) => ({
@@ -94,7 +106,25 @@ export async function POST(req: Request, context: RouteContext) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof BicycleNotFoundError) {
+      return new NextResponse("Bicycle not found", { status: 404 })
+    }
+
+    if (error instanceof BicycleImagesLimitError) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      )
+    }
+
     console.log("[BICYCLES_IMAGES_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }
 }
+
+class BicycleNotFoundError extends Error {}
+
+class BicycleImagesLimitError extends Error {}
