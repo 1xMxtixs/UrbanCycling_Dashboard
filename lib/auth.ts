@@ -23,6 +23,8 @@ export const authOptions: NextAuthOptions = {
         const email = credentials?.email?.trim().toLowerCase()
         const password = credentials?.password
 
+        console.log("👉 Intentando login con:", email)
+
         if (!email || !password) {
           return null
         }
@@ -48,11 +50,15 @@ export const authOptions: NextAuthOptions = {
           },
         })
 
+        console.log("👉 ¿Usuario encontrado en BD?:", user ? "SÍ" : "NO")
+
         if (!user || user.estado?.toLowerCase() !== "activo") {
           return null
         }
 
         const isPasswordValid = await verifyPassword(password, user.contrasenaHash)
+
+        console.log("👉 ¿Contraseña válida?:", isPasswordValid ? "SÍ" : "NO")
 
         if (!isPasswordValid) {
           return null
