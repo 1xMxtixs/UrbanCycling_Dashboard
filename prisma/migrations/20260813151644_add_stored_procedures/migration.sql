@@ -21,7 +21,8 @@
 DROP PROCEDURE IF EXISTS sp_calcular_total_orden_de_trabajo;
 
 CREATE PROCEDURE sp_calcular_total_orden_de_trabajo(
-    IN p_id_orden_de_trabajo INT,
+    IN p_id_orden_de_trabajo INT UNSIGNED,
+    IN p_tasa_iva DECIMAL(5,4),
     OUT p_monto_total DECIMAL(12,0)
 )
 BEGIN
@@ -34,11 +35,23 @@ BEGIN
     DECLARE  v_iva DECIMAL(12,0) DEFAULT 0;
     DECLARE v_existe_ot INT DEFAULT 0;
 
+    -- Validaciones de parámetros
+    IF p_id_orden_de_trabajo IS NULL THEN
+        SIGNAL SQLSTATE  '45000'
+            SET MESSAGE_TEXT = 'El ID de la orden de trabajo no puede ser nulo';
+    END IF;
+
+    IF p_tasa_iva IS NULL OR p_tasa_iva < 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La tasa de IVA no puede ser nula ni negativa';
+    END IF;
+
     -- validar que exista la orden de trabajo y traer descuento global
     SELECT 1, COALESCE(descuento_global, 0)
     INTO v_existe_ot, v_descuento_global
     FROM ordenes_de_trabajo
-    WHERE id_orden_de_trabajo = p_id_orden_de_trabajo;
+    WHERE id_orden_de_trabajo = p_id_orden_de_trabajo
+    FOR UPDATE;
 
     IF v_existe_ot = 0 THEN
         SIGNAL SQLSTATE '45000'
@@ -64,8 +77,14 @@ BEGIN
     -- calcular total y desglose iva
     -- total = subtotal - descuentos
     SET v_total = v_subtotal - v_descuento_prod - v_descuento_global;
-    SET v_neto = ROUND(v_total / 1.19, 0);
-    SET v_iva = v_total - v_neto;
+
+    IF p_tasa_iva = 0 THEN
+        SET v_neto = v_total;
+        SET v_iva = 0;
+    ELSE
+        SET v_neto = ROUND(v_total / (1.0 + p_tasa_iva), 0);
+        SET v_iva = v_total - v_neto;
+    END IF;
 
     -- actualizar valores
     UPDATE ordenes_de_trabajo

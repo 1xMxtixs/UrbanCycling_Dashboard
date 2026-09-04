@@ -79,7 +79,7 @@ model Usuario {
   apellidoPaterno   String    @db.VarChar(50)  @map("apellido_paterno")
   apellidoMaterno   String?   @db.VarChar(50)  @map("apellido_materno")
   rut               String    @db.VarChar(12)  @unique
-  correo            String?   @db.VarChar(255)
+  correo            String?   @db.VarChar(255) @unique
   contrasenaHash    String    @db.VarChar(255) @map("contrasena_hash")
   fechaRegistro     DateTime  @default(now()) @db.Timestamp(0) @map("fecha_registro")
   fechaUltimoAcceso DateTime? @db.Timestamp(0) @map("fecha_ultimo_acceso")
@@ -634,9 +634,11 @@ model ReferenciaDte {
 
 model ContadorFolio {
   idContador    Int       @id @default(autoincrement()) @db.UnsignedInt @map("id_contador")
-  tipoDte       Int       @unique @db.UnsignedInt @map("tipo_dte")
+  rutEmisor     String    @db.VarChar(12) @map("rut_emisor")
+  tipoDte       Int       @db.UnsignedInt @map("tipo_dte")
   ultimoFolio   Int       @default(0) @db.UnsignedInt @map("ultimo_folio")
   actualizadoEn DateTime  @default(now()) @updatedAt @db.Timestamp(0) @map("actualizado_en")
 
+  @@unique([rutEmisor, tipoDte], map: "contadores_folios_rut_emisor_tipo_dte_unique")
   @@map("contadores_folios")  
 }

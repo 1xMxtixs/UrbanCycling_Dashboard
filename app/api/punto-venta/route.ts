@@ -1,6 +1,10 @@
 // Capa referencial del nuevo punto de venta.
 // Mientras no exista una tabla punto_venta, registra ventas y ordenes en sus
 // tablas actuales y responde con una forma unificada para el front.
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -39,6 +43,9 @@ type BicicletaInput = {
   color?: unknown;
   descripcion?: unknown;
   imagenUrl?: unknown;
+  imagenes?: unknown;
+  imagenesUrl?: unknown;
+  imagenesUrls?: unknown;
 };
 
 function parsePositiveInteger(value: unknown) {
@@ -53,6 +60,12 @@ function parsePositiveInteger(value: unknown) {
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
+}
+
+function toOptionalNumber(value: unknown) {
+  return value === null || value === undefined || value === ""
+    ? undefined
+    : Number(value);
 }
 
 function normalizarProductos(input: unknown): ProductoInput[] {
@@ -166,7 +179,7 @@ function mapearProducto(item: ProductoInput) {
   return {
     idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
     cantidad: parsePositiveInteger(item.cantidad),
-    precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+    precioUnitario: toOptionalNumber(item.precio_unitario ?? item.precioUnitario),
     descuentoUnitario: Number(
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
@@ -193,6 +206,7 @@ function mapearBicicleta(item: BicicletaInput) {
     modelo: String(item.modelo ?? "").trim(),
     color: String(item.color ?? "").trim(),
     descripcionAdicional: item.descripcion ? String(item.descripcion).trim() : null,
+    imagenes: normalizarImagenesBicicleta(item),
   };
 }
 
@@ -470,15 +484,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const bicicletasInvalidas = bicicletas.find(
-      (item) => !item.marca || !item.modelo || !item.color
+    const bicicletaConDemasiadasImagenes = bicicletas.find(
+      (item) => item.imagenes.length > MAX_BICYCLE_IMAGES
     );
 
-    if (bicicletasInvalidas) {
+    if (bicicletaConDemasiadasImagenes) {
       return NextResponse.json(
         {
-          code: "BICICLETA_INVALIDA",
-          message: "Cada bicicleta debe tener marca, modelo y color",
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
         },
         { status: 400 }
       );
@@ -630,7 +644,7 @@ export async function POST(req: Request) {
 
     const lineasVenta = productosVenta.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario = item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -642,7 +656,7 @@ export async function POST(req: Request) {
     });
     const lineasOrdenProductos = productosOrden.map((item) => {
       const producto = productosPorId.get(item.idProducto)!;
-      const precioUnitario = item.precioUnitario || toNumber(producto.precioVenta);
+      const precioUnitario = item.precioUnitario ?? toNumber(producto.precioVenta);
 
       return {
         idProducto: producto.idProducto,
@@ -759,7 +773,20 @@ export async function POST(req: Request) {
                   montoIva: montosOrden.montoIva,
                   bicicletas: bicicletas.length
                     ? {
-                        create: bicicletas,
+                        create: bicicletas.map((bicicleta) => ({
+                          tipo: bicicleta.tipo,
+                          marca: bicicleta.marca,
+                          modelo: bicicleta.modelo,
+                          color: bicicleta.color,
+                          descripcionAdicional: bicicleta.descripcionAdicional,
+                          imagenes: bicicleta.imagenes.length
+                            ? {
+                                create: bicicleta.imagenes.map((urlImagen) => ({
+                                  urlImagen,
+                                })),
+                              }
+                            : undefined,
+                        })),
                       }
                     : undefined,
                   lineasDeOrdenDeTrabajo:
@@ -797,7 +824,11 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
-              bicicletas: true,
+              bicicletas: {
+                include: {
+                  imagenes: true,
+                },
+              },
               lineasDeOrdenDeTrabajo: {
                 include: {
                   producto: true,
@@ -985,7 +1016,11 @@ export async function GET(req: Request) {
         ordenDeTrabajo: {
           include: {
             mecanico: true,
-            bicicletas: true,
+            bicicletas: {
+              include: {
+                imagenes: true,
+              },
+            },
             lineasDeOrdenDeTrabajo: {
               include: {
                 producto: true,
@@ -1092,3 +1127,4 @@ export async function GET(req: Request) {
     );
   }
 }
+
