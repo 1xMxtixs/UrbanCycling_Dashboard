@@ -15,78 +15,154 @@ const isR2Configured =
   process.env.NEXT_PUBLIC_R2_PUBLIC_URL &&
   !process.env.NEXT_PUBLIC_R2_PUBLIC_URL.includes("localhost")
 
+const MAX_FILES_PER_REQUEST = 8
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+
+class UploadValidationError extends Error {}
+
+type UploadedFile = {
+  url: string
+  localPath?: string
+  r2Key?: string
+}
+
+function validateFile(file: File) {
+  if (!allowedTypes.includes(file.type)) {
+    throw new UploadValidationError(
+      "Tipo de archivo no permitido. Solo se aceptan: JPG, PNG, WEBP, GIF"
+    )
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new UploadValidationError("El archivo supera el tamaño máximo de 5 MB")
+  }
+}
+
+async function createR2Client() {
+  const { S3Client } = await import("@aws-sdk/client-s3")
+
+  return new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
+    },
+  })
+}
+
+async function deleteUploadedFile(file: UploadedFile) {
+  try {
+    if (file.localPath && fs.existsSync(file.localPath)) {
+      fs.unlinkSync(file.localPath)
+      return
+    }
+
+    if (file.r2Key) {
+      const { DeleteObjectCommand } = await import("@aws-sdk/client-s3")
+      const s3 = await createR2Client()
+
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+          Key: file.r2Key,
+        })
+      )
+    }
+  } catch (error) {
+    console.error("[UPLOAD_CLEANUP]", error)
+  }
+}
+
+async function saveFile(file: File): Promise<UploadedFile> {
+  validateFile(file)
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const ext = path.extname(file.name) || ".jpg"
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+
+  if (isR2Configured) {
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3")
+    const s3 = await createR2Client()
+    const key = `productos/${fileName}`
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+        Key: key,
+        Body: buffer,
+        ContentType: file.type,
+      })
+    )
+
+    return {
+      url: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`,
+      r2Key: key,
+    }
+  }
+
+  const uploadsDir = path.join(process.cwd(), "public", "uploads")
+
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true })
+  }
+
+  const filePath = path.join(uploadsDir, fileName)
+  fs.writeFileSync(filePath, buffer)
+
+  return {
+    url: `/uploads/${fileName}`,
+    localPath: filePath,
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData()
-    const file = formData.get("file") as File | null
+    const files = [
+      ...formData.getAll("files"),
+      ...formData.getAll("file"),
+    ].filter((item): item is File => item instanceof File && item.size > 0)
 
-    if (!file) {
+    if (files.length === 0) {
       return new NextResponse("No se recibió ningún archivo", { status: 400 })
     }
 
-    // Validar tipo de archivo
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-    if (!allowedTypes.includes(file.type)) {
+    if (files.length > MAX_FILES_PER_REQUEST) {
       return new NextResponse(
-        "Tipo de archivo no permitido. Solo se aceptan: JPG, PNG, WEBP, GIF",
+        `Solo se pueden subir hasta ${MAX_FILES_PER_REQUEST} imágenes por solicitud`,
         { status: 400 }
       )
     }
 
-    // Validar tamaño (máx 5 MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return new NextResponse(
-        "El archivo supera el tamaño máximo de 5 MB",
-        { status: 400 }
-      )
-    }
+    files.forEach(validateFile)
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const ext = path.extname(file.name) || ".jpg"
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+    const uploadedFiles: UploadedFile[] = []
 
-    if (isR2Configured) {
-      // ─── MODO PRODUCCIÓN: Subir a Cloudflare R2 ────────────────────────────
-      const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3")
-
-      const s3 = new S3Client({
-        region: "auto",
-        endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
-        },
-      })
-
-      const key = `productos/${fileName}`
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
-          Key: key,
-          Body: buffer,
-          ContentType: file.type,
-        })
-      )
-
-      const fileUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`
-      return NextResponse.json({ url: fileUrl }, { status: 201 })
-    } else {
-      // ─── MODO DESARROLLO: Guardar en public/uploads/ ────────────────────────
-      const uploadsDir = path.join(process.cwd(), "public", "uploads")
-
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true })
+    try {
+      for (const file of files) {
+        uploadedFiles.push(await saveFile(file))
       }
-
-      const filePath = path.join(uploadsDir, fileName)
-      fs.writeFileSync(filePath, buffer)
-
-      const fileUrl = `/uploads/${fileName}`
-      return NextResponse.json({ url: fileUrl }, { status: 201 })
+    } catch (error) {
+      await Promise.all(uploadedFiles.map(deleteUploadedFile))
+      throw error
     }
+
+    const urls = uploadedFiles.map((file) => file.url)
+    const status = 201
+
+    if (urls.length === 1) {
+      return NextResponse.json({ url: urls[0], urls }, { status })
+    }
+
+    return NextResponse.json({ urls }, { status })
   } catch (error) {
     console.error("[UPLOAD_POST]", error)
+    if (error instanceof UploadValidationError) {
+      return new NextResponse(error.message, { status: 400 })
+    }
+
     return new NextResponse("Error interno al subir la imagen", { status: 500 })
   }
 }
