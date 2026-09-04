@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { SegmentedTabs } from "@/components/forms/SegmentedTabs";
 import {
   User,
   Building2,
@@ -25,17 +27,23 @@ import {
   Info,
   Users,
   Wrench,
+  History,
+  FolderOpen,
 } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
 import { DataField } from "@/components/common/DataField";
+import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 
 export function ListClientes() {
+  const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(null);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const [openHistoryModal, setOpenHistoryModal] = useState(false);
+  const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchClientes = async () => {
@@ -113,6 +121,14 @@ export function ListClientes() {
     setOpenDetailsModal(true);
   };
 
+  const handleViewHistory = (id: number) => {
+    const cli = rawClientes.find((c) => c.idCliente === id);
+    if (cli) {
+      setHistoryCliente(cli);
+      setOpenHistoryModal(true);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -129,45 +145,93 @@ export function ListClientes() {
   const selectedCliente = rawClientes.find((c) => c.idCliente === selectedClienteId);
 
   const totalClientes = rawClientes.length;
-  const clientesActivos = rawClientes.filter((c) => c.estado.toLowerCase() === "activo").length;
-  const totalOrdenesAsociadas = rawClientes.reduce((acc, c) => acc + (c.ordenesDeTrabajo?.length || 0), 0);
+  const totalOrdenesAsociadas = rawClientes.reduce(
+    (acc, c) => acc + (c.ordenesDeTrabajo?.length || 0),
+    0
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* KPIs de Cartera de Clientes */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Clientes"
-          value={totalClientes}
-          description="Clientes registrados"
-          icon={Users}
-        />
-        <MetricCard
-          title="Personas Naturales"
-          value={clientesNaturales.length}
-          description="Ciclistas y particulares"
-          icon={User}
-        />
-        <MetricCard
-          title="Personas Jurídicas"
-          value={clientesJuridicas.length}
-          description="Empresas y convenios"
-          icon={Building2}
-        />
-        <MetricCard
-          title="Historial de Órdenes"
-          value={totalOrdenesAsociadas}
-          description="Servicios acumulados"
-          icon={Wrench}
-        />
-      </div>
+      {/* Selector de Vista Principal: Directorio vs Historial de Clientes */}
+      <Tabs
+        value={activeMainTab}
+        onValueChange={setActiveMainTab}
+        className="w-full space-y-6"
+      >
+        <div className="flex items-center justify-between flex-wrap gap-4 border-b border-border/80 pb-4">
+          <SegmentedTabs
+            items={[
+              {
+                value: "directorio",
+                label: "Directorio de Clientes",
+                icon: FolderOpen,
+                count: totalClientes,
+              },
+              {
+                value: "historial",
+                label: "Historial de Clientes y Órdenes",
+                icon: History,
+                count: totalOrdenesAsociadas,
+              },
+            ]}
+          />
+        </div>
 
-      <ClientesTabsView
-        clientesNaturales={clientesNaturales}
-        clientesJuridicas={clientesJuridicas}
-        onViewDetails={handleViewDetails}
+        {/* Pestaña 1: Directorio General con KPIs y Tablas */}
+        <TabsContent value="directorio" className="space-y-6 mt-0 focus-visible:outline-none">
+          {/* KPIs de Cartera de Clientes */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              title="Total Clientes"
+              value={totalClientes}
+              description="Clientes registrados"
+              icon={Users}
+            />
+            <MetricCard
+              title="Personas Naturales"
+              value={clientesNaturales.length}
+              description="Ciclistas y particulares"
+              icon={User}
+            />
+            <MetricCard
+              title="Personas Jurídicas"
+              value={clientesJuridicas.length}
+              description="Empresas y convenios"
+              icon={Building2}
+            />
+            <MetricCard
+              title="Historial de Órdenes"
+              value={totalOrdenesAsociadas}
+              description="Servicios acumulados"
+              icon={Wrench}
+            />
+          </div>
+
+          <ClientesTabsView
+            clientesNaturales={clientesNaturales}
+            clientesJuridicas={clientesJuridicas}
+            onViewDetails={handleViewDetails}
+            onViewHistory={handleViewHistory}
+          />
+        </TabsContent>
+
+        {/* Pestaña 2: Vista Completa de Historial de Clientes */}
+        <TabsContent value="historial" className="mt-0 focus-visible:outline-none">
+          <ClientHistoryView
+            clientes={rawClientes}
+            selectedIdInitial={selectedClienteId}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal de Historial Dedicado (accesible desde el menú de acciones de la tabla) */}
+      <ClientHistoryDialog
+        open={openHistoryModal}
+        onOpenChange={setOpenHistoryModal}
+        cliente={historyCliente}
       />
 
+      {/* Modal de Detalles del Cliente */}
       <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
         <DialogContent className="sm:max-w-3xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl">
           {selectedCliente && (() => {
@@ -225,6 +289,18 @@ export function ListClientes() {
                         </p>
                       </div>
                     </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOpenDetailsModal(false);
+                        handleViewHistory(selectedCliente.idCliente);
+                      }}
+                      className="rounded-xl text-xs font-semibold gap-1.5 cursor-pointer self-start sm:self-center"
+                    >
+                      <History className="h-3.5 w-3.5 text-primary" /> Ver Historial Completo
+                    </Button>
                   </div>
                 </div>
 
@@ -348,10 +424,12 @@ export function ListClientes() {
 
                   {/* Right Column: Work Orders History */}
                   <div className="md:col-span-2 space-y-4">
-                    <h4 className="flex items-center gap-1.5 font-bold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <ClipboardList className="h-4 w-4 text-primary" />
-                      Historial de Órdenes ({selectedCliente.ordenesDeTrabajo?.length || 0})
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="flex items-center gap-1.5 font-bold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <ClipboardList className="h-4 w-4 text-primary" />
+                        Historial de Órdenes ({selectedCliente.ordenesDeTrabajo?.length || 0})
+                      </h4>
+                    </div>
 
                     {selectedCliente.ordenesDeTrabajo && selectedCliente.ordenesDeTrabajo.length > 0 ? (
                       <div className="space-y-2.5 overflow-y-auto max-h-[35vh] pr-1">
