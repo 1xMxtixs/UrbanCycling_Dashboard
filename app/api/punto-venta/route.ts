@@ -416,9 +416,6 @@ export async function POST(req: Request) {
     const productosVenta = normalizarProductos(rawData.productos).map(mapearProducto);
     const ordenInput = rawData.orden_trabajo ?? rawData.ordenTrabajo ?? null;
     const tieneOrden = Boolean(ordenInput);
-    const montoServicioOrden = tieneOrden
-      ? Number(ordenInput.monto_servicio ?? ordenInput.montoServicio ?? 0)
-      : 0;
     const productosOrden = tieneOrden
       ? normalizarProductos(ordenInput.productos).map(mapearProducto)
       : [];
@@ -468,16 +465,6 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_INVALIDO",
           message: "Todos los servicios deben tener ID, cantidad y precio validos",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (Number.isNaN(montoServicioOrden) || montoServicioOrden < 0) {
-      return NextResponse.json(
-        {
-          code: "MONTO_SERVICIO_INVALIDO",
-          message: "El monto del servicio debe ser un numero valido",
         },
         { status: 400 }
       );
@@ -623,25 +610,22 @@ export async function POST(req: Request) {
       );
     }
 
-    let servicioGenerico = null;
+    const servicioInactivo = serviciosOrden.find((item) => {
+      const servicio = serviciosPorId.get(item.idServicio);
 
-    if (montoServicioOrden > 0) {
-      servicioGenerico = await prisma.servicio.findUnique({
-        where: {
-          nombre: "Servicio de Taller",
+      return servicio && servicio.estado !== "activo";
+    });
+
+    if (servicioInactivo) {
+      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!;
+
+      return NextResponse.json(
+        {
+          code: "SERVICIO_INACTIVO",
+          message: `El servicio ${servicio.nombre} no esta activo`,
         },
-      });
-
-      if (!servicioGenerico) {
-        servicioGenerico = await prisma.servicio.create({
-          data: {
-            nombre: "Servicio de Taller",
-            descripcion: "Mano de obra y servicios tecnicos generales",
-            precioVenta: 0,
-            estado: "activo",
-          },
-        });
-      }
+        { status: 409 }
+      );
     }
 
     const lineasVenta = productosVenta.map((item) => {
@@ -669,33 +653,19 @@ export async function POST(req: Request) {
         costoUnitario: item.costoUnitario,
       };
     });
-    const lineasOrdenServicios = [
-      ...serviciosOrden.map((item) => {
-        const servicio = serviciosPorId.get(item.idServicio)!;
-        const precioUnitario = item.precioUnitario || toNumber(servicio.precioVenta);
+    const lineasOrdenServicios = serviciosOrden.map((item) => {
+      const servicio = serviciosPorId.get(item.idServicio)!;
+      const precioUnitario = item.precioUnitario || toNumber(servicio.precioVenta);
 
-        return {
-          idProducto: null,
-          idServicio: servicio.idServicio,
-          cantidad: item.cantidad,
-          precioUnitario,
-          descuentoUnitario: item.descuentoUnitario,
-          costoUnitario: item.costoUnitario,
-        };
-      }),
-      ...(servicioGenerico
-        ? [
-            {
-              idProducto: null,
-              idServicio: servicioGenerico.idServicio,
-              cantidad: 1,
-              precioUnitario: montoServicioOrden,
-              descuentoUnitario: 0,
-              costoUnitario: 0,
-            },
-          ]
-        : []),
-    ];
+      return {
+        idProducto: null,
+        idServicio: servicio.idServicio,
+        cantidad: item.cantidad,
+        precioUnitario,
+        descuentoUnitario: item.descuentoUnitario,
+        costoUnitario: item.costoUnitario,
+      };
+    });
     const totalVenta = lineasVenta.reduce(
       (total, linea) =>
         total + linea.cantidad * (linea.precioUnitario - linea.descuentoUnitario),

@@ -19,6 +19,12 @@ const productoSchema = z.object({
   precioUnitario: z.number().min(0),
 })
 
+const servicioSchema = z.object({
+  idServicio: z.number().int().positive(),
+  cantidad: z.number().int().positive(),
+  precioUnitario: z.number().min(0),
+})
+
 const ordenTrabajoSchema = z.object({
   idUsuario: z.number().int().positive(),
 
@@ -36,11 +42,11 @@ const ordenTrabajoSchema = z.object({
 
   descuento: z.number().min(0).default(0),
 
-  montoServicio: z.number().min(0).default(0),
-
   bicicletas: z.array(bicicletaSchema).default([]),
 
   productos: z.array(productoSchema).default([]),
+
+  servicios: z.array(servicioSchema).default([]),
 
   idComprobante: z.number().int().positive().optional(),
 })
@@ -99,8 +105,22 @@ type ProductoOrdenInput = {
   precioUnitario?: unknown;
 };
 
+type ServicioOrdenInput = {
+  id_servicio?: unknown;
+  idServicio?: unknown;
+  cantidad?: unknown;
+  precio_unitario?: unknown;
+  precioUnitario?: unknown;
+};
+
 type ProductoSolicitado = {
   idProducto: number;
+  cantidad: number;
+  precioUnitario: number;
+};
+
+type ServicioSolicitado = {
+  idServicio: number;
   cantidad: number;
   precioUnitario: number;
 };
@@ -368,12 +388,6 @@ export async function POST(req: Request) {
         rawData.descuento ?? 0
       ),
 
-      montoServicio: Number(
-        rawData.montoServicio ??
-        rawData.monto_servicio ??
-        0
-      ),
-
       bicicletas:
         normalizarBicicletas(rawData),
 
@@ -383,6 +397,23 @@ export async function POST(req: Request) {
               idProducto: Number(
                 item.id_producto ??
                 item.idProducto
+              ),
+              cantidad: Number(item.cantidad),
+              precioUnitario: Number(
+                item.precio_unitario ??
+                item.precioUnitario ??
+                0
+              ),
+            })
+          )
+        : [],
+
+      servicios: Array.isArray(rawData.servicios)
+        ? rawData.servicios.map(
+            (item: ServicioOrdenInput) => ({
+              idServicio: Number(
+                item.id_servicio ??
+                item.idServicio
               ),
               cantidad: Number(item.cantidad),
               precioUnitario: Number(
@@ -438,14 +469,14 @@ export async function POST(req: Request) {
     const descuento =
       data.descuento;
 
-    const montoServicio =
-      data.montoServicio;
-
     const bicicletasInput =
       data.bicicletas;
 
     const productosInput =
       data.productos;
+
+    const serviciosInput =
+      data.servicios;
 
     const usuario = await db.usuario.findUnique({
       where: {
@@ -523,25 +554,17 @@ export async function POST(req: Request) {
 
     const bicicletas = bicicletasInput.map(mapearBicicleta);
 
-    // 1. Fetch or create generic service "Servicio de Taller"
-    let genericService = await db.servicio.findUnique({
-      where: { nombre: "Servicio de Taller" }
-    });
-
-    if (!genericService) {
-      genericService = await db.servicio.create({
-        data: {
-          nombre: "Servicio de Taller",
-          descripcion: "Mano de obra y servicios técnicos generales",
-          precioVenta: 0,
-          estado: "activo"
-        }
-      });
-    }
-
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
       (item: ProductoOrdenInput) => ({
         idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
+        cantidad: parsePositiveInteger(item.cantidad),
+        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+      })
+    );
+
+    const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
+      (item: ServicioOrdenInput) => ({
+        idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
         cantidad: parsePositiveInteger(item.cantidad),
         precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
       })
@@ -618,16 +641,67 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Build lines array
+    const servicios = serviciosSolicitados.length
+      ? await db.servicio.findMany({
+          where: {
+            idServicio: {
+              in: serviciosSolicitados.map((item) => item.idServicio),
+            },
+          },
+        })
+      : [];
+
+    const serviciosPorId = new Map(
+      servicios.map((servicio) => [servicio.idServicio, servicio])
+    );
+
+    const servicioNoExiste = serviciosSolicitados.find(
+      (item) => !serviciosPorId.has(item.idServicio)
+    );
+
+    if (servicioNoExiste) {
+      return NextResponse.json(
+        {
+          code: "SERVICIO_NO_EXISTE",
+          message: `El servicio con ID ${servicioNoExiste.idServicio} no existe`,
+          id_servicio: servicioNoExiste.idServicio,
+          idServicio: servicioNoExiste.idServicio,
+        },
+        { status: 404 }
+      );
+    }
+
+    const servicioInactivo = serviciosSolicitados.find((item) => {
+      const servicio = serviciosPorId.get(item.idServicio);
+
+      return servicio && servicio.estado !== "activo";
+    });
+
+    if (servicioInactivo) {
+      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!;
+
+      return NextResponse.json(
+        {
+          code: "SERVICIO_INACTIVO",
+          message: `El servicio ${servicio.nombre} no esta activo`,
+          id_servicio: servicio.idServicio,
+          idServicio: servicio.idServicio,
+        },
+        { status: 409 }
+      );
+    }
+
     const lineasData: LineaOrdenData[] = [];
 
-    // Add service line if montoServicio > 0
-    if (montoServicio > 0) {
+    for (const servicioSolicitado of serviciosSolicitados) {
+      const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
+
       lineasData.push({
-        idServicio: genericService.idServicio,
+        idServicio: servicio.idServicio,
         idProducto: null,
-        cantidad: 1,
-        precioUnitario: montoServicio,
+        cantidad: servicioSolicitado.cantidad,
+        precioUnitario:
+          servicioSolicitado.precioUnitario ?? toNumber(servicio.precioVenta),
         descuentoUnitario: 0,
         costoUnitario: 0,
       });
