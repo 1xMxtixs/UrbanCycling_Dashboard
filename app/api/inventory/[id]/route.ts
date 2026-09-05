@@ -107,8 +107,24 @@ export async function GET(_request: Request, context: RouteContext) {
     const { id } = await context.params
     const productId = parseProductId(id)
 
+    if (id.trim() === "") {
+      return NextResponse.json(
+        {
+          code: "ID_PRODUCTO_OBLIGATORIA",
+          message: "Debe ingresar la ID del producto para realizar la búsqueda.",
+        },
+        { status: 400 },
+      )
+    }
+
     if (Number.isNaN(productId)) {
-      return new NextResponse("Invalid product id", { status: 400 })
+      return NextResponse.json(
+        {
+          code: "ID_PRODUCTO_INVALIDA",
+          message: "La ID del producto debe ser un número entero positivo.",
+        },
+        { status: 400 },
+      )
     }
 
     const product = await db.producto.findUnique({
@@ -118,7 +134,13 @@ export async function GET(_request: Request, context: RouteContext) {
     })
 
     if (!product) {
-      return new NextResponse("Product not found", { status: 404 })
+      return NextResponse.json(
+        {
+          code: "PRODUCTO_NO_ENCONTRADO",
+          message: `No se encontró un producto con la ID ${productId}.`,
+        },
+        { status: 404 },
+      )
     }
 
     return NextResponse.json(withImageAlias(product))
