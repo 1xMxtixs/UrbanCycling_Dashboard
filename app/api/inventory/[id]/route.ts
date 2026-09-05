@@ -68,6 +68,34 @@ function validateStockMinimum(stockMinimo: unknown) {
   return null
 }
 
+function parseRequiredText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const text = value.trim()
+  return text.length > 0 && text.length <= maxLength ? text : null
+}
+
+function parseNonNegativeNumber(value: unknown, integer = false) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN
+
+  if (
+    !Number.isFinite(numberValue) ||
+    numberValue < 0 ||
+    (integer && !Number.isInteger(numberValue))
+  ) {
+    return null
+  }
+
+  return numberValue
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -110,24 +138,145 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params
     const productId = parseProductId(id)
-    const data = await request.json()
 
     if (Number.isNaN(productId)) {
       return new NextResponse("Invalid product id", { status: 400 })
     }
 
-    if ("stockMinimo" in data) {
-      const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
+    let body: unknown
 
-      if (stockMinimumValidation) {
-        return stockMinimumValidation
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener datos JSON válidos.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener un objeto JSON válido.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const data = body as Record<string, unknown>
+    const productExists = await db.producto.findUnique({
+      where: { idProducto: productId },
+    })
+
+    if (!productExists) {
+      return NextResponse.json(
+        { code: "PRODUCTO_NO_EXISTE", message: "Producto no encontrado." },
+        { status: 404 },
+      )
+    }
+
+    const updateData: {
+      tipoProducto?: string
+      nombre?: string
+      descripcion?: string | null
+      precioVenta?: number
+      costoPromedio?: number
+      stockActual?: number
+      stockMinimo?: number
+      estado?: string
+      urlImagen?: string
+    } = {}
+    const invalidFields: string[] = []
+
+    if ("tipoProducto" in data) {
+      const value = parseRequiredText(data.tipoProducto, 20)
+      if (value) updateData.tipoProducto = value
+      else invalidFields.push("tipo de producto")
+    }
+
+    if ("nombre" in data) {
+      const value = parseRequiredText(data.nombre, 100)
+      if (value) updateData.nombre = value
+      else invalidFields.push("nombre")
+    }
+
+    if ("descripcion" in data) {
+      if (data.descripcion === null) {
+        updateData.descripcion = null
+      } else {
+        const value = parseRequiredText(data.descripcion, 50)
+        if (value) updateData.descripcion = value
+        else invalidFields.push("descripción")
       }
     }
 
-    if (data.nombre) {
+    if ("precioVenta" in data) {
+      const value = parseNonNegativeNumber(data.precioVenta)
+      if (value !== null) updateData.precioVenta = value
+      else invalidFields.push("precio de venta")
+    }
+
+    const costField = "costoPromedio" in data ? "costoPromedio" : "precioCosto"
+    if (costField in data) {
+      const value = parseNonNegativeNumber(data[costField])
+      if (value !== null) updateData.costoPromedio = value
+      else invalidFields.push("costo promedio")
+    }
+
+    if ("stockActual" in data) {
+      const value = parseNonNegativeNumber(data.stockActual, true)
+      if (value !== null) updateData.stockActual = value
+      else invalidFields.push("stock actual")
+    }
+
+    if ("stockMinimo" in data) {
+      const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
+      if (stockMinimumValidation) return stockMinimumValidation
+      updateData.stockMinimo = data.stockMinimo as number
+    }
+
+    if ("estado" in data) {
+      const value = parseRequiredText(data.estado, 20)
+      if (value) updateData.estado = value
+      else invalidFields.push("estado")
+    }
+
+    const imageField = "urlImagen" in data ? "urlImagen" : "imageUrl"
+    if (imageField in data && data[imageField] !== null) {
+      const value = parseRequiredText(data[imageField], 512)
+      if (value) updateData.urlImagen = value
+      else invalidFields.push("foto")
+    }
+
+    if (invalidFields.length > 0) {
+      return NextResponse.json(
+        {
+          code: "CAMPOS_INVALIDOS",
+          message: `No puede guardar campos vacíos o inválidos: ${invalidFields.join(", ")}.`,
+          fields: invalidFields,
+        },
+        { status: 400 },
+      )
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        {
+          code: "SIN_CAMBIOS",
+          message: "Debe indicar al menos un dato del producto para actualizar.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (updateData.nombre) {
       const existingProduct = await db.producto.findUnique({
         where: {
-          nombre: data.nombre,
+          nombre: updateData.nombre,
         },
       })
 
@@ -136,31 +285,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
-    const productExists = await db.producto.findUnique({
-      where: {
-        idProducto: productId,
-      },
-    })
-
-    if (!productExists) {
-      return new NextResponse("Product not found", { status: 404 })
-    }
-
     const product = await db.producto.update({
       where: {
         idProducto: productId,
       },
-      data: {
-        tipoProducto: data.tipoProducto,
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        precioVenta: data.precioVenta,
-        costoPromedio: data.costoPromedio ?? data.precioCosto,
-        stockActual: data.stockActual,
-        stockMinimo: data.stockMinimo,
-        estado: data.estado,
-        urlImagen: data.urlImagen ?? data.imageUrl,
-      },
+      data: updateData,
     })
 
     return NextResponse.json(withImageAlias(product))
