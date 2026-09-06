@@ -3,23 +3,7 @@
 import React from "react"
 import { Check, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { DISPLAY_ROLES, PERMISSION_GROUPS, ROLE_PERMISSIONS_MATRIX, type RoleName } from "@/lib/role-permissions-matrix"
-
-const ROLE_COLORS: Record<RoleName, string> = {
-  Administrador: "text-violet-600 dark:text-violet-400",
-  Vendedor:      "text-sky-600 dark:text-sky-400",
-  "Mecánico":    "text-indigo-600 dark:text-indigo-400",
-  Bodeguero:     "text-amber-600 dark:text-amber-400",
-  "Sin Rol":     "text-muted-foreground",
-}
-
-const ROLE_BG: Record<RoleName, string> = {
-  Administrador: "bg-violet-500/8 border-violet-500/20",
-  Vendedor:      "bg-sky-500/8 border-sky-500/20",
-  "Mecánico":    "bg-indigo-500/8 border-indigo-500/20",
-  Bodeguero:     "bg-amber-500/8 border-amber-500/20",
-  "Sin Rol":     "bg-muted/30 border-border/40",
-}
+import { DISPLAY_ROLES, PERMISSION_GROUPS, ROLE_PERMISSIONS_MATRIX, ROLE_STYLE, type RoleName } from "@/lib/role-permissions-matrix"
 
 export function RolPermisoMatrix() {
   return (
@@ -39,7 +23,7 @@ export function RolPermisoMatrix() {
                 </th>
                 {DISPLAY_ROLES.map((role) => (
                   <th key={role} scope="col" className="px-4 py-3 text-center text-xs font-bold">
-                    <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 ${ROLE_BG[role]} ${ROLE_COLORS[role]}`}>
+                    <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 ${ROLE_STYLE[role].bg} ${ROLE_STYLE[role].text}`}>
                       {role}
                     </span>
                   </th>

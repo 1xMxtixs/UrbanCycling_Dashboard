@@ -151,3 +151,38 @@ export const DISPLAY_ROLES: RoleName[] = [
   "Mecánico",
   "Bodeguero",
 ]
+
+export const ROLE_STYLE: Record<RoleName, { text: string; bg: string; avatar: string }> = {
+  Administrador: {
+    text: "text-violet-600 dark:text-violet-400",
+    bg: "bg-violet-500/8 border-violet-500/20",
+    avatar: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  },
+  Vendedor: {
+    text: "text-sky-600 dark:text-sky-400",
+    bg: "bg-sky-500/8 border-sky-500/20",
+    avatar: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  },
+  "Mecánico": {
+    text: "text-indigo-600 dark:text-indigo-400",
+    bg: "bg-indigo-500/8 border-indigo-500/20",
+    avatar: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  },
+  Bodeguero: {
+    text: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-500/8 border-amber-500/20",
+    avatar: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  "Sin Rol": {
+    text: "text-muted-foreground",
+    bg: "bg-muted/30 border-border/40",
+    avatar: "bg-muted/60 text-muted-foreground",
+  },
+};
+
+export const DEFAULT_ROLE_STYLE = {
+  text: "text-muted-foreground",
+  bg: "bg-muted/60 border-border/60",
+  avatar: "bg-muted/60 text-muted-foreground",
+};
+

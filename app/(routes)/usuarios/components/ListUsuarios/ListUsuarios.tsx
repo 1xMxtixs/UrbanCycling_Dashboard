@@ -53,6 +53,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
 import { formatClientName } from "@/lib/formatters";
+import { ROLE_STYLE, DEFAULT_ROLE_STYLE, type RoleName } from "@/lib/role-permissions-matrix";
 import { User, Role, PENDING_ROLE_NAME } from "../../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,34 +69,6 @@ function formatDate(date: string | null) {
 
 function getUserInitials(user: User): string {
   return `${user.primerNombre?.[0] ?? ""}${user.apellidoPaterno?.[0] ?? ""}`.toUpperCase() || "U";
-}
-
-const ROLE_BADGE: Record<string, { pill: string; avatar: string }> = {
-  Administrador: {
-    pill: "bg-violet-500/10 text-violet-600 border border-violet-500/20 dark:text-violet-400",
-    avatar: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  },
-  Vendedor: {
-    pill: "bg-sky-500/10 text-sky-600 border border-sky-500/20 dark:text-sky-400",
-    avatar: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  },
-  "Mecánico": {
-    pill: "bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 dark:text-indigo-400",
-    avatar: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-  },
-  Bodeguero: {
-    pill: "bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400",
-    avatar: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-};
-
-const DEFAULT_BADGE = {
-  pill: "bg-muted/60 text-muted-foreground border border-border/60",
-  avatar: "bg-muted/60 text-muted-foreground",
-};
-
-function getRoleBadge(roleName: string) {
-  return ROLE_BADGE[roleName] ?? DEFAULT_BADGE;
 }
 
 // ─── Sub-componente: fila de usuario ──────────────────────────────────────────
@@ -114,14 +87,14 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
   const hasRoleChanged = Number(selectedRoleId) !== user.rol.idRol;
   const isPending = user.rol.nombre === PENDING_ROLE_NAME;
   const fullName = formatClientName(user);
-  const badge = getRoleBadge(user.rol.nombre);
+  const style = ROLE_STYLE[user.rol.nombre as RoleName] ?? DEFAULT_ROLE_STYLE;
 
   return (
     <TableRow key={user.idUsuario} className="group">
       <TableCell>
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 rounded-xl shrink-0 border border-border shadow-2xs">
-            <AvatarFallback className={`rounded-xl text-xs font-bold ${badge.avatar}`}>
+            <AvatarFallback className={`rounded-xl text-xs font-bold ${style.avatar}`}>
               {getUserInitials(user)}
             </AvatarFallback>
           </Avatar>
@@ -139,7 +112,7 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
       </TableCell>
 
       <TableCell>
-        <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${badge.pill}`}>
+        <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${style.bg} ${style.text}`}>
           {user.rol.nombre}
         </span>
       </TableCell>
