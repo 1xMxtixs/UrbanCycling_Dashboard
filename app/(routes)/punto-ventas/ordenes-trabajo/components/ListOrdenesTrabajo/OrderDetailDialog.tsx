@@ -52,6 +52,7 @@ interface OrderDetailDialogProps {
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
+  onAssignSuppliesClick?: (order: WorkOrder) => void
 }
 
 export function OrderDetailDialog({
@@ -62,6 +63,7 @@ export function OrderDetailDialog({
   onRescheduleClick,
   onCancelClick,
   onStatusChange,
+  onAssignSuppliesClick,
 }: OrderDetailDialogProps) {
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
 
@@ -80,9 +82,11 @@ export function OrderDetailDialog({
     0
   )
 
+  const total = Number(order.total)
+  const montoNeto = Math.round(total / 1.19)
+
   const transitions = getAvailableTransitions(order.estadoOrden)
   const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
-  const total = Number(order.total)
   const totalPagado = Number(order.totalPagado || 0)
   const isPaid =
     order.estadoPago?.toLowerCase() === "pagada" ||
@@ -221,21 +225,34 @@ export function OrderDetailDialog({
 
           {/* 3.5. Costos y Repuestos */}
           <div className="space-y-3 rounded-xl bg-muted/30 border border-border p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
-              <ShoppingBag className="h-4 w-4 text-primary" />
-              Detalle de Costos y Repuestos
-            </h4>
+            <div className="flex items-center justify-between border-b border-border pb-1.5">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground">
+                <ShoppingBag className="h-4 w-4 text-primary" />
+                Detalle de Costos y Insumos
+              </h4>
+              {onAssignSuppliesClick && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAssignSuppliesClick(order)}
+                  className="h-7 text-xs font-semibold gap-1 border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
+                >
+                  <Wrench className="h-3.5 w-3.5" />
+                  Asignar Insumos / Valorizar
+                </Button>
+              )}
+            </div>
 
-            {productLines.length > 0 && (
+            {productLines.length > 0 ? (
               <div className="space-y-2">
                 <span className="text-xs text-muted-foreground block font-bold">
-                  Repuestos / Productos Usados:
+                  Insumos y Repuestos Utilizados:
                 </span>
                 <div className="rounded-lg border border-border bg-background overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
-                        <th className="px-3 py-2">Producto</th>
+                        <th className="px-3 py-2">Producto / Insumo</th>
                         <th className="px-3 py-2 text-center">Cant</th>
                         <th className="px-3 py-2 text-right">Precio Unit.</th>
                         <th className="px-3 py-2 text-right">Subtotal</th>
@@ -252,10 +269,10 @@ export function OrderDetailDialog({
                             <td className="px-3 py-2 text-center font-bold text-foreground">
                               {line.cantidad}
                             </td>
-                            <td className="px-3 py-2 text-right text-foreground">
+                            <td className="px-3 py-2 text-right text-foreground font-mono">
                               ${Number(line.precioUnitario).toLocaleString("es-CL")}
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-foreground">
+                            <td className="px-3 py-2 text-right font-bold text-foreground font-mono">
                               ${subtotal.toLocaleString("es-CL")}
                             </td>
                           </tr>
@@ -265,20 +282,29 @@ export function OrderDetailDialog({
                   </table>
                 </div>
               </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                No se han cargado insumos o repuestos adicionales a esta orden.
+              </p>
             )}
 
-            <div className="grid grid-cols-3 gap-3 border-t border-border/50 pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/50 pt-4">
               <DataField
-                label="Total repuestos"
+                label="Total Repuestos"
                 value={`$${productsCost.toLocaleString("es-CL")}`}
               />
               <DataField
-                label="Monto servicio"
+                label="Monto Servicio"
                 value={`$${laborCost.toLocaleString("es-CL")}`}
               />
               <DataField
-                label="Monto total"
+                label="Monto Neto"
+                value={`$${montoNeto.toLocaleString("es-CL")}`}
+              />
+              <DataField
+                label="Monto Total"
                 value={`$${Number(order.total).toLocaleString("es-CL")}`}
+                valueClassName="text-primary font-black"
               />
             </div>
           </div>

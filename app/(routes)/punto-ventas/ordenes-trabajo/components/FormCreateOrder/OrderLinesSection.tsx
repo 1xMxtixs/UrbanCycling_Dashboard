@@ -178,7 +178,7 @@ export function OrderLinesSection({
 
       {/* Summary calculations displays con DataField */}
       <div className="flex justify-end border-t border-border pt-4">
-        <div className="grid w-full grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-3">
+        <div className="grid w-full grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-4">
           <DataField
             label="Total Repuestos"
             value={`$${totalProductsCost.toLocaleString("es-CL")}`}
@@ -188,9 +188,13 @@ export function OrderLinesSection({
             value={`$${montoServicio.toLocaleString("es-CL")}`}
           />
           <DataField
+            label="Monto Neto"
+            value={`$${Math.round(grandTotal / 1.19).toLocaleString("es-CL")}`}
+          />
+          <DataField
             label="Monto Total"
             value={`$${grandTotal.toLocaleString("es-CL")}`}
-            valueClassName="text-primary font-black"
+            valueClassName="text-primary font-black text-sm"
           />
         </div>
       </div>
