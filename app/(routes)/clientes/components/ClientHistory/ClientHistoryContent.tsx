@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { User, Building2, Phone, Mail, MapPin, Calendar, ClipboardList, Wrench, Search, CheckCircle2, Clock, Banknote } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
 import type { DBCliente } from "../../types";
-import { WorkOrderHistoryItem } from "./WorkOrderHistoryItem";
+import { WorkOrderHistoryItem, getOrderStatusConfig } from "./WorkOrderHistoryItem";
 
 export function ClientHistoryContent({
   cliente,
@@ -41,8 +41,8 @@ export function ClientHistoryContent({
   const fullName = formatClientName(cliente);
   const initials = isNat ? `${cliente.primerNombre?.[0] || ""}${cliente.apellidoPaterno?.[0] || ""}`.toUpperCase() : (cliente.razonSocial?.slice(0, 2) || "PJ").toUpperCase();
   const total = ordenes.reduce((acc, ord) => acc + Number(ord.total || 0), 0);
-  const completadas = ordenes.filter((ord) => ["listo para entregar", "entregado"].includes(ord.estadoOrden.toLowerCase())).length;
-  const enProceso = ordenes.filter((ord) => ["en curso", "en espera", "por realizar"].includes(ord.estadoOrden.toLowerCase())).length;
+  const completadas = ordenes.filter((ord) => getOrderStatusConfig(ord.estadoOrden).status === "success").length;
+  const enProceso = ordenes.filter((ord) => ["info", "warning"].includes(getOrderStatusConfig(ord.estadoOrden).status)).length;
 
   return (
     <div className="flex flex-col h-full space-y-6">
