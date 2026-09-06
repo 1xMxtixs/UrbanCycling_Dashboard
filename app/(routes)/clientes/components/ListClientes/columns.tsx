@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, Eye, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -34,14 +34,21 @@ const CellActions = <TData extends { id: number }>({
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => meta?.onViewDetails?.(client.id)}
           className="flex cursor-pointer items-center gap-2"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 text-muted-foreground" />
           Ver Detalle
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => meta?.onViewHistory?.(client.id)}
+          className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
+        >
+          <ClipboardList className="h-4 w-4 text-primary" />
+          Historial de Órdenes
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
