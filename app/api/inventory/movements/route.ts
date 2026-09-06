@@ -245,6 +245,13 @@ export async function POST(request: Request) {
       )
     }
 
+    const stockBajo = result.stockNuevo <= result.product.stockMinimo
+    const cruzoUmbral =
+      result.stockAnterior > result.product.stockMinimo && stockBajo
+    const stockNormalizado =
+      result.stockAnterior <= result.product.stockMinimo &&
+      result.stockNuevo > result.product.stockMinimo
+
     return NextResponse.json(
       {
         code: "MOVIMIENTO_REGISTRADO",
@@ -258,6 +265,32 @@ export async function POST(request: Request) {
           stockAnterior: result.stockAnterior,
           stockNuevo: result.stockNuevo,
         },
+        alert: stockBajo
+          ? {
+              code: "STOCK_BAJO_DETECTADO",
+              message: cruzoUmbral
+                ? `${result.product.nombre} alcanzó su umbral crítico de stock.`
+                : `${result.product.nombre} continúa con stock igual o inferior a su umbral mínimo.`,
+              product: {
+                idProducto,
+                nombre: result.product.nombre,
+                stockActual: result.stockNuevo,
+                stockMinimo: result.product.stockMinimo,
+              },
+              cruzoUmbral,
+            }
+          : stockNormalizado
+            ? {
+                code: "STOCK_NORMALIZADO",
+                message: `El stock de ${result.product.nombre} fue normalizado.`,
+                product: {
+                  idProducto,
+                  nombre: result.product.nombre,
+                  stockActual: result.stockNuevo,
+                  stockMinimo: result.product.stockMinimo,
+                },
+              }
+            : null,
       },
       { status: 201 },
     )
