@@ -68,6 +68,7 @@ export interface DBCliente {
   razonSocial?: string | null;
   giro?: string | null;
   nombreContacto?: string | null;
+  correo?: string | null;
   estado: string;
   fechaCreacion: string;
   telefonos: DBTelefonoCliente[];
@@ -78,4 +79,5 @@ export interface DBCliente {
 
 export interface ClientesTableMeta {
   onViewDetails?: (id: number) => void;
+  onViewHistory?: (id: number) => void;
 }
