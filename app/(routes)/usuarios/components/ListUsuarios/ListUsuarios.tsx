@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
-  ChevronDown,
   MoreHorizontal,
   RotateCcw,
   Shield,
@@ -68,17 +67,10 @@ function formatDate(date: string | null) {
 }
 
 function getUserInitials(user: User): string {
-  const first = user.primerNombre?.[0] ?? "";
-  const last = user.apellidoPaterno?.[0] ?? "";
-  return `${first}${last}`.toUpperCase() || "U";
+  return `${user.primerNombre?.[0] ?? ""}${user.apellidoPaterno?.[0] ?? ""}`.toUpperCase() || "U";
 }
 
-type RoleBadgeVariant = {
-  pill: string;
-  avatar: string;
-};
-
-const ROLE_BADGE: Record<string, RoleBadgeVariant> = {
+const ROLE_BADGE: Record<string, { pill: string; avatar: string }> = {
   Administrador: {
     pill: "bg-violet-500/10 text-violet-600 border border-violet-500/20 dark:text-violet-400",
     avatar: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -87,7 +79,7 @@ const ROLE_BADGE: Record<string, RoleBadgeVariant> = {
     pill: "bg-sky-500/10 text-sky-600 border border-sky-500/20 dark:text-sky-400",
     avatar: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   },
-  Mecánico: {
+  "Mecánico": {
     pill: "bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 dark:text-indigo-400",
     avatar: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
   },
@@ -97,16 +89,131 @@ const ROLE_BADGE: Record<string, RoleBadgeVariant> = {
   },
 };
 
-function getRoleBadge(roleName: string): RoleBadgeVariant {
+const DEFAULT_BADGE = {
+  pill: "bg-muted/60 text-muted-foreground border border-border/60",
+  avatar: "bg-muted/60 text-muted-foreground",
+};
+
+function getRoleBadge(roleName: string) {
+  return ROLE_BADGE[roleName] ?? DEFAULT_BADGE;
+}
+
+// ─── Sub-componente: fila de usuario ──────────────────────────────────────────
+
+interface UserRowProps {
+  user: User;
+  roles: Role[];
+  selectedRoleId: string;
+  isSaving: boolean;
+  onRoleChange: (userId: number, value: string) => void;
+  onSave: (user: User) => void;
+  onRevoke: (user: User) => void;
+}
+
+function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, onRevoke }: UserRowProps) {
+  const hasRoleChanged = Number(selectedRoleId) !== user.rol.idRol;
+  const isPending = user.rol.nombre === PENDING_ROLE_NAME;
+  const fullName = formatClientName(user);
+  const badge = getRoleBadge(user.rol.nombre);
+
   return (
-    ROLE_BADGE[roleName] ?? {
-      pill: "bg-muted/60 text-muted-foreground border border-border/60",
-      avatar: "bg-muted/60 text-muted-foreground",
-    }
+    <TableRow key={user.idUsuario} className="group">
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9 rounded-xl shrink-0 border border-border shadow-2xs">
+            <AvatarFallback className={`rounded-xl text-xs font-bold ${badge.avatar}`}>
+              {getUserInitials(user)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground truncate">{fullName}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.correoElectronico}</p>
+          </div>
+        </div>
+      </TableCell>
+
+      <TableCell>
+        <span className="text-xs font-mono font-semibold text-foreground bg-muted/50 px-2 py-1 rounded-lg border border-border/60">
+          {user.rut}
+        </span>
+      </TableCell>
+
+      <TableCell>
+        <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${badge.pill}`}>
+          {user.rol.nombre}
+        </span>
+      </TableCell>
+
+      <TableCell>
+        <span className="text-xs text-muted-foreground font-medium">{formatDate(user.fechaCreacion)}</span>
+      </TableCell>
+      <TableCell>
+        <span className="text-xs text-muted-foreground font-medium">{formatDate(user.ultimoAcceso)}</span>
+      </TableCell>
+
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Select
+            value={selectedRoleId}
+            onValueChange={(v) => onRoleChange(user.idUsuario, v)}
+            disabled={isSaving}
+          >
+            <SelectTrigger
+              className="w-36 h-9 rounded-xl bg-background border-border/80 text-xs font-medium cursor-pointer"
+              aria-label={`Seleccionar nuevo rol para ${fullName}`}
+            >
+              <SelectValue placeholder="Seleccionar rol" />
+            </SelectTrigger>
+            <SelectContent position="popper" className="rounded-xl border-border/80">
+              {roles.map((role) => (
+                <SelectItem key={role.idRol} value={String(role.idRol)} className="text-xs">
+                  {role.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="icon"
+            onClick={() => onSave(user)}
+            disabled={!hasRoleChanged || isSaving}
+            aria-label={`Guardar nuevo rol para ${fullName}`}
+            className="rounded-xl h-9 w-9 shrink-0 cursor-pointer"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </TableCell>
+
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-xl cursor-pointer"
+              aria-label={`Acciones para ${fullName}`}
+              disabled={isSaving}
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl border-border/80 w-44">
+            <DropdownMenuItem
+              className="gap-2 text-destructive focus:text-destructive cursor-pointer rounded-lg"
+              disabled={isPending || isSaving}
+              onClick={() => onRevoke(user)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Quitar rol
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   );
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export function ListUsuarios() {
   const [users, setUsers] = useState<User[]>([]);
@@ -121,32 +228,23 @@ export function ListUsuarios() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
-
     try {
-      const [usersResponse, rolesResponse] = await Promise.all([
+      const [usersRes, rolesRes] = await Promise.all([
         fetch("/api/users", { cache: "no-store" }),
         fetch("/api/roles", { cache: "no-store" }),
       ]);
-
-      if (!usersResponse.ok || !rolesResponse.ok) {
-        setErrorMessage(
-          "No fue posible cargar la información de usuarios y roles."
-        );
+      if (!usersRes.ok || !rolesRes.ok) {
+        setErrorMessage("No fue posible cargar la información de usuarios y roles.");
         setUsers([]);
         setRoles([]);
         return;
       }
-
-      const [usersData, rolesData] = (await Promise.all([
-        usersResponse.json(),
-        rolesResponse.json(),
-      ])) as [User[], Role[]];
-
+      const [usersData, rolesData] = (await Promise.all([usersRes.json(), rolesRes.json()])) as [User[], Role[]];
       setUsers(usersData);
       setRoles(rolesData);
       setSelectedRoles(
-        usersData.reduce<Record<number, string>>((acc, user) => {
-          acc[user.idUsuario] = String(user.rol.idRol);
+        usersData.reduce<Record<number, string>>((acc, u) => {
+          acc[u.idUsuario] = String(u.rol.idRol);
           return acc;
         }, {})
       );
@@ -156,135 +254,76 @@ export function ListUsuarios() {
   }, []);
 
   useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      loadData();
-    }, 0);
-    return () => window.clearTimeout(timerId);
+    const id = window.setTimeout(() => loadData(), 0);
+    return () => window.clearTimeout(id);
   }, [loadData]);
 
   const filteredUsers = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    if (!normalizedSearch) return users;
-
-    return users.filter((user) => {
-      const fullName = formatClientName(user);
-      const searchableText = [
-        fullName,
-        user.rut,
-        user.correoElectronico,
-        user.estado,
-        user.rol.nombre,
-      ]
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) =>
+      [formatClientName(u), u.rut, u.correoElectronico, u.estado, u.rol.nombre]
         .join(" ")
-        .toLowerCase();
-      return searchableText.includes(normalizedSearch);
-    });
+        .toLowerCase()
+        .includes(q)
+    );
   }, [search, users]);
 
-  // KPI metrics
-  const totalUsers = users.length;
-  const activeUsers = users.filter(
-    (u) => u.estado?.toLowerCase() === "activo"
-  ).length;
-  const pendingUsers = users.filter(
-    (u) => u.rol.nombre === PENDING_ROLE_NAME
-  ).length;
-  const adminUsers = users.filter(
-    (u) => u.rol.nombre === "Administrador"
-  ).length;
+  const metrics = useMemo(() => ({
+    total: users.length,
+    active: users.filter((u) => u.estado?.toLowerCase() === "activo").length,
+    pending: users.filter((u) => u.rol.nombre === PENDING_ROLE_NAME).length,
+    admins: users.filter((u) => u.rol.nombre === "Administrador").length,
+  }), [users]);
 
-  async function updateUserRole(user: User) {
-    const selectedRoleId = Number(selectedRoles[user.idUsuario]);
-
-    if (selectedRoleId === user.rol.idRol) {
-      toast.info("El usuario ya posee este rol.");
-      return;
-    }
-
+  async function patchUserRole(user: User, method: "PATCH" | "DELETE") {
     setIsSavingUserId(user.idUsuario);
-
     try {
-      const response = await fetch(`/api/users/${user.idUsuario}/role`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idRol: selectedRoleId }),
+      const body = method === "PATCH"
+        ? JSON.stringify({ idRol: Number(selectedRoles[user.idUsuario]) })
+        : undefined;
+      const res = await fetch(`/api/users/${user.idUsuario}/role`, {
+        method,
+        headers: method === "PATCH" ? { "Content-Type": "application/json" } : undefined,
+        body,
       });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "No se pudo actualizar el rol.");
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "No se pudo actualizar el rol.");
       }
-
-      const updatedUser = (await response.json()) as User;
-
-      setUsers((current) =>
-        current.map((u) =>
-          u.idUsuario === updatedUser.idUsuario ? updatedUser : u
-        )
-      );
-      setSelectedRoles((current) => ({
-        ...current,
-        [updatedUser.idUsuario]: String(updatedUser.rol.idRol),
-      }));
-      toast.success("Rol actualizado correctamente.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "No se pudo actualizar el rol."
-      );
+      const updated = (await res.json()) as User;
+      setUsers((cur) => cur.map((u) => (u.idUsuario === updated.idUsuario ? updated : u)));
+      setSelectedRoles((cur) => ({ ...cur, [updated.idUsuario]: String(updated.rol.idRol) }));
+      toast.success(method === "PATCH" ? "Rol actualizado correctamente." : "Rol revocado correctamente.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el rol.");
     } finally {
       setIsSavingUserId(null);
     }
+  }
+
+  async function updateUserRole(user: User) {
+    if (Number(selectedRoles[user.idUsuario]) === user.rol.idRol) {
+      toast.info("El usuario ya posee este rol.");
+      return;
+    }
+    await patchUserRole(user, "PATCH");
   }
 
   async function confirmRemoveUserRole() {
     if (!userToRevoke) return;
     const user = userToRevoke;
     setUserToRevoke(null);
-
-    setIsSavingUserId(user.idUsuario);
-
-    try {
-      const response = await fetch(`/api/users/${user.idUsuario}/role`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "No se pudo quitar el rol.");
-      }
-
-      const updatedUser = (await response.json()) as User;
-
-      setUsers((current) =>
-        current.map((u) =>
-          u.idUsuario === updatedUser.idUsuario ? updatedUser : u
-        )
-      );
-      setSelectedRoles((current) => ({
-        ...current,
-        [updatedUser.idUsuario]: String(updatedUser.rol.idRol),
-      }));
-      toast.success("Rol revocado correctamente.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "No se pudo quitar el rol."
-      );
-    } finally {
-      setIsSavingUserId(null);
-    }
+    await patchUserRole(user, "DELETE");
   }
 
-  // ─── Estados de carga / error ──────────────────────────────────────────────
+  // ─── Loading / Error ────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
-          ))}
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
         <Skeleton className="h-10 w-64 rounded-xl" />
         <Skeleton className="h-96 rounded-2xl" />
@@ -297,11 +336,7 @@ export function ListUsuarios() {
       <Card className="border-destructive/30 rounded-2xl">
         <CardContent className="p-6">
           <p className="text-sm font-medium text-destructive">{errorMessage}</p>
-          <Button
-            variant="outline"
-            className="mt-4 rounded-xl"
-            onClick={loadData}
-          >
+          <Button variant="outline" className="mt-4 rounded-xl" onClick={loadData}>
             <RotateCcw className="h-4 w-4 mr-2" aria-hidden="true" />
             Reintentar
           </Button>
@@ -310,47 +345,21 @@ export function ListUsuarios() {
     );
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
       <div className="space-y-6 animate-in fade-in duration-300">
-        {/* KPIs */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            title="Total Usuarios"
-            value={totalUsers}
-            description="Cuentas en el sistema"
-            icon={Users}
-          />
-          <MetricCard
-            title="Usuarios Activos"
-            value={activeUsers}
-            description="Con acceso habilitado"
-            icon={UserCheck}
-          />
-          <MetricCard
-            title="Sin Rol Asignado"
-            value={pendingUsers}
-            description="Pendientes de configuración"
-            icon={UserX}
-          />
-          <MetricCard
-            title="Administradores"
-            value={adminUsers}
-            description="Cuentas con privilegios"
-            icon={Shield}
-          />
+          <MetricCard title="Total Usuarios" value={metrics.total} description="Cuentas en el sistema" icon={Users} />
+          <MetricCard title="Usuarios Activos" value={metrics.active} description="Con acceso habilitado" icon={UserCheck} />
+          <MetricCard title="Sin Rol Asignado" value={metrics.pending} description="Pendientes de configuración" icon={UserX} />
+          <MetricCard title="Administradores" value={metrics.admins} description="Cuentas con privilegios" icon={Shield} />
         </div>
 
-        {/* Tabla */}
         <DataTableContainer
           title="Gestión de Roles y Accesos"
-          description={`${filteredUsers.length} ${
-            filteredUsers.length === 1
-              ? "usuario encontrado"
-              : "usuarios encontrados"
-          }`}
+          description={`${filteredUsers.length} ${filteredUsers.length === 1 ? "usuario encontrado" : "usuarios encontrados"}`}
           searchPlaceholder="Buscar por nombre, correo, RUT o rol..."
           searchValue={search}
           onSearchChange={setSearch}
@@ -370,152 +379,18 @@ export function ListUsuarios() {
               </TableHeader>
               <TableBody>
                 {filteredUsers.length ? (
-                  filteredUsers.map((user) => {
-                    const selectedRoleId = selectedRoles[user.idUsuario];
-                    const hasRoleChanged =
-                      Number(selectedRoleId) !== user.rol.idRol;
-                    const isSaving = isSavingUserId === user.idUsuario;
-                    const isPending = user.rol.nombre === PENDING_ROLE_NAME;
-                    const fullName = formatClientName(user);
-                    const initials = getUserInitials(user);
-                    const badge = getRoleBadge(user.rol.nombre);
-
-                    return (
-                      <TableRow key={user.idUsuario} className="group">
-                        {/* Usuario */}
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9 rounded-xl shrink-0 border border-border shadow-2xs">
-                              <AvatarFallback
-                                className={`rounded-xl text-xs font-bold ${badge.avatar}`}
-                              >
-                                {initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-foreground truncate">
-                                {fullName}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {user.correoElectronico}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        {/* RUT */}
-                        <TableCell>
-                          <span className="text-xs font-mono font-semibold text-foreground bg-muted/50 px-2 py-1 rounded-lg border border-border/60">
-                            {user.rut}
-                          </span>
-                        </TableCell>
-
-                        {/* Rol actual */}
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${badge.pill}`}
-                          >
-                            {user.rol.nombre}
-                          </span>
-                        </TableCell>
-
-                        {/* Fechas */}
-                        <TableCell>
-                          <span className="text-xs text-muted-foreground font-medium">
-                            {formatDate(user.fechaCreacion)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs text-muted-foreground font-medium">
-                            {formatDate(user.ultimoAcceso)}
-                          </span>
-                        </TableCell>
-
-                        {/* Selector de rol */}
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Select
-                              value={selectedRoleId}
-                              onValueChange={(value) =>
-                                setSelectedRoles((current) => ({
-                                  ...current,
-                                  [user.idUsuario]: value,
-                                }))
-                              }
-                              disabled={isSaving}
-                            >
-                              <SelectTrigger
-                                className="w-36 h-9 rounded-xl bg-background border-border/80 text-xs font-medium cursor-pointer"
-                                aria-label={`Seleccionar nuevo rol para ${fullName}`}
-                              >
-                                <SelectValue placeholder="Seleccionar rol" />
-                              </SelectTrigger>
-                              <SelectContent
-                                position="popper"
-                                className="rounded-xl border-border/80"
-                              >
-                                {roles.map((role) => (
-                                  <SelectItem
-                                    key={role.idRol}
-                                    value={String(role.idRol)}
-                                    className="text-xs"
-                                  >
-                                    {role.nombre}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            <Button
-                              size="icon"
-                              onClick={() => updateUserRole(user)}
-                              disabled={!hasRoleChanged || isSaving}
-                              aria-label={`Guardar nuevo rol para ${fullName}`}
-                              className="rounded-xl h-9 w-9 shrink-0 cursor-pointer"
-                            >
-                              <Check className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </TableCell>
-
-                        {/* Menú de acciones */}
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 rounded-xl cursor-pointer"
-                                aria-label={`Acciones para ${fullName}`}
-                                disabled={isSaving}
-                              >
-                                <MoreHorizontal
-                                  className="h-4 w-4"
-                                  aria-hidden="true"
-                                />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="rounded-xl border-border/80 w-44"
-                            >
-                              <DropdownMenuItem
-                                className="gap-2 text-destructive focus:text-destructive cursor-pointer rounded-lg"
-                                disabled={isPending || isSaving}
-                                onClick={() => setUserToRevoke(user)}
-                              >
-                                <Trash2
-                                  className="h-4 w-4"
-                                  aria-hidden="true"
-                                />
-                                Quitar rol
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  filteredUsers.map((user) => (
+                    <UserRow
+                      key={user.idUsuario}
+                      user={user}
+                      roles={roles}
+                      selectedRoleId={selectedRoles[user.idUsuario]}
+                      isSaving={isSavingUserId === user.idUsuario}
+                      onRoleChange={(id, v) => setSelectedRoles((cur) => ({ ...cur, [id]: v }))}
+                      onSave={updateUserRole}
+                      onRevoke={setUserToRevoke}
+                    />
+                  ))
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-32 p-0">
@@ -533,39 +408,25 @@ export function ListUsuarios() {
         </DataTableContainer>
       </div>
 
-      {/* Confirmación de revocación de rol */}
-      <AlertDialog
-        open={!!userToRevoke}
-        onOpenChange={(open) => {
-          if (!open) setUserToRevoke(null);
-        }}
-      >
+      <AlertDialog open={!!userToRevoke} onOpenChange={(open) => { if (!open) setUserToRevoke(null); }}>
         <AlertDialogContent className="rounded-2xl border-border/80 shadow-2xl sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2
-                className="h-4 w-4 text-destructive"
-                aria-hidden="true"
-              />
+              <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
               Quitar rol asignado
             </AlertDialogTitle>
             <AlertDialogDescription>
               ¿Estás seguro de quitar el rol{" "}
-              <strong className="text-foreground">
-                {userToRevoke?.rol.nombre}
-              </strong>{" "}
+              <strong className="text-foreground">{userToRevoke?.rol.nombre}</strong>{" "}
               de{" "}
               <strong className="text-foreground">
                 {userToRevoke ? formatClientName(userToRevoke) : ""}
               </strong>
-              ? El usuario quedará sin acceso hasta que se le asigne un nuevo
-              rol.
+              ? El usuario quedará sin acceso hasta que se le asigne un nuevo rol.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl cursor-pointer">
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl cursor-pointer">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
               onClick={confirmRemoveUserRole}
