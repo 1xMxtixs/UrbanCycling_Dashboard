@@ -233,7 +233,10 @@ export function ListClientes() {
 
       {/* Modal de Detalles del Cliente */}
       <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
-        <DialogContent className="sm:max-w-3xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl">
+        <DialogContent
+          showCloseButton={false}
+          className="sm:max-w-4xl lg:max-w-5xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl"
+        >
           {selectedCliente && (() => {
             const isNatural = selectedCliente.tipoCliente === "natural";
             const fullName = formatClientName(selectedCliente);
