@@ -903,7 +903,16 @@ export async function POST(req: Request) {
                   montoIva: montosOrden.montoIva,
                   bicicletas: bicicletas.length
                     ? {
-                        create: bicicletas,
+                        create: bicicletas.map(({ imagenes, ...bicicleta }) => ({
+                          ...bicicleta,
+                          imagenes: imagenes.length
+                            ? {
+                                create: imagenes.map((urlImagen) => ({
+                                  urlImagen,
+                                })),
+                              }
+                            : undefined,
+                        })),
                       }
                     : undefined,
                 },
