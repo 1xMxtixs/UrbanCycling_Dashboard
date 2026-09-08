@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dialog"
 
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
+import { TransversalSearch } from "@/components/common/TransversalSearch"
+import { SearchResultItem } from "@/types/search"
 
 interface Client {
   idCliente: number
@@ -132,6 +134,56 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
       ...selectedProducts,
       { idProducto: "", cantidad: 1, precioUnitario: 0 },
     ])
+  }
+
+  const handleSelectSearchResult = (item: SearchResultItem) => {
+    if (item.tipo === "servicio") {
+      toast.info(`"${item.nombre}" es un servicio de taller. Las ventas directas son para productos e insumos de mostrador.`)
+      return
+    }
+
+    if ((item.stockActual ?? 0) <= 0) {
+      toast.warning(`"${item.nombre}" no tiene stock disponible (0 unidades).`)
+    }
+
+    const existingIndex = selectedProducts.findIndex(
+      (p) => p.idProducto === item.id.toString()
+    )
+
+    if (existingIndex !== -1) {
+      const updated = [...selectedProducts]
+      const currentQty = updated[existingIndex].cantidad
+      const stock = item.stockActual ?? 0
+      if (stock > 0 && currentQty >= stock) {
+        toast.warning(`Ya alcanzaste el stock máximo (${stock}) para ${item.nombre}.`)
+        return
+      }
+      updated[existingIndex].cantidad += 1
+      setSelectedProducts(updated)
+      toast.success(`Se aumentó la cantidad de "${item.nombre}" a ${updated[existingIndex].cantidad}.`)
+    } else {
+      // Si hay una fila vacía no configurada, usarla
+      const emptyRowIndex = selectedProducts.findIndex((p) => !p.idProducto)
+      if (emptyRowIndex !== -1) {
+        const updated = [...selectedProducts]
+        updated[emptyRowIndex] = {
+          idProducto: item.id.toString(),
+          cantidad: 1,
+          precioUnitario: item.precioVenta,
+        }
+        setSelectedProducts(updated)
+      } else {
+        setSelectedProducts([
+          ...selectedProducts,
+          {
+            idProducto: item.id.toString(),
+            cantidad: 1,
+            precioUnitario: item.precioVenta,
+          },
+        ])
+      }
+      toast.success(`"${item.nombre}" agregado a la venta.`)
+    }
   }
 
   const handleRemoveProduct = (index: number) => {
@@ -365,7 +417,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
 
         {/* Listado de Productos */}
         <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
             <Label className="text-sm font-bold flex items-center gap-1">
               <ShoppingBag className="h-4 w-4 text-primary" />
               Productos / Accesorios a Vender
@@ -375,11 +427,21 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
               variant="outline"
               size="sm"
               onClick={handleAddProduct}
-              className="h-8 text-xs font-semibold flex items-center gap-1"
+              className="h-8 text-xs font-semibold flex items-center gap-1 self-end sm:self-auto"
             >
               <Plus className="h-3.5 w-3.5" />
-              Añadir Línea
+              Añadir Línea Manual
             </Button>
+          </div>
+
+          {/* Buscador Transversal integrado */}
+          <div className="bg-slate-50/70 dark:bg-slate-900/30 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+            <TransversalSearch
+              onSelect={handleSelectSearchResult}
+              placeholder="Buscar producto por nombre o descripción para agregarlo..."
+              filterType="producto"
+              className="max-w-none"
+            />
           </div>
 
           {selectedProducts.length === 0 ? (

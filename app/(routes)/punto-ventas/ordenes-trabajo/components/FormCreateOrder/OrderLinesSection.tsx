@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DataField } from "@/components/common/DataField"
+import { TransversalSearch } from "@/components/common/TransversalSearch"
+import { SearchResultItem } from "@/types/search"
 
 export interface Product {
   idProducto: number
@@ -38,6 +40,7 @@ interface OrderLinesSectionProps {
   onRemoveProduct: (index: number) => void
   onProductChange: (index: number, idProducto: string) => void
   onProductQuantityChange: (index: number, cantidad: number) => void
+  onSelectTransversalItem?: (item: SearchResultItem) => void
 }
 
 export function OrderLinesSection({
@@ -51,6 +54,7 @@ export function OrderLinesSection({
   onRemoveProduct,
   onProductChange,
   onProductQuantityChange,
+  onSelectTransversalItem,
 }: OrderLinesSectionProps) {
   return (
     <div className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs">
@@ -58,6 +62,21 @@ export function OrderLinesSection({
         <ShoppingBag className="h-4.5 w-4.5 text-primary" />
         Servicio y Productos (Repuestos)
       </h3>
+
+      {/* Buscador Transversal Compartido */}
+      {onSelectTransversalItem && (
+        <div className="bg-muted/40 p-3 rounded-xl border border-border/80 space-y-1.5">
+          <Label className="text-xs font-bold text-foreground">
+            Búsqueda Rápida de Productos y Servicios
+          </Label>
+          <TransversalSearch
+            onSelect={onSelectTransversalItem}
+            placeholder="Buscar repuesto (producto) o servicio para agregar a la orden..."
+            filterType="all"
+            className="max-w-none"
+          />
+        </div>
+      )}
 
       {/* Monto de Servicio Input */}
       <div className="max-w-xs space-y-1.5">
@@ -82,9 +101,20 @@ export function OrderLinesSection({
 
       {/* Dynamic Products Input */}
       <div className="space-y-3">
-        <Label className="text-xs font-bold text-foreground">
-          Productos/Repuestos Usados
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-bold text-foreground">
+            Productos/Repuestos Usados
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAddProduct}
+            className="flex h-7 items-center gap-1 px-2 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" /> Línea Manual
+          </Button>
+        </div>
 
         {selectedProducts.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">

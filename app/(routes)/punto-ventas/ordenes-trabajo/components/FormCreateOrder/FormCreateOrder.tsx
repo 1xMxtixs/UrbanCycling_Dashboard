@@ -31,6 +31,7 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 import { BikesSection, BikeInput } from "./BikesSection"
 import { OrderLinesSection, Product, SelectedProduct } from "./OrderLinesSection"
 import { PaymentInitialSection } from "./PaymentInitialSection"
+import { SearchResultItem } from "@/types/search"
 
 interface Client {
   idCliente: number
@@ -238,6 +239,58 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       ...selectedProducts,
       { idProducto: "", cantidad: 1, precioUnitario: 0 },
     ])
+  }
+
+  const handleSelectTransversalItem = (item: SearchResultItem) => {
+    if (item.tipo === "servicio") {
+      // Asignar o sumar al monto de mano de obra
+      setMontoServicio((prev) => prev + item.precioVenta)
+      toast.success(`Servicio "${item.nombre}" añadido. Monto acumulado: $${(montoServicio + item.precioVenta).toLocaleString("es-CL")}`)
+      return
+    }
+
+    // Si es producto
+    if ((item.stockActual ?? 0) <= 0) {
+      toast.warning(`"${item.nombre}" no tiene stock disponible (0 unidades).`)
+    }
+
+    const existingIndex = selectedProducts.findIndex(
+      (p) => p.idProducto === item.id.toString()
+    )
+
+    if (existingIndex !== -1) {
+      const updated = [...selectedProducts]
+      const currentQty = updated[existingIndex].cantidad
+      const stock = item.stockActual ?? 0
+      if (stock > 0 && currentQty >= stock) {
+        toast.warning(`Ya alcanzaste el stock máximo (${stock}) para ${item.nombre}.`)
+        return
+      }
+      updated[existingIndex].cantidad += 1
+      setSelectedProducts(updated)
+      toast.success(`Se aumentó la cantidad de repuesto "${item.nombre}" a ${updated[existingIndex].cantidad}.`)
+    } else {
+      const emptyRowIndex = selectedProducts.findIndex((p) => !p.idProducto)
+      if (emptyRowIndex !== -1) {
+        const updated = [...selectedProducts]
+        updated[emptyRowIndex] = {
+          idProducto: item.id.toString(),
+          cantidad: 1,
+          precioUnitario: item.precioVenta,
+        }
+        setSelectedProducts(updated)
+      } else {
+        setSelectedProducts([
+          ...selectedProducts,
+          {
+            idProducto: item.id.toString(),
+            cantidad: 1,
+            precioUnitario: item.precioVenta,
+          },
+        ])
+      }
+      toast.success(`Repuesto "${item.nombre}" agregado a la orden.`)
+    }
   }
 
   const handleRemoveProduct = (index: number) => {
@@ -559,6 +612,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           onRemoveProduct={handleRemoveProduct}
           onProductChange={handleProductChange}
           onProductQuantityChange={handleProductQuantityChange}
+          onSelectTransversalItem={handleSelectTransversalItem}
         />
 
         <PaymentInitialSection

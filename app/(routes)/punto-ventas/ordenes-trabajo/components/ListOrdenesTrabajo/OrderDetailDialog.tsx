@@ -11,10 +11,15 @@ import {
   ChevronUp,
   CalendarClock,
   XCircle,
+  Plus,
+  Loader2,
 } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { TransversalSearch } from "@/components/common/TransversalSearch"
+import { SearchResultItem } from "@/types/search"
 import {
   Dialog,
   DialogContent,
@@ -64,6 +69,7 @@ export function OrderDetailDialog({
   onStatusChange,
 }: OrderDetailDialogProps) {
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
+  const [isAddingService, setIsAddingService] = useState(false)
 
   if (!order) return null
 
@@ -225,6 +231,56 @@ export function OrderDetailDialog({
               <ShoppingBag className="h-4 w-4 text-primary" />
               Detalle de Costos y Repuestos
             </h4>
+
+            {/* Buscador transversal para agregar servicios a la orden en curso */}
+            {!["Entregado", "Anulada"].includes(order.estadoOrden) && (
+              <div className="bg-background border border-border rounded-xl p-3 space-y-1.5">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus className="h-3 w-3" />
+                  Agregar Servicio a esta Orden
+                </p>
+                <TransversalSearch
+                  filterType="servicio"
+                  onSelect={async (item) => {
+                    if (item.tipo !== "servicio") return
+                    setIsAddingService(true)
+                    try {
+                      const res = await fetch(
+                        `/api/ordenes-trabajo/${order.idOrdenDeTrabajo}/servicios`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ idServicio: item.id, cantidad: 1 }),
+                        }
+                      )
+                      const data = await res.json()
+                      if (!res.ok) {
+                        const { toast } = await import("sonner")
+                        toast.error(data.message || "No se pudo agregar el servicio.")
+                        return
+                      }
+                      const { toast } = await import("sonner")
+                      toast.success(`Servicio "${item.nombre}" agregado a la orden correctamente.`)
+                      window.dispatchEvent(new Event("work-orders:refresh"))
+                    } catch {
+                      const { toast } = await import("sonner")
+                      toast.error("Error de conexión al agregar el servicio.")
+                    } finally {
+                      setIsAddingService(false)
+                    }
+                  }}
+                  placeholder="Buscar servicio técnico para agregar..."
+                  className="max-w-none"
+                  disableOutOfStock={false}
+                />
+                {isAddingService && (
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    Agregando servicio...
+                  </div>
+                )}
+              </div>
+            )}
 
             {productLines.length > 0 && (
               <div className="space-y-2">
