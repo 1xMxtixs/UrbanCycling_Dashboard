@@ -5,6 +5,10 @@
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import {
+  recalcularTotalesOrdenTrabajo,
+  WorkOrderTotalsError,
+} from "@/lib/stored-procedures";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
@@ -486,7 +490,10 @@ export async function PATCH(
       }
     }
 
-    if (tieneDescuento && Number.isNaN(Number(descuento))) {
+    if (
+      tieneDescuento &&
+      (!Number.isFinite(Number(descuento)) || Number(descuento) < 0)
+    ) {
       return NextResponse.json(
         {
           code: "DESCUENTO_INVALIDO",
@@ -592,6 +599,10 @@ export async function PATCH(
         },
       });
 
+      if (tieneDescuento) {
+        await recalcularTotalesOrdenTrabajo(tx, parsed.id);
+      }
+
       if (Object.keys(cambiosAuditoria).length > 0) {
         await registrarAuditoriaOrdenTrabajo(tx, {
           idUsuario: session.user.idUsuario,
@@ -623,7 +634,27 @@ export async function PATCH(
         });
       }
 
-      return orden;
+      return tx.ordenDeTrabajo.findUniqueOrThrow({
+        where: {
+          idOrdenDeTrabajo: parsed.id,
+        },
+        include: {
+          venta: {
+            include: {
+              usuario: true,
+              cliente: true,
+            },
+          },
+          mecanico: true,
+          bicicletas: true,
+          lineasDeOrdenDeTrabajo: {
+            include: {
+              producto: true,
+              servicio: true,
+            },
+          },
+        },
+      });
     });
 
     return NextResponse.json({
@@ -632,6 +663,16 @@ export async function PATCH(
       ordenTrabajo: adaptarOrdenTrabajo(ordenActualizada),
     });
   } catch (error) {
+    if (error instanceof WorkOrderTotalsError) {
+      return NextResponse.json(
+        {
+          code: error.code,
+          message: error.message,
+        },
+        { status: 400 }
+      );
+    }
+
     console.log("[PUNTO_VENTA_DETALLE_PATCH]", error);
 
     return NextResponse.json(
