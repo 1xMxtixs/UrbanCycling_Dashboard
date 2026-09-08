@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle, Wrench } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -32,14 +32,6 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
   const order = row.original as WorkOrder
   const meta = table.options.meta as any
   const transitions = getAvailableTransitions(order.estadoOrden)
-  const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
-
-  const total = Number(order.total)
-  const totalPagado = Number(order.totalPagado || 0)
-  const isPaid =
-    order.estadoPago?.toLowerCase() === "pagada" ||
-    order.estadoPago?.toLowerCase() === "pagado" ||
-    Math.max(0, total - totalPagado) === 0
 
   return (
     <DropdownMenu>
@@ -62,54 +54,6 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           <Eye className="h-4 w-4" />
           Ver Detalle
         </DropdownMenuItem>
-
-        {canCancel && (
-          <DropdownMenuItem
-            onClick={() => meta?.onAssignSuppliesClick?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-medium"
-          >
-            <Wrench className="h-4 w-4" />
-            Asignar Insumos / Valorizar
-          </DropdownMenuItem>
-        )}
-
-        {isPaid && (
-          <DropdownMenuItem
-            onClick={() => meta?.onGenerateReceipt?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-          >
-            <FileText className="h-4 w-4" />
-            Generar Boleta
-          </DropdownMenuItem>
-        )}
-
-        {order.estadoPago?.toLowerCase() !== "pagada" && (
-          <DropdownMenuItem
-            onClick={() => meta?.onPayClick?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-          >
-            <Coins className="h-4 w-4" />
-            Registrar Pago
-          </DropdownMenuItem>
-        )}
-
-        <DropdownMenuItem
-          onClick={() => meta?.onRescheduleClick?.(order)}
-          className="flex cursor-pointer items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold"
-        >
-          <CalendarClock className="h-4 w-4" />
-          Reprogramar Entrega
-        </DropdownMenuItem>
-
-        {canCancel && (
-          <DropdownMenuItem
-            onClick={() => meta?.onCancelClick?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold"
-          >
-            <XCircle className="h-4 w-4" />
-            Anular Orden
-          </DropdownMenuItem>
-        )}
 
         {transitions.length > 0 && (
           <>

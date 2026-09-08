@@ -11,6 +11,11 @@ import {
   ChevronUp,
   CalendarClock,
   XCircle,
+  Pencil,
+  Printer,
+  Download,
+  Mail,
+  MoreHorizontal,
 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -26,6 +31,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
@@ -230,17 +236,6 @@ export function OrderDetailDialog({
                 <ShoppingBag className="h-4 w-4 text-primary" />
                 Detalle de Costos y Insumos
               </h4>
-              {onAssignSuppliesClick && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onAssignSuppliesClick(order)}
-                  className="h-7 text-xs font-semibold gap-1 border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
-                >
-                  <Wrench className="h-3.5 w-3.5" />
-                  Asignar Insumos / Valorizar
-                </Button>
-              )}
             </div>
 
             {productLines.length > 0 ? (
@@ -464,71 +459,92 @@ export function OrderDetailDialog({
         </div>
 
         {/* Acciones en el pie del Modal */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-          <div>
-            {!isPaid && onPayClick && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => onPayClick(order)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-              >
-                <Coins className="h-4 w-4 mr-1.5" />
-                Registrar Pago Restante
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {canCancel && onCancelClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onCancelClick(order)}
-                className="gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
-              >
-                <XCircle className="h-4 w-4" />
-                Anular
-              </Button>
-            )}
-            {onRescheduleClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRescheduleClick(order)}
-                className="gap-1.5 text-amber-700 dark:text-amber-400"
-              >
-                <CalendarClock className="h-4 w-4" />
-                Reprogramar
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Cerrar
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          {/* [Editar] — abre asignación de insumos / valorización */}
+          {canCancel && onAssignSuppliesClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAssignSuppliesClick(order)}
+              className="gap-1.5 cursor-pointer"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar
             </Button>
-            {transitions.length > 0 && onStatusChange && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="flex items-center gap-1">
-                    Mover Estado
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {transitions.map((nextState) => (
-                    <DropdownMenuItem
-                      key={nextState}
-                      onClick={() =>
-                        onStatusChange(order.idOrdenDeTrabajo, nextState)
-                      }
-                      className="cursor-pointer font-semibold text-xs"
-                    >
-                      Mover a:{" "}
-                      <strong className="ml-1 text-primary">{nextState}</strong>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+          )}
+
+          {/* [Registrar Pago Restante] */}
+          {!isPaid && onPayClick && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onPayClick(order)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 cursor-pointer"
+            >
+              <Coins className="h-4 w-4" />
+              Registrar Pago Restante
+            </Button>
+          )}
+
+          {/* [Más acciones ▾] */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                <MoreHorizontal className="h-4 w-4" />
+                Más acciones
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              {onRescheduleClick && (
+                <DropdownMenuItem
+                  onClick={() => onRescheduleClick(order)}
+                  className="flex cursor-pointer items-center gap-2"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  Reprogramar Entrega
+                </DropdownMenuItem>
+              )}
+              {canCancel && onCancelClick && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onCancelClick(order)}
+                    className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Anular Orden
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* [Exportar ▾] */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                <Download className="h-4 w-4" />
+                Exportar
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              <DropdownMenuItem className="flex cursor-pointer items-center gap-2">
+                <Printer className="h-4 w-4" />
+                Imprimir
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex cursor-pointer items-center gap-2">
+                <Download className="h-4 w-4" />
+                Descargar PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex cursor-pointer items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Correo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
         </div>
       </DialogContent>
     </Dialog>
