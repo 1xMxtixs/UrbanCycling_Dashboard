@@ -15,7 +15,7 @@ type BicycleHistoryRecord = {
   modelo: string
   color: string
   descripcionAdicional: string | null
-  imagenes?: Array<{ urlImagen: string }>
+  imagenes?: Array<{ idImagenBicicleta: number; urlImagen: string }>
   ordenDeTrabajo?: {
     estado: string
     montoTotal: unknown
@@ -58,6 +58,12 @@ function getBicycleIdFromBody(data: Record<string, unknown>) {
 }
 
 function mapBicycleHistoryResponse(bicycle: BicycleHistoryRecord) {
+  const imagenes =
+    bicycle.imagenes?.map((imagen) => ({
+      idImagenBicicleta: imagen.idImagenBicicleta,
+      urlImagen: imagen.urlImagen,
+      url: imagen.urlImagen,
+    })) ?? []
   const ordenDeTrabajo = bicycle.ordenDeTrabajo
     ? {
         ...bicycle.ordenDeTrabajo,
@@ -70,7 +76,9 @@ function mapBicycleHistoryResponse(bicycle: BicycleHistoryRecord) {
   return {
     ...bicycle,
     descripcion: bicycle.descripcionAdicional,
-    imagenUrl: bicycle.imagenes?.[0]?.urlImagen ?? null,
+    imagenes,
+    imagenesUrl: imagenes.map((imagen) => imagen.urlImagen),
+    imagenUrl: imagenes[0]?.urlImagen ?? null,
     enHistorial: Boolean(
       bicycle.ordenDeTrabajo &&
         ESTADOS_TRABAJO_FINALIZADO.includes(bicycle.ordenDeTrabajo.estado)

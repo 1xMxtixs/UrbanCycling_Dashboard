@@ -1,6 +1,10 @@
 // Capa referencial del nuevo punto de venta.
 // Mientras no exista una tabla punto_venta, registra ventas y ordenes en sus
 // tablas actuales y responde con una forma unificada para el front.
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -44,6 +48,9 @@ type BicicletaInput = {
   color?: unknown;
   descripcion?: unknown;
   imagenUrl?: unknown;
+  imagenes?: unknown;
+  imagenesUrl?: unknown;
+  imagenesUrls?: unknown;
 };
 
 function parsePositiveInteger(value: unknown) {
@@ -58,6 +65,12 @@ function parsePositiveInteger(value: unknown) {
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
+}
+
+function toOptionalNumber(value: unknown) {
+  return value === null || value === undefined || value === ""
+    ? undefined
+    : Number(value);
 }
 
 function normalizarProductos(input: unknown): ProductoInput[] {
@@ -224,6 +237,7 @@ function mapearBicicleta(item: BicicletaInput) {
     modelo: String(item.modelo ?? "").trim(),
     color: String(item.color ?? "").trim(),
     descripcionAdicional: item.descripcion ? String(item.descripcion).trim() : null,
+    imagenes: normalizarImagenesBicicleta(item),
   };
 }
 
@@ -523,6 +537,20 @@ export async function POST(req: Request) {
         {
           code: "BICICLETA_INVALIDA",
           message: "Cada bicicleta debe tener marca, modelo y color",
+        },
+        { status: 400 }
+      );
+    }
+
+    const bicicletaConDemasiadasImagenes = bicicletas.find(
+      (item) => item.imagenes.length > MAX_BICYCLE_IMAGES
+    );
+
+    if (bicicletaConDemasiadasImagenes) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
         },
         { status: 400 }
       );
@@ -897,7 +925,11 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
-              bicicletas: true,
+              bicicletas: {
+                include: {
+                  imagenes: true,
+                },
+              },
               lineasDeOrdenDeTrabajo: {
                 include: {
                   producto: true,
@@ -1188,7 +1220,11 @@ export async function GET(req: Request) {
         ordenDeTrabajo: {
           include: {
             mecanico: true,
-            bicicletas: true,
+            bicicletas: {
+              include: {
+                imagenes: true,
+              },
+            },
             lineasDeOrdenDeTrabajo: {
               include: {
                 producto: true,
@@ -1295,3 +1331,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

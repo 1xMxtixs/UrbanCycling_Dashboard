@@ -1,6 +1,10 @@
 // Endpoints de bicicletas para consultar, actualizar o eliminar un registro por ID.
 import { NextResponse } from "next/server"
 
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -19,7 +23,7 @@ type BicycleResponse = {
   modelo: string
   color: string
   descripcionAdicional: string | null
-  imagenes?: Array<{ urlImagen: string }>
+  imagenes?: Array<{ idImagenBicicleta: number; urlImagen: string }>
   ordenDeTrabajo?: unknown
 }
 
@@ -34,10 +38,19 @@ function parseBicycleId(id: string): number {
 }
 
 function mapBicycleResponse(bicycle: BicycleResponse) {
+  const imagenes =
+    bicycle.imagenes?.map((imagen) => ({
+      idImagenBicicleta: imagen.idImagenBicicleta,
+      urlImagen: imagen.urlImagen,
+      url: imagen.urlImagen,
+    })) ?? []
+
   return {
     ...bicycle,
     descripcion: bicycle.descripcionAdicional,
-    imagenUrl: bicycle.imagenes?.[0]?.urlImagen ?? null,
+    imagenes,
+    imagenesUrl: imagenes.map((imagen) => imagen.urlImagen),
+    imagenUrl: imagenes[0]?.urlImagen ?? null,
   }
 }
 
@@ -124,6 +137,23 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
+    const imagenes = normalizarImagenesBicicleta(data)
+    const replaceImages =
+      "imagenes" in data ||
+      "imagenesUrl" in data ||
+      "imagenesUrls" in data ||
+      "imagenUrl" in data
+
+    if (replaceImages && imagenes.length > MAX_BICYCLE_IMAGES) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      )
+    }
+
     const bicycle = await db.bicicleta.update({
       where: {
         idBicicleta: bicycleId,
@@ -136,6 +166,14 @@ export async function PATCH(request: Request, context: RouteContext) {
         color: data.color,
         descripcionAdicional:
           data.descripcionAdicional ?? data.descripcion ?? undefined,
+        imagenes: replaceImages
+          ? {
+              deleteMany: {},
+              create: imagenes.map((urlImagen) => ({
+                urlImagen,
+              })),
+            }
+          : undefined,
       },
       include: {
         imagenes: true,

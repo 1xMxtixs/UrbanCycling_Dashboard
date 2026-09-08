@@ -1,9 +1,21 @@
 // Endpoints generales para registrar y listar ordenes de trabajo.
+import {
+  MAX_BICYCLE_IMAGES,
+  normalizarImagenesBicicleta,
+} from "@/lib/bicycle-images";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { NextResponse } from "next/server";
 import { z } from "zod"
+
+const imagenBicicletaSchema = z.union([
+  z.string(),
+  z.object({
+    url: z.string().optional().nullable(),
+    urlImagen: z.string().optional().nullable(),
+  }),
+]);
 
 const bicicletaSchema = z.object({
   marca: z.string().min(1),
@@ -11,6 +23,9 @@ const bicicletaSchema = z.object({
   color: z.string().min(1),
   descripcion: z.string().optional().nullable(),
   imagenUrl: z.string().optional().nullable(),
+  imagenes: z.array(imagenBicicletaSchema).optional(),
+  imagenesUrl: z.array(z.string()).optional(),
+  imagenesUrls: z.array(z.string()).optional(),
 })
 
 const productoSchema = z.object({
@@ -45,6 +60,8 @@ const ordenTrabajoSchema = z.object({
   bicicletas: z.array(bicicletaSchema).default([]),
 
   productos: z.array(productoSchema).default([]),
+
+  servicios: z.array(servicioSchema).default([]),
 
   servicios: z.array(servicioSchema).default([]),
 
@@ -95,11 +112,22 @@ type BicicletaInput = {
   color?: unknown;
   descripcion?: unknown;
   imagenUrl?: unknown;
+  imagenes?: unknown;
+  imagenesUrl?: unknown;
+  imagenesUrls?: unknown;
 };
 
 type ProductoOrdenInput = {
   id_producto?: unknown;
   idProducto?: unknown;
+  cantidad?: unknown;
+  precio_unitario?: unknown;
+  precioUnitario?: unknown;
+};
+
+type ServicioOrdenInput = {
+  id_servicio?: unknown;
+  idServicio?: unknown;
   cantidad?: unknown;
   precio_unitario?: unknown;
   precioUnitario?: unknown;
@@ -125,6 +153,12 @@ type ServicioSolicitado = {
   precioUnitario: number;
 };
 
+type ServicioSolicitado = {
+  idServicio: number;
+  cantidad: number;
+  precioUnitario: number;
+};
+
 type ProductoAgrupado = {
   idProducto: number;
   cantidad: number;
@@ -137,6 +171,15 @@ type LineaOrdenData = {
   precioUnitario: number;
   descuentoUnitario: number;
   costoUnitario: number;
+};
+
+type BicicletaData = {
+  tipo: string;
+  marca: string;
+  modelo: string;
+  color: string;
+  descripcionAdicional: string | null;
+  imagenes: string[];
 };
 
 function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
@@ -164,14 +207,23 @@ function normalizarBicicletas(data: Record<string, unknown>) {
     return [bicicletasInput as BicicletaInput];
   }
 
-  if (data.marca || data.modelo || data.color || data.descripcion || data.imagenUrl) {
+  if (
+    data.marca ||
+    data.modelo ||
+    data.color ||
+    data.descripcion ||
+    data.imagenUrl ||
+    data.imagenes ||
+    data.imagenesUrl ||
+    data.imagenesUrls
+  ) {
     return [data as BicicletaInput];
   }
 
   return [];
 }
 
-function mapearBicicleta(bicicleta: BicicletaInput) {
+function mapearBicicleta(bicicleta: BicicletaInput): BicicletaData {
   return {
     tipo: "bicicleta",
     marca: String(bicicleta.marca).trim(),
@@ -180,6 +232,7 @@ function mapearBicicleta(bicicleta: BicicletaInput) {
     descripcionAdicional: bicicleta.descripcion
       ? String(bicicleta.descripcion).trim()
       : null,
+    imagenes: normalizarImagenesBicicleta(bicicleta),
   };
 }
 
@@ -478,6 +531,9 @@ export async function POST(req: Request) {
     const serviciosInput =
       data.servicios;
 
+    const serviciosInput =
+      data.servicios;
+
     const usuario = await db.usuario.findUnique({
       where: {
         idUsuario,
@@ -557,6 +613,14 @@ export async function POST(req: Request) {
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
       (item: ProductoOrdenInput) => ({
         idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
+        cantidad: parsePositiveInteger(item.cantidad),
+        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+      })
+    );
+
+    const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
+      (item: ServicioOrdenInput) => ({
+        idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
         cantidad: parsePositiveInteger(item.cantidad),
         precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
       })
@@ -696,7 +760,11 @@ export async function POST(req: Request) {
     for (const servicioSolicitado of serviciosSolicitados) {
       const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
 
+    for (const servicioSolicitado of serviciosSolicitados) {
+      const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
+
       lineasData.push({
+        idServicio: servicio.idServicio,
         idServicio: servicio.idServicio,
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
@@ -745,7 +813,20 @@ export async function POST(req: Request) {
               estado: estadoOrden,
               bicicletas: bicicletas.length
                 ? {
-                    create: bicicletas,
+                    create: bicicletas.map((bicicleta) => ({
+                      tipo: bicicleta.tipo,
+                      marca: bicicleta.marca,
+                      modelo: bicicleta.modelo,
+                      color: bicicleta.color,
+                      descripcionAdicional: bicicleta.descripcionAdicional,
+                      imagenes: bicicleta.imagenes.length
+                        ? {
+                            create: bicicleta.imagenes.map((urlImagen) => ({
+                              urlImagen,
+                            })),
+                          }
+                        : undefined,
+                    })),
                   }
                 : undefined,
               lineasDeOrdenDeTrabajo: lineasData.length
@@ -761,7 +842,11 @@ export async function POST(req: Request) {
           cliente: true,
           ordenDeTrabajo: {
             include: {
-              bicicletas: true,
+              bicicletas: {
+                include: {
+                  imagenes: true,
+                },
+              },
               lineasDeOrdenDeTrabajo: {
                 include: {
                   servicio: true,
@@ -885,7 +970,11 @@ export async function GET(req: Request) {
           },
         },
         mecanico: true,
-        bicicletas: true,
+        bicicletas: {
+          include: {
+            imagenes: true,
+          },
+        },
         lineasDeOrdenDeTrabajo: {
           include: {
             servicio: true,

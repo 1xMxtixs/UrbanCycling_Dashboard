@@ -299,7 +299,11 @@ export async function GET(
           },
         },
         mecanico: true,
-        bicicletas: true,
+        bicicletas: {
+          include: {
+            imagenes: true,
+          },
+        },
         lineasDeOrdenDeTrabajo: {
           include: {
             producto: true,
@@ -589,7 +593,11 @@ export async function PATCH(
             },
           },
           mecanico: true,
-          bicicletas: true,
+          bicicletas: {
+            include: {
+              imagenes: true,
+            },
+          },
           lineasDeOrdenDeTrabajo: {
             include: {
               producto: true,
