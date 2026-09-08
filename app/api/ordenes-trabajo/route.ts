@@ -37,7 +37,7 @@ const productoSchema = z.object({
 const servicioSchema = z.object({
   idServicio: z.number().int().positive(),
   cantidad: z.number().int().positive(),
-  precioUnitario: z.number().min(0).optional(),
+  precioUnitario: z.number().min(0),
 })
 
 const ordenTrabajoSchema = z.object({
@@ -142,6 +142,7 @@ type ServicioSolicitado = {
   cantidad: number;
   precioUnitario: number;
 };
+
 
 type ProductoAgrupado = {
   idProducto: number;
@@ -449,11 +450,14 @@ export async function POST(req: Request) {
         ? rawData.servicios.map(
             (item: ServicioOrdenInput) => ({
               idServicio: Number(
-                item.id_servicio ?? item.idServicio
+                item.id_servicio ??
+                item.idServicio
               ),
               cantidad: Number(item.cantidad),
               precioUnitario: Number(
-                item.precio_unitario ?? item.precioUnitario ?? 0
+                item.precio_unitario ??
+                item.precioUnitario ??
+                0
               ),
             })
           )
@@ -587,19 +591,6 @@ export async function POST(req: Request) {
     }
 
     const bicicletas = bicicletasInput.map(mapearBicicleta);
-    const bicicletaConDemasiadasImagenes = bicicletas.find(
-      (bicicleta) => bicicleta.imagenes.length > MAX_BICYCLE_IMAGES
-    );
-
-    if (bicicletaConDemasiadasImagenes) {
-      return NextResponse.json(
-        {
-          code: "MAX_IMAGENES_BICICLETA",
-          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
-        },
-        { status: 400 }
-      );
-    }
 
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
       (item: ProductoOrdenInput) => ({
@@ -616,6 +607,7 @@ export async function POST(req: Request) {
         precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
       })
     );
+
 
     const productosAgrupados: ProductoAgrupado[] = Array.from(
       productosSolicitados.reduce((productosMap, item) => {
@@ -711,6 +703,8 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_NO_EXISTE",
           message: `El servicio con ID ${servicioNoExiste.idServicio} no existe`,
+          id_servicio: servicioNoExiste.idServicio,
+          idServicio: servicioNoExiste.idServicio,
         },
         { status: 404 }
       );
@@ -729,6 +723,8 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_INACTIVO",
           message: `El servicio ${servicio.nombre} no esta activo`,
+          id_servicio: servicio.idServicio,
+          idServicio: servicio.idServicio,
         },
         { status: 409 }
       );
@@ -743,7 +739,8 @@ export async function POST(req: Request) {
         idServicio: servicio.idServicio,
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
-        precioUnitario: servicioSolicitado.precioUnitario,
+        precioUnitario:
+          servicioSolicitado.precioUnitario ?? toNumber(servicio.precioVenta),
         descuentoUnitario: 0,
         costoUnitario: 0,
       });
