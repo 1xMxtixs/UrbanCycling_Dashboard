@@ -63,8 +63,6 @@ const ordenTrabajoSchema = z.object({
 
   servicios: z.array(servicioSchema).default([]),
 
-  servicios: z.array(servicioSchema).default([]),
-
   idComprobante: z.number().int().positive().optional(),
 })
 .refine(
@@ -133,14 +131,6 @@ type ServicioOrdenInput = {
   precioUnitario?: unknown;
 };
 
-type ServicioOrdenInput = {
-  id_servicio?: unknown;
-  idServicio?: unknown;
-  cantidad?: unknown;
-  precio_unitario?: unknown;
-  precioUnitario?: unknown;
-};
-
 type ProductoSolicitado = {
   idProducto: number;
   cantidad: number;
@@ -153,11 +143,6 @@ type ServicioSolicitado = {
   precioUnitario: number;
 };
 
-type ServicioSolicitado = {
-  idServicio: number;
-  cantidad: number;
-  precioUnitario: number;
-};
 
 type ProductoAgrupado = {
   idProducto: number;
@@ -531,9 +516,6 @@ export async function POST(req: Request) {
     const serviciosInput =
       data.servicios;
 
-    const serviciosInput =
-      data.servicios;
-
     const usuario = await db.usuario.findUnique({
       where: {
         idUsuario,
@@ -626,13 +608,6 @@ export async function POST(req: Request) {
       })
     );
 
-    const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
-      (item: ServicioOrdenInput) => ({
-        idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
-        cantidad: parsePositiveInteger(item.cantidad),
-        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
-      })
-    );
 
     const productosAgrupados: ProductoAgrupado[] = Array.from(
       productosSolicitados.reduce((productosMap, item) => {
@@ -760,11 +735,7 @@ export async function POST(req: Request) {
     for (const servicioSolicitado of serviciosSolicitados) {
       const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
 
-    for (const servicioSolicitado of serviciosSolicitados) {
-      const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
-
       lineasData.push({
-        idServicio: servicio.idServicio,
         idServicio: servicio.idServicio,
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
