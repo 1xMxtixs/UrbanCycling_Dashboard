@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import { registrarMovimientoConAjusteStock } from "@/lib/stored-procedures/inventory-stock"
 
 type MovementType = "ENTRADA" | "SALIDA"
 
@@ -134,92 +135,69 @@ export async function POST(request: Request) {
     }
 
     const result = await db.$transaction(async (tx) => {
-      const product = await tx.producto.findUnique({
-        where: { idProducto },
-      })
+      // El bloqueo y el cálculo del stock objetivo ocurren en la misma
+      // transacción. Así, movimientos simultáneos del mismo producto se
+      // serializan antes de llamar a la SP.
+      const products = await tx.$queryRaw<
+        Array<{
+          idProducto: number
+          nombre: string
+          stockActual: number
+          stockMinimo: number
+        }>
+      >`
+        SELECT
+          id_producto AS idProducto,
+          nombre,
+          stock_actual AS stockActual,
+          stock_minimo AS stockMinimo
+        FROM productos
+        WHERE id_producto = ${idProducto}
+        FOR UPDATE
+      `
+      // $queryRaw puede devolver enteros sin signo como bigint. Normalizarlos
+      // evita errores de serialización al responder validaciones de stock.
+      const rawProduct = products[0]
+      const product = rawProduct
+        ? {
+            ...rawProduct,
+            idProducto: Number(rawProduct.idProducto),
+            stockActual: Number(rawProduct.stockActual),
+            stockMinimo: Number(rawProduct.stockMinimo),
+          }
+        : null
 
       if (!product) {
         return { type: "PRODUCTO_NO_EXISTE" as const }
       }
 
-      // La condición se evalúa en la actualización para evitar que dos salidas
-      // simultáneas dejen el stock en un valor negativo.
-      if (tipoMovimiento === "SALIDA") {
-        const updatedProducts = await tx.producto.updateMany({
-          where: {
-            idProducto,
-            stockActual: { gte: cantidad },
-          },
-          data: {
-            stockActual: { decrement: cantidad },
-          },
-        })
-
-        if (updatedProducts.count === 0) {
-          const currentProduct = await tx.producto.findUniqueOrThrow({
-            where: { idProducto },
-          })
-
-          return {
-            type: "STOCK_INSUFICIENTE" as const,
-            product: currentProduct,
-          }
+      if (tipoMovimiento === "SALIDA" && product.stockActual < cantidad) {
+        return {
+          type: "STOCK_INSUFICIENTE" as const,
+          product,
         }
-      } else {
-        await tx.producto.update({
-          where: { idProducto },
-          data: {
-            stockActual: { increment: cantidad },
-          },
-        })
       }
 
-      const updatedProduct = await tx.producto.findUniqueOrThrow({
-        where: { idProducto },
-      })
-      const stockNuevo = updatedProduct.stockActual
-      const stockAnterior =
+      const stockAnterior = product.stockActual
+      const stockNuevo =
         tipoMovimiento === "ENTRADA"
-          ? stockNuevo - cantidad
-          : stockNuevo + cantidad
+          ? stockAnterior + cantidad
+          : stockAnterior - cantidad
 
-      const adjustment = await tx.ajusteInventario.create({
-        data: {
-          idUsuario: session.user.idUsuario,
-          fechaRegistro: fechaOperacion!,
-          motivo: motivo ?? "MOVIMIENTO_MANUAL",
-          direccion: tipoMovimiento!,
-          observacion,
-        },
-      })
-
-      const adjustmentLine = await tx.lineaDeAjuste.create({
-        data: {
-          idAjuste: adjustment.idAjusteInventario,
-          idProducto,
-          cantidad,
-          cantidadAnterior: stockAnterior,
-          cantidadNueva: stockNuevo,
-          costoUnitario: updatedProduct.costoPromedio,
-        },
-      })
-
-      const registeredMovement = await tx.movimientoInventario.create({
-        data: {
-          idLineaDeAjuste: adjustmentLine.idLineaDeAjuste,
-          fechaRegistro: fechaOperacion!,
-          tipoMovimiento: tipoMovimiento!,
-          cantidad,
-          costoUnitario: updatedProduct.costoPromedio,
-        },
+      const registered = await registrarMovimientoConAjusteStock(tx, {
+        idProducto,
+        stockNuevo,
+        idUsuario: session.user.idUsuario,
+        motivo: motivo ?? "MOVIMIENTO_MANUAL",
+        observacion,
       })
 
       return {
         type: "MOVIMIENTO_REGISTRADO" as const,
-        movement: registeredMovement,
-        product: updatedProduct,
+        movement: registered.movement,
+        product: registered.product,
         stockAnterior,
-        stockNuevo,
+        stockNuevo: registered.product.stockActual,
       }
     })
 
@@ -261,6 +239,7 @@ export async function POST(request: Request) {
           idProducto,
           tipoMovimiento: result.movement.tipoMovimiento,
           cantidad: result.movement.cantidad,
+          // La SP registra la fecha con NOW(); se devuelve la fecha efectiva.
           fechaOperacion: result.movement.fechaRegistro,
           stockAnterior: result.stockAnterior,
           stockNuevo: result.stockNuevo,
