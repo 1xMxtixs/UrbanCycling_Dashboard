@@ -1,1 +1,3 @@
-export * from "./HeaderInventory"
+export * from "./HeaderInventory";
+export * from "./ListInventory";
+export * from "./FormCreateInventory";

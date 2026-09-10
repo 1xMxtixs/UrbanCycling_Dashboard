@@ -3,7 +3,7 @@ import { ListOrdenesTrabajo } from "./components/ListOrdenesTrabajo"
 
 export default function OrdenesTrabajoPage() {
   return (
-    <div className="space-y-8 min-h-screen">
+    <div className="min-h-full space-y-6">
       <HeaderOrdenesTrabajo />
       <ListOrdenesTrabajo />
     </div>

@@ -1,13 +1,12 @@
-import { HeaderClientes } from "./components/HeaderClientes/HeaderClientes";
-import { ListClientes } from "./components/ListClientes/ListClientes";
+import { HeaderClientes, ListClientes } from "./components";
 
 export const dynamic = "force-dynamic";
 
 export default function ClientesPage() {
   return (
-    <div>
+    <div className="min-h-full space-y-6">
       <HeaderClientes />
       <ListClientes />
     </div>
   );
-}
+}

@@ -1,16 +1,9 @@
-"use client"
+"use client";
 
 import { useEffect, useState } from "react";
-
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/forms/FormDialog";
 import {
   Select,
   SelectContent,
@@ -18,38 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
+import { PageHeader } from "@/components/common/PageHeader";
+import { Plus } from "lucide-react";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
-
-type OrdenTrabajo = {
-  idOrdenDeTrabajo: number;
-  estadoOrden: string;
-  estadoPago: string;
-  total: number;
-  cliente: {
-    razonSocial: string | null;
-    primerNombre: string | null;
-    apellidoPaterno: string | null;
-    apellidoMaterno: string | null;
-    rut: string;
-  };
-  bicicletas?: Array<{ marca: string; modelo: string }>;
-};
-
-function getNombreCliente(cliente: OrdenTrabajo["cliente"]) {
-  return (
-    cliente.razonSocial ||
-    [cliente.primerNombre, cliente.apellidoPaterno, cliente.apellidoMaterno]
-      .filter(Boolean)
-      .join(" ") ||
-    "Sin cliente"
-  );
-}
+import { formatClientName } from "@/lib/formatters";
+import type { OrdenTrabajoResumen } from "../../types";
 
 export function HeaderBicicletas() {
   const [openModalCreate, setOpenModalCreate] = useState(false);
-  const [mostrarExito, setMostrarExito] = useState(false);
-  const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
+  const [ordenes, setOrdenes] = useState<OrdenTrabajoResumen[]>([]);
   const [selectedOrdenId, setSelectedOrdenId] = useState("");
   const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
   const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
@@ -61,11 +31,6 @@ export function HeaderBicicletas() {
   const handleSuccess = () => {
     setOpenModalCreate(false);
     setSelectedOrdenId("");
-    setMostrarExito(true);
-
-    setTimeout(() => {
-      setMostrarExito(false);
-    }, 3000);
   };
 
   useEffect(() => {
@@ -83,11 +48,11 @@ export function HeaderBicicletas() {
         });
 
         if (!response.ok) {
-          throw new Error("No se pudieron cargar las ordenes de trabajo");
+          throw new Error("No se pudieron cargar las órdenes de trabajo");
         }
 
         const data = await response.json();
-        const ordenesTrabajo = Array.isArray(data)
+        const ordenesTrabajo: OrdenTrabajoResumen[] = Array.isArray(data)
           ? data
               .filter((item) => item.tipoOperacion === "orden_trabajo")
               .map((item) => item.ordenTrabajo)
@@ -96,7 +61,7 @@ export function HeaderBicicletas() {
 
         setOrdenes(ordenesTrabajo);
       } catch {
-        setErrorOrdenes("Error al cargar las ordenes de trabajo");
+        setErrorOrdenes("Error al cargar las órdenes de trabajo");
       } finally {
         setCargandoOrdenes(false);
       }
@@ -106,143 +71,124 @@ export function HeaderBicicletas() {
   }, [openModalCreate, ordenes.length]);
 
   return (
-    <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Gestion de Bicicletas</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Monitoreo de inventario y estado de servicio tecnico en tiempo real.
-          </p>
-        </div>
+    <PageHeader
+      title="Registro de Bicicletas"
+      description="Catálogo de vehículos en servicio técnico, especificaciones y seguimiento por cliente."
+    >
+      <Dialog
+        open={openModalCreate}
+        onOpenChange={(open) => {
+          setOpenModalCreate(open);
+          if (!open) {
+            setSelectedOrdenId("");
+          }
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
+            <Plus className="h-4 w-4 mr-1.5" /> Registrar Bicicleta
+          </Button>
+        </DialogTrigger>
 
-        <Dialog
-          open={openModalCreate}
-          onOpenChange={(open) => {
-            setOpenModalCreate(open);
-            if (!open) {
-              setSelectedOrdenId("");
-            }
-          }}
+        <FormDialog
+          title="Registrar Nueva Bicicleta"
+          description="Ingresa los datos técnicos de la bicicleta y vincúlala a una orden de trabajo existente."
+          size="2xl"
         >
-          <DialogTrigger asChild>
-            <Button className="py-5 font-semibold">+ Nueva bicicleta</Button>
-          </DialogTrigger>
-
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl animate-in fade-in duration-300">
-            <DialogHeader>
-              <DialogTitle>Registrar bicicleta</DialogTitle>
-              <DialogDescription>
-                Ingresa los datos tecnicos de la bicicleta y vincula una orden
-                de trabajo existente.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="mb-6 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm transition-all duration-300 animate-in slide-in-from-top-1">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    Vincular a orden de trabajo
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Revisa las ordenes de trabajo disponibles antes de guardar
-                    la bicicleta.
-                  </p>
-                </div>
-
-                <Select
-                  value={selectedOrdenId || "none"}
-                  onValueChange={(val) => setSelectedOrdenId(val === "none" ? "" : val)}
-                  disabled={cargandoOrdenes}
-                >
-                  <SelectTrigger className="h-10 min-w-0 sm:w-72">
-                    <SelectValue
-                      placeholder={
-                        cargandoOrdenes
-                          ? "Cargando ordenes..."
-                          : "Selecciona una orden"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="none">
-                      {cargandoOrdenes
-                        ? "Cargando ordenes..."
-                        : "Selecciona una orden"}
-                    </SelectItem>
-                    {ordenes.map((orden) => (
-                      <SelectItem
-                        key={orden.idOrdenDeTrabajo}
-                        value={String(orden.idOrdenDeTrabajo)}
-                      >
-                        Orden #{orden.idOrdenDeTrabajo} -{" "}
-                        {getNombreCliente(orden.cliente)}
-                        {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
-                        {orden.estadoOrden}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="mb-6 rounded-2xl border border-border/80 bg-muted/20 p-4 text-card-foreground shadow-2xs">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">
+                  Vincular a Orden de Trabajo
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona la orden a la cual pertenece esta bicicleta.
+                </p>
               </div>
 
-              {errorOrdenes && (
-                <p className="mt-3 text-sm text-destructive">{errorOrdenes}</p>
-              )}
-
-              {selectedOrden && (
-                <div className="mt-4 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm animate-in fade-in duration-200">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Orden #{selectedOrden.idOrdenDeTrabajo}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Cliente: {getNombreCliente(selectedOrden.cliente)}
-                      </p>
-                    </div>
-                    <div className="space-y-1 text-left text-sm text-muted-foreground sm:text-right">
-                      <p>Estado: {selectedOrden.estadoOrden}</p>
-                      <p>Pago: {selectedOrden.estadoPago}</p>
-                      <p>Total: {Number(selectedOrden.total ?? 0).toFixed(0)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm">
-                    <p className="font-medium text-foreground">Bicicletas en la orden</p>
-                    <ul className="mt-2 space-y-1">
-                      {(selectedOrden.bicicletas ?? []).map(
-                        (bicicleta, index) => (
-                          <li key={index} className="text-muted-foreground">
-                            - {bicicleta?.marca ?? "Sin marca"}{" "}
-                            {bicicleta?.modelo ?? "Sin modelo"}
-                          </li>
-                        )
-                      )}
-                      {(!selectedOrden.bicicletas ||
-                        selectedOrden.bicicletas.length === 0) && (
-                        <li className="text-muted-foreground">
-                          No hay bicicletas vinculadas
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              )}
+              <Select
+                value={selectedOrdenId || "none"}
+                onValueChange={(val) => setSelectedOrdenId(val === "none" ? "" : val)}
+                disabled={cargandoOrdenes}
+              >
+                <SelectTrigger className="h-10 min-w-0 sm:w-72 rounded-xl bg-background border-border/80 text-xs">
+                  <SelectValue
+                    placeholder={
+                      cargandoOrdenes
+                        ? "Cargando órdenes..."
+                        : "Selecciona una orden"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent position="popper" className="rounded-xl border-border/80">
+                  <SelectItem value="none">
+                    {cargandoOrdenes
+                      ? "Cargando órdenes..."
+                      : "Selecciona una orden"}
+                  </SelectItem>
+                  {ordenes.map((orden) => (
+                    <SelectItem
+                      key={orden.idOrdenDeTrabajo}
+                      value={String(orden.idOrdenDeTrabajo)}
+                      className="rounded-lg text-xs"
+                    >
+                      Orden #{orden.idOrdenDeTrabajo} -{" "}
+                      {formatClientName(orden.cliente)}
+                      {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
+                      {orden.estadoOrden}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <FormCreateBicicleta
-              selectedOrdenId={selectedOrdenId}
-              setOpenModalCreate={setOpenModalCreate}
-              onSuccess={handleSuccess}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+            {errorOrdenes && (
+              <p className="mt-3 text-xs text-destructive">{errorOrdenes}</p>
+            )}
 
-      {mostrarExito && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-lg bg-green-600 px-6 py-3 text-white shadow-lg">
-          Bicicleta registrada correctamente
-        </div>
-      )}
-    </>
+            {selectedOrden && (
+              <div className="mt-4 rounded-xl border border-border/60 bg-card p-3.5 text-card-foreground shadow-2xs animate-in fade-in duration-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between text-xs gap-2">
+                  <div>
+                    <p className="font-bold text-foreground">
+                      Orden #{selectedOrden.idOrdenDeTrabajo}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Cliente: {formatClientName(selectedOrden.cliente)}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5 text-left sm:text-right text-muted-foreground">
+                    <p>Estado: <span className="font-semibold text-foreground">{selectedOrden.estadoOrden}</span></p>
+                    <p>Total: <span className="font-bold text-foreground">${Number(selectedOrden.total ?? 0).toLocaleString("es-CL")}</span></p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
+                  <p className="font-semibold text-foreground">Bicicletas previas en la orden:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {(selectedOrden.bicicletas ?? []).map((bicicleta, index) => (
+                      <li key={index} className="text-muted-foreground">
+                        • {bicicleta?.marca ?? "Sin marca"} {bicicleta?.modelo ?? "Sin modelo"}
+                      </li>
+                    ))}
+                    {(!selectedOrden.bicicletas || selectedOrden.bicicletas.length === 0) && (
+                      <li className="text-muted-foreground italic">
+                        No hay bicicletas vinculadas previamente
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <FormCreateBicicleta
+            selectedOrdenId={selectedOrdenId}
+            setOpenModalCreate={setOpenModalCreate}
+            onSuccess={handleSuccess}
+          />
+        </FormDialog>
+      </Dialog>
+    </PageHeader>
   );
 }

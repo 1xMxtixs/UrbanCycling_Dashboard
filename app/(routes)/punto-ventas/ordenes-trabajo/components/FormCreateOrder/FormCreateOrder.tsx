@@ -2,19 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { toast } from "@/components/ui/sonner"
+import { toast } from "sonner"
 import {
-  Plus,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  ImageIcon,
-  X,
   Loader2,
   Sparkles,
-  Wrench,
-  ShoppingBag,
-  DollarSign,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +28,10 @@ import {
 import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreateCliente/FormCreateCliente"
 
 
+import { BikesSection, BikeInput } from "./BikesSection"
+import { OrderLinesSection, Product, SelectedProduct } from "./OrderLinesSection"
+import { PaymentInitialSection } from "./PaymentInitialSection"
+
 interface Client {
   idCliente: number
   tipoCliente: string
@@ -46,31 +41,6 @@ interface Client {
   apellidoPaterno: string | null
   apellidoMaterno: string | null
   razonSocial: string | null
-}
-
-interface Product {
-  idProducto: number
-  nombre: string
-  precioVenta: number
-  estado: string
-}
-
-interface SelectedProduct {
-  idProducto: string
-  cantidad: number
-  precioUnitario: number
-}
-
-interface BikeInput {
-  marca: string
-  modelo: string
-  color: string
-  descripcion: string
-  imagenUrl: string
-  imageFile?: File | null
-  imagePreview?: string | null
-  isUploading: boolean
-  isCollapsed: boolean
 }
 
 interface FormCreateOrderProps {
@@ -433,11 +403,11 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     <>
       <form
         onSubmit={handleSubmit}
-        className="max-h-[70vh] space-y-6 overflow-y-auto px-1"
+        className="space-y-6 py-1"
       >
         {/* ── Información General ─────────────────────────────────── */}
-        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-          <h3 className="text-slate-850 flex items-center gap-2 text-sm font-bold dark:text-slate-200">
+        <div className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs">
+          <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
             <Sparkles className="h-4 w-4 text-primary" />
             Información General
           </h3>
@@ -447,13 +417,13 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             <div className="space-y-1.5">
               <Label
                 htmlFor="cliente"
-                className="text-slate-650 text-xs font-semibold dark:text-slate-400"
+                className="text-muted-foreground text-xs font-semibold"
               >
-                Cliente <span className="text-red-500">*</span>
+                Cliente <span className="text-destructive">*</span>
               </Label>
               {isLoadingClients ? (
-                <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/30">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
                   Cargando clientes...
                 </div>
               ) : (
@@ -462,7 +432,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                     value={selectedClientId || undefined}
                     onValueChange={setSelectedClientId}
                   >
-                    <SelectTrigger className="h-10 w-full border border-slate-200 bg-background text-sm">
+                    <SelectTrigger className="h-10 w-full bg-background border-input text-sm">
                       <SelectValue placeholder="-- Selecciona un Cliente --" />
                     </SelectTrigger>
                     <SelectContent position="popper">
@@ -486,18 +456,20 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                       ¿El cliente no está registrado?
                     </span>
                     <div className="flex gap-2">
-                      <button
+                      <Button
+                        variant="link"
+                        size="sm"
                         type="button"
                         onClick={() => setOpenQuickCreateClient(true)}
-                        className="cursor-pointer font-bold text-primary hover:underline"
+                        className="h-auto p-0 font-bold"
                       >
                         + Registrar aquí
-                      </button>
-                      <span className="text-slate-300">|</span>
+                      </Button>
+                      <span className="text-muted-foreground/40">|</span>
                       <a
                         href="/clientes"
                         target="_blank"
-                        className="font-bold text-muted-foreground hover:text-slate-700 hover:underline"
+                        className="font-bold text-muted-foreground hover:text-foreground hover:underline"
                       >
                         Ir a Clientes
                       </a>
@@ -511,7 +483,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             <div className="space-y-1.5">
               <Label
                 htmlFor="fechaIngreso"
-                className="text-slate-650 text-xs font-semibold dark:text-slate-400"
+                className="text-muted-foreground text-xs font-semibold"
               >
                 Fecha de Ingreso
               </Label>
@@ -520,7 +492,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                 type="date"
                 value={fechaIngreso}
                 disabled
-                className="cursor-not-allowed bg-slate-100/50 dark:bg-slate-800/50"
+                className="cursor-not-allowed bg-muted text-muted-foreground"
               />
             </div>
           </div>
@@ -530,10 +502,10 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             <div className="space-y-1.5">
               <Label
                 htmlFor="fechaEntrega"
-                className="text-slate-650 text-xs font-semibold dark:text-slate-400"
+                className="text-muted-foreground text-xs font-semibold"
               >
                 Fecha Estimada de Entrega{" "}
-                <span className="text-red-500">*</span>
+                <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="fechaEntrega"
@@ -549,7 +521,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             <div className="space-y-1.5 md:col-span-2">
               <Label
                 htmlFor="descripcion"
-                className="text-slate-650 text-xs font-semibold dark:text-slate-400"
+                className="text-muted-foreground text-xs font-semibold"
               >
                 Descripción del Trabajo a Realizar
               </Label>
@@ -565,498 +537,39 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           </div>
         </div>
 
-        {/* ── Sección de Bicicletas (Accordion) ──────────────────── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-4.5 w-4.5 text-primary" />
-              <h3 className="text-slate-850 font-bold dark:text-slate-200">
-                Bicicletas Asociadas
-              </h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-muted-foreground dark:bg-slate-800">
-                {bikes.length}
-              </span>
-            </div>
+        <BikesSection
+          bikes={bikes}
+          isSubmitting={isSubmitting}
+          onAddBike={handleAddBike}
+          onRemoveBike={handleRemoveBike}
+          onUpdateBikeField={handleUpdateBikeField}
+          onToggleCollapse={toggleCollapse}
+          onBikeImageChange={handleBikeImageChange}
+          onRemoveBikeImage={handleRemoveBikeImage}
+        />
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddBike}
-              className="flex items-center gap-1 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Añadir otra
-            </Button>
-          </div>
+        <OrderLinesSection
+          products={products}
+          selectedProducts={selectedProducts}
+          montoServicio={montoServicio}
+          totalProductsCost={totalProductsCost}
+          grandTotal={grandTotal}
+          onMontoServicioChange={setMontoServicio}
+          onAddProduct={handleAddProduct}
+          onRemoveProduct={handleRemoveProduct}
+          onProductChange={handleProductChange}
+          onProductQuantityChange={handleProductQuantityChange}
+        />
 
-          <div className="space-y-3">
-            {bikes.map((bike, idx) => {
-              const isCollapsed = bike.isCollapsed
-              const title =
-                bike.marca || bike.modelo
-                  ? `${bike.marca} ${bike.modelo}`.trim()
-                  : `Bicicleta #${idx + 1}`
-
-              return (
-                <div
-                  key={idx}
-                  className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                >
-                  {/* Header Acordeón */}
-                  <div
-                    onClick={() => toggleCollapse(idx)}
-                    className="flex cursor-pointer items-center justify-between bg-slate-50 px-4 py-3 transition-colors hover:bg-slate-100/50 dark:bg-slate-950 dark:hover:bg-slate-900/50"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="dark:text-slate-350 flex h-5.5 w-5.5 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-700 dark:bg-slate-800">
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        {title}
-                      </span>
-                    </div>
-
-                    <div
-                      className="flex items-center gap-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20"
-                        onClick={() => handleRemoveBike(idx)}
-                        disabled={bikes.length <= 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleCollapse(idx)}
-                        className="hover:text-slate-655 animate-in cursor-pointer rounded p-0.5 text-slate-400 transition-all"
-                      >
-                        {isCollapsed ? (
-                          <ChevronDown className="h-4.5 w-4.5" />
-                        ) : (
-                          <ChevronUp className="h-4.5 w-4.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Contenido Colapsable */}
-                  {!isCollapsed && (
-                    <div className="dark:border-slate-850 animate-in space-y-4 border-t border-slate-100 p-4 duration-200 fade-in">
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        {/* Marca */}
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor={`bike-marca-${idx}`}
-                            className="text-xs font-semibold text-slate-500"
-                          >
-                            Marca <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id={`bike-marca-${idx}`}
-                            placeholder="Ej: Trek, Giant"
-                            value={bike.marca}
-                            onChange={(e) =>
-                              handleUpdateBikeField(
-                                idx,
-                                "marca",
-                                e.target.value
-                              )
-                            }
-                            required
-                          />
-                        </div>
-
-                        {/* Modelo */}
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor={`bike-modelo-${idx}`}
-                            className="text-xs font-semibold text-slate-500"
-                          >
-                            Modelo <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id={`bike-modelo-${idx}`}
-                            placeholder="Ej: Marlin 7, Talon"
-                            value={bike.modelo}
-                            onChange={(e) =>
-                              handleUpdateBikeField(
-                                idx,
-                                "modelo",
-                                e.target.value
-                              )
-                            }
-                            required
-                          />
-                        </div>
-
-                        {/* Color */}
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor={`bike-color-${idx}`}
-                            className="text-xs font-semibold text-slate-500"
-                          >
-                            Color <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id={`bike-color-${idx}`}
-                            placeholder="Ej: Negro, Azul"
-                            value={bike.color}
-                            onChange={(e) =>
-                              handleUpdateBikeField(
-                                idx,
-                                "color",
-                                e.target.value
-                              )
-                            }
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      {/* Descripción de la Bicicleta */}
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor={`bike-desc-${idx}`}
-                          className="text-xs font-semibold text-slate-500"
-                        >
-                          Estado / Observaciones de la Bicicleta
-                        </Label>
-                        <Textarea
-                          id={`bike-desc-${idx}`}
-                          placeholder="Observaciones de abolladuras o ruidos específicos..."
-                          value={bike.descripcion}
-                          onChange={(e) =>
-                            handleUpdateBikeField(
-                              idx,
-                              "descripcion",
-                              e.target.value
-                            )
-                          }
-                          rows={2}
-                        />
-                      </div>
-
-                      {/* Subida de Imagen por Bicicleta */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-500">
-                          Foto de la Bicicleta (Opcional)
-                        </Label>
-
-                        {bike.imagePreview || bike.imagenUrl ? (
-                          <div className="group relative h-40 w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={bike.imagePreview || bike.imagenUrl}
-                              alt={`Bicicleta #${idx + 1}`}
-                              className="h-full w-full object-contain"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveBikeImage(idx)}
-                              className="absolute top-2 right-2 cursor-pointer rounded-full bg-black/60 p-1.5 text-white opacity-80 transition-opacity hover:opacity-100"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <label
-                              htmlFor={`bike-file-${idx}`}
-                              className="flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/50 text-slate-500 transition-all hover:bg-slate-100/50 dark:border-slate-700 dark:bg-slate-950/20 dark:hover:bg-slate-900/30"
-                            >
-                              {isSubmitting ? (
-                                <>
-                                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                  <span className="text-xs font-medium">
-                                    Subiendo foto...
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <ImageIcon className="h-6 w-6 text-slate-400" />
-                                  <span className="text-xs font-semibold">
-                                    Seleccionar foto
-                                  </span>
-                                  <span className="text-[10px] text-slate-400">
-                                    JPG, PNG — Máx. 5MB
-                                  </span>
-                                </>
-                              )}
-                            </label>
-                            <input
-                              id={`bike-file-${idx}`}
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleBikeImageChange(idx, e)}
-                              className="hidden"
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── Sección de Servicio y Repuestos ────────────────────── */}
-        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-          <h3 className="text-slate-850 flex items-center gap-2 border-b border-slate-200/50 pb-2 text-sm font-bold dark:border-slate-800 dark:text-slate-200">
-            <ShoppingBag className="h-4.5 w-4.5 text-primary" />
-            Servicio y Productos (Repuestos)
-          </h3>
-
-          {/* Monto de Servicio Input */}
-          <div className="max-w-xs space-y-1.5">
-            <Label
-              htmlFor="montoServicio"
-              className="text-slate-650 flex items-center gap-1 text-xs font-semibold dark:text-slate-400"
-            >
-              <DollarSign className="h-3 w-3 text-slate-400" />
-              Monto de Servicio (Mano de Obra)
-            </Label>
-            <Input
-              id="montoServicio"
-              type="number"
-              min={0}
-              placeholder="0"
-              value={montoServicio || ""}
-              onChange={(e) =>
-                setMontoServicio(Math.max(0, Number(e.target.value)))
-              }
-            />
-          </div>
-
-          {/* Dynamic Products Input */}
-          <div className="space-y-3">
-            <Label className="text-xs font-bold text-slate-700 dark:text-slate-400">
-              Productos/Repuestos Usados
-            </Label>
-
-            {selectedProducts.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">
-                No se han agregado productos a la orden.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {selectedProducts.map((selProd, idx) => (
-                  <div
-                    key={idx}
-                    className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-2.5 shadow-xs duration-150 slide-in-from-top-1 dark:border-slate-800 dark:bg-slate-900"
-                  >
-                    {/* Select Product */}
-                    <div className="min-w-50 flex-1">
-                      <Select
-                        value={selProd.idProducto || undefined}
-                        onValueChange={(val) => handleProductChange(idx, val)}
-                      >
-                        <SelectTrigger className="h-9 w-full border border-slate-200 bg-background text-xs">
-                          <SelectValue placeholder="-- Selecciona un Producto --" />
-                        </SelectTrigger>
-                        <SelectContent position="popper">
-                          {products.map((p) => (
-                            <SelectItem
-                              key={p.idProducto}
-                              value={String(p.idProducto)}
-                            >
-                              {p.nombre} ($
-                              {Number(p.precioVenta).toLocaleString("es-CL")})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Quantity Input */}
-                    <div className="w-20">
-                      <Input
-                        type="number"
-                        min={1}
-                        value={selProd.cantidad}
-                        onChange={(e) =>
-                          handleProductQuantityChange(
-                            idx,
-                            Number(e.target.value)
-                          )
-                        }
-                        className="h-9 text-xs"
-                        placeholder="Cant."
-                      />
-                    </div>
-
-                    {/* Unit Price Display */}
-                    <div className="w-24 text-xs font-semibold text-slate-500">
-                      Uni: ${selProd.precioUnitario.toLocaleString("es-CL")}
-                    </div>
-
-                    {/* Subtotal Price Display */}
-                    <div className="w-28 text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Sub: $
-                      {(
-                        selProd.cantidad * selProd.precioUnitario
-                      ).toLocaleString("es-CL")}
-                    </div>
-
-                    {/* Delete Button */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700"
-                      onClick={() => handleRemoveProduct(idx)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddProduct}
-              className="flex h-8 items-center gap-1 px-2.5 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />+ Agregar repuesto/producto
-            </Button>
-          </div>
-          {/* Summary calculations displays */}
-          <div className="flex justify-end border-t border-slate-200/50 pt-4 dark:border-slate-800">
-            <div className="grid w-full grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-3">
-              <div className="space-y-1">
-                <Label className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                  Total Repuesto
-                </Label>
-                <Input
-                  type="text"
-                  readOnly
-                  disabled
-                  value={`$${totalProductsCost.toLocaleString("es-CL")}`}
-                  className="cursor-not-allowed bg-slate-100/50 text-right font-semibold dark:bg-slate-800/50"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                  Monto Servicio
-                </Label>
-                <Input
-                  type="text"
-                  readOnly
-                  disabled
-                  value={`$${montoServicio.toLocaleString("es-CL")}`}
-                  className="cursor-not-allowed bg-slate-100/50 text-right font-semibold dark:bg-slate-800/50"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[10px] font-bold tracking-wider text-primary uppercase">
-                  Monto Total
-                </Label>
-                <Input
-                  type="text"
-                  readOnly
-                  disabled
-                  value={`$${grandTotal.toLocaleString("es-CL")}`}
-                  className="cursor-not-allowed border-primary/30 bg-primary/5 text-right font-black text-primary dark:bg-primary/10"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Sección de Información de Pago ────────────────────── */}
-        <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-          <h3 className="text-slate-850 flex items-center gap-2 border-b border-slate-200/50 pb-2 text-sm font-bold dark:border-slate-800 dark:text-slate-200">
-            <DollarSign className="h-4.5 w-4.5 text-primary" />
-            Información del Pago Inicial
-          </h3>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* Tipo de Pago / Estado Pago */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="estadoPago"
-                className="text-slate-650 text-xs font-semibold dark:text-slate-400"
-              >
-                Tipo de Pago Inicial
-              </Label>
-              <Select value={estadoPago} onValueChange={setEstadoPago}>
-                <SelectTrigger className="h-10 w-full border border-slate-200 bg-background text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="pendiente">
-                    Pendiente (Sin Pago Inicial)
-                  </SelectItem>
-                  <SelectItem value="abono">Abono (Pago Parcial)</SelectItem>
-                  <SelectItem value="pagada">
-                    Pago Total (${grandTotal.toLocaleString("es-CL")})
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Método de Pago */}
-            {estadoPago !== "pendiente" && (
-              <div className="animate-in space-y-1.5 duration-200 fade-in">
-                <Label
-                  htmlFor="metodoPago"
-                  className="text-slate-650 text-xs font-semibold dark:text-slate-400"
-                >
-                  Método de Pago
-                </Label>
-                <Select value={metodoPago} onValueChange={setMetodoPago}>
-                  <SelectTrigger className="h-10 w-full border border-slate-200 bg-background text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="debito">Tarjeta de Débito</SelectItem>
-                    <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Monto del Abono */}
-            {estadoPago === "abono" && (
-              <div className="animate-in space-y-1.5 duration-200 fade-in">
-                <Label
-                  htmlFor="montoAbono"
-                  className="text-slate-650 text-xs font-semibold dark:text-slate-400"
-                >
-                  Monto del Abono
-                </Label>
-                <Input
-                  id="montoAbono"
-                  type="number"
-                  min={1}
-                  max={grandTotal - 1}
-                  value={montoAbono || ""}
-                  onChange={(e) =>
-                    setMontoAbono(Math.max(0, Number(e.target.value)))
-                  }
-                  placeholder="Monto en CLP"
-                  required
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        <PaymentInitialSection
+          estadoPago={estadoPago}
+          metodoPago={metodoPago}
+          montoAbono={montoAbono}
+          grandTotal={grandTotal}
+          onEstadoPagoChange={setEstadoPago}
+          onMetodoPagoChange={setMetodoPago}
+          onMontoAbonoChange={setMontoAbono}
+        />
 
         <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-4 dark:border-slate-800">
           <Button

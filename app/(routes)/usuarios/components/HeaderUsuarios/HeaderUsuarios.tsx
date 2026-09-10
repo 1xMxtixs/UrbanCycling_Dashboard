@@ -1,11 +1,13 @@
-// Encabezado de la vista de usuarios administrativos.
+"use client";
+
+import { PageHeader } from "@/components/common/PageHeader";
+import { ShieldCheck } from "lucide-react";
+
 export function HeaderUsuarios() {
   return (
-    <div>
-      <h1 className="text-3xl font-bold">Usuarios del sistema</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Visualiza usuarios registrados y administra el rol asignado a cada uno.
-      </p>
-    </div>
-  )
+    <PageHeader
+      title="Gestión de Usuarios"
+      description="Administra los accesos, roles y permisos de las cuentas registradas en el sistema."
+    />
+  );
 }

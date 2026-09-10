@@ -5,7 +5,7 @@ import { ListVentas } from "./components/ListVentas/ListVentas"
 
 export default function VentasPage() {
   return (
-    <div className="space-y-8 min-h-screen">
+    <div className="min-h-full space-y-6">
       <HeaderVentas />
       <ListVentas />
     </div>

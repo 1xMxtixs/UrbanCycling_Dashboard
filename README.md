@@ -146,9 +146,12 @@ Urban_Cycling/
 │   │   ├── punto-ventas/
 │   │   └── usuarios/
 │   └── api/             # API Routes (NextAuth, endpoints REST)
-├── components/          # Componentes reutilizables
-│   ├── ui/              # Componentes base de shadcn/ui
-│   └── SidebarRoutes/   # Navegación del sidebar
+├── components/          # Componentes reutilizables categorizados
+│   ├── common/          # PageHeader, MetricCard, StatusBadge, EmptyState...
+│   ├── forms/           # FormDialog, ImageUpload, SegmentedTabs...
+│   ├── layout/          # Sidebar, Navbar, Logo, RouteTransition, ThemeToggle...
+│   ├── providers/       # AuthProvider, ThemeProvider
+│   └── ui/              # Componentes base shadcn/ui (Button, Dialog, Table...)
 ├── hooks/               # Custom React hooks
 ├── lib/                 # Utilidades, permisos y configuración
 ├── prisma/              # Schema y migraciones de base de datos

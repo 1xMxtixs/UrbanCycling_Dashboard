@@ -1,7 +1,7 @@
 "use client"
 
 import { Clock, AlertTriangle, AlertCircle, Calendar } from "lucide-react"
-import { type WorkOrder } from "./kpi-cards"
+import { WorkOrder } from "../../types"
 
 interface UpcomingDeadlinesProps {
   orders: WorkOrder[]
@@ -37,14 +37,14 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
     if (diffMs < 0) {
       return {
         label: `Retrasada por ${Math.abs(diffHours)} ${Math.abs(diffHours) === 1 ? "hora" : "horas"}`,
-        colorClass: "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-350 dark:border-red-900/50",
+        colorClass: "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-900/50",
         indicatorColor: "bg-red-500",
         icon: AlertTriangle,
       }
     } else if (diffHours <= 24) {
       return {
         label: diffHours === 0 ? "Vence ahora" : `Vence en ${diffHours} h (¡Hoy!)`,
-        colorClass: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-355 dark:border-orange-900/50",
+        colorClass: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-900/50",
         indicatorColor: "bg-orange-500",
         icon: AlertCircle,
       }
@@ -52,7 +52,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
       const days = Math.round(diffHours / 24)
       return {
         label: `Vence en ${diffHours} h (${days} ${days === 1 ? "día" : "días"})`,
-        colorClass: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-360 dark:border-amber-900/50",
+        colorClass: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-900/50",
         indicatorColor: "bg-amber-500",
         icon: Clock,
       }
@@ -61,7 +61,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
 
   if (upcomingOrders.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-105 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center text-muted-foreground shadow-sm">
+      <div className="rounded-xl border border-border bg-background p-6 text-center text-muted-foreground shadow-sm">
         <Calendar className="mx-auto h-8 w-8 text-slate-300 mb-2" />
         No hay órdenes de trabajo con vencimientos cercanos en las próximas 48 horas.
       </div>
@@ -72,7 +72,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-5 w-5 text-red-500" />
-        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
           Vencimientos Próximos (24-48 h)
         </h2>
         <span className="rounded-full bg-red-100 dark:bg-red-950 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:text-red-300">
@@ -104,7 +104,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
           return (
             <div
               key={order.idOrdenDeTrabajo}
-              className={`flex flex-col justify-between overflow-hidden rounded-xl border p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-slate-400/50 dark:hover:border-slate-600/50 bg-white dark:bg-slate-900 ${colorClass}`}
+              className={`flex flex-col justify-between overflow-hidden rounded-xl border border-border p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/50 bg-background ${colorClass}`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -118,15 +118,15 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white leading-tight">
+                  <h4 className="font-bold text-foreground leading-tight">
                     {clientName}
                   </h4>
-                  <p className="text-xs font-semibold text-slate-650 dark:text-slate-300 mt-0.5">
+                  <p className="text-xs font-semibold text-muted-foreground mt-0.5">
                     {bikeInfo} {order.bicicletas && order.bicicletas.length > 1 && `(+${order.bicicletas.length - 1} más)`}
                   </p>
                 </div>
 
-                <div className="text-xs italic text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-950/20 p-2 rounded-lg border border-slate-100 dark:border-slate-800 line-clamp-2 mt-2">
+                <div className="text-xs italic text-muted-foreground bg-muted/30 p-2 rounded-lg border border-border line-clamp-2 mt-2">
                   &ldquo;{order.observacionesIngreso || "Sin descripción de trabajo"}&rdquo;
                 </div>
               </div>

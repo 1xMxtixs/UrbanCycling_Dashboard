@@ -9,7 +9,7 @@ import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
-const prisma = db as any
+const prisma = db
 
 const transicionesOrdenPermitidas: Record<string, string[]> = {
   "Por realizar": ["En curso", "En espera"],

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function ListInventory() {
   const [inventory, setInventory] = useState<ProductColumn[]>([])
@@ -47,8 +48,13 @@ export function ListInventory() {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg bg-background p-6 text-sm text-muted-foreground shadow-md">
-        Cargando productos...
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, index) => (
+            <Skeleton key={index} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     )
   }

@@ -1,12 +1,10 @@
-// Pagina de administracion para visualizar usuarios y gestionar roles.
-import { HeaderUsuarios } from "./components/HeaderUsuarios"
-import { ListUsuarios } from "./components/ListUsuarios"
+import { HeaderUsuarios, ListUsuarios } from "./components";
 
 export default function UsuariosPage() {
   return (
-    <div className="space-y-8">
+    <div className="min-h-full space-y-6">
       <HeaderUsuarios />
       <ListUsuarios />
     </div>
-  )
+  );
 }

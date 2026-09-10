@@ -1,6 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -9,88 +24,87 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const formSchema = z
+  .object({
+    tipoCliente: z.enum(["natural", "juridica"]),
+    nombre: z.string(),
+    apellido: z.string(),
+    rut: z.string().min(1, "El RUT es obligatorio"),
+    telefono: z.string().min(1, "El teléfono es obligatorio"),
+    razon: z.string(),
+    nombreContacto: z.string(),
+    giro: z.string(),
+  })
+  .superRefine((values, context) => {
+    if (values.tipoCliente === "natural") {
+      if (!values.nombre.trim()) {
+        context.addIssue({
+          code: "custom",
+          path: ["nombre"],
+          message: "El nombre es obligatorio",
+        });
+      }
+      if (!values.apellido.trim()) {
+        context.addIssue({
+          code: "custom",
+          path: ["apellido"],
+          message: "El apellido es obligatorio",
+        });
+      }
+    }
+
+    if (values.tipoCliente === "juridica" && !values.razon.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["razon"],
+        message: "La razón social es obligatoria",
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof formSchema>;
+
 interface FormCreateClienteProps {
   onSuccess: () => void;
 }
 
-export function FormCreateCliente({
-  onSuccess,
-}: FormCreateClienteProps) {
-  const [tipoCliente, setTipoCliente] = useState("natural");
-
-  const [nombre, setNombre] = useState("");
-  const [apellido, setApellido] = useState("");
-  const [rut, setRut] = useState("");
-  const [telefono, setTelefono] = useState("");
-
-  const [razon, setRazon] = useState("");
-  const [nombreContacto, setNombreContacto] = useState("");
-  const [giro, setGiro] = useState("");
-
-  const [errores, setErrores] = useState({
-    nombre: "",
-    apellido: "",
-    rut: "",
-    telefono: "",
-    razon: "",
-  });
-
-  const [cargando, setCargando] = useState(false);
+export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
   const [errorGeneral, setErrorGeneral] = useState("");
 
-  const guardarCliente = async () => {
-    const nuevosErrores = {
-      nombre:
-        tipoCliente === "natural" && !nombre
-          ? "Campo obligatorio"
-          : "",
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange",
+    defaultValues: {
+      tipoCliente: "natural",
+      nombre: "",
+      apellido: "",
+      rut: "",
+      telefono: "",
+      razon: "",
+      nombreContacto: "",
+      giro: "",
+    },
+  });
 
-      apellido:
-        tipoCliente === "natural" && !apellido
-          ? "Campo obligatorio"
-          : "",
+  const tipoCliente = form.watch("tipoCliente");
+  const { isSubmitting, isValid } = form.formState;
 
-      rut: rut ? "" : "Campo obligatorio",
-
-      telefono:
-        telefono ? "" : "Campo obligatorio",
-
-      razon:
-        tipoCliente === "juridica" && !razon
-          ? "Campo obligatorio"
-          : "",
-    };
-
-    setErrores(nuevosErrores);
-
-    if (
-      nuevosErrores.nombre ||
-      nuevosErrores.apellido ||
-      nuevosErrores.rut ||
-      nuevosErrores.telefono ||
-      nuevosErrores.razon
-    ) {
-      return;
-    }
-
-    setCargando(true);
+  const onSubmit = async (values: FormValues) => {
     setErrorGeneral("");
 
     try {
       const response = await fetch("/api/clientes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tipoCliente,
-          nombre,
-          apellido,
-          razon,
-          rut,
-          telefono,
-          nombreContacto,
-          giro,
+          tipoCliente: values.tipoCliente,
+          nombre: values.nombre,
+          apellido: values.apellido,
+          razon: values.razon,
+          rut: values.rut,
+          telefono: values.telefono,
+          nombreContacto: values.nombreContacto,
+          giro: values.giro,
         }),
       });
 
@@ -99,213 +113,173 @@ export function FormCreateCliente({
         throw new Error(errorText || "Error al guardar el cliente");
       }
 
+      toast.success("Cliente creado correctamente");
+      form.reset();
       onSuccess();
-    } catch (err: any) {
-      console.error(err);
-      setErrorGeneral(err.message || "Ocurrió un error inesperado.");
-    } finally {
-      setCargando(false);
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error ? error.message : "Ocurrió un error inesperado.";
+      setErrorGeneral(message);
+      toast.error(message);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block mb-1 font-medium">
-          Tipo de Cliente:
-        </label>
-
-        <Select
-          value={tipoCliente}
-          onValueChange={setTipoCliente}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecciona el tipo de cliente" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value="natural">Persona Natural</SelectItem>
-            <SelectItem value="juridica">Persona Jurídica</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {tipoCliente === "natural" && (
-        <>
-          <div>
-            <label className="block mb-1 font-medium">
-              Nombres:
-            </label>
-
-            <input
-              className={`w-full rounded-md p-2 border ${
-                errores.nombre
-                  ? "border-red-500"
-                  : "border-gray-300"
-              }`}
-              value={nombre}
-              onChange={(e) =>
-                setNombre(e.target.value)
-              }
-              placeholder="Nombre"
-            />
-
-            {errores.nombre && (
-              <p className="text-red-500 text-sm mt-1">
-                {errores.nombre}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block mb-1 font-medium">
-              Apellidos:
-            </label>
-
-            <input
-              className={`w-full rounded-md p-2 border ${
-                errores.apellido
-                  ? "border-red-500"
-                  : "border-gray-300"
-              }`}
-              value={apellido}
-              onChange={(e) =>
-                setApellido(e.target.value)
-              }
-              placeholder="Apellidos"
-            />
-
-            {errores.apellido && (
-              <p className="text-red-500 text-sm mt-1">
-                {errores.apellido}
-              </p>
-            )}
-          </div>
-        </>
-      )}
-
-      {tipoCliente === "juridica" && (
-        <>
-          <div>
-            <label className="block mb-1 font-medium">
-              Razón Social:
-            </label>
-
-            <input
-              className={`w-full rounded-md p-2 border ${
-                errores.razon
-                  ? "border-red-500"
-                  : "border-gray-300"
-              }`}
-              value={razon}
-              onChange={(e) =>
-                setRazon(e.target.value)
-              }
-              placeholder="Razón Social"
-            />
-
-            {errores.razon && (
-              <p className="text-red-500 text-sm mt-1">
-                {errores.razon}
-              </p>
-            )}
-          </div>
-        </>
-      )}
-
-      <div>
-        <label className="block mb-1 font-medium">
-          RUT:
-        </label>
-
-        <input
-          className={`w-full rounded-md p-2 border ${
-            errores.rut
-              ? "border-red-500"
-              : "border-gray-300"
-          }`}
-          value={rut}
-          onChange={(e) => setRut(e.target.value)}
-          placeholder="12345678-9"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="tipoCliente"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo de cliente</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecciona el tipo de cliente" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent position="popper">
+                  <SelectItem value="natural">Persona Natural</SelectItem>
+                  <SelectItem value="juridica">Persona Jurídica</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
         />
 
-        {errores.rut && (
-          <p className="text-red-500 text-sm mt-1">
-            {errores.rut}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block mb-1 font-medium">
-          Teléfono:
-        </label>
-
-        <input
-          className={`w-full rounded-md p-2 border ${
-            errores.telefono ? "border-red-500" : "border-gray-300"
-          }`}
-          value={telefono}
-          onChange={(e) =>
-            setTelefono(
-              e.target.value.replace(/\D/g, "").slice(0, 9)
-            )
-          }
-          placeholder="912345678"
-          maxLength={9}
-        />
-
-        {errores.telefono && (
-          <p className="text-red-500 text-sm mt-1">
-            {errores.telefono}
-          </p>
-        )}
-      </div>
-
-      {tipoCliente === "juridica" && (
-        <>
-          <div>
-            <label className="block mb-1 font-medium">
-              Nombre de Contacto (Opcional):
-            </label>
-
-            <input
-              className="w-full rounded-md p-2 border border-gray-300"
-              value={nombreContacto}
-              onChange={(e) =>
-                setNombreContacto(e.target.value)
-              }
-              placeholder="Nombre de contacto"
+        {tipoCliente === "natural" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="nombre"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombres</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Juan Andrés" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="apellido"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Apellidos</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Pérez Silva" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
+        )}
 
-          <div>
-            <label className="block mb-1 font-medium">
-              Giro (Opcional):
-            </label>
+        {tipoCliente === "juridica" && (
+          <FormField
+            control={form.control}
+            name="razon"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Razón social</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Transportes y Ciclismo SpA" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
-            <input
-              className="w-full rounded-md p-2 border border-gray-300"
-              value={giro}
-              onChange={(e) => setGiro(e.target.value)}
-              placeholder="Giro de la empresa"
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="rut"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>RUT</FormLabel>
+                <FormControl>
+                  <Input placeholder="12345678-9" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="telefono"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Teléfono</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="912345678"
+                    maxLength={9}
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(event.target.value.replace(/\D/g, "").slice(0, 9))
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {tipoCliente === "juridica" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="nombreContacto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contacto (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Persona de contacto" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="giro"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Giro (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Giro comercial" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-        </>
-      )}
+        )}
 
-      {errorGeneral && (
-        <p className="text-red-500 text-sm mt-1 bg-red-50 p-2 rounded border border-red-200">
-          {errorGeneral}
-        </p>
-      )}
+        {errorGeneral && (
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+            {errorGeneral}
+          </div>
+        )}
 
-      <button
-        onClick={guardarCliente}
-        disabled={cargando}
-        className="w-full bg-black text-white p-2 rounded-md hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {cargando ? "Guardando..." : "Guardar Cliente"}
-      </button>
-    </div>
+        <div className="flex justify-end pt-2">
+          <Button
+            type="submit"
+            disabled={!isValid || isSubmitting}
+            className="w-full font-semibold sm:w-auto"
+          >
+            {isSubmitting ? "Guardando..." : "Guardar cliente"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
