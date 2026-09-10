@@ -973,10 +973,10 @@ export async function GET(req: Request) {
 
       return {
         ...orden,
-        fechaCreacion: orden.venta.fechaRegistro,
-        fechaRecepcion: orden.venta.fechaRegistro,
-        usuario: orden.venta.usuario,
-        cliente: orden.venta.cliente,
+        fechaCreacion: orden.venta?.fechaRegistro ?? null,
+        fechaRecepcion: orden.venta?.fechaRegistro ?? null,
+        usuario: orden.venta?.usuario ?? null,
+        cliente: orden.venta?.cliente ?? null,
         total: orden.montoTotal,
         descuento: orden.descuentoGlobal,
         estadoOrden: orden.estado,

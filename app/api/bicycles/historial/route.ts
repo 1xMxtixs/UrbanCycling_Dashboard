@@ -30,7 +30,7 @@ type BicycleHistoryRecord = {
         razonSocial: string | null
         rut: string
       } | null
-    }
+    } | null
   }
 }
 
