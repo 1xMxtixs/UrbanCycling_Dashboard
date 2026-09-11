@@ -35,8 +35,18 @@ export const dataOperationSidebar = [
         icon: Package,
         label: "Inventario",
         href: "/inventory",
-        permission: PERMISSIONS.INVENTORY_READ
-    },
+        permission: PERMISSIONS.INVENTORY_READ,
+        children: [
+            {
+            label: "Productos",
+            href: "/inventory",
+            },
+            {
+            label: "Movimientos de Inventario",
+            href: "/inventory/historial",
+            },
+  ],
+},
 ]
 
 export const dataManagementSidebar = [

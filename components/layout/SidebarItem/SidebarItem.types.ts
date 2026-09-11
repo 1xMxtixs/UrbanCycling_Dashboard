@@ -3,11 +3,15 @@ import { LucideIcon } from "lucide-react"
 import type { PermissionCode } from "@/lib/permissions"
 
 export type SidebarItemProps = {
-    item: {
-        label: string,
-        icon: LucideIcon,
-        href: string,
-        permission?: PermissionCode
-    },
-    key: string
+  item: {
+    label: string
+    icon: LucideIcon
+    href: string
+    permission?: PermissionCode
+    children?: {
+      label: string
+      href: string
+    }[]
+  }
+  key: string
 }
