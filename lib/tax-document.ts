@@ -57,7 +57,7 @@ export function normalizeTaxDocumentOrigin(value: unknown): TaxDocumentOrigin | 
   if (
     origin === "orden-trabajo" ||
     origin === "orden_de_trabajo" ||
-    origin === "ordenDeTrabajo"
+    origin === "ordendetrabajo"
   ) {
     return "orden-trabajo"
   }
@@ -75,4 +75,18 @@ export function calculateIncludedIva(total: number) {
     montoNeto,
     montoIva,
   }
+}
+
+export function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
+  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal);
+  const montoNeto = Math.round(montoTotal / 1.19); // Asumiendo IVA 19%
+  const montoIva = montoTotal - montoNeto;
+
+  return {
+    montoSubtotal,
+    descuentoGlobal,
+    montoTotal,
+    montoNeto,
+    montoIva,
+  };
 }
