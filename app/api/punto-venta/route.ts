@@ -663,6 +663,7 @@ export async function POST(req: Request) {
       if (!servicioGenerico) {
         servicioGenerico = await prisma.servicio.create({
           data: {
+            codigo: "SERV-TALLER",
             nombre: "Servicio de Taller",
             descripcion: "Mano de obra y servicios tecnicos generales",
             precioVenta: 0,
