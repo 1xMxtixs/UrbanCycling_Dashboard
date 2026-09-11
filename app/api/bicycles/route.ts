@@ -32,7 +32,7 @@ type BicycleWithRelations = Awaited<
         razonSocial: string | null
         rut: string
       } | null
-    } | null
+    }
   }
 }
 

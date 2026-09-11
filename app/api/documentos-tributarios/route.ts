@@ -225,18 +225,7 @@ export async function POST(request: Request) {
         )
       }
 
-      if (!ordenDeTrabajo.venta) {
-        return NextResponse.json(
-          {
-            code: "ORDEN_SIN_VENTA",
-            message:
-              "La orden de trabajo no tiene una venta asociada; no se puede emitir un documento tributario",
-          },
-          { status: 400 }
-        )
-      }
-
-      linkedVentaId = ordenDeTrabajo.venta.idVenta
+      linkedVentaId = ordenDeTrabajo.idVenta
       linkedClientId = ordenDeTrabajo.venta.idCliente
       rutReceptor = ordenDeTrabajo.venta.cliente?.rut ?? null
       montoSubtotal = Math.round(toNumber(ordenDeTrabajo.montoSubtotal))
