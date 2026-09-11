@@ -3,11 +3,13 @@ import { test, expect } from '@playwright/test';
 
 const URL_BASE = process.env.E2E_BASE_URL ?? 'https://urban-cycling-dashboard-mxtixs-projects.vercel.app';
 const EMAIL_PRUEBA = process.env.E2E_EMAIL ?? 'qa.admin.db@urbancycling.cl';
-const PASSWORD_PRUEBA = process.env.E2E_PASSWORD;
+const RAW_PASSWORD_PRUEBA = process.env.E2E_PASSWORD;
 
-if (!PASSWORD_PRUEBA) {
+if (!RAW_PASSWORD_PRUEBA) {
   throw new Error('Falta la variable de entorno E2E_PASSWORD (credencial de QA) para correr los tests E2E.');
 }
+
+const PASSWORD_PRUEBA: string = RAW_PASSWORD_PRUEBA;
 
 async function login(page: import('@playwright/test').Page) {
   // 1. Navegar a la página de Sign In
