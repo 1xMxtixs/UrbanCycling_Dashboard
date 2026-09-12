@@ -29,7 +29,13 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 
 
 import { BikesSection, BikeInput } from "./BikesSection"
-import { OrderLinesSection, Product, SelectedProduct } from "./OrderLinesSection"
+import {
+  OrderLinesSection,
+  Product,
+  SelectedProduct,
+  SelectedService,
+  Service,
+} from "./OrderLinesSection"
 import { PaymentInitialSection } from "./PaymentInitialSection"
 
 interface Client {
@@ -53,7 +59,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [clients, setClients] = useState<Client[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true)
+  const [, setIsLoadingProducts] = useState(true)
+  const [services, setServices] = useState<Service[]>([])
 
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [fechaIngreso] = useState<string>(
@@ -83,7 +90,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     },
   ])
 
-  const [montoServicio, setMontoServicio] = useState<number>(0)
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([])
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
     []
   )
@@ -92,7 +99,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       try {
         const res = await fetch("/api/clientes")
         if (res.ok) {
-          const data = await res.json()
+          const data = (await res.json()) as Client[]
           setClients(data)
           if (selectNewest && data.length > 0) {
             // Encuentra el cliente con el idCliente más alto (el más reciente)
@@ -115,7 +122,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       try {
         const res = await fetch("/api/clientes")
         if (res.ok) {
-          const data = await res.json()
+          const data = (await res.json()) as Client[]
           setClients(data)
         }
       } catch (err) {
@@ -130,8 +137,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       try {
         const res = await fetch("/api/inventory")
         if (res.ok) {
-          const data = await res.json()
-          setProducts(data.filter((p: any) => p.estado === "activo"))
+          const data = (await res.json()) as Product[]
+          setProducts(data.filter((p) => p.estado === "activo"))
         }
       } catch (err) {
         console.error("Error fetching products:", err)
@@ -141,8 +148,22 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       }
     }
 
+    async function fetchServices() {
+      try {
+        const res = await fetch("/api/servicios?estado=activo")
+        if (res.ok) {
+          const data = (await res.json()) as Service[]
+          setServices(data)
+        }
+      } catch (err) {
+        console.error("Error fetching services:", err)
+        toast.error("No se pudieron cargar los servicios")
+      }
+    }
+
     fetchClients()
     fetchProducts()
+    fetchServices()
   }, [])
 
   const handleAddBike = () => {
@@ -182,7 +203,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const handleUpdateBikeField = (
     index: number,
     field: keyof BikeInput,
-    value: any
+    value: BikeInput[keyof BikeInput]
   ) => {
     const updated = [...bikes]
     updated[index] = { ...updated[index], [field]: value }
@@ -266,11 +287,48 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setSelectedProducts(updated)
   }
 
+  const handleAddService = () => {
+    setSelectedServices([
+      ...selectedServices,
+      { idServicio: "", cantidad: 1, precioUnitario: 0 },
+    ])
+  }
+
+  const handleRemoveService = (index: number) => {
+    setSelectedServices(selectedServices.filter((_, i) => i !== index))
+  }
+
+  const handleServiceChange = (index: number, idServicio: string) => {
+    const matched = services.find((s) => s.idServicio.toString() === idServicio)
+    const price = matched ? Number(matched.precioVenta) : 0
+
+    const updated = [...selectedServices]
+    updated[index] = {
+      ...updated[index],
+      idServicio,
+      precioUnitario: price,
+    }
+    setSelectedServices(updated)
+  }
+
+  const handleServiceQuantityChange = (index: number, cantidad: number) => {
+    const updated = [...selectedServices]
+    updated[index] = {
+      ...updated[index],
+      cantidad: Math.max(1, cantidad),
+    }
+    setSelectedServices(updated)
+  }
+
   const totalProductsCost = selectedProducts.reduce(
     (sum, p) => sum + p.cantidad * p.precioUnitario,
     0
   )
-  const grandTotal = totalProductsCost + montoServicio
+  const totalServicesCost = selectedServices.reduce(
+    (sum, s) => sum + s.cantidad * s.precioUnitario,
+    0
+  )
+  const grandTotal = totalProductsCost + totalServicesCost
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -308,6 +366,16 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       return
     }
 
+    const incompleteServiceIdx = selectedServices.findIndex(
+      (s) => !s.idServicio
+    )
+    if (incompleteServiceIdx !== -1) {
+      toast.error(
+        `Debe seleccionar un servicio en la línea #${incompleteServiceIdx + 1}.`
+      )
+      return
+    }
+
     if (
       estadoPago === "abono" &&
       (montoAbono <= 0 || montoAbono >= grandTotal)
@@ -337,7 +405,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                 `Error al subir la imagen de la bicicleta #${idx + 1}`
               )
             }
-            const data = await res.json()
+            const data = (await res.json()) as { url: string }
             finalImageUrl = data.url
           }
           return {
@@ -371,7 +439,11 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             fechaEntregaEstimada: new Date(fechaEntrega).toISOString(),
             observacionesIngreso: descripcion.trim() || null,
             estadoOrden: "Por realizar",
-            montoServicio,
+            servicios: selectedServices.map((s) => ({
+              idServicio: Number(s.idServicio),
+              cantidad: s.cantidad,
+              precioUnitario: s.precioUnitario,
+            })),
             productos: selectedProducts.map((p) => ({
               idProducto: Number(p.idProducto),
               cantidad: p.cantidad,
@@ -391,9 +463,13 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       window.dispatchEvent(new Event("work-orders:refresh"))
       router.refresh()
       setOpenModalCreate(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      toast.error(err.message || "No se pudo registrar la orden de trabajo")
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar la orden de trabajo"
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -550,11 +626,16 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
 
         <OrderLinesSection
           products={products}
+          services={services}
           selectedProducts={selectedProducts}
-          montoServicio={montoServicio}
+          selectedServices={selectedServices}
           totalProductsCost={totalProductsCost}
+          totalServicesCost={totalServicesCost}
           grandTotal={grandTotal}
-          onMontoServicioChange={setMontoServicio}
+          onAddService={handleAddService}
+          onRemoveService={handleRemoveService}
+          onServiceChange={handleServiceChange}
+          onServiceQuantityChange={handleServiceQuantityChange}
           onAddProduct={handleAddProduct}
           onRemoveProduct={handleRemoveProduct}
           onProductChange={handleProductChange}
