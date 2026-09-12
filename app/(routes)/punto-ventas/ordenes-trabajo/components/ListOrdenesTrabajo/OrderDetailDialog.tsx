@@ -83,7 +83,7 @@ export function OrderDetailDialog({
 
   const laborCost = (order.lineasDeOrdenDeTrabajo || [])
     .filter((l) => l.idServicio !== null && l.idServicio !== undefined)
-    .reduce((sum, l) => sum + Number(l.precioUnitario), 0)
+    .reduce((sum, l) => sum + Number(l.precioUnitario || 0) * Number(l.cantidad || 1), 0)
 
   const productLines = (order.lineasDeOrdenDeTrabajo || []).filter(
     (l) => l.idProducto !== null && l.idProducto !== undefined
@@ -304,8 +304,7 @@ export function OrderDetailDialog({
               />
               <DataField
                 label="Monto Total"
-                value={`$${Number(order.total).toLocaleString("es-CL")}`}
-                valueClassName="text-primary font-black"
+                value={<span className="text-primary font-black">{`${Number(order.total).toLocaleString("es-CL")}`}</span>}
               />
             </div>
           </div>

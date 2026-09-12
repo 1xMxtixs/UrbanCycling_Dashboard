@@ -79,17 +79,19 @@ export function AssignSuppliesDialog({
       setIsLoadingProducts(true)
       try {
         const res = await fetch("/api/inventory", { cache: "no-store" })
-        if (res.ok) {
-          const data = await res.json()
-          setProducts(
-            Array.isArray(data)
-              ? data.filter(
-                  (p: ProductInventoryItem) =>
-                    p.estado?.toLowerCase() === "activo" || !p.estado
-                )
-              : []
-          )
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.message || `Error al cargar inventario (${res.status})`)
         }
+        const data = await res.json()
+        setProducts(
+          Array.isArray(data)
+            ? data.filter(
+                (p: ProductInventoryItem) =>
+                  p.estado?.toLowerCase() === "activo" || !p.estado
+              )
+            : []
+        )
       } catch (err) {
         console.error("Error al cargar productos:", err)
         toast.error("No se pudo cargar el inventario de insumos.")
@@ -190,10 +192,15 @@ export function AssignSuppliesDialog({
     e.preventDefault()
     if (!order) return
 
-    // Validar productos duplicados o incompletos
+    // Validar productos incompletos y stock suficiente
     for (const sup of supplies) {
       if (!sup.idProducto) {
         toast.error("Por favor selecciona un producto en cada fila agregada.")
+        return
+      }
+      const prod = products.find((p) => String(p.idProducto) === sup.idProducto)
+      if (prod && prod.stockActual < sup.cantidad) {
+        toast.error(`Stock insuficiente para ${prod.nombre} (Disponible: ${prod.stockActual}, Solicitado: ${sup.cantidad}).`)
         return
       }
     }
