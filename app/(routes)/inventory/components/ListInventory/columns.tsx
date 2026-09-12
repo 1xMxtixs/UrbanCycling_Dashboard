@@ -147,6 +147,7 @@ export function getColumns(
     },
     {
       accessorKey: "estado",
+      filterFn: "equalsString",
       header: "Estado",
       cell: ({ row }) => {
         const estado = row.original.estado
