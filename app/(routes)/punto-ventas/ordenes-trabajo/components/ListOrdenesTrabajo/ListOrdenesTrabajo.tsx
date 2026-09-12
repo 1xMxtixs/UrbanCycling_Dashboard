@@ -15,6 +15,7 @@ import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
+import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -56,6 +57,9 @@ export function ListOrdenesTrabajo() {
 
   const [auditModalOpen, setAuditModalOpen] = useState(false)
   const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
+
+  const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
+  const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
 
   const getOrders = async () => {
     try {
@@ -148,6 +152,11 @@ export function ListOrdenesTrabajo() {
   const handleAuditClick = (order: WorkOrder) => {
     setOrderToAudit(order)
     setAuditModalOpen(true)
+  }
+
+  const handleModifyServiceClick = (order: WorkOrder) => {
+    setOrderToModifyService(order)
+    setModifyServiceModalOpen(true)
   }
 
   const handleConfirmCancelOrder = async () => {
@@ -438,6 +447,7 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -453,6 +463,7 @@ export function ListOrdenesTrabajo() {
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
         onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 5. Modal de Pago Restante */}
@@ -502,6 +513,16 @@ export function ListOrdenesTrabajo() {
         order={orderToAudit}
       />
 
+      {/* 10. Modal de Modificación de Servicio */}
+      <ModifyServiceDialog
+        open={modifyServiceModalOpen}
+        onOpenChange={setModifyServiceModalOpen}
+        order={orderToModifyService}
+        onSuccess={() => {
+          getOrders()
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

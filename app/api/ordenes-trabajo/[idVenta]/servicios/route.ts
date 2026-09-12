@@ -380,7 +380,7 @@ export async function PATCH(
 
     if (Number.isNaN(idOrdenDeTrabajo)) {
       return NextResponse.json(
-        { code: "ID_INVALIDO", message: "El ID de la orden no es vÃ¡lido" },
+        { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
         { status: 400 }
       );
     }
@@ -420,7 +420,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           code: "CAMPOS_MODIFICACION_VACIOS",
-          message: "Debe agregar una descripciÃ³n para el cambio",
+          message: "Debe agregar una descripción para el cambio",
         },
         { status: 400 }
       );
@@ -430,7 +430,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           code: "LINEA_INVALIDA",
-          message: "La linea de servicio no es vÃ¡lida",
+          message: "La linea de servicio no es válida",
         },
         { status: 400 }
       );
@@ -569,7 +569,7 @@ export async function PATCH(
 
     return NextResponse.json({
       code: "SERVICIO_ORDEN_MODIFICADO",
-      message: "ModificaciÃ³n de servicio registrada correctamente",
+      message: "Modificación de servicio registrada correctamente",
       linea: resultado.linea,
       servicio: resultado.servicio,
       orden: resultado.orden,
