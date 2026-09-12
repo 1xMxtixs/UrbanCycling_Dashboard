@@ -190,6 +190,16 @@ export function ListVentas() {
       return
     }
 
+    // Red de seguridad: si Radix dejó estilos pegados en el body (pointer-events/overflow)
+    // al volver del diálogo de impresión, este interval los limpia en cuanto la ventana cierra.
+    const checkClosed = setInterval(() => {
+      if (printWindow.closed) {
+        clearInterval(checkClosed)
+        document.body.style.pointerEvents = ""
+        document.body.style.overflow = ""
+      }
+    }, 300)
+
     const clientLabel = formatClientName(sale?.cliente)
     const lineas = sale?.venta?.lineasDeVenta || []
 
@@ -262,6 +272,8 @@ export function ListVentas() {
           <script>
             window.onload = function() {
               window.print();
+            }
+            window.onafterprint = function() {
               window.close();
             }
           </script>
