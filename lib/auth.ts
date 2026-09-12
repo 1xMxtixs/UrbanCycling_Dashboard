@@ -8,6 +8,8 @@ import { verifyPassword } from "@/lib/password"
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
+    maxAge: 20 * 60, // 20 minutos de validez en servidor
+    updateAge: 5 * 60, // renueva el token cada 5 minutos con actividad real
   },
   pages: {
     signIn: "/sign-in",
