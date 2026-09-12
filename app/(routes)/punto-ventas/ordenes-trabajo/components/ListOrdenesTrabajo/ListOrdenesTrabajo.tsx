@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -69,11 +70,46 @@ export function ListOrdenesTrabajo() {
       }
 
       const data = await response.json()
+
       const ordenes = Array.isArray(data)
         ? data
-          .filter((item) => item.tipoOperacion === "orden_trabajo")
-          .map((item) => item.ordenTrabajo)
-          .filter(Boolean)
+            .filter((item) => item.tipoOperacion === "orden_trabajo")
+            .map((item) => item.ordenTrabajo)
+            .filter(Boolean)
+            .map((orden: WorkOrder) => ({
+              ...orden,
+              bicicletas: (orden.bicicletas ?? []).map((bicicleta: any) => {
+                const imagenesDesdeRelacion =
+                  Array.isArray(bicicleta.imagenes)
+                    ? bicicleta.imagenes
+                        .map((imagen: any) => {
+                          if (typeof imagen === "string") {
+                            return imagen.trim()
+                          }
+
+                          return String(imagen?.urlImagen ?? "").trim()
+                        })
+                        .filter(Boolean)
+                    : []
+
+                const imagenPrincipal =
+                  typeof bicicleta.imagenUrl === "string"
+                    ? bicicleta.imagenUrl.trim()
+                    : ""
+
+                return {
+                  ...bicicleta,
+                  imagenes: Array.from(
+                    new Set(
+                      [
+                        imagenPrincipal,
+                        ...imagenesDesdeRelacion,
+                      ].filter(Boolean)
+                    )
+                  ),
+                }
+              }),
+            }))
         : []
 
       setOrders(ordenes)
@@ -95,6 +131,7 @@ export function ListOrdenesTrabajo() {
 
   const handleStatusChange = async (orderId: number, nextStatus: string) => {
     setUpdatingId(orderId)
+
     try {
       const res = await fetch(`/api/ordenes-trabajo/${orderId}/estado`, {
         method: "PATCH",
@@ -156,27 +193,35 @@ export function ListOrdenesTrabajo() {
     setIsCancellingOrder(true)
 
     try {
-      const res = await fetch(`/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ estado: "Anulada" }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ estado: "Anulada" }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
+
         toast.error(
           err.code === "ANULACION_NO_PERMITIDA"
             ? "No es posible anular esta orden"
             : err.message || "No se pudo anular la orden"
         )
+
         return
       }
 
       toast.success("Orden de trabajo anulada correctamente.")
 
-      if (selectedOrder?.idOrdenDeTrabajo === orderToCancel.idOrdenDeTrabajo) {
+      if (
+        selectedOrder?.idOrdenDeTrabajo ===
+        orderToCancel.idOrdenDeTrabajo
+      ) {
         setSelectedOrder({
           ...selectedOrder,
           estadoOrden: "Anulada",
@@ -185,6 +230,7 @@ export function ListOrdenesTrabajo() {
 
       setCancelModalOpen(false)
       setOrderToCancel(null)
+
       getOrders()
       router.refresh()
     } catch {
@@ -205,15 +251,18 @@ export function ListOrdenesTrabajo() {
     setIsRescheduling(true)
 
     try {
-      const res = await fetch(`/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fechaEntregaEstimada: newDeliveryDate,
-        }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fechaEntregaEstimada: newDeliveryDate,
+          }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
@@ -221,9 +270,14 @@ export function ListOrdenesTrabajo() {
         return
       }
 
-      toast.success("Fecha estimada de entrega actualizada correctamente.")
+      toast.success(
+        "Fecha estimada de entrega actualizada correctamente."
+      )
 
-      if (selectedOrder?.idOrdenDeTrabajo === orderToReschedule.idOrdenDeTrabajo) {
+      if (
+        selectedOrder?.idOrdenDeTrabajo ===
+        orderToReschedule.idOrdenDeTrabajo
+      ) {
         setSelectedOrder({
           ...selectedOrder,
           fechaEntregaEstimada: newDeliveryDate,
@@ -232,6 +286,7 @@ export function ListOrdenesTrabajo() {
 
       setRescheduleModalOpen(false)
       setOrderToReschedule(null)
+
       getOrders()
       router.refresh()
     } catch {
@@ -243,37 +298,50 @@ export function ListOrdenesTrabajo() {
 
   const handleConfirmPayment = async () => {
     if (!orderToPay) return
+
     setIsConfirmingPayment(true)
+
     try {
       const total = Number(orderToPay.total)
       const totalPagado = Number(orderToPay.totalPagado || 0)
       const saldoRestante = Math.max(0, total - totalPagado)
 
-      const res = await fetch(`/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          estadoPago: "pagada",
-          metodoPago: selectedMetodoPago,
-          montoPago: saldoRestante,
-        }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            estadoPago: "pagada",
+            metodoPago: selectedMetodoPago,
+            montoPago: saldoRestante,
+          }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.message || "Error al registrar el pago restante")
+        throw new Error(
+          err.message || "Error al registrar el pago restante"
+        )
       }
 
-      toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
+      toast.success(
+        "Pago registrado correctamente. La orden ahora está Pagada."
+      )
+
       setPayModalOpen(false)
       setOpenDetailsModal(false)
+
       getOrders()
       router.refresh()
     } catch (err: any) {
       console.error(err)
-      toast.error(err.message || "No se pudo procesar el pago restante")
+      toast.error(
+        err.message || "No se pudo procesar el pago restante"
+      )
     } finally {
       setIsConfirmingPayment(false)
     }
@@ -286,6 +354,7 @@ export function ListOrdenesTrabajo() {
 
   const handleGenerateReceipt = async (order: WorkOrder) => {
     setIsGeneratingReceipt(true)
+
     try {
       const res = await fetch("/api/documentos-tributarios", {
         method: "POST",
@@ -301,31 +370,50 @@ export function ListOrdenesTrabajo() {
 
       if (res.status === 201 || res.status === 409) {
         const data = await res.json()
+
         setActiveReceipt(data.documentoTributario)
         setSelectedOrder(order)
         setReceiptModalOpen(true)
       } else {
         const errorData = await res.json()
-        throw new Error(errorData.message || "Error al generar la boleta")
+        throw new Error(
+          errorData.message || "Error al generar la boleta"
+        )
       }
     } catch (err: any) {
       console.error(err)
-      toast.error(err.message || "No se pudo generar la boleta.")
+      toast.error(
+        err.message || "No se pudo generar la boleta."
+      )
     } finally {
       setIsGeneratingReceipt(false)
     }
   }
 
-  const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
-    const printWindow = window.open("", "_blank", "width=400,height=600")
+  const handlePrintReceipt = (
+    dte: any,
+    order: WorkOrder | null
+  ) => {
+    const printWindow = window.open(
+      "",
+      "_blank",
+      "width=400,height=600"
+    )
+
     if (!printWindow) {
-      toast.error("Por favor, permite las ventanas emergentes para imprimir.")
+      toast.error(
+        "Por favor, permite las ventanas emergentes para imprimir."
+      )
       return
     }
 
     const clientLabel = order?.cliente
-      ? order.cliente.razonSocial || `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
+      ? order.cliente.razonSocial ||
+        `${order.cliente.primerNombre || ""} ${
+          order.cliente.apellidoPaterno || ""
+        }`.trim()
       : "Cliente General"
+
     const lineas = order?.lineasDeOrdenDeTrabajo || []
 
     const content = `
@@ -342,58 +430,151 @@ export function ListOrdenesTrabajo() {
               color: #000;
               line-height: 1.4;
             }
-            .text-center { text-align: center; }
-            .bold { font-weight: bold; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .header-title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-            .receipt-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; }
-            .footer { font-size: 10px; margin-top: 25px; text-align: center; color: #555; }
+
+            .text-center {
+              text-align: center;
+            }
+
+            .bold {
+              font-weight: bold;
+            }
+
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 10px 0;
+            }
+
+            .flex {
+              display: flex;
+              justify-content: space-between;
+            }
+
+            .header-title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+
+            .receipt-title {
+              font-size: 14px;
+              font-weight: bold;
+              margin: 15px 0 5px 0;
+            }
+
+            .footer {
+              font-size: 10px;
+              margin-top: 25px;
+              text-align: center;
+              color: #555;
+            }
           </style>
         </head>
+
         <body>
-          <div class="text-center header-title">URBAN CYCLING</div>
-          <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
+          <div class="text-center header-title">
+            URBAN CYCLING
+          </div>
+
+          <div class="text-center">
+            Giro: Venta y Servicio de Bicicletas
+          </div>
+
+          <div class="text-center">
+            RUT Emisor: ${dte.rutEmisor}
+          </div>
+
           <div class="divider"></div>
-          
-          <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-          <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
+
+          <div class="text-center receipt-title">
+            COMPROBANTE DE COMPRA
+          </div>
+
+          <div class="text-center bold">
+            N° Folio: ${dte.numeroFolio}
+          </div>
+
           <div class="divider"></div>
-          
-          <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
+
+          <div>
+            Fecha Emisión:
+            ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}
+          </div>
+
+          <div>
+            Cliente: ${clientLabel}
+          </div>
+
+          ${
+            order?.cliente?.rut
+              ? `<div>RUT Receptor: ${order.cliente.rut}</div>`
+              : ""
+          }
+
           <div class="divider"></div>
-          
-          <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
-          ${lineas.map((line: any) => `
-            <div class="flex">
-              <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto"}</span>
-              <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
-            </div>
-          `).join("")}
-          
+
+          <div
+            class="bold"
+            style="margin-bottom: 5px;"
+          >
+            DETALLE DE COMPRA / SERVICIO:
+          </div>
+
+          ${lineas
+            .map(
+              (line: any) => `
+                <div class="flex">
+                  <span>
+                    ${line.cantidad}x ${
+                      line.servicio?.nombre ||
+                      line.producto?.nombre ||
+                      "Servicio/Producto"
+                    }
+                  </span>
+
+                  <span>
+                    $${(
+                      line.cantidad *
+                      Number(line.precioUnitario)
+                    ).toLocaleString("es-CL")}
+                  </span>
+                </div>
+              `
+            )
+            .join("")}
+
           <div class="divider"></div>
-          
+
           <div class="flex">
             <span>Neto:</span>
-            <span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span>
+            <span>
+              $${Number(dte.montoNeto).toLocaleString("es-CL")}
+            </span>
           </div>
+
           <div class="flex">
             <span>IVA (19%):</span>
-            <span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span>
+            <span>
+              $${Number(dte.montoIva).toLocaleString("es-CL")}
+            </span>
           </div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;">
+
+          <div
+            class="flex bold"
+            style="font-size: 13px; margin-top: 5px;"
+          >
             <span>TOTAL:</span>
-            <span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span>
+            <span>
+              $${Number(dte.montoTotal).toLocaleString("es-CL")}
+            </span>
           </div>
-          
+
           <div class="divider"></div>
+
           <div class="footer">
             ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>
             ¡Gracias por su preferencia en Urban Cycling!
           </div>
+
           <script>
             window.onload = function() {
               window.print();
@@ -413,9 +594,13 @@ export function ListOrdenesTrabajo() {
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
+            <Skeleton
+              key={index}
+              className="h-24 rounded-xl"
+            />
           ))}
         </div>
+
         <Skeleton className="h-96 rounded-xl" />
       </div>
     )
@@ -482,7 +667,9 @@ export function ListOrdenesTrabajo() {
         open={receiptModalOpen}
         onOpenChange={setReceiptModalOpen}
         activeReceipt={activeReceipt}
-        onPrint={() => handlePrintReceipt(activeReceipt, selectedOrder)}
+        onPrint={() =>
+          handlePrintReceipt(activeReceipt, selectedOrder)
+        }
         isGeneratingReceipt={isGeneratingReceipt}
       />
 
