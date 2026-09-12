@@ -140,7 +140,11 @@ export function ListOrdenesTrabajo() {
     setOrderToCancel(order)
     setCancelModalOpen(true)
   }
+  const handleEditClick = (order: WorkOrder) => {
+    setOpenDetailsModal(false)
 
+    router.push(`/punto-ventas/ordenes-trabajo/${order.idOrdenDeTrabajo}/editar`)
+  }
   const handleConfirmCancelOrder = async () => {
     if (!orderToCancel) return
 
@@ -441,6 +445,7 @@ export function ListOrdenesTrabajo() {
         onPayClick={handlePayClick}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
+        onEditClick={handleEditClick}
         onStatusChange={handleStatusChange}
       />
 
