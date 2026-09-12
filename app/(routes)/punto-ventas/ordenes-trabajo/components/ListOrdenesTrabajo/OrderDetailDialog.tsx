@@ -16,8 +16,11 @@ import {
   Download,
   Mail,
   MoreHorizontal,
+  History,
 } from "lucide-react"
 import { useState } from "react"
+import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -65,6 +68,8 @@ interface OrderDetailDialogProps {
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
   onAssignSuppliesClick?: (order: WorkOrder) => void
+  onAuditClick?: (order: WorkOrder) => void
+  onModifyServiceClick?: (order: WorkOrder) => void
 }
 
 export function OrderDetailDialog({
@@ -76,7 +81,14 @@ export function OrderDetailDialog({
   onCancelClick,
   onStatusChange,
   onAssignSuppliesClick,
+  onAuditClick,
+  onModifyServiceClick,
 }: OrderDetailDialogProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.rol === "Administrador"
+  const canUpdateOrders = session?.user?.permisos?.includes(
+    PERMISSIONS.WORK_ORDERS_UPDATE
+  )
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
 
   if (!order) return null
@@ -462,118 +474,140 @@ export function OrderDetailDialog({
           </div>
         </div>
 
-        {/* Acciones en el pie del Modal */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          {/* [Registrar Pago Restante] - primero, a la izquierda */}
-          {!isPaid && onPayClick && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onPayClick(order)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 cursor-pointer"
-            >
-              <Coins className="h-4 w-4" />
-              Registrar Pago Restante
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <div>
+            {!isPaid && onPayClick && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => onPayClick(order)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 cursor-pointer"
+              >
+                <Coins className="h-4 w-4" />
+                Registrar Pago Restante
+              </Button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && onAssignSuppliesClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAssignSuppliesClick(order)}
+                className="gap-1.5 cursor-pointer"
+              >
+                <Pencil className="h-4 w-4" />
+                Editar
+              </Button>
+            )}
+
+            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onModifyServiceClick(order)}
+                className="gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                <Wrench className="h-4 w-4" />
+                Modificar servicio
+              </Button>
+            )}
+
+            {onRescheduleClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRescheduleClick(order)}
+                className="gap-1.5 text-amber-700 dark:text-amber-400"
+              >
+                <CalendarClock className="h-4 w-4" />
+                Reprogramar
+              </Button>
+            )}
+
+            {canCancel && onCancelClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onCancelClick(order)}
+                className="gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
+              >
+                <XCircle className="h-4 w-4" />
+                Anular
+              </Button>
+            )}
+
+            {isAdmin && onAuditClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAuditClick(order)}
+                className="gap-1.5"
+              >
+                <History className="h-4 w-4" />
+                Ver auditoría
+              </Button>
+            )}
+
+            {/* [Exportar ▾] */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                  <Download className="h-4 w-4" />
+                  Exportar
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => printWorkOrder(order)}
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimir
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => downloadWorkOrderPdf(order)}
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => {
+                    const clientEmail = ""
+                    const subject = encodeURIComponent(`Orden de Trabajo #${order.idOrdenDeTrabajo} - UrbanCycling`)
+                    const body = encodeURIComponent(
+                      [
+                        `Estimado/a cliente,`,
+                        ``,
+                        `Le informamos el estado de su Orden de Trabajo #${order.idOrdenDeTrabajo}:`,
+                        ``,
+                        `  Estado: ${order.estadoOrden}`,
+                        `  Entrega Estimada: ${new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")}`,
+                        `  Total: $${Number(order.total).toLocaleString("es-CL")}`,
+                        ``,
+                        `Ante cualquier consulta, no dude en contactarnos.`,
+                        ``,
+                        `Saludos,`,
+                        `UrbanCycling`,
+                      ].join("\n")
+                    )
+                    window.location.href = `mailto:${clientEmail}?subject=${subject}&body=${body}`
+                  }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Correo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Cerrar
             </Button>
-          )}
-
-          {/* [Mas acciones] - incluye Editar, Reprogramar y Anular */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
-                <MoreHorizontal className="h-4 w-4" />
-                Más acciones
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              {canEdit && onAssignSuppliesClick && (
-                <DropdownMenuItem
-                  onClick={() => onAssignSuppliesClick(order)}
-                  className="flex cursor-pointer items-center gap-2"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </DropdownMenuItem>
-              )}
-              {onRescheduleClick && (
-                <DropdownMenuItem
-                  onClick={() => onRescheduleClick(order)}
-                  className="flex cursor-pointer items-center gap-2"
-                >
-                  <CalendarClock className="h-4 w-4" />
-                  Reprogramar Entrega
-                </DropdownMenuItem>
-              )}
-              {canCancel && onCancelClick && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onCancelClick(order)}
-                    className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Anular Orden
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* [Exportar â–¾] */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
-                <Download className="h-4 w-4" />
-                Exportar
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-44">
-              <DropdownMenuItem
-                className="flex cursor-pointer items-center gap-2"
-                onClick={() => printWorkOrder(order)}
-              >
-                <Printer className="h-4 w-4" />
-                Imprimir
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex cursor-pointer items-center gap-2"
-                onClick={() => downloadWorkOrderPdf(order)}
-              >
-                <Download className="h-4 w-4" />
-                Descargar PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex cursor-pointer items-center gap-2"
-                onClick={() => {
-                  const clientEmail = ""
-                  const subject = encodeURIComponent(`Orden de Trabajo #${order.idOrdenDeTrabajo} - UrbanCycling`)
-                  const body = encodeURIComponent(
-                    [
-                      `Estimado/a cliente,`,
-                      ``,
-                      `Le informamos el estado de su Orden de Trabajo #${order.idOrdenDeTrabajo}:`,
-                      ``,
-                      `  Estado: ${order.estadoOrden}`,
-                      `  Entrega Estimada: ${new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")}`,
-                      `  Total: $${Number(order.total).toLocaleString("es-CL")}`,
-                      ``,
-                      `Ante cualquier consulta, no dude en contactarnos.`,
-                      ``,
-                      `Saludos,`,
-                      `UrbanCycling`,
-                    ].join("\n")
-                  )
-                  window.location.href = `mailto:${clientEmail}?subject=${subject}&body=${body}`
-                }}
-              >
-                <Mail className="h-4 w-4" />
-                Correo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+          </div>
         </div>
       </DialogContent>
     </Dialog>

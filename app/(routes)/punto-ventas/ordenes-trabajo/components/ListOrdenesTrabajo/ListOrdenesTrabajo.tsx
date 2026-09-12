@@ -15,6 +15,8 @@ import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
 import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
+import { OrderAuditDialog } from "./OrderAuditDialog"
+import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -56,6 +58,12 @@ export function ListOrdenesTrabajo() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [orderToCancel, setOrderToCancel] = useState<WorkOrder | null>(null)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
+
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
+  const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
+
+  const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
+  const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
 
   const getOrders = async () => {
     try {
@@ -101,7 +109,7 @@ export function ListOrdenesTrabajo() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estadoOrden: nextStatus }),
+        body: JSON.stringify({ estado: nextStatus }),
       })
 
       if (!res.ok) {
@@ -148,6 +156,16 @@ export function ListOrdenesTrabajo() {
   const handleCancelClick = (order: WorkOrder) => {
     setOrderToCancel(order)
     setCancelModalOpen(true)
+  }
+
+  const handleAuditClick = (order: WorkOrder) => {
+    setOrderToAudit(order)
+    setAuditModalOpen(true)
+  }
+
+  const handleModifyServiceClick = (order: WorkOrder) => {
+    setOrderToModifyService(order)
+    setModifyServiceModalOpen(true)
   }
 
   const handleConfirmCancelOrder = async () => {
@@ -434,6 +452,8 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onAssignSuppliesClick={handleAssignSuppliesClick}
+        onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -449,6 +469,8 @@ export function ListOrdenesTrabajo() {
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
         onAssignSuppliesClick={handleAssignSuppliesClick}
+        onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 4.5. Modal de Asignación de Insumos y Valorización */}
@@ -500,6 +522,24 @@ export function ListOrdenesTrabajo() {
         order={orderToCancel}
         onConfirmCancel={handleConfirmCancelOrder}
         isCancelling={isCancellingOrder}
+      />
+
+      {/* 9. Modal de Historial de Auditoría */}
+      <OrderAuditDialog
+        open={auditModalOpen}
+        onOpenChange={setAuditModalOpen}
+        order={orderToAudit}
+      />
+
+      {/* 10. Modal de Modificación de Servicio */}
+      <ModifyServiceDialog
+        open={modifyServiceModalOpen}
+        onOpenChange={setModifyServiceModalOpen}
+        order={orderToModifyService}
+        onSuccess={() => {
+          getOrders()
+          router.refresh()
+        }}
       />
     </div>
   )

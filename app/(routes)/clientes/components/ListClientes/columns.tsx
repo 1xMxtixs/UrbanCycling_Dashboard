@@ -1,7 +1,9 @@
 "use client";
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Eye, ClipboardList } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, Eye, ClipboardList, Pencil } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { PERMISSIONS } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -26,6 +28,8 @@ const CellActions = <TData extends { id: number }>({
 }: CellActionsProps<TData>) => {
   const client = row.original;
   const meta = table.options.meta as ClientesTableMeta | undefined;
+  const { data: session } = useSession();
+  const canEdit = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_UPDATE);
 
   return (
     <DropdownMenu>
@@ -50,6 +54,15 @@ const CellActions = <TData extends { id: number }>({
           <ClipboardList className="h-4 w-4 text-primary" />
           Historial de Órdenes
         </DropdownMenuItem>
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={() => meta?.onEdit?.(client.id)}
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+            Editar
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

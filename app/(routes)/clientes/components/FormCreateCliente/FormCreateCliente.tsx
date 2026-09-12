@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { DBCliente } from "../../types";
 
 const formSchema = z
   .object({
@@ -65,16 +66,13 @@ const formSchema = z
 type FormValues = z.infer<typeof formSchema>;
 
 interface FormCreateClienteProps {
+  cliente?: DBCliente;
   onSuccess: () => void;
 }
 
-export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
-  const [errorGeneral, setErrorGeneral] = useState("");
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    mode: "onChange",
-    defaultValues: {
+function getInitialValues(cliente?: DBCliente): FormValues {
+  if (!cliente) {
+    return {
       tipoCliente: "natural",
       nombre: "",
       apellido: "",
@@ -83,8 +81,44 @@ export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
       razon: "",
       nombreContacto: "",
       giro: "",
-    },
+    };
+  }
+
+  const isJuridica =
+    cliente.tipoCliente === "juridica" || cliente.tipoCliente === "juridico";
+  const nombre = [cliente.primerNombre, cliente.segundoNombre]
+    .filter(Boolean)
+    .join(" ");
+  const apellido = [cliente.apellidoPaterno, cliente.apellidoMaterno]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    tipoCliente: isJuridica ? "juridica" : "natural",
+    nombre,
+    apellido,
+    rut: cliente.rut || "",
+    telefono: cliente.telefonos?.[0]?.telefono || "",
+    razon: cliente.razonSocial || "",
+    nombreContacto: cliente.nombreContacto || "",
+    giro: cliente.giro || "",
+  };
+}
+
+export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps) {
+  const [errorGeneral, setErrorGeneral] = useState("");
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange",
+    defaultValues: getInitialValues(cliente),
   });
+
+  useEffect(() => {
+    if (cliente) {
+      form.reset(getInitialValues(cliente));
+    }
+  }, [cliente, form]);
 
   const tipoCliente = form.watch("tipoCliente");
   const { isSubmitting, isValid } = form.formState;
@@ -93,29 +127,62 @@ export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
     setErrorGeneral("");
 
     try {
-      const response = await fetch("/api/clientes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipoCliente: values.tipoCliente,
-          nombre: values.nombre,
-          apellido: values.apellido,
-          razon: values.razon,
-          rut: values.rut,
+      if (cliente) {
+        const body: Record<string, unknown> = {
           telefono: values.telefono,
-          nombreContacto: values.nombreContacto,
-          giro: values.giro,
-        }),
-      });
+        };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Error al guardar el cliente");
+        if (cliente.telefonos?.[0]?.idTelefonoCliente) {
+          body.idTelefonoCliente = cliente.telefonos[0].idTelefonoCliente;
+        }
+
+        if (values.tipoCliente === "natural") {
+          body.nombre = values.nombre;
+          body.apellido = values.apellido;
+        } else {
+          body.razonSocial = values.razon;
+          body.giro = values.giro;
+          body.nombreContacto = values.nombreContacto;
+        }
+
+        const response = await fetch(`/api/clientes/${cliente.idCliente}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Error al actualizar el cliente");
+        }
+
+        form.reset();
+        onSuccess();
+      } else {
+        const response = await fetch("/api/clientes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipoCliente: values.tipoCliente,
+            nombre: values.nombre,
+            apellido: values.apellido,
+            razon: values.razon,
+            rut: values.rut,
+            telefono: values.telefono,
+            nombreContacto: values.nombreContacto,
+            giro: values.giro,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Error al guardar el cliente");
+        }
+
+        toast.success("Cliente creado correctamente");
+        form.reset();
+        onSuccess();
       }
-
-      toast.success("Cliente creado correctamente");
-      form.reset();
-      onSuccess();
     } catch (error) {
       console.error(error);
       const message =
@@ -134,7 +201,11 @@ export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de cliente</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                value={field.value}
+                onValueChange={field.onChange}
+                disabled={Boolean(cliente)}
+              >
                 <FormControl>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecciona el tipo de cliente" />
@@ -205,7 +276,11 @@ export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
               <FormItem>
                 <FormLabel>RUT</FormLabel>
                 <FormControl>
-                  <Input placeholder="12345678-9" {...field} />
+                  <Input
+                    placeholder="12345678-9"
+                    {...field}
+                    disabled={Boolean(cliente)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -276,7 +351,11 @@ export function FormCreateCliente({ onSuccess }: FormCreateClienteProps) {
             disabled={!isValid || isSubmitting}
             className="w-full font-semibold sm:w-auto"
           >
-            {isSubmitting ? "Guardando..." : "Guardar cliente"}
+            {isSubmitting
+              ? "Guardando..."
+              : cliente
+                ? "Guardar cambios"
+                : "Guardar cliente"}
           </Button>
         </div>
       </form>

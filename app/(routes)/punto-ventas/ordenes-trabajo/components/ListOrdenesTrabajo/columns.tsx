@@ -1,7 +1,20 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2 } from "lucide-react"
+import {
+  ArrowUpDown,
+  MoreHorizontal,
+  Eye,
+  Loader2,
+  Coins,
+  FileText,
+  CalendarClock,
+  XCircle,
+  History,
+  Wrench,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -31,7 +44,20 @@ function getAvailableTransitions(currentStatus: string) {
 const CellActions = ({ row, table }: { row: any; table: any }) => {
   const order = row.original as WorkOrder
   const meta = table.options.meta as any
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.rol === "Administrador"
+  const canUpdateOrders = session?.user?.permisos?.includes(
+    PERMISSIONS.WORK_ORDERS_UPDATE
+  )
   const transitions = getAvailableTransitions(order.estadoOrden)
+  const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
+
+  const total = Number(order.total)
+  const totalPagado = Number(order.totalPagado || 0)
+  const isPaid =
+    order.estadoPago?.toLowerCase() === "pagada" ||
+    order.estadoPago?.toLowerCase() === "pagado" ||
+    Math.max(0, total - totalPagado) === 0
 
   return (
     <DropdownMenu>
@@ -55,6 +81,63 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           Ver Detalle
         </DropdownMenuItem>
 
+        {isPaid && (
+          <DropdownMenuItem
+            onClick={() => meta?.onGenerateReceipt?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
+          >
+            <FileText className="h-4 w-4" />
+            Generar Boleta
+          </DropdownMenuItem>
+        )}
+
+        {order.estadoPago?.toLowerCase() !== "pagada" && (
+          <DropdownMenuItem
+            onClick={() => meta?.onPayClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
+          >
+            <Coins className="h-4 w-4" />
+            Registrar Pago
+          </DropdownMenuItem>
+        )}
+
+        {order.estadoOrden === "En curso" && canUpdateOrders && (
+          <DropdownMenuItem
+            onClick={() => meta?.onModifyServiceClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold"
+          >
+            <Wrench className="h-4 w-4" />
+            Modificar servicio
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuItem
+          onClick={() => meta?.onRescheduleClick?.(order)}
+          className="flex cursor-pointer items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Reprogramar Entrega
+        </DropdownMenuItem>
+
+        {isAdmin && (
+          <DropdownMenuItem
+            onClick={() => meta?.onAuditClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 font-semibold"
+          >
+            <History className="h-4 w-4" />
+            Ver auditoría
+          </DropdownMenuItem>
+        )}
+
+        {canCancel && (
+          <DropdownMenuItem
+            onClick={() => meta?.onCancelClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold"
+          >
+            <XCircle className="h-4 w-4" />
+            Anular Orden
+          </DropdownMenuItem>
+        )}
         {transitions.length > 0 && (
           <>
             <DropdownMenuSeparator />

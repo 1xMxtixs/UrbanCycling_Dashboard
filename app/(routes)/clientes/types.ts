@@ -80,4 +80,5 @@ export interface DBCliente {
 export interface ClientesTableMeta {
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
+  onEdit?: (id: number) => void;
 }
