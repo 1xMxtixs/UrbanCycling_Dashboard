@@ -3,14 +3,14 @@
 import React, { useEffect, useState } from "react"
 import {
   Wrench,
-  Plus,
-  Trash2,
-  AlertCircle,
   Loader2,
   Package,
   DollarSign,
   Calculator,
   Info,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -23,30 +23,17 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
-import { WorkOrder } from "../../types"
+import { WorkOrder, WorkOrderServiceLine } from "../../types"
 
-export interface ProductInventoryItem {
-  idProducto: number
-  nombre: string
-  precioVenta: number | string
-  stockActual: number
-  stockMinimo?: number
-  estado: string
-}
+// ─── Tipos internos ────────────────────────────────────────────────────────────
 
-export interface SupplyItem {
-  idProducto: string
-  cantidad: number
-  precioUnitario: number
+interface EditableLineState {
+  /** precio editado en el input (string para manejar entrada libre) */
+  draftPrice: string
+  isEditing: boolean
+  isSaving: boolean
 }
 
 interface AssignSuppliesDialogProps {
@@ -56,418 +43,467 @@ interface AssignSuppliesDialogProps {
   onSuccess?: () => void
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function toNum(v: number | string | null | undefined): number {
+  return Number(v ?? 0)
+}
+
+function formatCLP(amount: number): string {
+  return `$${amount.toLocaleString("es-CL")}`
+}
+
+// ─── Componente ────────────────────────────────────────────────────────────────
+
 export function AssignSuppliesDialog({
   open,
   onOpenChange,
   order,
   onSuccess,
 }: AssignSuppliesDialogProps) {
-  const [products, setProducts] = useState<ProductInventoryItem[]>([])
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  // Estado de edición de descuento global
+  const [descuentoDraft, setDescuentoDraft] = useState<string>("")
+  const [isEditingDescuento, setIsEditingDescuento] = useState(false)
+  const [isSavingDescuento, setIsSavingDescuento] = useState(false)
 
-  // Estado del formulario
-  const [montoServicio, setMontoServicio] = useState<number>(0)
-  const [supplies, setSupplies] = useState<SupplyItem[]>([])
-  const [descuento, setDescuento] = useState<number>(0)
+  // Estado de edición por línea de insumo/producto
+  const [lineStates, setLineStates] = useState<Record<number, EditableLineState>>({})
 
-  // Cargar catálogo de productos de inventario
+  // Sincronizar estado cuando se abre el diálogo o cambia la orden.
+  // Se usa una key derivada en vez de múltiples setStates para evitar renders en cascada.
+  const dialogKey = open && order
+    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.precioUnitario}`).join(",")}`
+    : null
+
   useEffect(() => {
-    if (!open) return
+    if (!dialogKey || !order) return
 
-    async function loadProducts() {
-      setIsLoadingProducts(true)
-      try {
-        const res = await fetch("/api/inventory", { cache: "no-store" })
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}))
-          throw new Error(errorData.message || `Error al cargar inventario (${res.status})`)
-        }
-        const data = await res.json()
-        setProducts(
-          Array.isArray(data)
-            ? data.filter(
-                (p: ProductInventoryItem) =>
-                  p.estado?.toLowerCase() === "activo" || !p.estado
-              )
-            : []
-        )
-      } catch (err) {
-        console.error("Error al cargar productos:", err)
-        toast.error("No se pudo cargar el inventario de insumos.")
-      } finally {
-        setIsLoadingProducts(false)
+    const initialLineStates: Record<number, EditableLineState> = {}
+    for (const linea of order.lineasDeOrdenDeTrabajo ?? []) {
+      initialLineStates[linea.idLineaDeOrdenDeTrabajo] = {
+        draftPrice: String(toNum(linea.precioUnitario)),
+        isEditing: false,
+        isSaving: false,
       }
     }
 
-    loadProducts()
-  }, [open])
-
-  // Inicializar estado a partir de la orden seleccionada
-  useEffect(() => {
-    if (!order || !open) return
-
-    // Obtener mano de obra inicial
-    const initialLabor = (order.lineasDeOrdenDeTrabajo || [])
-      .filter((l) => l.idServicio !== null && l.idServicio !== undefined)
-      .reduce((sum, l) => sum + Number(l.precioUnitario || 0) * Number(l.cantidad || 1), 0)
-
-    setMontoServicio(initialLabor)
-    setDescuento(Number(order.descuento || 0))
-
-    // Obtener insumos/productos iniciales
-    const initialSupplies: SupplyItem[] = (order.lineasDeOrdenDeTrabajo || [])
-      .filter((l) => l.idProducto !== null && l.idProducto !== undefined)
-      .map((l) => ({
-        idProducto: String(l.idProducto || l.producto?.idProducto || ""),
-        cantidad: Number(l.cantidad || 1),
-        precioUnitario: Number(l.precioUnitario || l.producto?.precioVenta || 0),
-      }))
-
-    setSupplies(
-      initialSupplies.length > 0
-        ? initialSupplies
-        : []
-    )
-  }, [order, open])
-
-  // Manejo de Insumos
-  const handleAddSupply = () => {
-    setSupplies((prev) => [
-      ...prev,
-      {
-        idProducto: "",
-        cantidad: 1,
-        precioUnitario: 0,
-      },
-    ])
-  }
-
-  const handleRemoveSupply = (index: number) => {
-    setSupplies((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleProductChange = (index: number, productId: string) => {
-    const selected = products.find((p) => String(p.idProducto) === productId)
-    const price = selected ? Number(selected.precioVenta) : 0
-
-    setSupplies((prev) => {
-      const updated = [...prev]
-      updated[index] = {
-        ...updated[index],
-        idProducto: productId,
-        precioUnitario: price,
-      }
-      return updated
+    // Batch all state resets into a single microtask to avoid cascading renders
+    const draft = String(toNum(order.descuento))
+    Promise.resolve().then(() => {
+      setDescuentoDraft(draft)
+      setIsEditingDescuento(false)
+      setLineStates(initialLineStates)
     })
-  }
-
-  const handleQuantityChange = (index: number, qty: number) => {
-    const validQty = Math.max(1, qty)
-    setSupplies((prev) => {
-      const updated = [...prev]
-      updated[index] = {
-        ...updated[index],
-        cantidad: validQty,
-      }
-      return updated
-    })
-  }
-
-  // Cálculos de valorización en tiempo real
-  const totalInsumos = supplies.reduce(
-    (acc, item) => acc + (item.cantidad || 0) * (item.precioUnitario || 0),
-    0
-  )
-  const subtotalNetoBruto = totalInsumos + (montoServicio || 0)
-  const totalConDescuento = Math.max(0, subtotalNetoBruto - (descuento || 0))
-  const montoNeto = Math.round(totalConDescuento / 1.19)
-  const montoIva = totalConDescuento - montoNeto
-
-  const totalPagado = Number(order?.totalPagado || 0)
-  const saldoPendiente = Math.max(0, totalConDescuento - totalPagado)
-
-  // Guardar asignación y valorización
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!order) return
-
-    // Validar productos incompletos y stock suficiente
-    for (const sup of supplies) {
-      if (!sup.idProducto) {
-        toast.error("Por favor selecciona un producto en cada fila agregada.")
-        return
-      }
-      const prod = products.find((p) => String(p.idProducto) === sup.idProducto)
-      if (prod && prod.stockActual < sup.cantidad) {
-        toast.error(`Stock insuficiente para ${prod.nombre} (Disponible: ${prod.stockActual}, Solicitado: ${sup.cantidad}).`)
-        return
-      }
-    }
-
-    setIsSaving(true)
-    try {
-      // Formatear payload para actualizar orden y sus líneas
-      const payload = {
-        montoServicio,
-        descuentoGlobal: descuento,
-        productos: supplies.map((s) => ({
-          id_producto: Number(s.idProducto),
-          cantidad: s.cantidad,
-          precio_unitario: s.precioUnitario,
-        })),
-      }
-
-      const res = await fetch(`/api/punto-venta/orden-${order.idOrdenDeTrabajo}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || "Error al valorizar y asignar insumos")
-      }
-
-      toast.success("Insumos asignados y valorización actualizada correctamente.")
-      onOpenChange(false)
-      if (onSuccess) {
-        onSuccess()
-      }
-      window.dispatchEvent(new Event("work-orders:refresh"))
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || "No se pudo actualizar la valorización de la orden.")
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogKey])
 
   if (!order) return null
+
+  // ─── Cálculos derivados ─────────────────────────────────────────────────────
+
+  const lineas = order.lineasDeOrdenDeTrabajo ?? []
+  const serviceLines = lineas.filter(
+    (l) => l.idServicio !== null && l.idServicio !== undefined
+  )
+  const productLines = lineas.filter(
+    (l) => l.idProducto !== null && l.idProducto !== undefined
+  )
+
+  const laborCost = serviceLines.reduce(
+    (sum, l) => sum + toNum(l.precioUnitario) * Number(l.cantidad || 1),
+    0
+  )
+  const productsCost = productLines.reduce(
+    (sum, l) => sum + toNum(l.precioUnitario) * Number(l.cantidad || 1),
+    0
+  )
+
+  const subtotal = laborCost + productsCost
+  const descuento = toNum(order.descuento)
+  const totalFinal = Math.max(0, subtotal - descuento)
+  const montoNeto = Math.round(totalFinal / 1.19)
+  const montoIva = totalFinal - montoNeto
+  const totalPagado = toNum(order.totalPagado)
+  const saldoPendiente = Math.max(0, totalFinal - totalPagado)
+
+  const canEdit = !["Entregado", "Anulada"].includes(order.estadoOrden)
+
+  // ─── Guardar descuento global ───────────────────────────────────────────────
+
+  async function handleSaveDescuento() {
+    const newDescuento = Number(descuentoDraft)
+    if (!Number.isFinite(newDescuento) || newDescuento < 0) {
+      toast.error("El descuento debe ser un número válido mayor o igual a 0.")
+      return
+    }
+
+    setIsSavingDescuento(true)
+    try {
+      const res = await fetch(
+        `/api/punto-venta/orden-${order!.idOrdenDeTrabajo}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ descuentoGlobal: newDescuento }),
+        }
+      )
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || `Error al guardar descuento (${res.status})`)
+      }
+      toast.success("Descuento global actualizado.")
+      setIsEditingDescuento(false)
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el descuento.")
+    } finally {
+      setIsSavingDescuento(false)
+    }
+  }
+
+  // ─── Guardar precio de una línea ────────────────────────────────────────────
+
+  async function handleSaveLinePrice(linea: WorkOrderServiceLine) {
+    const lineId = linea.idLineaDeOrdenDeTrabajo
+    const draft = lineStates[lineId]?.draftPrice ?? ""
+    const newPrice = Number(draft)
+
+    if (!Number.isFinite(newPrice) || newPrice < 0) {
+      toast.error("El precio debe ser un número válido mayor o igual a 0.")
+      return
+    }
+
+    setLineStates((prev) => ({
+      ...prev,
+      [lineId]: { ...prev[lineId], isSaving: true },
+    }))
+
+    try {
+      const res = await fetch(
+        `/api/punto-venta/orden-${order!.idOrdenDeTrabajo}/lineas/${lineId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ precioUnitario: newPrice }),
+        }
+      )
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(
+          errData.message || `Error al actualizar línea (${res.status})`
+        )
+      }
+      toast.success("Precio de línea actualizado.")
+      setLineStates((prev) => ({
+        ...prev,
+        [lineId]: { ...prev[lineId], isEditing: false, isSaving: false },
+      }))
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onSuccess?.()
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo actualizar el precio."
+      )
+      setLineStates((prev) => ({
+        ...prev,
+        [lineId]: { ...prev[lineId], isSaving: false },
+      }))
+    }
+  }
+
+  function startEditLine(lineId: number) {
+    setLineStates((prev) => ({
+      ...prev,
+      [lineId]: { ...prev[lineId], isEditing: true },
+    }))
+  }
+
+  function cancelEditLine(lineId: number, originalPrice: number | string) {
+    setLineStates((prev) => ({
+      ...prev,
+      [lineId]: {
+        ...prev[lineId],
+        draftPrice: String(toNum(originalPrice)),
+        isEditing: false,
+      },
+    }))
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  function renderLineRow(linea: WorkOrderServiceLine) {
+    const lineId = linea.idLineaDeOrdenDeTrabajo
+    const state = lineStates[lineId] ?? {
+      draftPrice: String(toNum(linea.precioUnitario)),
+      isEditing: false,
+      isSaving: false,
+    }
+    const nombre =
+      linea.servicio?.nombre ?? linea.producto?.nombre ?? `Línea #${lineId}`
+    const subtotalLinea =
+      toNum(linea.precioUnitario) * Number(linea.cantidad || 1)
+    const isService =
+      linea.idServicio !== null && linea.idServicio !== undefined
+
+    return (
+      <div
+        key={lineId}
+        className="rounded-lg border border-border bg-muted/25 p-3 flex flex-wrap items-center gap-3 text-xs"
+      >
+        {/* Etiqueta tipo */}
+        <span
+          className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+            isService
+              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          }`}
+        >
+          {isService ? "Servicio" : "Insumo"}
+        </span>
+
+        {/* Nombre */}
+        <span className="flex-1 font-semibold text-foreground min-w-[120px]">
+          {nombre}
+        </span>
+
+        {/* Cantidad */}
+        <span className="text-muted-foreground">
+          ×{linea.cantidad}
+        </span>
+
+        {/* Precio unitario (editable) */}
+        <div className="flex items-center gap-1">
+          <Label className="text-[10px] text-muted-foreground shrink-0">
+            Precio unit.:
+          </Label>
+          {state.isEditing && canEdit ? (
+            <>
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={state.draftPrice}
+                onChange={(e) =>
+                  setLineStates((prev) => ({
+                    ...prev,
+                    [lineId]: { ...prev[lineId], draftPrice: e.target.value },
+                  }))
+                }
+                className="h-7 w-28 text-xs bg-background"
+                disabled={state.isSaving}
+                autoFocus
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-emerald-600 hover:bg-emerald-500/10"
+                disabled={state.isSaving}
+                onClick={() => handleSaveLinePrice(linea)}
+              >
+                {state.isSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                <span className="sr-only">Confirmar precio</span>
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground hover:bg-muted"
+                disabled={state.isSaving}
+                onClick={() => cancelEditLine(lineId, linea.precioUnitario)}
+              >
+                <X className="h-3.5 w-3.5" />
+                <span className="sr-only">Cancelar</span>
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="font-mono font-semibold text-foreground">
+                {formatCLP(toNum(linea.precioUnitario))}
+              </span>
+              {canEdit && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  onClick={() => startEditLine(lineId)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  <span className="sr-only">Editar precio</span>
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Subtotal línea */}
+        <div className="h-8 flex items-center px-2.5 rounded-md border border-border bg-muted/40 font-mono text-xs font-bold text-foreground min-w-[80px] justify-end">
+          {formatCLP(subtotalLinea)}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-6">
         <DialogHeader className="border-b border-border pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Wrench className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
-                  Asignación de Insumos & Valorización
-                  <span className="text-muted-foreground font-normal text-sm">
-                    (Orden #{order.idOrdenDeTrabajo})
-                  </span>
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Asigna repuestos del inventario, define el valor de mano de obra y visualiza el cálculo financiero total.
-                </DialogDescription>
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Wrench className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
+                Valorización de Insumos & Servicios
+                <span className="text-muted-foreground font-normal text-sm">
+                  (Orden #{order.idOrdenDeTrabajo})
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Edita el precio unitario de cada línea y el descuento global de la orden.
+                Para agregar nuevas líneas, usa el módulo de servicios.
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4 pr-1">
-          {/* SECCIÓN 1: Mano de Obra y Descuentos */}
-          <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-xs">
-            <div className="flex items-center gap-2 border-b border-border pb-2">
-              <DollarSign className="h-4.5 w-4.5 text-primary" />
-              <h4 className="text-sm font-bold text-foreground">
-                Mano de Obra y Ajustes
-              </h4>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="montoServicio" className="text-xs font-semibold text-foreground">
-                  Monto de Servicio / Mano de Obra ($)
-                </Label>
-                <Input
-                  id="montoServicio"
-                  type="number"
-                  min={0}
-                  step={100}
-                  placeholder="0"
-                  value={montoServicio || ""}
-                  onChange={(e) => setMontoServicio(Math.max(0, Number(e.target.value)))}
-                  className="h-9 text-sm font-medium"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Costo técnico por servicios de mantención o reparación.
-                </p>
+        <div className="flex-1 overflow-y-auto space-y-6 py-4 pr-1">
+          {/* SECCIÓN 1: Servicios */}
+          {serviceLines.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <Wrench className="h-4.5 w-4.5 text-primary" />
+                <h4 className="text-sm font-bold text-foreground">
+                  Mano de Obra / Servicios
+                </h4>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="descuentoGlobal" className="text-xs font-semibold text-foreground">
-                  Descuento Global ($)
-                </Label>
-                <Input
-                  id="descuentoGlobal"
-                  type="number"
-                  min={0}
-                  step={100}
-                  placeholder="0"
-                  value={descuento || ""}
-                  onChange={(e) => setDescuento(Math.max(0, Number(e.target.value)))}
-                  className="h-9 text-sm font-medium"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Descuento promocional aplicable al total.
-                </p>
+              <div className="space-y-2">
+                {serviceLines.map(renderLineRow)}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* SECCIÓN 2: Insumos / Repuestos Utilizados */}
-          <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <div className="flex items-center gap-2">
+          {/* SECCIÓN 2: Insumos / Productos */}
+          {productLines.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
                 <Package className="h-4.5 w-4.5 text-primary" />
                 <h4 className="text-sm font-bold text-foreground">
                   Insumos & Repuestos de Taller
                 </h4>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddSupply}
-                className="h-8 gap-1 text-xs font-semibold cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar Insumo
-              </Button>
+              <div className="space-y-2">
+                {productLines.map(renderLineRow)}
+              </div>
+            </div>
+          )}
+
+          {/* Estado vacío */}
+          {lineas.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <Package className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-sm font-medium text-foreground">
+                No hay líneas registradas en esta orden
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Agrega servicios desde el módulo de órdenes de trabajo.
+              </p>
+            </div>
+          )}
+
+          {/* SECCIÓN 3: Descuento Global */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <DollarSign className="h-4.5 w-4.5 text-primary" />
+              <h4 className="text-sm font-bold text-foreground">
+                Descuento Global
+              </h4>
             </div>
 
-            {isLoadingProducts ? (
-              <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                Cargando catálogo de productos...
-              </div>
-            ) : supplies.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-6 text-center">
-                <Package className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-                <p className="text-xs font-medium text-foreground">
-                  No hay insumos asignados a esta orden
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Haz clic en &quot;Agregar Insumo&quot; para añadir repuestos o piezas utilizadas.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {supplies.map((item, idx) => {
-                  const selectedProduct = products.find(
-                    (p) => String(p.idProducto) === item.idProducto
-                  )
-                  const hasStockWarning =
-                    selectedProduct && selectedProduct.stockActual < item.cantidad
-
-                  return (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-border bg-muted/25 p-3 space-y-2 text-xs transition-colors hover:border-border/80"
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5 flex-1 min-w-[180px]">
+                <Label htmlFor="descuentoGlobal" className="text-xs font-semibold text-foreground">
+                  Descuento ($)
+                </Label>
+                {isEditingDescuento ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="descuentoGlobal"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={descuentoDraft}
+                      onChange={(e) => setDescuentoDraft(e.target.value)}
+                      className="h-9 text-sm font-medium"
+                      disabled={isSavingDescuento}
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 text-emerald-600 hover:bg-emerald-500/10"
+                      disabled={isSavingDescuento}
+                      onClick={handleSaveDescuento}
                     >
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        {/* Selector de Producto */}
-                        <div className="flex-1 min-w-[220px]">
-                          <Label className="text-[11px] text-muted-foreground mb-1 block">
-                            Producto / Repuesto #{idx + 1}
-                          </Label>
-                          <Select
-                            value={item.idProducto || undefined}
-                            onValueChange={(val) => handleProductChange(idx, val)}
-                          >
-                            <SelectTrigger className="h-9 w-full bg-background text-xs">
-                              <SelectValue placeholder="-- Seleccionar Producto --" />
-                            </SelectTrigger>
-                            <SelectContent position="popper" className="max-h-60">
-                              {products.map((prod) => (
-                                <SelectItem
-                                  key={prod.idProducto}
-                                  value={String(prod.idProducto)}
-                                  className="text-xs"
-                                >
-                                  <div className="flex items-center justify-between w-full gap-2">
-                                    <span className="font-medium">{prod.nombre}</span>
-                                    <span className="text-muted-foreground">
-                                      (${Number(prod.precioVenta).toLocaleString("es-CL")} | Stock: {prod.stockActual})
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Cantidad */}
-                        <div className="w-24">
-                          <Label className="text-[11px] text-muted-foreground mb-1 block">
-                            Cantidad
-                          </Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={item.cantidad}
-                            onChange={(e) =>
-                              handleQuantityChange(idx, Number(e.target.value))
-                            }
-                            className="h-9 text-xs bg-background"
-                          />
-                        </div>
-
-                        {/* Precio Unitario */}
-                        <div className="w-28">
-                          <Label className="text-[11px] text-muted-foreground mb-1 block">
-                            Precio Unit.
-                          </Label>
-                          <div className="h-9 flex items-center px-2.5 rounded-md border border-border bg-muted/40 font-mono text-xs font-semibold text-foreground">
-                            ${item.precioUnitario.toLocaleString("es-CL")}
-                          </div>
-                        </div>
-
-                        {/* Subtotal Línea */}
-                        <div className="w-32">
-                          <Label className="text-[11px] text-muted-foreground mb-1 block">
-                            Subtotal
-                          </Label>
-                          <div className="h-9 flex items-center px-2.5 rounded-md border border-border bg-muted/40 font-mono text-xs font-bold text-foreground">
-                            ${(item.cantidad * item.precioUnitario).toLocaleString("es-CL")}
-                          </div>
-                        </div>
-
-                        {/* Botón Eliminar */}
-                        <div className="pt-4">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveSupply(idx)}
-                            className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Eliminar insumo</span>
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Advertencia de stock bajo/insuficiente */}
-                      {hasStockWarning && (
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-500 bg-rose-500/10 px-2 py-1 rounded">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Stock insuficiente en bodega (Disponible: {selectedProduct.stockActual} unid.)
-                        </div>
+                      {isSavingDescuento ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
                       )}
+                      <span className="sr-only">Guardar descuento</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 text-muted-foreground hover:bg-muted"
+                      disabled={isSavingDescuento}
+                      onClick={() => {
+                        setDescuentoDraft(String(toNum(order.descuento)))
+                        setIsEditingDescuento(false)
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Cancelar</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 flex items-center px-3 rounded-md border border-border bg-muted/40 font-mono text-sm font-semibold text-foreground min-w-[120px]">
+                      {formatCLP(descuento)}
                     </div>
-                  )
-                })}
+                    {canEdit && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 gap-1.5 text-xs cursor-pointer"
+                        onClick={() => {
+                          setDescuentoDraft(String(descuento))
+                          setIsEditingDescuento(true)
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Descuento promocional aplicado al total de la orden.
+                </p>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* SECCIÓN 3: Panel de Valorización Dinámica */}
+          {/* SECCIÓN 4: Panel de Valorización */}
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-primary/10 pb-2">
               <div className="flex items-center gap-2">
@@ -478,26 +514,30 @@ export function AssignSuppliesDialog({
               </div>
               <StatusBadge
                 status={saldoPendiente === 0 ? "success" : "warning"}
-                label={saldoPendiente === 0 ? "Completamente Pagada" : `Saldo Pendiente: $${saldoPendiente.toLocaleString("es-CL")}`}
+                label={
+                  saldoPendiente === 0
+                    ? "Completamente Pagada"
+                    : `Saldo: ${formatCLP(saldoPendiente)}`
+                }
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <DataField
                 label="Total Insumos / Repuestos"
-                value={`$${totalInsumos.toLocaleString("es-CL")}`}
+                value={formatCLP(productsCost)}
               />
               <DataField
                 label="Mano de Obra / Servicio"
-                value={`$${montoServicio.toLocaleString("es-CL")}`}
+                value={formatCLP(laborCost)}
               />
               <DataField
                 label="Monto Neto (sin IVA)"
-                value={`$${montoNeto.toLocaleString("es-CL")}`}
+                value={formatCLP(montoNeto)}
               />
               <DataField
                 label="IVA Estimado (19%)"
-                value={`$${montoIva.toLocaleString("es-CL")}`}
+                value={formatCLP(montoIva)}
               />
             </div>
 
@@ -507,7 +547,7 @@ export function AssignSuppliesDialog({
                   Total Final a Facturar
                 </span>
                 <span className="text-2xl font-black text-primary">
-                  ${totalConDescuento.toLocaleString("es-CL")}
+                  {formatCLP(totalFinal)}
                 </span>
               </div>
 
@@ -517,7 +557,7 @@ export function AssignSuppliesDialog({
                     Abonado / Pagado:
                   </span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    ${totalPagado.toLocaleString("es-CL")}
+                    {formatCLP(totalPagado)}
                   </span>
                 </div>
                 <div className="border-l border-border pl-4">
@@ -531,45 +571,30 @@ export function AssignSuppliesDialog({
                         : "text-emerald-600 dark:text-emerald-400"
                     }`}
                   >
-                    ${saldoPendiente.toLocaleString("es-CL")}
+                    {formatCLP(saldoPendiente)}
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Info className="h-3.5 w-3.5 text-primary" />
-              Los montos calculados actualizan el valor total de la orden de trabajo para efectos de cobro y facturación tributaria.
+              <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+              Los montos se calculan en tiempo real a partir de las líneas de la orden. Los cambios de precio y descuento se guardan inmediatamente al confirmar cada edición.
             </div>
           </div>
+        </div>
 
-          {/* Pie de diálogo */}
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSaving}
-              className="cursor-pointer"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold cursor-pointer"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Guardando Valorización...
-                </>
-              ) : (
-                "Guardar Valorización"
-              )}
-            </Button>
-          </div>
-        </form>
+        {/* Pie del diálogo */}
+        <div className="flex items-center justify-end border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="cursor-pointer"
+          >
+            Cerrar
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )
