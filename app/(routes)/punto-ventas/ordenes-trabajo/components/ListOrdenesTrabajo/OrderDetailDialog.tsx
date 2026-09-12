@@ -495,46 +495,10 @@ export function OrderDetailDialog({
                 variant="outline"
                 size="sm"
                 onClick={() => onAssignSuppliesClick(order)}
-                className="gap-1.5 cursor-pointer"
+                className="gap-1.5 cursor-pointer font-semibold"
               >
                 <Pencil className="h-4 w-4" />
                 Editar
-              </Button>
-            )}
-
-            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onModifyServiceClick(order)}
-                className="gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                <Wrench className="h-4 w-4" />
-                Modificar servicio
-              </Button>
-            )}
-
-            {onRescheduleClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRescheduleClick(order)}
-                className="gap-1.5 text-amber-700 dark:text-amber-400"
-              >
-                <CalendarClock className="h-4 w-4" />
-                Reprogramar
-              </Button>
-            )}
-
-            {canCancel && onCancelClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onCancelClick(order)}
-                className="gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
-              >
-                <XCircle className="h-4 w-4" />
-                Anular
               </Button>
             )}
 
@@ -543,7 +507,7 @@ export function OrderDetailDialog({
                 variant="outline"
                 size="sm"
                 onClick={() => onAuditClick(order)}
-                className="gap-1.5"
+                className="gap-1.5 cursor-pointer font-semibold"
               >
                 <History className="h-4 w-4" />
                 Ver auditoría
@@ -553,7 +517,7 @@ export function OrderDetailDialog({
             {/* [Exportar ▾] */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer font-semibold">
                   <Download className="h-4 w-4" />
                   Exportar
                   <ChevronDown className="h-3.5 w-3.5" />
@@ -604,7 +568,7 @@ export function OrderDetailDialog({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="cursor-pointer">
               Cerrar
             </Button>
           </div>
