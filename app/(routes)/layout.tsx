@@ -1,9 +1,17 @@
 import {Navbar} from "@/components/layout/Navbar"
 import {Sidebar} from "@/components/layout/Sidebar"
 import {RouteTransition} from "@/components/layout/RouteTransition"
+import { getValidSession } from "@/lib/get-valid-session"
+import { redirect } from "next/navigation"
 import React from "react"
 
-export default function LayoutDashboard({ children }: { children: React.ReactNode }) {
+export default async function LayoutDashboard({ children }: { children: React.ReactNode }) {
+  const session = await getValidSession()
+
+  if (!session) {
+    redirect("/sign-in")
+  }
+
   return (
     <div className="flex w-full min-h-screen">
       <div className="hidden xl:block w-80 h-full xl:fixed">
