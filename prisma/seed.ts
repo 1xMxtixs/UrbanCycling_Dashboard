@@ -66,6 +66,8 @@ async function main() {
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
+    { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
+    { nombre: "Crear ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "create", codigo: "purchase_orders:create", descripcion: "Permite registrar ordenes de compra" },
     { nombre: "Crear pagos", modulo: "pagos", recurso: "pagos", accion: "create", codigo: "payments:create", descripcion: "Permite registrar pagos" },
     { nombre: "Crear DTE", modulo: "dte", recurso: "dte", accion: "create", codigo: "receipts:create", descripcion: "Permite emitir documentos tributarios" },
     { nombre: "Ver usuarios", modulo: "usuarios", recurso: "usuarios", accion: "read", codigo: "users:read", descripcion: "Permite ver usuarios" },
@@ -150,6 +152,7 @@ async function main() {
             [
               "inventory:read", "inventory:create", "inventory:update",
               "inventory:delete",
+              "purchase_orders:read", "purchase_orders:create",
             ].includes(p.codigo)
           )
           .map((p) => ({ idPermiso: p.idPermiso })),

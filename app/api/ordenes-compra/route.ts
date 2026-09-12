@@ -92,7 +92,9 @@ function parseLines(value: unknown): PurchaseLine[] | null {
 
 export async function POST(request: Request) {
   try {
-    const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.PURCHASE_ORDERS_CREATE,
+    )
 
     if (response || !session) {
       return response || new NextResponse("No autorizado", { status: 401 })

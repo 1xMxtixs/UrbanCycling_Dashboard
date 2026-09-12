@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/require-permission"
 
 export async function GET() {
   try {
-    const { response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+    const { response } = await requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ)
 
     if (response) {
       return response
