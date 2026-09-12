@@ -581,37 +581,81 @@ export function OrderDetailDialog({
 }
 
 function printWorkOrder(order: WorkOrder) {
-  // Abrir en una ventana separada: el diálogo de impresión del sistema pertenece
-  // a esa ventana, por lo que el focus-trap de Radix Dialog en la app principal
-  // nunca se ve afectado. Esto elimina el cuelgue al cerrar el diálogo de impresión.
-  const printWindow = window.open("", "_blank", "width=900,height=700,noopener")
-  if (!printWindow) {
-    // El navegador bloqueó el popup (raro en respuesta a un clic de usuario).
-    // Mostrar instrucción al usuario.
-    alert(
-      "El navegador bloqueó la ventana de impresión.\n" +
-      "Permite las ventanas emergentes para este sitio e intenta de nuevo."
-    )
-    return
+  const iframeId = "__ot_print_frame__"
+  let iframe = document.getElementById(iframeId) as HTMLIFrameElement | null
+
+  if (iframe) {
+    iframe.remove()
   }
 
-  printWindow.document.open()
-  printWindow.document.write(buildWorkOrderHtml(order))
-  printWindow.document.close()
+  // Guardar el elemento con foco antes de imprimir para poder restaurarlo
+  // después. Radix Dialog tiene un focus-trap activo: si lo movemos al iframe
+  // y no lo restauramos, el Dialog queda bloqueado al cerrar el diálogo de impresión.
+  const previouslyFocused = document.activeElement as HTMLElement | null
 
-  // Escuchar el cierre del diálogo de impresión para cerrar la ventana automáticamente.
-  printWindow.addEventListener("afterprint", () => {
-    printWindow.close()
-  }, { once: true })
+  iframe = document.createElement("iframe")
+  iframe.id = iframeId
+  iframe.style.position = "fixed"
+  iframe.style.right = "0"
+  iframe.style.bottom = "0"
+  iframe.style.width = "0"
+  iframe.style.height = "0"
+  iframe.style.border = "0"
+  iframe.style.visibility = "hidden"
+  document.body.appendChild(iframe)
 
-  // Dar tiempo al navegador para renderizar el contenido antes de abrir el diálogo.
-  // onload no es fiable para document.write(), así que usamos setTimeout.
-  setTimeout(() => {
-    if (!printWindow.closed) {
-      printWindow.focus()
-      printWindow.print()
+  const doc = iframe.contentWindow?.document
+  if (!doc) return
+
+  // Elimina el iframe y devuelve el foco al elemento que lo tenía antes,
+  // para que el focus-trap de Radix Dialog quede en estado consistente.
+  const cleanup = () => {
+    document.getElementById(iframeId)?.remove()
+    try {
+      previouslyFocused?.focus()
+    } catch {
+      // Puede fallar si el elemento ya fue desmontado; no es crítico.
     }
-  }, 350)
+  }
+
+  let printed = false
+  const triggerPrint = () => {
+    if (printed) return
+    printed = true
+    try {
+      const iframeWindow = iframe?.contentWindow
+      if (!iframeWindow) return
+
+      // Escuchar el cierre del diálogo de impresión.
+      iframeWindow.addEventListener("afterprint", cleanup, { once: true })
+
+      // Fallback: si afterprint no dispara (algunos navegadores/OS),
+      // restaurar cuando la pestaña vuelva a ser visible.
+      const onVisibility = () => {
+        if (document.visibilityState === "visible") {
+          document.removeEventListener("visibilitychange", onVisibility)
+          cleanup()
+        }
+      }
+      document.addEventListener("visibilitychange", onVisibility)
+
+      // NO mover foco al iframe — mantenerlo en el Dialog de Radix para
+      // que el focus-trap siga activo durante y después de la impresión.
+      iframeWindow.print()
+    } catch (e) {
+      console.error("[PRINT_ERROR]", e)
+      cleanup()
+    }
+  }
+
+  iframe.onload = triggerPrint
+
+  doc.open()
+  doc.write(buildWorkOrderHtml(order))
+  doc.close()
+
+  // Fallback seguro solo si onload no disparó
+  setTimeout(triggerPrint, 300)
 }
 
 async function downloadWorkOrderPdf(order: WorkOrder) {
