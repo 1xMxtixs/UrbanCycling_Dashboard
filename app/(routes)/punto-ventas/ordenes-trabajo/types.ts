@@ -16,6 +16,7 @@ export interface WorkOrderBike {
   color: string;
   descripcion?: string | null;
   imagenUrl?: string | null;
+  imagenes?: string[];
 }
 
 export interface WorkOrderServiceLine {
