@@ -97,9 +97,26 @@ export function ProductDetailSheet({
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    Tipo / Categoría
+                    Tipo de producto
                   </span>
                   <p className="text-sm font-bold text-foreground">{product.tipoProducto}</p>
+                  <span className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Categorías
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {product.categoriasProducto?.length ? (
+                      product.categoriasProducto.map((category) => (
+                        <StatusBadge
+                          key={category.idCategoria}
+                          status="info"
+                          label={category.nombre}
+                          showDot={false}
+                        />
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin categoría</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">

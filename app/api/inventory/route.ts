@@ -8,9 +8,17 @@ import { requirePermission } from "@/lib/require-permission"
 function withImageAlias(product: {
   idProducto: number
   urlImagen: string
+  categoriasProducto?: Array<{
+    categoria: {
+      idCategoria: number
+      nombre: string
+      descripcion: string | null
+    }
+  }>
 }) {
   return {
     ...product,
+    categoriasProducto: product.categoriasProducto?.map(({ categoria }) => categoria) ?? [],
     imagenesProducto: product.urlImagen
       ? [
           {
@@ -21,6 +29,52 @@ function withImageAlias(product: {
         ]
       : [],
   }
+}
+
+function parseCategoryIds(value: unknown): number[] | null | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const categoryIds = value.map(Number)
+
+  return categoryIds.every((id) => Number.isInteger(id) && id > 0)
+    ? Array.from(new Set(categoryIds))
+    : null
+}
+
+const productCategoriesInclude = {
+  categoriasProducto: {
+    include: {
+      categoria: {
+        select: {
+          idCategoria: true,
+          nombre: true,
+          descripcion: true,
+        },
+      },
+    },
+  },
+} as const
+
+async function validateCategoryIds(categoryIds: number[]) {
+  if (categoryIds.length === 0) {
+    return true
+  }
+
+  const categories = await db.categoria.findMany({
+    where: {
+      idCategoria: { in: categoryIds },
+      estado: "activo",
+    },
+    select: { idCategoria: true },
+  })
+
+  return categories.length === categoryIds.length
 }
 
 function parseCategoryId(value: string | null) {
@@ -104,6 +158,7 @@ export async function GET(request: Request) {
 
       const product = await db.producto.findUnique({
         where: { idProducto: productId },
+        include: productCategoriesInclude,
       })
 
       if (!product) {
@@ -162,6 +217,7 @@ export async function GET(request: Request) {
           },
         },
         orderBy: { idProducto: "desc" },
+        include: productCategoriesInclude,
       })
 
       if (products.length === 0) {
@@ -187,6 +243,7 @@ export async function GET(request: Request) {
     }
 
     const products = await db.producto.findMany({
+      include: productCategoriesInclude,
       orderBy: {
         idProducto: "desc",
       },
@@ -214,6 +271,31 @@ export async function POST(request: Request) {
       return stockMinimumValidation
     }
 
+    const categoryIds = parseCategoryIds(data.categoriaIds)
+
+    if (categoryIds === null) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Las categorías seleccionadas no son válidas.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const normalizedCategoryIds = categoryIds ?? []
+    const categoriesAreValid = await validateCategoryIds(normalizedCategoryIds)
+
+    if (!categoriesAreValid) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Una o más categorías no existen o están inactivas.",
+        },
+        { status: 400 },
+      )
+    }
+
     const existingProduct = await db.producto.findUnique({
       where: {
         nombre: data.nombre,
@@ -224,18 +306,34 @@ export async function POST(request: Request) {
       return new NextResponse("Product already exists", { status: 409 })
     }
 
-    const product = await db.producto.create({
-      data: {
-        tipoProducto: data.tipoProducto,
-        nombre: data.nombre,
-        descripcion: data.descripcion ?? null,
-        precioVenta: data.precioVenta,
-        costoPromedio: data.costoPromedio ?? data.precioCosto ?? 0,
-        stockActual: data.stockActual,
-        stockMinimo: data.stockMinimo,
-        estado: data.estado,
-        urlImagen: data.urlImagen ?? data.imageUrl ?? "",
-      },
+    const product = await db.$transaction(async (tx) => {
+      const createdProduct = await tx.producto.create({
+        data: {
+          tipoProducto: data.tipoProducto,
+          nombre: data.nombre,
+          descripcion: data.descripcion ?? null,
+          precioVenta: data.precioVenta,
+          costoPromedio: data.costoPromedio ?? data.precioCosto ?? 0,
+          stockActual: data.stockActual,
+          stockMinimo: data.stockMinimo,
+          estado: data.estado,
+          urlImagen: data.urlImagen ?? data.imageUrl ?? "",
+        },
+      })
+
+      if (normalizedCategoryIds.length > 0) {
+        await tx.categoriaProducto.createMany({
+          data: normalizedCategoryIds.map((idCategoria) => ({
+            idProducto: createdProduct.idProducto,
+            idCategoria,
+          })),
+        })
+      }
+
+      return tx.producto.findUniqueOrThrow({
+        where: { idProducto: createdProduct.idProducto },
+        include: productCategoriesInclude,
+      })
     })
 
     return NextResponse.json(withImageAlias(product), { status: 201 })

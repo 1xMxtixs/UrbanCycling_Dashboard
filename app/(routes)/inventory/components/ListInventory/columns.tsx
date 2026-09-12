@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataField } from "@/components/common/DataField"
+import type { InventoryCategory } from "../../types"
+
+export type { InventoryCategory } from "../../types"
 
 export type ProductImage = {
   idImagenProducto: number
@@ -30,6 +33,7 @@ export type ProductColumn = {
   stockMinimo: number
   estado: string
   imagenesProducto?: ProductImage[]
+  categoriasProducto?: InventoryCategory[]
 }
 
 export function getColumns(

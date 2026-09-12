@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ImageUpload } from "@/components/forms/ImageUpload"
+import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
+import type { InventoryCategory } from "../../types"
 
 type FormEditInventoryProps = {
   product: ProductColumn
@@ -98,6 +100,24 @@ export function FormEditInventory({
   const [imageRemoved, setImageRemoved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+    product.categoriasProducto?.map((category) => category.idCategoria) ?? [],
+  )
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", { cache: "no-store" })
+        const result = await response.json().catch(() => null)
+        setCategories(response.ok ? result?.categories ?? [] : [])
+      } catch {
+        setCategories([])
+      }
+    }
+
+    loadCategories()
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -141,6 +161,7 @@ export function FormEditInventory({
           precioVenta: Number(values.precioVenta),
           costoPromedio: Number(values.costoPromedio),
           stockMinimo: Number(values.stockMinimo),
+          categoriaIds: selectedCategoryIds,
           estado: values.estado,
           ...(imageUrl
             ? { imageUrl }
@@ -228,6 +249,19 @@ export function FormEditInventory({
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="space-y-2">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categories}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSaving || isUploadingImage}
+          />
+          <p className="text-xs text-muted-foreground">
+            Actualiza las categorías asociadas al producto.
+          </p>
         </div>
 
         <FormField

@@ -35,24 +35,40 @@ import { EmptyState } from "@/components/common/EmptyState"
 import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 
 import type { ProductColumn } from "./columns"
+import type { InventoryCategory } from "../../types"
 import { KpiCards } from "./kpi-cards"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
   data: ProductColumn[]
+  categories: InventoryCategory[]
 }
 
 export function DataTable({
   columns,
   data,
+  categories,
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
+
+  const categoryFilteredData = React.useMemo(
+    () =>
+      selectedCategoryId === "all"
+        ? data
+        : data.filter((product) =>
+            product.categoriasProducto?.some(
+              (category) => String(category.idCategoria) === selectedCategoryId,
+            ),
+          ),
+    [data, selectedCategoryId],
+  )
 
   const table = useReactTable({
-    data,
+    data: categoryFilteredData,
     columns,
     initialState: {
       pagination: {
@@ -113,6 +129,20 @@ export function DataTable({
                   <SelectItem value="inactivo">Solo Inactivos</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                <SelectTrigger className="h-9 w-full sm:w-48">
+                  <SelectValue placeholder="Categoría: Todas" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.idCategoria} value={String(category.idCategoria)}>
+                      {category.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -156,7 +186,9 @@ export function DataTable({
               icon={Package}
               title="No se encontraron productos"
               description={
-                searchValue
+                selectedCategoryId !== "all"
+                  ? "No hay productos asociados a la categoría seleccionada."
+                  : searchValue
                   ? "No hay productos que coincidan con la búsqueda ingresada."
                   : "No hay productos registrados en el inventario."
               }
