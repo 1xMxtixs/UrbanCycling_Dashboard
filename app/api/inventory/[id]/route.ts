@@ -39,6 +39,35 @@ function withImageAlias(product: {
   }
 }
 
+function validateStockMinimum(stockMinimo: unknown) {
+  if (stockMinimo === undefined || stockMinimo === null || stockMinimo === "") {
+    return NextResponse.json(
+      {
+        code: "STOCK_MINIMO_NO_CONFIGURADO",
+        message:
+          "Debe definir un stock mínimo para el producto antes de guardarlo.",
+      },
+      { status: 422 },
+    )
+  }
+
+  if (
+    typeof stockMinimo !== "number" ||
+    !Number.isInteger(stockMinimo) ||
+    stockMinimo < 0
+  ) {
+    return NextResponse.json(
+      {
+        code: "STOCK_MINIMO_INVALIDO",
+        message: "El stock mínimo debe ser un número entero mayor o igual a 0.",
+      },
+      { status: 422 },
+    )
+  }
+
+  return null
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -85,6 +114,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (Number.isNaN(productId)) {
       return new NextResponse("Invalid product id", { status: 400 })
+    }
+
+    if ("stockMinimo" in data) {
+      const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
+
+      if (stockMinimumValidation) {
+        return stockMinimumValidation
+      }
     }
 
     if (data.nombre) {
