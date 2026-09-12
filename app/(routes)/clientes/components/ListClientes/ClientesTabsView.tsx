@@ -11,6 +11,7 @@ interface ClientesTabsViewProps {
   clientesJuridicas: ClienteJuridica[];
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
+  onEdit?: (id: number) => void;
 }
 
 export function ClientesTabsView({
@@ -18,6 +19,7 @@ export function ClientesTabsView({
   clientesJuridicas,
   onViewDetails,
   onViewHistory,
+  onEdit,
 }: ClientesTabsViewProps) {
   return (
     <div className="w-full space-y-6">
@@ -47,6 +49,7 @@ export function ClientesTabsView({
             data={clientesNaturales}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
+            onEdit={onEdit}
           />
         </TabsContent>
 
@@ -56,6 +59,7 @@ export function ClientesTabsView({
             data={clientesJuridicas}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
+            onEdit={onEdit}
           />
         </TabsContent>
       </Tabs>

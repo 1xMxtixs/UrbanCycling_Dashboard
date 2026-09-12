@@ -40,6 +40,7 @@ interface DataTableProps<TData, Tvalue> {
   data: TData[]
   onViewDetails?: (id: number) => void
   onViewHistory?: (id: number) => void
+  onEdit?: (id: number) => void
 }
 
 export function DataTable<TData, Tvalue>({
@@ -47,6 +48,7 @@ export function DataTable<TData, Tvalue>({
   data,
   onViewDetails,
   onViewHistory,
+  onEdit,
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -68,6 +70,7 @@ export function DataTable<TData, Tvalue>({
     meta: {
       onViewDetails,
       onViewHistory,
+      onEdit,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
