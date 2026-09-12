@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import {
   User,
@@ -581,47 +581,37 @@ export function OrderDetailDialog({
 }
 
 function printWorkOrder(order: WorkOrder) {
-  const iframeId = "__ot_print_frame__"
-  let iframe = document.getElementById(iframeId) as HTMLIFrameElement | null
-
-  if (iframe) {
-    iframe.remove()
+  // Abrir en una ventana separada: el diálogo de impresión del sistema pertenece
+  // a esa ventana, por lo que el focus-trap de Radix Dialog en la app principal
+  // nunca se ve afectado. Esto elimina el cuelgue al cerrar el diálogo de impresión.
+  const printWindow = window.open("", "_blank", "width=900,height=700,noopener")
+  if (!printWindow) {
+    // El navegador bloqueó el popup (raro en respuesta a un clic de usuario).
+    // Mostrar instrucción al usuario.
+    alert(
+      "El navegador bloqueó la ventana de impresión.\n" +
+      "Permite las ventanas emergentes para este sitio e intenta de nuevo."
+    )
+    return
   }
 
-  iframe = document.createElement("iframe")
-  iframe.id = iframeId
-  iframe.style.position = "fixed"
-  iframe.style.right = "0"
-  iframe.style.bottom = "0"
-  iframe.style.width = "0"
-  iframe.style.height = "0"
-  iframe.style.border = "0"
-  iframe.style.visibility = "hidden"
-  document.body.appendChild(iframe)
+  printWindow.document.open()
+  printWindow.document.write(buildWorkOrderHtml(order))
+  printWindow.document.close()
 
-  const doc = iframe.contentWindow?.document
-  if (!doc) return
+  // Escuchar el cierre del diálogo de impresión para cerrar la ventana automáticamente.
+  printWindow.addEventListener("afterprint", () => {
+    printWindow.close()
+  }, { once: true })
 
-  let printed = false
-  const triggerPrint = () => {
-    if (printed) return
-    printed = true
-    try {
-      iframe?.contentWindow?.focus()
-      iframe?.contentWindow?.print()
-    } catch (e) {
-      console.error("[PRINT_ERROR]", e)
+  // Dar tiempo al navegador para renderizar el contenido antes de abrir el diálogo.
+  // onload no es fiable para document.write(), así que usamos setTimeout.
+  setTimeout(() => {
+    if (!printWindow.closed) {
+      printWindow.focus()
+      printWindow.print()
     }
-  }
-
-  iframe.onload = triggerPrint
-
-  doc.open()
-  doc.write(buildWorkOrderHtml(order))
-  doc.close()
-
-  // Fallback seguro solo si onload no disparó
-  setTimeout(triggerPrint, 300)
+  }, 350)
 }
 
 async function downloadWorkOrderPdf(order: WorkOrder) {
@@ -636,7 +626,7 @@ async function downloadWorkOrderPdf(order: WorkOrder) {
   container.style.position = "fixed"
   container.style.left = "-9999px"
   container.style.top = "0"
-  container.style.width = "794px" // â‰ˆ letter width en 96dpi
+  container.style.width = "794px" // ≈ letter width en 96dpi
   container.style.background = "#ffffff"
   container.style.fontFamily = "Arial, sans-serif"
   container.innerHTML = buildWorkOrderContent(order)
@@ -690,4 +680,3 @@ async function downloadWorkOrderPdf(order: WorkOrder) {
 
 // buildWorkOrderContent, buildWorkOrderHtml, isWorkOrderPaid e workOrderFileName
 // estan definidos en @/components/common/WorkOrderDocument - modulo reutilizable.
-
