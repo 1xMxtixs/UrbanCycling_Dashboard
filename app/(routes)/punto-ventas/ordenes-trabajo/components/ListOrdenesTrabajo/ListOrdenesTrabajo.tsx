@@ -14,6 +14,7 @@ import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
+import { OrderAuditDialog } from "./OrderAuditDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -52,6 +53,9 @@ export function ListOrdenesTrabajo() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [orderToCancel, setOrderToCancel] = useState<WorkOrder | null>(null)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
+
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
+  const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
 
   const getOrders = async () => {
     try {
@@ -139,6 +143,11 @@ export function ListOrdenesTrabajo() {
   const handleCancelClick = (order: WorkOrder) => {
     setOrderToCancel(order)
     setCancelModalOpen(true)
+  }
+
+  const handleAuditClick = (order: WorkOrder) => {
+    setOrderToAudit(order)
+    setAuditModalOpen(true)
   }
 
   const handleConfirmCancelOrder = async () => {
@@ -428,6 +437,7 @@ export function ListOrdenesTrabajo() {
         onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
+        onAuditClick={handleAuditClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -442,6 +452,7 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
+        onAuditClick={handleAuditClick}
       />
 
       {/* 5. Modal de Pago Restante */}
@@ -483,6 +494,14 @@ export function ListOrdenesTrabajo() {
         onConfirmCancel={handleConfirmCancelOrder}
         isCancelling={isCancellingOrder}
       />
+
+      {/* 9. Modal de Historial de Auditoría */}
+      <OrderAuditDialog
+        open={auditModalOpen}
+        onOpenChange={setAuditModalOpen}
+        order={orderToAudit}
+      />
+
     </div>
   )
 }

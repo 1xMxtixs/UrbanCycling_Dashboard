@@ -46,6 +46,7 @@ interface DataTableProps<TData, TValue> {
   onGenerateReceipt?: (order: WorkOrder) => void
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
+  onAuditClick?: (order: WorkOrder) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -58,6 +59,7 @@ export function DataTable<TData, TValue>({
   onGenerateReceipt,
   onRescheduleClick,
   onCancelClick,
+  onAuditClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -84,6 +86,7 @@ export function DataTable<TData, TValue>({
       onGenerateReceipt,
       onRescheduleClick,
       onCancelClick,
+      onAuditClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
