@@ -85,6 +85,7 @@ model Usuario {
   fechaUltimoAcceso DateTime? @db.Timestamp(0) @map("fecha_ultimo_acceso")
   tokenRecuperacion       String?   @db.VarChar(255) @map("token_recuperacion")
   tokenRecuperacionExpira DateTime? @map("token_recuperacion_expira")
+  sessionVersion          Int @db.UnsignedInt @default(0) @map("session_version")
   estado                  String    @db.VarChar(20)
   telefono          String?   @db.VarChar(20)
 
