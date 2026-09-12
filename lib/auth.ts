@@ -88,6 +88,7 @@ export const authOptions: NextAuthOptions = {
           idRol: user.idRol ?? 0,
           rol: user.rol?.nombre || "Usuario",
           permisos: permissions,
+          sessionVersion: user.sessionVersion,
         }
       },
     }),
@@ -99,6 +100,7 @@ export const authOptions: NextAuthOptions = {
         token.idRol = user.idRol
         token.rol = user.rol
         token.permisos = user.permisos ?? []
+        token.sessionVersion = user.sessionVersion
       }
 
       return token
@@ -110,6 +112,7 @@ export const authOptions: NextAuthOptions = {
         session.user.idRol = token.idRol
         session.user.rol = token.rol
         session.user.permisos = token.permisos ?? []
+        session.user.sessionVersion = token.sessionVersion ?? 0
       }
 
       return session

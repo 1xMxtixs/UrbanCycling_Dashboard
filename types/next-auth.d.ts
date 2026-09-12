@@ -7,6 +7,7 @@ declare module "next-auth" {
     idRol: number | null
     rol: string
     permisos: string[]
+    sessionVersion: number
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module "next-auth" {
       idRol: number | null
       rol: string
       permisos: string[]
+      sessionVersion: number
     } & DefaultSession["user"]
   }
 }
@@ -26,5 +28,6 @@ declare module "next-auth/jwt" {
     idRol: number | null
     rol: string
     permisos: string[]
+    sessionVersion: number
   }
 }
