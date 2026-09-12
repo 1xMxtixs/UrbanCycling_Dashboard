@@ -46,6 +46,7 @@ interface DataTableProps<TData, TValue> {
   onGenerateReceipt?: (order: WorkOrder) => void
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
+  onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
   onModifyServiceClick?: (order: WorkOrder) => void
 }
@@ -60,6 +61,7 @@ export function DataTable<TData, TValue>({
   onGenerateReceipt,
   onRescheduleClick,
   onCancelClick,
+  onAssignSuppliesClick,
   onAuditClick,
   onModifyServiceClick,
 }: DataTableProps<TData, TValue>) {
@@ -88,6 +90,7 @@ export function DataTable<TData, TValue>({
       onGenerateReceipt,
       onRescheduleClick,
       onCancelClick,
+      onAssignSuppliesClick,
       onAuditClick,
       onModifyServiceClick,
     },

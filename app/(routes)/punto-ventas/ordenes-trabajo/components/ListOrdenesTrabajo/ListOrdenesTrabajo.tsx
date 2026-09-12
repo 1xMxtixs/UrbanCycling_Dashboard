@@ -14,6 +14,7 @@ import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
+import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
@@ -36,6 +37,9 @@ export function ListOrdenesTrabajo() {
 
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
   const [openDetailsModal, setOpenDetailsModal] = useState(false)
+
+  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
+  const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
@@ -130,6 +134,11 @@ export function ListOrdenesTrabajo() {
     } finally {
       setUpdatingId(null)
     }
+  }
+
+  const handleAssignSuppliesClick = (order: WorkOrder) => {
+    setOrderToAssignSupplies(order)
+    setSuppliesModalOpen(true)
   }
 
   const handlePayClick = (order: WorkOrder) => {
@@ -326,12 +335,6 @@ export function ListOrdenesTrabajo() {
   }
 
   const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
-    const printWindow = window.open("", "_blank", "width=400,height=600")
-    if (!printWindow) {
-      toast.error("Por favor, permite las ventanas emergentes para imprimir.")
-      return
-    }
-
     const clientLabel = order?.cliente
       ? order.cliente.razonSocial || `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
       : "Cliente General"
@@ -342,15 +345,7 @@ export function ListOrdenesTrabajo() {
         <head>
           <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
           <style>
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              padding: 20px;
-              max-width: 300px;
-              margin: 0 auto;
-              font-size: 12px;
-              color: #000;
-              line-height: 1.4;
-            }
+            body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
             .text-center { text-align: center; }
             .bold { font-weight: bold; }
             .divider { border-top: 1px dashed #000; margin: 10px 0; }
@@ -365,16 +360,13 @@ export function ListOrdenesTrabajo() {
           <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
           <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
           <div class="divider"></div>
-          
           <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
           <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
           <div class="divider"></div>
-          
           <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
           <div>Cliente: ${clientLabel}</div>
           ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
           <div class="divider"></div>
-          
           <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
           ${lineas.map((line: any) => `
             <div class="flex">
@@ -382,39 +374,52 @@ export function ListOrdenesTrabajo() {
               <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
             </div>
           `).join("")}
-          
           <div class="divider"></div>
-          
-          <div class="flex">
-            <span>Neto:</span>
-            <span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span>
-          </div>
-          <div class="flex">
-            <span>IVA (19%):</span>
-            <span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span>
-          </div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;">
-            <span>TOTAL:</span>
-            <span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span>
-          </div>
-          
+          <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
+          <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
+          <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
           <div class="divider"></div>
-          <div class="footer">
-            ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>
-            ¡Gracias por su preferencia en Urban Cycling!
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
+          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>¡Gracias por su preferencia en Urban Cycling!</div>
         </body>
       </html>
     `
 
-    printWindow.document.write(content)
-    printWindow.document.close()
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+    document.body.appendChild(iframe)
+
+    const iframeDoc = iframe.contentWindow?.document
+    if (!iframeDoc) {
+      toast.error("No se pudo preparar la impresión.")
+      document.body.removeChild(iframe)
+      return
+    }
+
+    iframeDoc.open()
+    iframeDoc.write(content)
+    iframeDoc.close()
+
+    iframe.onload = () => {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    }
+
+    const cleanup = () => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe)
+      }
+    }
+
+    if (iframe.contentWindow) {
+      iframe.contentWindow.onafterprint = cleanup
+    }
+    // Red de seguridad: si `onafterprint` no se dispara en algún navegador, igual se limpia solo a los 60s.
+    setTimeout(cleanup, 60000)
   }
 
   if (isLoading) {
@@ -446,6 +451,7 @@ export function ListOrdenesTrabajo() {
         onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
+        onAssignSuppliesClick={handleAssignSuppliesClick}
         onAuditClick={handleAuditClick}
         onModifyServiceClick={handleModifyServiceClick}
       />
@@ -462,8 +468,20 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
+        onAssignSuppliesClick={handleAssignSuppliesClick}
         onAuditClick={handleAuditClick}
         onModifyServiceClick={handleModifyServiceClick}
+      />
+
+      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
+      <AssignSuppliesDialog
+        open={suppliesModalOpen}
+        onOpenChange={setSuppliesModalOpen}
+        order={orderToAssignSupplies}
+        onSuccess={() => {
+          getOrders()
+          router.refresh()
+        }}
       />
 
       {/* 5. Modal de Pago Restante */}

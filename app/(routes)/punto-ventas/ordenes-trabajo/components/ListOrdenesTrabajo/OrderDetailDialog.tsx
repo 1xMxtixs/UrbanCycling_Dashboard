@@ -11,6 +11,11 @@ import {
   ChevronUp,
   CalendarClock,
   XCircle,
+  Pencil,
+  Printer,
+  Download,
+  Mail,
+  MoreHorizontal,
   History,
 } from "lucide-react"
 import { useState } from "react"
@@ -29,11 +34,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { WorkOrder } from "../../types"
+import {
+  buildWorkOrderContent,
+  buildWorkOrderHtml,
+  isWorkOrderPaid,
+  workOrderFileName,
+} from "@/components/common/WorkOrderDocument"
 
 function getAvailableTransitions(currentStatus: string) {
   const map: Record<string, string[]> = {
@@ -55,6 +67,7 @@ interface OrderDetailDialogProps {
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
+  onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
   onModifyServiceClick?: (order: WorkOrder) => void
 }
@@ -67,6 +80,7 @@ export function OrderDetailDialog({
   onRescheduleClick,
   onCancelClick,
   onStatusChange,
+  onAssignSuppliesClick,
   onAuditClick,
   onModifyServiceClick,
 }: OrderDetailDialogProps) {
@@ -81,7 +95,7 @@ export function OrderDetailDialog({
 
   const laborCost = (order.lineasDeOrdenDeTrabajo || [])
     .filter((l) => l.idServicio !== null && l.idServicio !== undefined)
-    .reduce((sum, l) => sum + Number(l.precioUnitario), 0)
+    .reduce((sum, l) => sum + Number(l.precioUnitario || 0) * Number(l.cantidad || 1), 0)
 
   const productLines = (order.lineasDeOrdenDeTrabajo || []).filter(
     (l) => l.idProducto !== null && l.idProducto !== undefined
@@ -92,9 +106,12 @@ export function OrderDetailDialog({
     0
   )
 
+  const total = Number(order.total)
+  const montoNeto = Math.round(total / 1.19)
+
   const transitions = getAvailableTransitions(order.estadoOrden)
   const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
-  const total = Number(order.total)
+  const canEdit = !["Entregado", "Anulada"].includes(order.estadoOrden)
   const totalPagado = Number(order.totalPagado || 0)
   const isPaid =
     order.estadoPago?.toLowerCase() === "pagada" ||
@@ -209,11 +226,11 @@ export function OrderDetailDialog({
                 value={
                   order.fechaEntregaReal
                     ? new Date(order.fechaEntregaReal).toLocaleDateString("es-ES", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        timeZone: "UTC",
-                      })
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })
                     : "Pendiente de finalizar"
                 }
               />
@@ -233,21 +250,23 @@ export function OrderDetailDialog({
 
           {/* 3.5. Costos y Repuestos */}
           <div className="space-y-3 rounded-xl bg-muted/30 border border-border p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
-              <ShoppingBag className="h-4 w-4 text-primary" />
-              Detalle de Costos y Repuestos
-            </h4>
+            <div className="flex items-center justify-between border-b border-border pb-1.5">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground">
+                <ShoppingBag className="h-4 w-4 text-primary" />
+                Detalle de Costos y Insumos
+              </h4>
+            </div>
 
-            {productLines.length > 0 && (
+            {productLines.length > 0 ? (
               <div className="space-y-2">
                 <span className="text-xs text-muted-foreground block font-bold">
-                  Repuestos / Productos Usados:
+                  Insumos y Repuestos Utilizados:
                 </span>
                 <div className="rounded-lg border border-border bg-background overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
-                        <th className="px-3 py-2">Producto</th>
+                        <th className="px-3 py-2">Producto / Insumo</th>
                         <th className="px-3 py-2 text-center">Cant</th>
                         <th className="px-3 py-2 text-right">Precio Unit.</th>
                         <th className="px-3 py-2 text-right">Subtotal</th>
@@ -264,10 +283,10 @@ export function OrderDetailDialog({
                             <td className="px-3 py-2 text-center font-bold text-foreground">
                               {line.cantidad}
                             </td>
-                            <td className="px-3 py-2 text-right text-foreground">
+                            <td className="px-3 py-2 text-right text-foreground font-mono">
                               ${Number(line.precioUnitario).toLocaleString("es-CL")}
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-foreground">
+                            <td className="px-3 py-2 text-right font-bold text-foreground font-mono">
                               ${subtotal.toLocaleString("es-CL")}
                             </td>
                           </tr>
@@ -277,20 +296,28 @@ export function OrderDetailDialog({
                   </table>
                 </div>
               </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                No se han cargado insumos o repuestos adicionales a esta orden.
+              </p>
             )}
 
-            <div className="grid grid-cols-3 gap-3 border-t border-border/50 pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/50 pt-4">
               <DataField
-                label="Total repuestos"
+                label="Total Repuestos"
                 value={`$${productsCost.toLocaleString("es-CL")}`}
               />
               <DataField
-                label="Monto servicio"
+                label="Monto Servicio"
                 value={`$${laborCost.toLocaleString("es-CL")}`}
               />
               <DataField
-                label="Monto total"
-                value={`$${Number(order.total).toLocaleString("es-CL")}`}
+                label="Monto Neto"
+                value={`$${montoNeto.toLocaleString("es-CL")}`}
+              />
+              <DataField
+                label="Monto Total"
+                value={<span className="text-primary font-black">{`${Number(order.total).toLocaleString("es-CL")}`}</span>}
               />
             </div>
           </div>
@@ -307,13 +334,12 @@ export function OrderDetailDialog({
                   Estado de Pago
                 </span>
                 <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                    isPaid
-                      ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
-                      : order.estadoPago?.toLowerCase() === "abono"
-                        ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
-                        : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
-                  }`}
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${isPaid
+                    ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
+                    : order.estadoPago?.toLowerCase() === "abono"
+                      ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
+                      : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
+                    }`}
                 >
                   {isPaid ? "Pagada" : order.estadoPago}
                 </span>
@@ -323,13 +349,12 @@ export function OrderDetailDialog({
                   Saldo Restante
                 </span>
                 <span
-                  className={`font-bold text-sm ${
-                    isPaid
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : total - totalPagado > 0
-                        ? "text-rose-500"
-                        : "text-emerald-600 dark:text-emerald-400"
-                  }`}
+                  className={`font-bold text-sm ${isPaid
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : total - totalPagado > 0
+                      ? "text-rose-500"
+                      : "text-emerald-600 dark:text-emerald-400"
+                    }`}
                 >
                   $
                   {(isPaid
@@ -449,7 +474,6 @@ export function OrderDetailDialog({
           </div>
         </div>
 
-        {/* Acciones en el pie del Modal */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <div>
             {!isPaid && onPayClick && (
@@ -457,88 +481,249 @@ export function OrderDetailDialog({
                 variant="default"
                 size="sm"
                 onClick={() => onPayClick(order)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 cursor-pointer"
               >
-                <Coins className="h-4 w-4 mr-1.5" />
+                <Coins className="h-4 w-4" />
                 Registrar Pago Restante
               </Button>
             )}
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
-            {canCancel && onCancelClick && (
+            {canEdit && onAssignSuppliesClick && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onCancelClick(order)}
-                className="gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                onClick={() => onAssignSuppliesClick(order)}
+                className="gap-1.5 cursor-pointer font-semibold"
               >
-                <XCircle className="h-4 w-4" />
-                Anular
+                <Pencil className="h-4 w-4" />
+                Editar
               </Button>
             )}
-            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onModifyServiceClick(order)}
-                className="gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                <Wrench className="h-4 w-4" />
-                Modificar servicio
-              </Button>
-            )}
-            {onRescheduleClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRescheduleClick(order)}
-                className="gap-1.5 text-amber-700 dark:text-amber-400"
-              >
-                <CalendarClock className="h-4 w-4" />
-                Reprogramar
-              </Button>
-            )}
+
             {isAdmin && onAuditClick && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onAuditClick(order)}
-                className="gap-1.5"
+                className="gap-1.5 cursor-pointer font-semibold"
               >
                 <History className="h-4 w-4" />
                 Ver auditoría
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+
+            {/* [Exportar ▾] */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer font-semibold">
+                  <Download className="h-4 w-4" />
+                  Exportar
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => printWorkOrder(order)}
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimir
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => downloadWorkOrderPdf(order)}
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2"
+                  onClick={() => {
+                    const clientEmail = ""
+                    const subject = encodeURIComponent(`Orden de Trabajo #${order.idOrdenDeTrabajo} - UrbanCycling`)
+                    const body = encodeURIComponent(
+                      [
+                        `Estimado/a cliente,`,
+                        ``,
+                        `Le informamos el estado de su Orden de Trabajo #${order.idOrdenDeTrabajo}:`,
+                        ``,
+                        `  Estado: ${order.estadoOrden}`,
+                        `  Entrega Estimada: ${new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")}`,
+                        `  Total: $${Number(order.total).toLocaleString("es-CL")}`,
+                        ``,
+                        `Ante cualquier consulta, no dude en contactarnos.`,
+                        ``,
+                        `Saludos,`,
+                        `UrbanCycling`,
+                      ].join("\n")
+                    )
+                    window.location.href = `mailto:${clientEmail}?subject=${subject}&body=${body}`
+                  }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Correo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="cursor-pointer">
               Cerrar
             </Button>
-            {transitions.length > 0 && onStatusChange && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="flex items-center gap-1">
-                    Mover Estado
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {transitions.map((nextState) => (
-                    <DropdownMenuItem
-                      key={nextState}
-                      onClick={() =>
-                        onStatusChange(order.idOrdenDeTrabajo, nextState)
-                      }
-                      className="cursor-pointer font-semibold text-xs"
-                    >
-                      Mover a:{" "}
-                      <strong className="ml-1 text-primary">{nextState}</strong>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
+
+function printWorkOrder(order: WorkOrder) {
+  const iframeId = "__ot_print_frame__"
+  let iframe = document.getElementById(iframeId) as HTMLIFrameElement | null
+
+  if (iframe) {
+    iframe.remove()
+  }
+
+  // Guardar elemento con foco previo
+  const previouslyFocused = document.activeElement as HTMLElement | null
+
+  iframe = document.createElement("iframe")
+  iframe.id = iframeId
+  iframe.style.position = "fixed"
+  iframe.style.right = "0"
+  iframe.style.bottom = "0"
+  iframe.style.width = "0"
+  iframe.style.height = "0"
+  iframe.style.border = "0"
+  iframe.style.visibility = "hidden"
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentWindow?.document
+  if (!doc) return
+
+  const cleanup = () => {
+    document.getElementById(iframeId)?.remove()
+    // Liberar estilos de bloqueo si Radix quedó en estado inconsistente
+    document.body.style.pointerEvents = ""
+    document.body.style.overflow = ""
+    try {
+      previouslyFocused?.focus()
+    } catch {
+      // Si el elemento ya no existe o cambió, no bloquea
+    }
+  }
+
+  let printed = false
+  const triggerPrint = () => {
+    if (printed) return
+    printed = true
+    try {
+      const iframeWindow = iframe?.contentWindow
+      if (!iframeWindow) return
+
+      iframeWindow.addEventListener("afterprint", cleanup, { once: true })
+
+      const onVisibility = () => {
+        if (document.visibilityState === "visible") {
+          document.removeEventListener("visibilitychange", onVisibility)
+          cleanup()
+        }
+      }
+      document.addEventListener("visibilitychange", onVisibility)
+
+      // Pequeño retardo para permitir que el DropdownMenu termine su transición de cierre
+      // antes de que el browser suspenda el hilo principal con el diálogo nativo de impresión
+      setTimeout(() => {
+        try {
+          iframeWindow.focus()
+          iframeWindow.print()
+        } catch {
+          cleanup()
+        }
+      }, 100)
+    } catch (e) {
+      console.error("[PRINT_ERROR]", e)
+      cleanup()
+    }
+  }
+
+  iframe.onload = triggerPrint
+
+  doc.open()
+  doc.write(buildWorkOrderHtml(order))
+  doc.close()
+
+  // Fallback de seguridad si onload no dispara
+  setTimeout(triggerPrint, 350)
+  // Red de seguridad máxima: asegura cleanup pasados 60s
+  setTimeout(cleanup, 60000)
+}
+
+async function downloadWorkOrderPdf(order: WorkOrder) {
+  // html2canvas-pro soporta lab()/oklch() de Tailwind v4; html2pdf.js usa html2canvas legacy que falla
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas-pro"),
+    import("jspdf"),
+  ])
+
+  // Contenedor aislado (no heredará estilos del DOM principal con colores lab/oklch)
+  const container = document.createElement("div")
+  container.style.position = "fixed"
+  container.style.left = "-9999px"
+  container.style.top = "0"
+  container.style.width = "794px" // ≈ letter width en 96dpi
+  container.style.background = "#ffffff"
+  container.style.fontFamily = "Arial, sans-serif"
+  container.innerHTML = buildWorkOrderContent(order)
+  document.body.appendChild(container)
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      width: 794,
+    })
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.98)
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" })
+
+    const pageWidth = 215.9 // letter en mm
+    const pageHeight = 279.4
+    const margin = 10
+    const contentWidth = pageWidth - margin * 2
+    const imgHeight = (canvas.height * contentWidth) / canvas.width
+
+    let yOffset = 0
+    let isFirstPage = true
+
+    while (yOffset < imgHeight) {
+      if (!isFirstPage) pdf.addPage()
+      isFirstPage = false
+
+      pdf.addImage(
+        imgData,
+        "JPEG",
+        margin,
+        margin - (yOffset * pageHeight) / imgHeight,
+        contentWidth,
+        imgHeight,
+      )
+      yOffset += pageHeight - margin * 2
+    }
+
+    pdf.save(workOrderFileName(order))
+  } catch (err) {
+    console.error("[PDF_DOWNLOAD_ERROR]", err)
+  } finally {
+    container.remove()
+  }
+}
+
+// buildWorkOrderContent, buildWorkOrderHtml, isWorkOrderPaid e workOrderFileName
+// estan definidos en @/components/common/WorkOrderDocument - modulo reutilizable.
