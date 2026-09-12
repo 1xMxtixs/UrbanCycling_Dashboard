@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma";
+import { IVA_RATE } from "@/lib/tax-document";
 
 type StoredProcedureOutput = {
   montoTotal: number | string | null;
@@ -23,6 +24,7 @@ export async function recalcularTotalesOrdenTrabajo(
     await tx.$executeRaw`
       CALL sp_calcular_total_orden_de_trabajo(
         ${idOrdenDeTrabajo},
+        ${IVA_RATE},
         @monto_total_orden_trabajo
       )
     `;
