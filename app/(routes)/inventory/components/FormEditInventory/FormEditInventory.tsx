@@ -54,6 +54,16 @@ const formSchema = z.object({
     "El precio de venta debe ser un número entero",
   ),
   costoPromedio: nonNegativeNumber("El costo promedio"),
+  stockMinimo: z
+    .string()
+    .trim()
+    .min(1, "El stock mínimo es obligatorio")
+    .refine((value) => Number.isInteger(Number(value)), {
+      message: "El stock mínimo debe ser un número entero",
+    })
+    .refine((value) => Number(value) >= 0, {
+      message: "El stock mínimo debe ser mayor o igual a 0",
+    }),
   estado: z.string().trim().min(1, "El estado es obligatorio"),
 })
 
@@ -98,6 +108,7 @@ export function FormEditInventory({
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
       costoPromedio: String(product.costoPromedio ?? 0),
+      stockMinimo: String(product.stockMinimo),
       estado: product.estado,
     },
   })
@@ -129,6 +140,7 @@ export function FormEditInventory({
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
           costoPromedio: Number(values.costoPromedio),
+          stockMinimo: Number(values.stockMinimo),
           estado: values.estado,
           ...(imageUrl
             ? { imageUrl }
@@ -249,7 +261,7 @@ export function FormEditInventory({
           )}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <FormField
             control={form.control}
             name="precioVenta"
@@ -273,6 +285,23 @@ export function FormEditInventory({
                 <FormControl>
                   <Input type="number" min={0} step="0.01" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="stockMinimo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stock mínimo</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} step={1} {...field} />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  Los productos iguales o inferiores a este valor se mostrarán como stock bajo.
+                </p>
                 <FormMessage />
               </FormItem>
             )}
