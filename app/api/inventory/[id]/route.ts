@@ -268,10 +268,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const imageField = "urlImagen" in data ? "urlImagen" : "imageUrl"
-    if (imageField in data && data[imageField] !== null) {
-      const value = parseRequiredText(data[imageField], 512)
-      if (value) updateData.urlImagen = value
-      else invalidFields.push("foto")
+    if (imageField in data) {
+      if (data[imageField] === null) {
+        updateData.urlImagen = ""
+      } else {
+        const value = parseRequiredText(data[imageField], 512)
+        if (value) updateData.urlImagen = value
+        else invalidFields.push("foto")
+      }
     }
 
     if (invalidFields.length > 0) {
@@ -303,7 +307,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       })
 
       if (existingProduct && existingProduct.idProducto !== productId) {
-        return new NextResponse("Product already exists", { status: 409 })
+        return NextResponse.json(
+          {
+            code: "PRODUCTO_DUPLICADO",
+            message: "Ya existe otro producto con ese nombre.",
+          },
+          { status: 409 },
+        )
       }
     }
 

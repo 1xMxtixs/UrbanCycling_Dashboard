@@ -5,7 +5,10 @@ import { useEffect, useState } from "react"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
+import { FormEditInventory } from "../FormEditInventory"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Dialog } from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
 
 export function ListInventory() {
   const [inventory, setInventory] = useState<ProductColumn[]>([])
@@ -14,6 +17,8 @@ export function ListInventory() {
     null,
   )
   const [openDetail, setOpenDetail] = useState(false)
+  const [productToEdit, setProductToEdit] = useState<ProductColumn | null>(null)
+  const [openEdit, setOpenEdit] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -59,10 +64,18 @@ export function ListInventory() {
     )
   }
 
-  const columns = getColumns((product) => {
+  const handleViewDetail = (product: ProductColumn) => {
     setSelectedProduct(product)
     setOpenDetail(true)
-  })
+  }
+
+  const handleEditProduct = (product: ProductColumn) => {
+    setOpenDetail(false)
+    setProductToEdit(product)
+    setOpenEdit(true)
+  }
+
+  const columns = getColumns(handleViewDetail)
 
   return (
     <>
@@ -71,7 +84,36 @@ export function ListInventory() {
         product={selectedProduct}
         open={openDetail}
         onOpenChange={setOpenDetail}
+        onEdit={handleEditProduct}
       />
+      <Dialog
+        open={openEdit}
+        onOpenChange={(open) => {
+          setOpenEdit(open)
+          if (!open) setProductToEdit(null)
+        }}
+      >
+        {productToEdit ? (
+          <FormDialog
+            title="Editar ficha de producto"
+            description="Actualiza los datos del producto sin modificar su identificador único."
+            size="2xl"
+          >
+            <FormEditInventory
+              product={productToEdit}
+              onCompleted={() => {
+                setOpenEdit(false)
+                setProductToEdit(null)
+                window.dispatchEvent(new Event("inventory:refresh"))
+              }}
+              onCancel={() => {
+                setOpenEdit(false)
+                setProductToEdit(null)
+              }}
+            />
+          </FormDialog>
+        ) : null}
+      </Dialog>
     </>
   )
 }

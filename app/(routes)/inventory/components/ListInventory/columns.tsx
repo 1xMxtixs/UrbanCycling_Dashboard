@@ -25,6 +25,7 @@ export type ProductColumn = {
   nombre: string
   descripcion: string | null
   precioVenta: number | string
+  costoPromedio: number | string
   stockActual: number
   stockMinimo: number
   estado: string
@@ -79,9 +80,6 @@ export function getColumns(
       },
       cell: ({ row }) => {
         const stockActual = row.original.stockActual
-        const stockMinimo = row.original.stockMinimo
-        const isLowStock = stockActual <= stockMinimo && stockActual > 0
-        const isOutOfStock = stockActual === 0
 
         return (
           <span className="font-semibold text-sm text-foreground">
