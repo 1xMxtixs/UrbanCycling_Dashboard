@@ -99,6 +99,7 @@ export function OrderDetailDialog({
 
   const transitions = getAvailableTransitions(order.estadoOrden)
   const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
+  const canEdit = !["Entregado", "Anulada"].includes(order.estadoOrden)
   const totalPagado = Number(order.totalPagado || 0)
   const isPaid =
     order.estadoPago?.toLowerCase() === "pagada" ||
@@ -486,7 +487,7 @@ export function OrderDetailDialog({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              {canCancel && onAssignSuppliesClick && (
+              {canEdit && onAssignSuppliesClick && (
                 <DropdownMenuItem
                   onClick={() => onAssignSuppliesClick(order)}
                   className="flex cursor-pointer items-center gap-2"
