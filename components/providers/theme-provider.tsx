@@ -51,6 +51,7 @@ function ThemeHotkey() {
         return
       }
 
+
       if (isTypingTarget(event.target)) {
         return
       }
