@@ -11,8 +11,10 @@ import {
   ChevronUp,
   CalendarClock,
   XCircle,
+  History,
 } from "lucide-react"
 import { useState } from "react"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -52,6 +54,7 @@ interface OrderDetailDialogProps {
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
+  onAuditClick?: (order: WorkOrder) => void
 }
 
 export function OrderDetailDialog({
@@ -62,7 +65,10 @@ export function OrderDetailDialog({
   onRescheduleClick,
   onCancelClick,
   onStatusChange,
+  onAuditClick,
 }: OrderDetailDialogProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.rol === "Administrador"
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
 
   if (!order) return null
@@ -473,6 +479,17 @@ export function OrderDetailDialog({
               >
                 <CalendarClock className="h-4 w-4" />
                 Reprogramar
+              </Button>
+            )}
+            {isAdmin && onAuditClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAuditClick(order)}
+                className="gap-1.5"
+              >
+                <History className="h-4 w-4" />
+                Ver auditoría
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
