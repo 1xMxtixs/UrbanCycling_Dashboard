@@ -12,6 +12,7 @@ import {
   XCircle,
   History,
   Wrench,
+  Pencil,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { PERMISSIONS } from "@/lib/permissions"
@@ -98,6 +99,16 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           >
             <Coins className="h-4 w-4" />
             Registrar Pago
+          </DropdownMenuItem>
+        )}
+
+        {canCancel && meta?.onAssignSuppliesClick && (
+          <DropdownMenuItem
+            onClick={() => meta.onAssignSuppliesClick(order)}
+            className="flex cursor-pointer items-center gap-2 font-semibold"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar Orden
           </DropdownMenuItem>
         )}
 
