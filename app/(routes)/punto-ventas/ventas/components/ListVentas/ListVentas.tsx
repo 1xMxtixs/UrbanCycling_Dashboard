@@ -184,22 +184,6 @@ export function ListVentas() {
   }
 
   const handlePrintReceipt = (dte: any, sale: SaleOperation | null) => {
-    const printWindow = window.open("", "_blank", "width=400,height=600")
-    if (!printWindow) {
-      toast.error("Por favor, permite las ventanas emergentes para imprimir.")
-      return
-    }
-
-    // Red de seguridad: si Radix dejó estilos pegados en el body (pointer-events/overflow)
-    // al volver del diálogo de impresión, este interval los limpia en cuanto la ventana cierra.
-    const checkClosed = setInterval(() => {
-      if (printWindow.closed) {
-        clearInterval(checkClosed)
-        document.body.style.pointerEvents = ""
-        document.body.style.overflow = ""
-      }
-    }, 300)
-
     const clientLabel = formatClientName(sale?.cliente)
     const lineas = sale?.venta?.lineasDeVenta || []
 
@@ -208,15 +192,7 @@ export function ListVentas() {
         <head>
           <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
           <style>
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              padding: 20px;
-              max-width: 300px;
-              margin: 0 auto;
-              font-size: 12px;
-              color: #000;
-              line-height: 1.4;
-            }
+            body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
             .text-center { text-align: center; }
             .bold { font-weight: bold; }
             .divider { border-top: 1px dashed #000; margin: 10px 0; }
@@ -231,16 +207,13 @@ export function ListVentas() {
           <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
           <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
           <div class="divider"></div>
-          
           <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
           <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
           <div class="divider"></div>
-          
           <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
           <div>Cliente: ${clientLabel}</div>
           ${sale?.cliente?.rut ? `<div>RUT Receptor: ${sale.cliente.rut}</div>` : ""}
           <div class="divider"></div>
-          
           <div class="bold" style="margin-bottom: 5px;">DETALLE DE PRODUCTOS:</div>
           ${lineas.map((line: any) => `
             <div class="flex">
@@ -248,41 +221,52 @@ export function ListVentas() {
               <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
             </div>
           `).join("")}
-          
           <div class="divider"></div>
-          
-          <div class="flex">
-            <span>Neto:</span>
-            <span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span>
-          </div>
-          <div class="flex">
-            <span>IVA (19%):</span>
-            <span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span>
-          </div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;">
-            <span>TOTAL:</span>
-            <span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span>
-          </div>
-          
+          <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
+          <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
+          <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
           <div class="divider"></div>
-          <div class="footer">
-            ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>
-            ¡Gracias por su compra en Urban Cycling!
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-            }
-            window.onafterprint = function() {
-              window.close();
-            }
-          </script>
+          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>¡Gracias por su compra en Urban Cycling!</div>
         </body>
       </html>
     `
 
-    printWindow.document.write(content)
-    printWindow.document.close()
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+    document.body.appendChild(iframe)
+
+    const iframeDoc = iframe.contentWindow?.document
+    if (!iframeDoc) {
+      toast.error("No se pudo preparar la impresión.")
+      document.body.removeChild(iframe)
+      return
+    }
+
+    iframeDoc.open()
+    iframeDoc.write(content)
+    iframeDoc.close()
+
+    iframe.onload = () => {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    }
+
+    const cleanup = () => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe)
+      }
+    }
+
+    if (iframe.contentWindow) {
+      iframe.contentWindow.onafterprint = cleanup
+    }
+    // Red de seguridad: si `onafterprint` no se dispara en algún navegador, igual se limpia solo a los 60s.
+    setTimeout(cleanup, 60000)
   }
 
   // Cálculos de KPIs

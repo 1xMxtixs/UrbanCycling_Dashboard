@@ -588,9 +588,7 @@ function printWorkOrder(order: WorkOrder) {
     iframe.remove()
   }
 
-  // Guardar el elemento con foco antes de imprimir para poder restaurarlo
-  // después. Radix Dialog tiene un focus-trap activo: si lo movemos al iframe
-  // y no lo restauramos, el Dialog queda bloqueado al cerrar el diálogo de impresión.
+  // Guardar elemento con foco previo
   const previouslyFocused = document.activeElement as HTMLElement | null
 
   iframe = document.createElement("iframe")
@@ -607,14 +605,15 @@ function printWorkOrder(order: WorkOrder) {
   const doc = iframe.contentWindow?.document
   if (!doc) return
 
-  // Elimina el iframe y devuelve el foco al elemento que lo tenía antes,
-  // para que el focus-trap de Radix Dialog quede en estado consistente.
   const cleanup = () => {
     document.getElementById(iframeId)?.remove()
+    // Liberar estilos de bloqueo si Radix quedó en estado inconsistente
+    document.body.style.pointerEvents = ""
+    document.body.style.overflow = ""
     try {
       previouslyFocused?.focus()
     } catch {
-      // Puede fallar si el elemento ya fue desmontado; no es crítico.
+      // Si el elemento ya no existe o cambió, no bloquea
     }
   }
 
@@ -626,11 +625,8 @@ function printWorkOrder(order: WorkOrder) {
       const iframeWindow = iframe?.contentWindow
       if (!iframeWindow) return
 
-      // Escuchar el cierre del diálogo de impresión.
       iframeWindow.addEventListener("afterprint", cleanup, { once: true })
 
-      // Fallback: si afterprint no dispara (algunos navegadores/OS),
-      // restaurar cuando la pestaña vuelva a ser visible.
       const onVisibility = () => {
         if (document.visibilityState === "visible") {
           document.removeEventListener("visibilitychange", onVisibility)
@@ -639,9 +635,16 @@ function printWorkOrder(order: WorkOrder) {
       }
       document.addEventListener("visibilitychange", onVisibility)
 
-      // NO mover foco al iframe — mantenerlo en el Dialog de Radix para
-      // que el focus-trap siga activo durante y después de la impresión.
-      iframeWindow.print()
+      // Pequeño retardo para permitir que el DropdownMenu termine su transición de cierre
+      // antes de que el browser suspenda el hilo principal con el diálogo nativo de impresión
+      setTimeout(() => {
+        try {
+          iframeWindow.focus()
+          iframeWindow.print()
+        } catch {
+          cleanup()
+        }
+      }, 100)
     } catch (e) {
       console.error("[PRINT_ERROR]", e)
       cleanup()
@@ -654,8 +657,10 @@ function printWorkOrder(order: WorkOrder) {
   doc.write(buildWorkOrderHtml(order))
   doc.close()
 
-  // Fallback seguro solo si onload no disparó
-  setTimeout(triggerPrint, 300)
+  // Fallback de seguridad si onload no dispara
+  setTimeout(triggerPrint, 350)
+  // Red de seguridad máxima: asegura cleanup pasados 60s
+  setTimeout(cleanup, 60000)
 }
 
 async function downloadWorkOrderPdf(order: WorkOrder) {
