@@ -37,7 +37,7 @@ const productoSchema = z.object({
 const servicioSchema = z.object({
   idServicio: z.number().int().positive(),
   cantidad: z.number().int().positive(),
-  precioUnitario: z.number().min(0),
+  precioUnitario: z.number().min(0).nullable().optional(),
 })
 
 const ordenTrabajoSchema = z.object({
@@ -104,6 +104,10 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function toOptionalNumber(value: unknown) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
 type BicicletaInput = {
   marca?: unknown;
   modelo?: unknown;
@@ -140,7 +144,7 @@ type ProductoSolicitado = {
 type ServicioSolicitado = {
   idServicio: number;
   cantidad: number;
-  precioUnitario: number;
+  precioUnitario: number | null;
 };
 
 
@@ -437,10 +441,8 @@ export async function POST(req: Request) {
                 item.idProducto
               ),
               cantidad: Number(item.cantidad),
-              precioUnitario: Number(
-                item.precio_unitario ??
-                item.precioUnitario ??
-                0
+              precioUnitario: toOptionalNumber(
+                item.precio_unitario ?? item.precioUnitario
               ),
             })
           )
@@ -454,10 +456,8 @@ export async function POST(req: Request) {
                 item.idServicio
               ),
               cantidad: Number(item.cantidad),
-              precioUnitario: Number(
-                item.precio_unitario ??
-                item.precioUnitario ??
-                0
+              precioUnitario: toOptionalNumber(
+                item.precio_unitario ?? item.precioUnitario
               ),
             })
           )
@@ -591,20 +591,33 @@ export async function POST(req: Request) {
     }
 
     const bicicletas = bicicletasInput.map(mapearBicicleta);
+    const bicicletaConDemasiadasImagenes = bicicletas.find(
+      (bicicleta) => bicicleta.imagenes.length > MAX_BICYCLE_IMAGES
+    );
+
+    if (bicicletaConDemasiadasImagenes) {
+      return NextResponse.json(
+        {
+          code: "MAX_IMAGENES_BICICLETA",
+          message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
+        },
+        { status: 400 }
+      );
+    }
 
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
-      (item: ProductoOrdenInput) => ({
-        idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
+      (item, index) => ({
+        idProducto: parsePositiveInteger(item.idProducto),
         cantidad: parsePositiveInteger(item.cantidad),
-        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+        precioUnitario: data.productos[index]!.precioUnitario,
       })
     );
 
     const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
-      (item: ServicioOrdenInput) => ({
-        idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
+      (item, index) => ({
+        idServicio: parsePositiveInteger(item.idServicio),
         cantidad: parsePositiveInteger(item.cantidad),
-        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+        precioUnitario: data.servicios[index]!.precioUnitario ?? null,
       })
     );
 
