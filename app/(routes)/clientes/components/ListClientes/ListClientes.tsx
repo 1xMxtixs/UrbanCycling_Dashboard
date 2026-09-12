@@ -33,6 +33,8 @@ import {
 import { formatClientName } from "@/lib/formatters";
 import { DataField } from "@/components/common/DataField";
 import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
+import { FormCreateCliente } from "../FormCreateCliente";
+import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 
 export function ListClientes() {
@@ -41,8 +43,10 @@ export function ListClientes() {
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(null);
+  const [clienteToEdit, setClienteToEdit] = useState<DBCliente | null>(null);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [openHistoryModal, setOpenHistoryModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
   const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -129,6 +133,14 @@ export function ListClientes() {
     }
   };
 
+  const handleEdit = (id: number) => {
+    const cli = rawClientes.find((c) => c.idCliente === id);
+    if (cli) {
+      setClienteToEdit(cli);
+      setOpenEditModal(true);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -212,6 +224,7 @@ export function ListClientes() {
             clientesJuridicas={clientesJuridicas}
             onViewDetails={handleViewDetails}
             onViewHistory={handleViewHistory}
+            onEdit={handleEdit}
           />
         </TabsContent>
 
@@ -488,6 +501,29 @@ export function ListClientes() {
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Edición del Cliente */}
+      <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar cliente</DialogTitle>
+            <DialogDescription>
+              Modifica los datos del cliente.
+            </DialogDescription>
+          </DialogHeader>
+          {clienteToEdit && (
+            <FormCreateCliente
+              cliente={clienteToEdit}
+              onSuccess={() => {
+                toast.success("Cliente actualizado correctamente");
+                setOpenEditModal(false);
+                setClienteToEdit(null);
+                window.dispatchEvent(new Event("clientes:refresh"));
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
