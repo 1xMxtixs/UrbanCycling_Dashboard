@@ -97,7 +97,7 @@ export function ListOrdenesTrabajo() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estadoOrden: nextStatus }),
+        body: JSON.stringify({ estado: nextStatus }),
       })
 
       if (!res.ok) {
