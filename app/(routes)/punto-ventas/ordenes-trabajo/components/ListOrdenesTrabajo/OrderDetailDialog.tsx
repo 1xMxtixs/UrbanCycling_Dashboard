@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -55,6 +56,7 @@ interface OrderDetailDialogProps {
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
   onAuditClick?: (order: WorkOrder) => void
+  onModifyServiceClick?: (order: WorkOrder) => void
 }
 
 export function OrderDetailDialog({
@@ -66,9 +68,13 @@ export function OrderDetailDialog({
   onCancelClick,
   onStatusChange,
   onAuditClick,
+  onModifyServiceClick,
 }: OrderDetailDialogProps) {
   const { data: session } = useSession()
   const isAdmin = session?.user?.rol === "Administrador"
+  const canUpdateOrders = session?.user?.permisos?.includes(
+    PERMISSIONS.WORK_ORDERS_UPDATE
+  )
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
 
   if (!order) return null
@@ -468,6 +474,17 @@ export function OrderDetailDialog({
               >
                 <XCircle className="h-4 w-4" />
                 Anular
+              </Button>
+            )}
+            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onModifyServiceClick(order)}
+                className="gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                <Wrench className="h-4 w-4" />
+                Modificar servicio
               </Button>
             )}
             {onRescheduleClick && (
