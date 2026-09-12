@@ -1,12 +1,11 @@
-import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 
-import { authOptions } from "@/lib/auth"
+import { getValidSession } from "@/lib/get-valid-session"
 
 export async function requireAuth() {
-  const session = await getServerSession(authOptions)
+  const session = await getValidSession()
 
-  if (!session?.user?.idUsuario) {
+  if (!session) {
     return {
       session: null,
       response: new NextResponse("No autorizado", { status: 401 }),
