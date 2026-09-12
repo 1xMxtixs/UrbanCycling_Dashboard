@@ -317,6 +317,13 @@ export function ListOrdenesTrabajo() {
   }
 
   const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
+    // Cerrar el modal antes de abrir el popup de impresión para que Radix
+    // haga su propia limpieza real (data-scroll-locked, focus-trap, etc.)
+    // en vez de intentar revertir sus internos a mano desde afuera.
+    // El contenido del comprobante viene del parámetro `order`, no de
+    // `selectedOrder`, así que cerrar el modal no afecta los datos impresos.
+    setOpenDetailsModal(false)
+
     const printWindow = window.open("", "_blank", "width=400,height=600")
     if (!printWindow) {
       toast.error("Por favor, permite las ventanas emergentes para imprimir.")
