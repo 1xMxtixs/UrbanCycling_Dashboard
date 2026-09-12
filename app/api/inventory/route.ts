@@ -73,6 +73,52 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
+    const hasProductId =
+      searchParams.has("idProducto") || searchParams.has("id")
+
+    if (hasProductId) {
+      const productIdValue =
+        searchParams.get("idProducto") ?? searchParams.get("id")
+
+      if (!productIdValue || productIdValue.trim() === "") {
+        return NextResponse.json(
+          {
+            code: "ID_PRODUCTO_OBLIGATORIA",
+            message: "Debe ingresar la ID del producto para realizar la búsqueda.",
+          },
+          { status: 400 },
+        )
+      }
+
+      const productId = Number(productIdValue)
+
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return NextResponse.json(
+          {
+            code: "ID_PRODUCTO_INVALIDA",
+            message: "La ID del producto debe ser un número entero positivo.",
+          },
+          { status: 400 },
+        )
+      }
+
+      const product = await db.producto.findUnique({
+        where: { idProducto: productId },
+      })
+
+      if (!product) {
+        return NextResponse.json(
+          {
+            code: "PRODUCTO_NO_ENCONTRADO",
+            message: `No se encontró un producto con la ID ${productId}.`,
+          },
+          { status: 404 },
+        )
+      }
+
+      return NextResponse.json(withImageAlias(product))
+    }
+
     const categoryId = parseCategoryId(
       searchParams.get("categoriaId") ??
         searchParams.get("idCategoria") ??
