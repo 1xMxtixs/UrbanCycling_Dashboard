@@ -24,9 +24,17 @@ function parseProductId(id: string): number {
 function withImageAlias(product: {
   idProducto: number
   urlImagen: string
+  categoriasProducto?: Array<{
+    categoria: {
+      idCategoria: number
+      nombre: string
+      descripcion: string | null
+    }
+  }>
 }) {
   return {
     ...product,
+    categoriasProducto: product.categoriasProducto?.map(({ categoria }) => categoria) ?? [],
     imagenesProducto: product.urlImagen
       ? [
           {
@@ -37,6 +45,52 @@ function withImageAlias(product: {
         ]
       : [],
   }
+}
+
+function parseCategoryIds(value: unknown): number[] | null | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const categoryIds = value.map(Number)
+
+  return categoryIds.every((id) => Number.isInteger(id) && id > 0)
+    ? Array.from(new Set(categoryIds))
+    : null
+}
+
+const productCategoriesInclude = {
+  categoriasProducto: {
+    include: {
+      categoria: {
+        select: {
+          idCategoria: true,
+          nombre: true,
+          descripcion: true,
+        },
+      },
+    },
+  },
+} as const
+
+async function validateCategoryIds(categoryIds: number[]) {
+  if (categoryIds.length === 0) {
+    return true
+  }
+
+  const categories = await db.categoria.findMany({
+    where: {
+      idCategoria: { in: categoryIds },
+      estado: "activo",
+    },
+    select: { idCategoria: true },
+  })
+
+  return categories.length === categoryIds.length
 }
 
 function validateStockMinimum(stockMinimo: unknown) {
@@ -131,6 +185,7 @@ export async function GET(_request: Request, context: RouteContext) {
       where: {
         idProducto: productId,
       },
+      include: productCategoriesInclude,
     })
 
     if (!product) {
@@ -201,6 +256,28 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
+    const categoryIds = parseCategoryIds(data.categoriaIds)
+
+    if (categoryIds === null) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Las categorías seleccionadas no son válidas.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (categoryIds !== undefined && !(await validateCategoryIds(categoryIds))) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Una o más categorías no existen o están inactivas.",
+        },
+        { status: 400 },
+      )
+    }
+
     const updateData: {
       tipoProducto?: string
       nombre?: string
@@ -268,10 +345,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const imageField = "urlImagen" in data ? "urlImagen" : "imageUrl"
-    if (imageField in data && data[imageField] !== null) {
-      const value = parseRequiredText(data[imageField], 512)
-      if (value) updateData.urlImagen = value
-      else invalidFields.push("foto")
+    if (imageField in data) {
+      if (data[imageField] === null) {
+        updateData.urlImagen = ""
+      } else {
+        const value = parseRequiredText(data[imageField], 512)
+        if (value) updateData.urlImagen = value
+        else invalidFields.push("foto")
+      }
     }
 
     if (invalidFields.length > 0) {
@@ -285,7 +366,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(updateData).length === 0 && categoryIds === undefined) {
       return NextResponse.json(
         {
           code: "SIN_CAMBIOS",
@@ -303,15 +384,45 @@ export async function PATCH(request: Request, context: RouteContext) {
       })
 
       if (existingProduct && existingProduct.idProducto !== productId) {
-        return new NextResponse("Product already exists", { status: 409 })
+        return NextResponse.json(
+          {
+            code: "PRODUCTO_DUPLICADO",
+            message: "Ya existe otro producto con ese nombre.",
+          },
+          { status: 409 },
+        )
       }
     }
 
-    const product = await db.producto.update({
-      where: {
-        idProducto: productId,
-      },
-      data: updateData,
+    const product = await db.$transaction(async (tx) => {
+      if (Object.keys(updateData).length > 0) {
+        await tx.producto.update({
+          where: {
+            idProducto: productId,
+          },
+          data: updateData,
+        })
+      }
+
+      if (categoryIds !== undefined) {
+        await tx.categoriaProducto.deleteMany({
+          where: { idProducto: productId },
+        })
+
+        if (categoryIds.length > 0) {
+          await tx.categoriaProducto.createMany({
+            data: categoryIds.map((idCategoria) => ({
+              idProducto: productId,
+              idCategoria,
+            })),
+          })
+        }
+      }
+
+      return tx.producto.findUniqueOrThrow({
+        where: { idProducto: productId },
+        include: productCategoriesInclude,
+      })
     })
 
     return NextResponse.json(withImageAlias(product))

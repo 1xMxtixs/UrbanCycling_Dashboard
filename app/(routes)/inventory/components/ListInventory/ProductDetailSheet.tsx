@@ -2,11 +2,8 @@
 "use client"
 
 import {
-  AlertTriangle,
-  Boxes,
-  CircleDollarSign,
-  Hash,
   PackageSearch,
+  Pencil,
 } from "lucide-react"
 
 import {
@@ -16,15 +13,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
 
 import type { ProductColumn } from "./columns"
-import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
 
 type ProductDetailSheetProps = {
   product: ProductColumn | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit: (product: ProductColumn) => void
 }
 
 function formatPrice(value: number | string) {
@@ -35,6 +33,7 @@ export function ProductDetailSheet({
   product,
   open,
   onOpenChange,
+  onEdit,
 }: ProductDetailSheetProps) {
   const imageUrl = product?.imagenesProducto?.[0]?.url
   const isOutOfStock = product?.stockActual === 0
@@ -60,6 +59,15 @@ export function ProductDetailSheet({
               <SheetDescription className="text-xs text-muted-foreground">
                 Especificaciones técnicas y niveles de inventario en bodega.
               </SheetDescription>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full gap-2 rounded-xl sm:w-auto"
+                onClick={() => onEdit(product)}
+              >
+                <Pencil className="h-4 w-4" />
+                Editar producto
+              </Button>
             </SheetHeader>
 
             <div className="space-y-6 pt-4">
@@ -89,9 +97,26 @@ export function ProductDetailSheet({
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    Tipo / Categoría
+                    Tipo de producto
                   </span>
                   <p className="text-sm font-bold text-foreground">{product.tipoProducto}</p>
+                  <span className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Categorías
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {product.categoriasProducto?.length ? (
+                      product.categoriasProducto.map((category) => (
+                        <StatusBadge
+                          key={category.idCategoria}
+                          status="info"
+                          label={category.nombre}
+                          showDot={false}
+                        />
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin categoría</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">

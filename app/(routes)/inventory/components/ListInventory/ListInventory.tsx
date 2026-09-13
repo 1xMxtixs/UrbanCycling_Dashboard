@@ -8,7 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
+import { FormEditInventory } from "../FormEditInventory"
 import { InventoryMovementDialog } from "../InventoryMovementDialog"
+import { Dialog } from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
+import type { InventoryCategory } from "../../types"
 
 export function ListInventory() {
   const { data: session } = useSession()
@@ -17,6 +21,7 @@ export function ListInventory() {
   )
 
   const [inventory, setInventory] = useState<ProductColumn[]>([])
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
     null,
@@ -25,13 +30,19 @@ export function ListInventory() {
   const [selectedMovementProduct, setSelectedMovementProduct] =
     useState<ProductColumn | null>(null)
   const [openMovement, setOpenMovement] = useState(false)
+  const [productToEdit, setProductToEdit] = useState<ProductColumn | null>(null)
+  const [openEdit, setOpenEdit] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
       try {
-        const response = await fetch("/api/inventory", {
-          cache: "no-store",
-        })
+        const [response, categoriesResponse] = await Promise.all([
+          fetch("/api/inventory", { cache: "no-store" }),
+          fetch("/api/inventory/categories", { cache: "no-store" }),
+        ])
+
+        const categoriesData = await categoriesResponse.json().catch(() => null)
+        setCategories(categoriesResponse.ok ? categoriesData?.categories ?? [] : [])
 
         if (!response.ok) {
           setInventory([])
@@ -70,31 +81,70 @@ export function ListInventory() {
     )
   }
 
+  const handleViewDetail = (product: ProductColumn) => {
+    setSelectedProduct(product)
+    setOpenDetail(true)
+  }
+
+  const handleEditProduct = (product: ProductColumn) => {
+    setOpenDetail(false)
+    setProductToEdit(product)
+    setOpenEdit(true)
+  }
+
+  const handleRegisterMovement = (product: ProductColumn) => {
+    setSelectedMovementProduct(product)
+    setOpenMovement(true)
+  }
+
   const columns = getColumns(
-    (product) => {
-      setSelectedProduct(product)
-      setOpenDetail(true)
-    },
-    (product) => {
-      setSelectedMovementProduct(product)
-      setOpenMovement(true)
-    },
+    handleViewDetail,
+    handleRegisterMovement,
     canUpdate,
   )
 
   return (
     <>
-      <DataTable columns={columns} data={inventory} />
+      <DataTable columns={columns} data={inventory} categories={categories} />
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}
         onOpenChange={setOpenDetail}
+        onEdit={handleEditProduct}
       />
       <InventoryMovementDialog
         product={selectedMovementProduct}
         open={openMovement}
         onOpenChange={setOpenMovement}
       />
+      <Dialog
+        open={openEdit}
+        onOpenChange={(open) => {
+          setOpenEdit(open)
+          if (!open) setProductToEdit(null)
+        }}
+      >
+        {productToEdit ? (
+          <FormDialog
+            title="Editar ficha de producto"
+            description="Actualiza los datos del producto sin modificar su identificador único."
+            size="2xl"
+          >
+            <FormEditInventory
+              product={productToEdit}
+              onCompleted={() => {
+                setOpenEdit(false)
+                setProductToEdit(null)
+                window.dispatchEvent(new Event("inventory:refresh"))
+              }}
+              onCancel={() => {
+                setOpenEdit(false)
+                setProductToEdit(null)
+              }}
+            />
+          </FormDialog>
+        ) : null}
+      </Dialog>
     </>
   )
 }
