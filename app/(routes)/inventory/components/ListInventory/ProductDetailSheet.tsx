@@ -2,11 +2,8 @@
 "use client"
 
 import {
-  AlertTriangle,
-  Boxes,
-  CircleDollarSign,
-  Hash,
   PackageSearch,
+  Pencil,
 } from "lucide-react"
 
 import {
@@ -16,15 +13,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
 
 import type { ProductColumn } from "./columns"
-import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
 
 type ProductDetailSheetProps = {
   product: ProductColumn | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit: (product: ProductColumn) => void
 }
 
 function formatPrice(value: number | string) {
@@ -35,6 +33,7 @@ export function ProductDetailSheet({
   product,
   open,
   onOpenChange,
+  onEdit,
 }: ProductDetailSheetProps) {
   const imageUrl = product?.imagenesProducto?.[0]?.url
   const isOutOfStock = product?.stockActual === 0
@@ -60,6 +59,15 @@ export function ProductDetailSheet({
               <SheetDescription className="text-xs text-muted-foreground">
                 Especificaciones técnicas y niveles de inventario en bodega.
               </SheetDescription>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full gap-2 rounded-xl sm:w-auto"
+                onClick={() => onEdit(product)}
+              >
+                <Pencil className="h-4 w-4" />
+                Editar producto
+              </Button>
             </SheetHeader>
 
             <div className="space-y-6 pt-4">
