@@ -89,12 +89,16 @@ export function ListInventory() {
     )
   }
 
-  const lowStockProducts = inventory.filter(
+  const activeProducts = inventory.filter(
+    (product) => product.estado?.toLowerCase() === "activo",
+  )
+
+  const lowStockProducts = activeProducts.filter(
     (product) =>
       product.stockActual > 0 && product.stockActual <= product.stockMinimo,
   )
 
-  const outOfStockProducts = inventory.filter(
+  const outOfStockProducts = activeProducts.filter(
     (product) => product.stockActual === 0,
   )
 
