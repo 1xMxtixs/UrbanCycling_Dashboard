@@ -38,6 +38,7 @@ type EditableField =
   | "telefono"
 
 type FormValues = Record<EditableField, string>
+type FieldError = EditableField | "contrasenaActual"
 
 const editableFields: EditableField[] = [
   "primerNombre",
@@ -123,7 +124,8 @@ export function ProfileContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState("")
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<EditableField, string>>>({})
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldError, string>>>({})
+  const [contrasenaActual, setContrasenaActual] = useState("")
 
   useEffect(() => {
     const controller = new AbortController()
@@ -163,20 +165,33 @@ export function ProfileContent() {
     }, {})
   }, [formValues, profile])
 
+  const requiresCurrentPassword =
+    Object.prototype.hasOwnProperty.call(changes, "correo") ||
+    Object.prototype.hasOwnProperty.call(changes, "telefono")
+
   function updateField(name: EditableField, value: string) {
     setFormValues((current) => (current ? { ...current, [name]: value } : current))
-    setFieldErrors((current) => ({ ...current, [name]: undefined }))
+    setFieldErrors((current) => ({
+      ...current,
+      [name]: undefined,
+      ...(name === "correo" || name === "telefono" ? { contrasenaActual: undefined } : {}),
+    }))
+
+    if (name === "correo" || name === "telefono") setContrasenaActual("")
   }
 
   function validate() {
     if (!formValues) return false
-    const errors: Partial<Record<EditableField, string>> = {}
+    const errors: Partial<Record<FieldError, string>> = {}
 
     if (!formValues.primerNombre.trim()) errors.primerNombre = "El primer nombre es obligatorio."
     if (!formValues.apellidoPaterno.trim()) errors.apellidoPaterno = "El apellido paterno es obligatorio."
     if (!EMAIL_REGEX.test(formValues.correo.trim())) errors.correo = "Ingresa un correo válido."
     if (formValues.telefono.trim() && !PHONE_REGEX.test(formValues.telefono.trim())) {
       errors.telefono = "Ingresa un teléfono válido."
+    }
+    if (requiresCurrentPassword && !contrasenaActual) {
+      errors.contrasenaActual = "Ingresa tu clave actual para modificar los datos de contacto."
     }
 
     setFieldErrors(errors)
@@ -186,6 +201,7 @@ export function ProfileContent() {
   function cancelEditing() {
     if (profile) setFormValues(toFormValues(profile))
     setFieldErrors({})
+    setContrasenaActual("")
     setIsEditing(false)
   }
 
@@ -203,21 +219,31 @@ export function ProfileContent() {
       const response = await fetch("/api/perfil", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(changes),
+        body: JSON.stringify({
+          ...changes,
+          ...(requiresCurrentPassword ? { contrasenaActual } : {}),
+        }),
       })
       const data = await response.json().catch(() => null)
 
       if (!response.ok) {
         const errorData = data as { fields?: unknown; message?: unknown } | null
         const fields = Array.isArray(errorData?.fields) ? errorData.fields : []
-        const errors = fields.reduce<Partial<Record<EditableField, string>>>((result, field) => {
+        const errors = fields.reduce<Partial<Record<FieldError, string>>>((result, field) => {
           if (typeof field === "string" && editableFields.includes(field as EditableField)) {
             result[field as EditableField] =
               typeof errorData?.message === "string" ? errorData.message : "Revisa este campo."
           }
           return result
         }, {})
+        if (fields.includes("contrasenaActual")) {
+          errors.contrasenaActual =
+            typeof errorData?.message === "string"
+              ? errorData.message
+              : "No fue posible validar tu clave actual."
+        }
         setFieldErrors(errors)
+        setContrasenaActual("")
         throw new Error(
           typeof errorData?.message === "string"
             ? errorData.message
@@ -229,9 +255,11 @@ export function ProfileContent() {
       setProfile(updatedProfile)
       setFormValues(toFormValues(updatedProfile))
       setFieldErrors({})
+      setContrasenaActual("")
       setIsEditing(false)
       toast.success("Tu perfil se actualizó correctamente.")
     } catch (error) {
+      setContrasenaActual("")
       toast.error(error instanceof Error ? error.message : "Ocurrió un error inesperado.")
     } finally {
       setIsSaving(false)
@@ -347,6 +375,33 @@ export function ProfileContent() {
                   <Field label="Correo electrónico" name="correo" type="email" value={formValues.correo} disabled={!isEditing || isSaving} error={fieldErrors.correo} onChange={updateField} />
                   <Field label="Teléfono" name="telefono" type="tel" value={formValues.telefono} placeholder="Opcional" disabled={!isEditing || isSaving} error={fieldErrors.telefono} onChange={updateField} />
                 </div>
+                {isEditing && requiresCurrentPassword && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                    <label htmlFor="contrasenaActual" className="text-xs font-semibold text-foreground">
+                      Clave actual
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Confirma tu clave para modificar el correo o teléfono de tu cuenta.
+                    </p>
+                    <Input
+                      id="contrasenaActual"
+                      name="contrasenaActual"
+                      type="password"
+                      autoComplete="current-password"
+                      value={contrasenaActual}
+                      disabled={isSaving}
+                      aria-invalid={Boolean(fieldErrors.contrasenaActual)}
+                      className="mt-3"
+                      onChange={(event) => {
+                        setContrasenaActual(event.target.value)
+                        setFieldErrors((current) => ({ ...current, contrasenaActual: undefined }))
+                      }}
+                    />
+                    {fieldErrors.contrasenaActual && (
+                      <p className="mt-1.5 text-xs text-destructive">{fieldErrors.contrasenaActual}</p>
+                    )}
+                  </div>
+                )}
               </section>
 
               {isEditing && (
