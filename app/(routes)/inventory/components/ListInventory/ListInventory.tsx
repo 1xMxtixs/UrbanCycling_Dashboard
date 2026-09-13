@@ -1,19 +1,30 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 
+import { PERMISSIONS } from "@/lib/permissions"
+import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
-import { Skeleton } from "@/components/ui/skeleton"
+import { InventoryMovementDialog } from "../InventoryMovementDialog"
 
 export function ListInventory() {
+  const { data: session } = useSession()
+  const canUpdate = Boolean(
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
+  )
+
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
     null,
   )
   const [openDetail, setOpenDetail] = useState(false)
+  const [selectedMovementProduct, setSelectedMovementProduct] =
+    useState<ProductColumn | null>(null)
+  const [openMovement, setOpenMovement] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -59,10 +70,17 @@ export function ListInventory() {
     )
   }
 
-  const columns = getColumns((product) => {
-    setSelectedProduct(product)
-    setOpenDetail(true)
-  })
+  const columns = getColumns(
+    (product) => {
+      setSelectedProduct(product)
+      setOpenDetail(true)
+    },
+    (product) => {
+      setSelectedMovementProduct(product)
+      setOpenMovement(true)
+    },
+    canUpdate,
+  )
 
   return (
     <>
@@ -71,6 +89,11 @@ export function ListInventory() {
         product={selectedProduct}
         open={openDetail}
         onOpenChange={setOpenDetail}
+      />
+      <InventoryMovementDialog
+        product={selectedMovementProduct}
+        open={openMovement}
+        onOpenChange={setOpenMovement}
       />
     </>
   )

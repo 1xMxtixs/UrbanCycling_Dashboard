@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, Eye, MoreHorizontal, Package } from "lucide-react"
+import { ArrowLeftRight, ArrowUpDown, Eye, MoreHorizontal, Package } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +33,8 @@ export type ProductColumn = {
 
 export function getColumns(
   onViewDetail: (product: ProductColumn) => void,
+  onRegisterMovement: (product: ProductColumn) => void,
+  canUpdate: boolean = false,
 ): ColumnDef<ProductColumn>[] {
   return [
     {
@@ -177,6 +179,15 @@ export function getColumns(
               <Eye className="h-4 w-4" />
               Ver detalle
             </DropdownMenuItem>
+            {canUpdate && (
+              <DropdownMenuItem
+                onClick={() => onRegisterMovement(row.original)}
+                className="flex cursor-pointer items-center gap-2 text-xs font-medium"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Registrar movimiento
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
