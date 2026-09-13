@@ -154,7 +154,9 @@ export function ProfileContent() {
     if (!profile || !formValues) return {}
 
     return editableFields.reduce<Partial<Record<EditableField, string | null>>>((result, field) => {
-      const value = formValues[field].trim()
+      const value = field === "correo"
+        ? formValues[field].trim().toLowerCase()
+        : formValues[field].trim()
       const normalizedValue = field === "segundoNombre" || field === "apellidoMaterno" || field === "telefono"
         ? value || null
         : value
