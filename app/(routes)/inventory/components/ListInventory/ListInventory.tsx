@@ -9,9 +9,11 @@ import { FormEditInventory } from "../FormEditInventory"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
+import type { InventoryCategory } from "../../types"
 
 export function ListInventory() {
   const [inventory, setInventory] = useState<ProductColumn[]>([])
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
     null,
@@ -23,9 +25,13 @@ export function ListInventory() {
   useEffect(() => {
     async function getInventory() {
       try {
-        const response = await fetch("/api/inventory", {
-          cache: "no-store",
-        })
+        const [response, categoriesResponse] = await Promise.all([
+          fetch("/api/inventory", { cache: "no-store" }),
+          fetch("/api/inventory/categories", { cache: "no-store" }),
+        ])
+
+        const categoriesData = await categoriesResponse.json().catch(() => null)
+        setCategories(categoriesResponse.ok ? categoriesData?.categories ?? [] : [])
 
         if (!response.ok) {
           setInventory([])
@@ -79,7 +85,7 @@ export function ListInventory() {
 
   return (
     <>
-      <DataTable columns={columns} data={inventory} />
+      <DataTable columns={columns} data={inventory} categories={categories} />
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}

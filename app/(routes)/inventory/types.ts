@@ -4,6 +4,12 @@ export type ProductImage = {
   url: string;
 };
 
+export type InventoryCategory = {
+  idCategoria: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
 export type ProductColumn = {
   idProducto: number;
   tipoProducto: string;
@@ -15,6 +21,7 @@ export type ProductColumn = {
   stockMinimo: number;
   estado: string;
   imagenesProducto?: ProductImage[];
+  categoriasProducto?: InventoryCategory[];
 };
 
 export interface FormCreateInventoryProps {

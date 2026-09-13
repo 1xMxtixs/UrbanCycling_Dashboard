@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ImageUpload } from "@/components/forms/ImageUpload"
+import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
+import type { InventoryCategory } from "../../types"
 
 type FormEditInventoryProps = {
   product: ProductColumn
@@ -54,6 +56,16 @@ const formSchema = z.object({
     "El precio de venta debe ser un número entero",
   ),
   costoPromedio: nonNegativeNumber("El costo promedio"),
+  stockMinimo: z
+    .string()
+    .trim()
+    .min(1, "El stock mínimo es obligatorio")
+    .refine((value) => Number.isInteger(Number(value)), {
+      message: "El stock mínimo debe ser un número entero",
+    })
+    .refine((value) => Number(value) >= 0, {
+      message: "El stock mínimo debe ser mayor o igual a 0",
+    }),
   estado: z.string().trim().min(1, "El estado es obligatorio"),
 })
 
@@ -88,6 +100,24 @@ export function FormEditInventory({
   const [imageRemoved, setImageRemoved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+    product.categoriasProducto?.map((category) => category.idCategoria) ?? [],
+  )
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", { cache: "no-store" })
+        const result = await response.json().catch(() => null)
+        setCategories(response.ok ? result?.categories ?? [] : [])
+      } catch {
+        setCategories([])
+      }
+    }
+
+    loadCategories()
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -98,6 +128,7 @@ export function FormEditInventory({
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
       costoPromedio: String(product.costoPromedio ?? 0),
+      stockMinimo: String(product.stockMinimo),
       estado: product.estado,
     },
   })
@@ -129,6 +160,8 @@ export function FormEditInventory({
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
           costoPromedio: Number(values.costoPromedio),
+          stockMinimo: Number(values.stockMinimo),
+          categoriaIds: selectedCategoryIds,
           estado: values.estado,
           ...(imageUrl
             ? { imageUrl }
@@ -218,6 +251,19 @@ export function FormEditInventory({
           />
         </div>
 
+        <div className="space-y-2">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categories}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSaving || isUploadingImage}
+          />
+          <p className="text-xs text-muted-foreground">
+            Actualiza las categorías asociadas al producto.
+          </p>
+        </div>
+
         <FormField
           control={form.control}
           name="nombre"
@@ -249,7 +295,7 @@ export function FormEditInventory({
           )}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <FormField
             control={form.control}
             name="precioVenta"
@@ -273,6 +319,23 @@ export function FormEditInventory({
                 <FormControl>
                   <Input type="number" min={0} step="0.01" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="stockMinimo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stock mínimo</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} step={1} {...field} />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  Los productos iguales o inferiores a este valor se mostrarán como stock bajo.
+                </p>
                 <FormMessage />
               </FormItem>
             )}
