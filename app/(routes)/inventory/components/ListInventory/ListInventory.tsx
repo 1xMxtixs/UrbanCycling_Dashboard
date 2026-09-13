@@ -1,17 +1,25 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 
+import { PERMISSIONS } from "@/lib/permissions"
+import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
 import { FormEditInventory } from "../FormEditInventory"
-import { Skeleton } from "@/components/ui/skeleton"
+import { InventoryMovementDialog } from "../InventoryMovementDialog"
 import { Dialog } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import type { InventoryCategory } from "../../types"
 
 export function ListInventory() {
+  const { data: session } = useSession()
+  const canUpdate = Boolean(
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
+  )
+
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -19,6 +27,9 @@ export function ListInventory() {
     null,
   )
   const [openDetail, setOpenDetail] = useState(false)
+  const [selectedMovementProduct, setSelectedMovementProduct] =
+    useState<ProductColumn | null>(null)
+  const [openMovement, setOpenMovement] = useState(false)
   const [productToEdit, setProductToEdit] = useState<ProductColumn | null>(null)
   const [openEdit, setOpenEdit] = useState(false)
 
@@ -81,7 +92,16 @@ export function ListInventory() {
     setOpenEdit(true)
   }
 
-  const columns = getColumns(handleViewDetail)
+  const handleRegisterMovement = (product: ProductColumn) => {
+    setSelectedMovementProduct(product)
+    setOpenMovement(true)
+  }
+
+  const columns = getColumns(
+    handleViewDetail,
+    handleRegisterMovement,
+    canUpdate,
+  )
 
   return (
     <>
@@ -91,6 +111,11 @@ export function ListInventory() {
         open={openDetail}
         onOpenChange={setOpenDetail}
         onEdit={handleEditProduct}
+      />
+      <InventoryMovementDialog
+        product={selectedMovementProduct}
+        open={openMovement}
+        onOpenChange={setOpenMovement}
       />
       <Dialog
         open={openEdit}
