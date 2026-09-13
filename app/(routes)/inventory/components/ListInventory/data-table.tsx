@@ -32,14 +32,7 @@ import {
 } from "@/components/ui/table"
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
-import {
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  Package,
-  Search,
-  X,
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 
 import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
@@ -51,14 +44,6 @@ interface DataTableProps {
   categories: InventoryCategory[]
 }
 
-type ProductIdSearchStatus =
-  | "idle"
-  | "invalid"
-  | "loading"
-  | "found"
-  | "not-found"
-  | "error"
-
 export function DataTable({
   columns,
   data,
@@ -69,107 +54,33 @@ export function DataTable({
     []
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
-  const [productIdQuery, setProductIdQuery] = React.useState("")
-  const [productIdResult, setProductIdResult] =
-    React.useState<ProductColumn | null>(null)
-  const [productIdSearchStatus, setProductIdSearchStatus] =
-    React.useState<ProductIdSearchStatus>("idle")
-  const [productIdSearchMessage, setProductIdSearchMessage] = React.useState("")
-  const searchRequestId = React.useRef(0)
-
-  const clearProductIdSearch = () => {
-    searchRequestId.current += 1
-    setProductIdQuery("")
-    setProductIdResult(null)
-    setProductIdSearchStatus("idle")
-    setProductIdSearchMessage("")
-  }
-
-  const handleProductIdSearch = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault()
-
-    const normalizedProductId = productIdQuery.trim()
-
-    if (!normalizedProductId) {
-      setProductIdResult(null)
-      setProductIdSearchStatus("invalid")
-      setProductIdSearchMessage("Debe ingresar el código del producto.")
-      return
-    }
-
-    const productId = Number(normalizedProductId)
-    if (
-      !/^\d+$/.test(normalizedProductId) ||
-      !Number.isSafeInteger(productId) ||
-      productId <= 0
-    ) {
-      setProductIdResult(null)
-      setProductIdSearchStatus("invalid")
-      setProductIdSearchMessage("El código debe ser un número entero positivo.")
-      return
-    }
-
-    const requestId = searchRequestId.current + 1
-    searchRequestId.current = requestId
-    setProductIdResult(null)
-    setProductIdSearchStatus("loading")
-    setProductIdSearchMessage("")
-
-    try {
-      const response = await fetch(
-        `/api/inventory?idProducto=${encodeURIComponent(normalizedProductId)}`,
-        { cache: "no-store" }
-      )
-      const responseData = await response.json().catch(() => null)
-
-      if (requestId !== searchRequestId.current) {
-        return
-      }
-
-      if (response.ok) {
-        setProductIdResult(responseData as ProductColumn)
-        setProductIdSearchStatus("found")
-        return
-      }
-
-      setProductIdSearchStatus(
-        responseData?.code === "PRODUCTO_NO_ENCONTRADO" ? "not-found" : "error"
-      )
-      setProductIdSearchMessage(
-        responseData?.message ?? "No fue posible buscar el producto."
-      )
-    } catch {
-      if (requestId !== searchRequestId.current) {
-        return
-      }
-
-      setProductIdSearchStatus("error")
-      setProductIdSearchMessage(
-        "No fue posible buscar el producto. Intenta nuevamente."
-      )
-    }
-  }
+  const [productSearch, setProductSearch] = React.useState("")
 
   const categoryFilteredData = React.useMemo(() => {
-    const productIdSearchData =
-      productIdSearchStatus === "found" && productIdResult
-        ? [productIdResult]
-        : productIdSearchStatus === "loading" ||
-            productIdSearchStatus === "not-found" ||
-            productIdSearchStatus === "error"
-          ? []
-          : data
-
-    return selectedCategoryId === "all"
-      ? productIdSearchData
-      : productIdSearchData.filter((product) =>
-          product.categoriasProducto?.some(
-            (category) => String(category.idCategoria) === selectedCategoryId
+    const productsByCategory =
+      selectedCategoryId === "all"
+        ? data
+        : data.filter((product) =>
+            product.categoriasProducto?.some(
+              (category) => String(category.idCategoria) === selectedCategoryId
+            )
           )
-        )
-  }, [data, productIdResult, productIdSearchStatus, selectedCategoryId])
+
+    const normalizedSearch = productSearch.trim().toLowerCase()
+    if (!normalizedSearch) {
+      return productsByCategory
+    }
+
+    if (/^\d+$/.test(normalizedSearch)) {
+      return productsByCategory.filter(
+        (product) => String(product.idProducto) === normalizedSearch,
+      )
+    }
+
+    return productsByCategory.filter(
+      (product) => product.nombre.toLowerCase().includes(normalizedSearch),
+    )
+  }, [data, productSearch, selectedCategoryId])
 
   const table = useReactTable({
     data: categoryFilteredData,
@@ -192,8 +103,6 @@ export function DataTable({
   })
 
   const filteredRowCount = table.getFilteredRowModel().rows.length
-  const searchValue = (table.getColumn("nombre")?.getFilterValue() as string) ?? ""
-
   return (
     <div className="space-y-6">
       <KpiCards data={data} />
@@ -203,71 +112,14 @@ export function DataTable({
         description={`${table.getFilteredRowModel().rows.length} ${table.getFilteredRowModel().rows.length === 1 ? "producto encontrado" : "productos encontrados"}`}
         toolbar={
           <div className="space-y-3">
-            <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar producto por nombre..."
-                  value={searchValue}
-                  onChange={(event) =>
-                    table.getColumn("nombre")?.setFilterValue(event.target.value)
-                  }
-                  className="pl-9"
-                />
-              </div>
-
-              <form
-                className="flex w-full gap-2 lg:w-80"
-                onSubmit={handleProductIdSearch}
-              >
-                <div className="relative flex-1">
-                  <Input
-                    aria-describedby={
-                      productIdSearchMessage
-                        ? "product-id-search-message"
-                        : undefined
-                    }
-                    aria-invalid={productIdSearchStatus === "invalid"}
-                    inputMode="numeric"
-                    placeholder="Buscar por código..."
-                    value={productIdQuery}
-                    onChange={(event) => {
-                      searchRequestId.current += 1
-                      setProductIdQuery(event.target.value)
-                      setProductIdResult(null)
-                      setProductIdSearchStatus("idle")
-                      setProductIdSearchMessage("")
-                    }}
-                    className="pr-9"
-                  />
-                  {(productIdQuery || productIdSearchStatus !== "idle") && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-0 right-0 h-9 w-9"
-                      onClick={clearProductIdSearch}
-                      aria-label="Limpiar búsqueda por código"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="sm"
-                  disabled={productIdSearchStatus === "loading"}
-                  className="h-9 shrink-0"
-                >
-                  {productIdSearchStatus === "loading" ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                  <span className="sr-only sm:not-sr-only sm:ml-2">Buscar</span>
-                </Button>
-              </form>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o código..."
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                className="pl-9"
+              />
             </div>
 
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
@@ -303,16 +155,6 @@ export function DataTable({
                 </SelectContent>
               </Select>
             </div>
-
-            {productIdSearchMessage && (
-              <p
-                id="product-id-search-message"
-                aria-live="polite"
-                className="text-xs text-destructive"
-              >
-                {productIdSearchMessage}
-              </p>
-            )}
 
             <p className="text-xs text-muted-foreground">
               {filteredRowCount} {filteredRowCount === 1 ? "producto encontrado" : "productos encontrados"}
@@ -355,17 +197,11 @@ export function DataTable({
               icon={Package}
               title="No se encontraron productos"
               description={
-                productIdSearchStatus === "loading"
-                  ? "Buscando el producto por código..."
-                  : productIdSearchStatus === "not-found"
-                    ? productIdSearchMessage
-                    : productIdSearchStatus === "error"
-                      ? productIdSearchMessage
-                      : selectedCategoryId !== "all"
-                        ? "No hay productos asociados a la categoría seleccionada."
-                        : searchValue
-                          ? "No hay productos que coincidan con la búsqueda ingresada."
-                          : "No hay productos registrados en el inventario."
+                selectedCategoryId !== "all"
+                  ? "No hay productos asociados a la categoría seleccionada."
+                  : productSearch
+                    ? "No hay productos que coincidan con la búsqueda ingresada."
+                    : "No hay productos registrados en el inventario."
               }
             />
           </div>
