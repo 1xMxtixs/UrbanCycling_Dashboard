@@ -44,6 +44,40 @@ interface DataTableProps {
   categories: InventoryCategory[]
 }
 
+type ProductSearch =
+  | { type: "all" }
+  | { type: "id"; id: number }
+  | { type: "name"; query: string }
+  | { type: "invalid-id"; message: string }
+
+function parseProductSearch(value: string): ProductSearch {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return { type: "all" }
+  }
+
+  if (!trimmedValue.startsWith("#")) {
+    return { type: "name", query: trimmedValue.toLowerCase() }
+  }
+
+  const idValue = trimmedValue.slice(1).trim()
+  const id = Number(idValue)
+
+  if (
+    !/^\d+$/.test(idValue) ||
+    !Number.isSafeInteger(id) ||
+    id <= 0
+  ) {
+    return {
+      type: "invalid-id",
+      message: "Ingresa un ID numérico positivo después de #.",
+    }
+  }
+
+  return { type: "id", id }
+}
+
 export function DataTable({
   columns,
   data,
@@ -54,18 +88,40 @@ export function DataTable({
     []
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
+  const [productSearch, setProductSearch] = React.useState("")
+  const productSearchState = React.useMemo(
+    () => parseProductSearch(productSearch),
+    [productSearch],
+  )
 
-  const categoryFilteredData = React.useMemo(
-    () =>
+  const categoryFilteredData = React.useMemo(() => {
+    const productsByCategory =
       selectedCategoryId === "all"
         ? data
         : data.filter((product) =>
             product.categoriasProducto?.some(
-              (category) => String(category.idCategoria) === selectedCategoryId,
-            ),
-          ),
-    [data, selectedCategoryId],
-  )
+              (category) => String(category.idCategoria) === selectedCategoryId
+            )
+          )
+
+    if (productSearchState.type === "all") {
+      return productsByCategory
+    }
+
+    if (productSearchState.type === "invalid-id") {
+      return []
+    }
+
+    if (productSearchState.type === "id") {
+      return productsByCategory.filter(
+        (product) => product.idProducto === productSearchState.id,
+      )
+    }
+
+    return productsByCategory.filter((product) =>
+      product.nombre.toLowerCase().includes(productSearchState.query),
+    )
+  }, [data, productSearchState, selectedCategoryId])
 
   const table = useReactTable({
     data: categoryFilteredData,
@@ -88,8 +144,6 @@ export function DataTable({
   })
 
   const filteredRowCount = table.getFilteredRowModel().rows.length
-  const searchValue = (table.getColumn("nombre")?.getFilterValue() as string) ?? ""
-
   return (
     <div className="space-y-6">
       <KpiCards data={data} />
@@ -99,19 +153,34 @@ export function DataTable({
         description={`${table.getFilteredRowModel().rows.length} ${table.getFilteredRowModel().rows.length === 1 ? "producto encontrado" : "productos encontrados"}`}
         toolbar={
           <div className="space-y-3">
-            <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar producto por nombre..."
-                  value={searchValue}
-                  onChange={(event) =>
-                    table.getColumn("nombre")?.setFilterValue(event.target.value)
-                  }
-                  className="pl-9"
-                />
-              </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-describedby={
+                  productSearchState.type === "invalid-id"
+                    ? "product-search-help product-search-error"
+                    : "product-search-help"
+                }
+                aria-invalid={productSearchState.type === "invalid-id"}
+                placeholder="Buscar por nombre o #ID..."
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                className="pl-9"
+              />
+            </div>
 
+            <div className="space-y-1">
+              <p id="product-search-help" className="text-xs text-muted-foreground">
+                Usa # seguido del ID para una búsqueda exacta.
+              </p>
+              {productSearchState.type === "invalid-id" && (
+                <p id="product-search-error" className="text-xs text-destructive">
+                  {productSearchState.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
               <Select
                 value={
                   (table.getColumn("estado")?.getFilterValue() as string) ?? "all"
@@ -186,11 +255,13 @@ export function DataTable({
               icon={Package}
               title="No se encontraron productos"
               description={
-                selectedCategoryId !== "all"
-                  ? "No hay productos asociados a la categoría seleccionada."
-                  : searchValue
-                  ? "No hay productos que coincidan con la búsqueda ingresada."
-                  : "No hay productos registrados en el inventario."
+                productSearchState.type === "invalid-id"
+                  ? productSearchState.message
+                  : productSearchState.type !== "all"
+                    ? "No hay productos que coincidan con la búsqueda ingresada."
+                    : selectedCategoryId !== "all"
+                      ? "No hay productos asociados a la categoría seleccionada."
+                      : "No hay productos registrados en el inventario."
               }
             />
           </div>
@@ -232,4 +303,3 @@ export function DataTable({
     </div>
   )
 }
-

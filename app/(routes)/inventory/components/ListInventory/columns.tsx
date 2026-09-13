@@ -43,6 +43,15 @@ export function getColumns(
 ): ColumnDef<ProductColumn>[] {
   return [
     {
+      accessorKey: "idProducto",
+      header: "ID",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-semibold text-muted-foreground">
+          #{row.original.idProducto}
+        </span>
+      ),
+    },
+    {
       accessorKey: "nombre",
       header: "Producto / Tipo",
       cell: ({ row }) => {
