@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, Eye, MoreHorizontal, Package } from "lucide-react"
+import { ArrowLeftRight, ArrowUpDown, Eye, MoreHorizontal, Package } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataField } from "@/components/common/DataField"
+import type { InventoryCategory } from "../../types"
+
+export type { InventoryCategory } from "../../types"
 
 export type ProductImage = {
   idImagenProducto: number
@@ -25,14 +28,18 @@ export type ProductColumn = {
   nombre: string
   descripcion: string | null
   precioVenta: number | string
+  costoPromedio: number | string
   stockActual: number
   stockMinimo: number
   estado: string
   imagenesProducto?: ProductImage[]
+  categoriasProducto?: InventoryCategory[]
 }
 
 export function getColumns(
   onViewDetail: (product: ProductColumn) => void,
+  onRegisterMovement: (product: ProductColumn) => void,
+  canUpdate: boolean = false,
 ): ColumnDef<ProductColumn>[] {
   return [
     {
@@ -79,9 +86,6 @@ export function getColumns(
       },
       cell: ({ row }) => {
         const stockActual = row.original.stockActual
-        const stockMinimo = row.original.stockMinimo
-        const isLowStock = stockActual <= stockMinimo && stockActual > 0
-        const isOutOfStock = stockActual === 0
 
         return (
           <span className="font-semibold text-sm text-foreground">
@@ -145,6 +149,7 @@ export function getColumns(
     },
     {
       accessorKey: "estado",
+      filterFn: "equalsString",
       header: "Estado",
       cell: ({ row }) => {
         const estado = row.original.estado
@@ -177,6 +182,15 @@ export function getColumns(
               <Eye className="h-4 w-4" />
               Ver detalle
             </DropdownMenuItem>
+            {canUpdate && (
+              <DropdownMenuItem
+                onClick={() => onRegisterMovement(row.original)}
+                className="flex cursor-pointer items-center gap-2 text-xs font-medium"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Registrar movimiento
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

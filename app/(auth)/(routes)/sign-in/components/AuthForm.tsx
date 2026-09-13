@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react"
@@ -263,6 +264,17 @@ export function AuthForm() {
                   </button>
                 </div>
               </div>
+
+              {isLogin && (
+                <div className="-mt-2 text-right">
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-blue-400 transition hover:text-blue-300 hover:underline"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+              )}
 
               <Button
                 type="submit"

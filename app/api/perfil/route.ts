@@ -25,22 +25,46 @@ type ProfileUser = {
   } | null
 }
 
-function normalizeRequiredText(value: unknown): string {
-  if (typeof value !== "string") {
-    return ""
+function validateText(
+  value: unknown,
+  maxLength: number,
+  required = false,
+): { valid: boolean; value: string | null } {
+  if (value === null && !required) {
+    return { valid: true, value: null }
   }
 
-  return value.trim()
+  if (typeof value !== "string") {
+    return { valid: false, value: null }
+  }
+
+  const text = value.trim()
+
+  if (text.length === 0) {
+    return required
+      ? { valid: false, value: null }
+      : { valid: true, value: null }
+  }
+
+  return text.length <= maxLength
+    ? { valid: true, value: text }
+    : { valid: false, value: null }
 }
 
-function normalizeOptionalText(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null
-  }
-
-  const trimmed = value.trim()
-
-  return trimmed.length > 0 ? trimmed : null
+function errorResponse(
+  code: string,
+  message: string,
+  status: number,
+  fields?: string[],
+) {
+  return NextResponse.json(
+    {
+      code,
+      message,
+      ...(fields ? { fields } : {}),
+    },
+    { status },
+  )
 }
 
 function buildProfileResponse(user: ProfileUser) {
@@ -113,67 +137,93 @@ export async function PATCH(request: Request) {
       return response
     }
 
-    let data: Record<string, unknown>
+    let body: unknown
 
     try {
-      data = await request.json()
+      body = await request.json()
     } catch {
-      return new NextResponse("El cuerpo de la solicitud no es valido", {
-        status: 400,
-      })
-    }
-
-    const primerNombre = normalizeRequiredText(data.primerNombre)
-    const segundoNombre = normalizeOptionalText(data.segundoNombre)
-    const apellidoPaterno = normalizeRequiredText(data.apellidoPaterno)
-    const apellidoMaterno = normalizeOptionalText(data.apellidoMaterno)
-    const correo = normalizeRequiredText(data.correo).toLowerCase()
-    const telefono = normalizeOptionalText(data.telefono)
-
-    if (!primerNombre || !apellidoPaterno || !correo) {
-      return new NextResponse("Debe completar los campos obligatorios", {
-        status: 400,
-      })
-    }
-
-    if (primerNombre.length > 50) {
-      return new NextResponse(
-        "El primer nombre no puede superar 50 caracteres",
-        { status: 400 },
+      return errorResponse(
+        "DATOS_INVALIDOS",
+        "El cuerpo de la solicitud debe contener JSON válido.",
+        400,
       )
     }
 
-    if (segundoNombre && segundoNombre.length > 50) {
-      return new NextResponse(
-        "El segundo nombre no puede superar 50 caracteres",
-        { status: 400 },
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return errorResponse(
+        "DATOS_INVALIDOS",
+        "El cuerpo de la solicitud debe ser un objeto JSON válido.",
+        400,
       )
     }
 
-    if (apellidoPaterno.length > 50) {
-      return new NextResponse(
-        "El apellido paterno no puede superar 50 caracteres",
-        { status: 400 },
+    const data = body as Record<string, unknown>
+    const updateData: Prisma.UsuarioUpdateInput = {}
+    const invalidFields: string[] = []
+    let correoActualizado: string | null = null
+    const hasField = (field: string) =>
+      Object.prototype.hasOwnProperty.call(data, field)
+
+    if (hasField("primerNombre")) {
+      const result = validateText(data.primerNombre, 50, true)
+      if (result.valid && result.value) updateData.primerNombre = result.value
+      else invalidFields.push("primerNombre")
+    }
+
+    if (hasField("segundoNombre")) {
+      const result = validateText(data.segundoNombre, 50)
+      if (result.valid) updateData.segundoNombre = result.value
+      else invalidFields.push("segundoNombre")
+    }
+
+    if (hasField("apellidoPaterno")) {
+      const result = validateText(data.apellidoPaterno, 50, true)
+      if (result.valid && result.value) updateData.apellidoPaterno = result.value
+      else invalidFields.push("apellidoPaterno")
+    }
+
+    if (hasField("apellidoMaterno")) {
+      const result = validateText(data.apellidoMaterno, 50)
+      if (result.valid) updateData.apellidoMaterno = result.value
+      else invalidFields.push("apellidoMaterno")
+    }
+
+    if (hasField("correo")) {
+      const result = validateText(data.correo, 255, true)
+      const correo = result.value?.toLowerCase()
+
+      if (result.valid && correo && EMAIL_REGEX.test(correo)) {
+        updateData.correo = correo
+        correoActualizado = correo
+      } else {
+        invalidFields.push("correo")
+      }
+    }
+
+    if (hasField("telefono")) {
+      const result = validateText(data.telefono, 20)
+
+      if (result.valid && (!result.value || PHONE_REGEX.test(result.value))) {
+        updateData.telefono = result.value
+      } else {
+        invalidFields.push("telefono")
+      }
+    }
+
+    if (invalidFields.length > 0) {
+      return errorResponse(
+        "CAMPOS_INVALIDOS",
+        "Corrija los campos inválidos antes de guardar el perfil.",
+        400,
+        invalidFields,
       )
     }
 
-    if (apellidoMaterno && apellidoMaterno.length > 50) {
-      return new NextResponse(
-        "El apellido materno no puede superar 50 caracteres",
-        { status: 400 },
-      )
-    }
-
-    if (correo.length > 255 || !EMAIL_REGEX.test(correo)) {
-      return new NextResponse("El correo ingresado no tiene un formato valido", {
-        status: 400,
-      })
-    }
-
-    if (telefono && !PHONE_REGEX.test(telefono)) {
-      return new NextResponse(
-        "El telefono ingresado no tiene un formato valido",
-        { status: 400 },
+    if (Object.keys(updateData).length === 0) {
+      return errorResponse(
+        "SIN_CAMBIOS",
+        "Debe indicar al menos un dato personal o de contacto para actualizar.",
+        400,
       )
     }
 
@@ -187,39 +237,37 @@ export async function PATCH(request: Request) {
     })
 
     if (!user) {
-      return new NextResponse("Usuario no encontrado", { status: 404 })
+      return errorResponse("USUARIO_NO_ENCONTRADO", "Usuario no encontrado.", 404)
     }
 
-    const existingEmailUser = await db.usuario.findFirst({
-      where: {
-        correo,
-        NOT: {
-          idUsuario: session.user.idUsuario,
+    if (correoActualizado) {
+      const existingEmailUser = await db.usuario.findFirst({
+        where: {
+          correo: correoActualizado,
+          NOT: {
+            idUsuario: session.user.idUsuario,
+          },
         },
-      },
-      select: {
-        idUsuario: true,
-      },
-    })
-
-    if (existingEmailUser) {
-      return new NextResponse("El correo ingresado ya esta registrado", {
-        status: 409,
+        select: {
+          idUsuario: true,
+        },
       })
+
+      if (existingEmailUser) {
+        return errorResponse(
+          "CORREO_EN_USO",
+          "El correo ingresado ya está registrado.",
+          409,
+          ["correo"],
+        )
+      }
     }
 
     const updatedUser = await db.usuario.update({
       where: {
         idUsuario: session.user.idUsuario,
       },
-      data: {
-        primerNombre,
-        segundoNombre,
-        apellidoPaterno,
-        apellidoMaterno,
-        correo,
-        telefono,
-      },
+      data: updateData,
       select: {
         idUsuario: true,
         primerNombre: true,
@@ -246,9 +294,12 @@ export async function PATCH(request: Request) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return new NextResponse("El correo ingresado ya esta registrado", {
-        status: 409,
-      })
+      return errorResponse(
+        "CORREO_EN_USO",
+        "El correo ingresado ya está registrado.",
+        409,
+        ["correo"],
+      )
     }
 
     console.log("[PERFIL_PATCH]", error)

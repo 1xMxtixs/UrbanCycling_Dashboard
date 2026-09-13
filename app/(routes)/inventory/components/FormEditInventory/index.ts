@@ -1,0 +1,1 @@
+export { FormEditInventory } from "./FormEditInventory"

@@ -24,9 +24,17 @@ function parseProductId(id: string): number {
 function withImageAlias(product: {
   idProducto: number
   urlImagen: string
+  categoriasProducto?: Array<{
+    categoria: {
+      idCategoria: number
+      nombre: string
+      descripcion: string | null
+    }
+  }>
 }) {
   return {
     ...product,
+    categoriasProducto: product.categoriasProducto?.map(({ categoria }) => categoria) ?? [],
     imagenesProducto: product.urlImagen
       ? [
           {
@@ -37,6 +45,109 @@ function withImageAlias(product: {
         ]
       : [],
   }
+}
+
+function parseCategoryIds(value: unknown): number[] | null | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const categoryIds = value.map(Number)
+
+  return categoryIds.every((id) => Number.isInteger(id) && id > 0)
+    ? Array.from(new Set(categoryIds))
+    : null
+}
+
+const productCategoriesInclude = {
+  categoriasProducto: {
+    include: {
+      categoria: {
+        select: {
+          idCategoria: true,
+          nombre: true,
+          descripcion: true,
+        },
+      },
+    },
+  },
+} as const
+
+async function validateCategoryIds(categoryIds: number[]) {
+  if (categoryIds.length === 0) {
+    return true
+  }
+
+  const categories = await db.categoria.findMany({
+    where: {
+      idCategoria: { in: categoryIds },
+      estado: "activo",
+    },
+    select: { idCategoria: true },
+  })
+
+  return categories.length === categoryIds.length
+}
+
+function validateStockMinimum(stockMinimo: unknown) {
+  if (stockMinimo === undefined || stockMinimo === null || stockMinimo === "") {
+    return NextResponse.json(
+      {
+        code: "STOCK_MINIMO_NO_CONFIGURADO",
+        message:
+          "Debe definir un stock mínimo para el producto antes de guardarlo.",
+      },
+      { status: 422 },
+    )
+  }
+
+  if (
+    typeof stockMinimo !== "number" ||
+    !Number.isInteger(stockMinimo) ||
+    stockMinimo < 0
+  ) {
+    return NextResponse.json(
+      {
+        code: "STOCK_MINIMO_INVALIDO",
+        message: "El stock mínimo debe ser un número entero mayor o igual a 0.",
+      },
+      { status: 422 },
+    )
+  }
+
+  return null
+}
+
+function parseRequiredText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const text = value.trim()
+  return text.length > 0 && text.length <= maxLength ? text : null
+}
+
+function parseNonNegativeNumber(value: unknown, integer = false) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN
+
+  if (
+    !Number.isFinite(numberValue) ||
+    numberValue < 0 ||
+    (integer && !Number.isInteger(numberValue))
+  ) {
+    return null
+  }
+
+  return numberValue
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -50,18 +161,41 @@ export async function GET(_request: Request, context: RouteContext) {
     const { id } = await context.params
     const productId = parseProductId(id)
 
+    if (id.trim() === "") {
+      return NextResponse.json(
+        {
+          code: "ID_PRODUCTO_OBLIGATORIA",
+          message: "Debe ingresar la ID del producto para realizar la búsqueda.",
+        },
+        { status: 400 },
+      )
+    }
+
     if (Number.isNaN(productId)) {
-      return new NextResponse("Invalid product id", { status: 400 })
+      return NextResponse.json(
+        {
+          code: "ID_PRODUCTO_INVALIDA",
+          message: "La ID del producto debe ser un número entero positivo.",
+        },
+        { status: 400 },
+      )
     }
 
     const product = await db.producto.findUnique({
       where: {
         idProducto: productId,
       },
+      include: productCategoriesInclude,
     })
 
     if (!product) {
-      return new NextResponse("Product not found", { status: 404 })
+      return NextResponse.json(
+        {
+          code: "PRODUCTO_NO_ENCONTRADO",
+          message: `No se encontró un producto con la ID ${productId}.`,
+        },
+        { status: 404 },
+      )
     }
 
     return NextResponse.json(withImageAlias(product))
@@ -81,49 +215,214 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params
     const productId = parseProductId(id)
-    const data = await request.json()
 
     if (Number.isNaN(productId)) {
       return new NextResponse("Invalid product id", { status: 400 })
     }
 
-    if (data.nombre) {
+    let body: unknown
+
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener datos JSON válidos.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener un objeto JSON válido.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const data = body as Record<string, unknown>
+    const productExists = await db.producto.findUnique({
+      where: { idProducto: productId },
+    })
+
+    if (!productExists) {
+      return NextResponse.json(
+        { code: "PRODUCTO_NO_EXISTE", message: "Producto no encontrado." },
+        { status: 404 },
+      )
+    }
+
+    const categoryIds = parseCategoryIds(data.categoriaIds)
+
+    if (categoryIds === null) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Las categorías seleccionadas no son válidas.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (categoryIds !== undefined && !(await validateCategoryIds(categoryIds))) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIAS_INVALIDAS",
+          message: "Una o más categorías no existen o están inactivas.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const updateData: {
+      tipoProducto?: string
+      nombre?: string
+      descripcion?: string | null
+      precioVenta?: number
+      costoPromedio?: number
+      stockActual?: number
+      stockMinimo?: number
+      estado?: string
+      urlImagen?: string
+    } = {}
+    const invalidFields: string[] = []
+
+    if ("tipoProducto" in data) {
+      const value = parseRequiredText(data.tipoProducto, 20)
+      if (value) updateData.tipoProducto = value
+      else invalidFields.push("tipo de producto")
+    }
+
+    if ("nombre" in data) {
+      const value = parseRequiredText(data.nombre, 100)
+      if (value) updateData.nombre = value
+      else invalidFields.push("nombre")
+    }
+
+    if ("descripcion" in data) {
+      if (data.descripcion === null) {
+        updateData.descripcion = null
+      } else {
+        const value = parseRequiredText(data.descripcion, 50)
+        if (value) updateData.descripcion = value
+        else invalidFields.push("descripción")
+      }
+    }
+
+    if ("precioVenta" in data) {
+      const value = parseNonNegativeNumber(data.precioVenta, true)
+      if (value !== null) updateData.precioVenta = value
+      else invalidFields.push("precio de venta entero")
+    }
+
+    const costField = "costoPromedio" in data ? "costoPromedio" : "precioCosto"
+    if (costField in data) {
+      const value = parseNonNegativeNumber(data[costField])
+      if (value !== null) updateData.costoPromedio = value
+      else invalidFields.push("costo promedio")
+    }
+
+    if ("stockActual" in data) {
+      const value = parseNonNegativeNumber(data.stockActual, true)
+      if (value !== null) updateData.stockActual = value
+      else invalidFields.push("stock actual")
+    }
+
+    if ("stockMinimo" in data) {
+      const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
+      if (stockMinimumValidation) return stockMinimumValidation
+      updateData.stockMinimo = data.stockMinimo as number
+    }
+
+    if ("estado" in data) {
+      const value = parseRequiredText(data.estado, 20)
+      if (value) updateData.estado = value
+      else invalidFields.push("estado")
+    }
+
+    const imageField = "urlImagen" in data ? "urlImagen" : "imageUrl"
+    if (imageField in data) {
+      if (data[imageField] === null) {
+        updateData.urlImagen = ""
+      } else {
+        const value = parseRequiredText(data[imageField], 512)
+        if (value) updateData.urlImagen = value
+        else invalidFields.push("foto")
+      }
+    }
+
+    if (invalidFields.length > 0) {
+      return NextResponse.json(
+        {
+          code: "CAMPOS_INVALIDOS",
+          message: `No puede guardar campos vacíos o inválidos: ${invalidFields.join(", ")}.`,
+          fields: invalidFields,
+        },
+        { status: 400 },
+      )
+    }
+
+    if (Object.keys(updateData).length === 0 && categoryIds === undefined) {
+      return NextResponse.json(
+        {
+          code: "SIN_CAMBIOS",
+          message: "Debe indicar al menos un dato del producto para actualizar.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (updateData.nombre) {
       const existingProduct = await db.producto.findUnique({
         where: {
-          nombre: data.nombre,
+          nombre: updateData.nombre,
         },
       })
 
       if (existingProduct && existingProduct.idProducto !== productId) {
-        return new NextResponse("Product already exists", { status: 409 })
+        return NextResponse.json(
+          {
+            code: "PRODUCTO_DUPLICADO",
+            message: "Ya existe otro producto con ese nombre.",
+          },
+          { status: 409 },
+        )
       }
     }
 
-    const productExists = await db.producto.findUnique({
-      where: {
-        idProducto: productId,
-      },
-    })
+    const product = await db.$transaction(async (tx) => {
+      if (Object.keys(updateData).length > 0) {
+        await tx.producto.update({
+          where: {
+            idProducto: productId,
+          },
+          data: updateData,
+        })
+      }
 
-    if (!productExists) {
-      return new NextResponse("Product not found", { status: 404 })
-    }
+      if (categoryIds !== undefined) {
+        await tx.categoriaProducto.deleteMany({
+          where: { idProducto: productId },
+        })
 
-    const product = await db.producto.update({
-      where: {
-        idProducto: productId,
-      },
-      data: {
-        tipoProducto: data.tipoProducto,
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        precioVenta: data.precioVenta,
-        costoPromedio: data.costoPromedio ?? data.precioCosto,
-        stockActual: data.stockActual,
-        stockMinimo: data.stockMinimo,
-        estado: data.estado,
-        urlImagen: data.urlImagen ?? data.imageUrl,
-      },
+        if (categoryIds.length > 0) {
+          await tx.categoriaProducto.createMany({
+            data: categoryIds.map((idCategoria) => ({
+              idProducto: productId,
+              idCategoria,
+            })),
+          })
+        }
+      }
+
+      return tx.producto.findUniqueOrThrow({
+        where: { idProducto: productId },
+        include: productCategoriesInclude,
+      })
     })
 
     return NextResponse.json(withImageAlias(product))

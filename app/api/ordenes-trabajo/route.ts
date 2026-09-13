@@ -37,7 +37,7 @@ const productoSchema = z.object({
 const servicioSchema = z.object({
   idServicio: z.number().int().positive(),
   cantidad: z.number().int().positive(),
-  precioUnitario: z.number().min(0).optional(),
+  precioUnitario: z.number().min(0).nullable().optional(),
 })
 
 const ordenTrabajoSchema = z.object({
@@ -104,6 +104,10 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+function toOptionalNumber(value: unknown) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
 type BicicletaInput = {
   marca?: unknown;
   modelo?: unknown;
@@ -140,8 +144,9 @@ type ProductoSolicitado = {
 type ServicioSolicitado = {
   idServicio: number;
   cantidad: number;
-  precioUnitario: number;
+  precioUnitario: number | null;
 };
+
 
 type ProductoAgrupado = {
   idProducto: number;
@@ -436,10 +441,8 @@ export async function POST(req: Request) {
                 item.idProducto
               ),
               cantidad: Number(item.cantidad),
-              precioUnitario: Number(
-                item.precio_unitario ??
-                item.precioUnitario ??
-                0
+              precioUnitario: toOptionalNumber(
+                item.precio_unitario ?? item.precioUnitario
               ),
             })
           )
@@ -449,11 +452,12 @@ export async function POST(req: Request) {
         ? rawData.servicios.map(
             (item: ServicioOrdenInput) => ({
               idServicio: Number(
-                item.id_servicio ?? item.idServicio
+                item.id_servicio ??
+                item.idServicio
               ),
               cantidad: Number(item.cantidad),
-              precioUnitario: Number(
-                item.precio_unitario ?? item.precioUnitario ?? 0
+              precioUnitario: toOptionalNumber(
+                item.precio_unitario ?? item.precioUnitario
               ),
             })
           )
@@ -602,20 +606,21 @@ export async function POST(req: Request) {
     }
 
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
-      (item: ProductoOrdenInput) => ({
-        idProducto: parsePositiveInteger(item.id_producto ?? item.idProducto),
+      (item, index) => ({
+        idProducto: parsePositiveInteger(item.idProducto),
         cantidad: parsePositiveInteger(item.cantidad),
-        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+        precioUnitario: data.productos[index]!.precioUnitario,
       })
     );
 
     const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
-      (item: ServicioOrdenInput) => ({
-        idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
+      (item, index) => ({
+        idServicio: parsePositiveInteger(item.idServicio),
         cantidad: parsePositiveInteger(item.cantidad),
-        precioUnitario: Number(item.precio_unitario ?? item.precioUnitario ?? 0),
+        precioUnitario: data.servicios[index]!.precioUnitario ?? null,
       })
     );
+
 
     const productosAgrupados: ProductoAgrupado[] = Array.from(
       productosSolicitados.reduce((productosMap, item) => {
@@ -711,6 +716,8 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_NO_EXISTE",
           message: `El servicio con ID ${servicioNoExiste.idServicio} no existe`,
+          id_servicio: servicioNoExiste.idServicio,
+          idServicio: servicioNoExiste.idServicio,
         },
         { status: 404 }
       );
@@ -729,6 +736,8 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_INACTIVO",
           message: `El servicio ${servicio.nombre} no esta activo`,
+          id_servicio: servicio.idServicio,
+          idServicio: servicio.idServicio,
         },
         { status: 409 }
       );
@@ -743,7 +752,8 @@ export async function POST(req: Request) {
         idServicio: servicio.idServicio,
         idProducto: null,
         cantidad: servicioSolicitado.cantidad,
-        precioUnitario: servicioSolicitado.precioUnitario,
+        precioUnitario:
+          servicioSolicitado.precioUnitario ?? toNumber(servicio.precioVenta),
         descuentoUnitario: 0,
         costoUnitario: 0,
       });

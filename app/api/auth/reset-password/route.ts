@@ -53,6 +53,9 @@ export async function POST(request: Request) {
       },
       data: {
         contrasenaHash,
+        sessionVersion: {
+          increment: 1,
+        },
         tokenRecuperacion: null,
         tokenRecuperacionExpira: null,
       },

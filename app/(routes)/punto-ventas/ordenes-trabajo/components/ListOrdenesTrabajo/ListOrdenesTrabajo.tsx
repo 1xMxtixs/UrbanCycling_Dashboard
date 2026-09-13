@@ -10,10 +10,13 @@ import { UpcomingDeadlines } from "./upcoming-deadlines"
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { OrderDetailDialog } from "./OrderDetailDialog"
+import { normalizarImagenesBicicleta } from "@/lib/bicycle-images"
 import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
+import { OrderAuditDialog } from "./OrderAuditDialog"
+import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -53,6 +56,12 @@ export function ListOrdenesTrabajo() {
   const [orderToCancel, setOrderToCancel] = useState<WorkOrder | null>(null)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
+  const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
+
+  const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
+  const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
+
   const getOrders = async () => {
     try {
       const response = await fetch("/api/punto-venta", {
@@ -70,6 +79,13 @@ export function ListOrdenesTrabajo() {
           .filter((item) => item.tipoOperacion === "orden_trabajo")
           .map((item) => item.ordenTrabajo)
           .filter(Boolean)
+          .map((orden: WorkOrder) => ({
+            ...orden,
+            bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
+              ...bicicleta,
+              imagenes: normalizarImagenesBicicleta(bicicleta),
+            })),
+          }))
         : []
 
       setOrders(ordenes)
@@ -97,7 +113,7 @@ export function ListOrdenesTrabajo() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estadoOrden: nextStatus }),
+        body: JSON.stringify({ estado: nextStatus }),
       })
 
       if (!res.ok) {
@@ -139,6 +155,16 @@ export function ListOrdenesTrabajo() {
   const handleCancelClick = (order: WorkOrder) => {
     setOrderToCancel(order)
     setCancelModalOpen(true)
+  }
+
+  const handleAuditClick = (order: WorkOrder) => {
+    setOrderToAudit(order)
+    setAuditModalOpen(true)
+  }
+
+  const handleModifyServiceClick = (order: WorkOrder) => {
+    setOrderToModifyService(order)
+    setModifyServiceModalOpen(true)
   }
 
   const handleConfirmCancelOrder = async () => {
@@ -428,6 +454,8 @@ export function ListOrdenesTrabajo() {
         onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
+        onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 3. Próximos Vencimientos */}
@@ -442,6 +470,8 @@ export function ListOrdenesTrabajo() {
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
+        onAuditClick={handleAuditClick}
+        onModifyServiceClick={handleModifyServiceClick}
       />
 
       {/* 5. Modal de Pago Restante */}
@@ -482,6 +512,24 @@ export function ListOrdenesTrabajo() {
         order={orderToCancel}
         onConfirmCancel={handleConfirmCancelOrder}
         isCancelling={isCancellingOrder}
+      />
+
+      {/* 9. Modal de Historial de Auditoría */}
+      <OrderAuditDialog
+        open={auditModalOpen}
+        onOpenChange={setAuditModalOpen}
+        order={orderToAudit}
+      />
+
+      {/* 10. Modal de Modificación de Servicio */}
+      <ModifyServiceDialog
+        open={modifyServiceModalOpen}
+        onOpenChange={setModifyServiceModalOpen}
+        order={orderToModifyService}
+        onSuccess={() => {
+          getOrders()
+          router.refresh()
+        }}
       />
     </div>
   )

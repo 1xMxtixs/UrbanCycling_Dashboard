@@ -1,7 +1,20 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Loader2, Coins, FileText, CalendarClock, XCircle } from "lucide-react"
+import {
+  ArrowUpDown,
+  MoreHorizontal,
+  Eye,
+  Loader2,
+  Coins,
+  FileText,
+  CalendarClock,
+  XCircle,
+  History,
+  Wrench,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -31,6 +44,11 @@ function getAvailableTransitions(currentStatus: string) {
 const CellActions = ({ row, table }: { row: any; table: any }) => {
   const order = row.original as WorkOrder
   const meta = table.options.meta as any
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.rol === "Administrador"
+  const canUpdateOrders = session?.user?.permisos?.includes(
+    PERMISSIONS.WORK_ORDERS_UPDATE
+  )
   const transitions = getAvailableTransitions(order.estadoOrden)
   const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
 
@@ -83,6 +101,16 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           </DropdownMenuItem>
         )}
 
+        {order.estadoOrden === "En curso" && canUpdateOrders && (
+          <DropdownMenuItem
+            onClick={() => meta?.onModifyServiceClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold"
+          >
+            <Wrench className="h-4 w-4" />
+            Modificar servicio
+          </DropdownMenuItem>
+        )}
+
         <DropdownMenuItem
           onClick={() => meta?.onRescheduleClick?.(order)}
           className="flex cursor-pointer items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold"
@@ -90,6 +118,16 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           <CalendarClock className="h-4 w-4" />
           Reprogramar Entrega
         </DropdownMenuItem>
+
+        {isAdmin && (
+          <DropdownMenuItem
+            onClick={() => meta?.onAuditClick?.(order)}
+            className="flex cursor-pointer items-center gap-2 font-semibold"
+          >
+            <History className="h-4 w-4" />
+            Ver auditoría
+          </DropdownMenuItem>
+        )}
 
         {canCancel && (
           <DropdownMenuItem
