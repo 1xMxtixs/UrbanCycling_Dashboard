@@ -248,9 +248,6 @@ export async function PATCH(request: Request) {
       return errorResponse("USUARIO_NO_ENCONTRADO", "Usuario no encontrado.", 404)
     }
 
-    const hasSensitiveChange =
-      (correoPropuesto !== undefined && correoPropuesto !== user.correo) ||
-      (telefonoPropuesto !== undefined && telefonoPropuesto !== user.telefono)
     const valorAnterior: Record<string, string | null> = {}
     const valorNuevo: Record<string, string | null> = {}
     const contactFields: string[] = []
@@ -266,6 +263,8 @@ export async function PATCH(request: Request) {
       valorNuevo.telefono = telefonoPropuesto
       contactFields.push("teléfono")
     }
+
+    const hasSensitiveChange = contactFields.length > 0
 
     if (hasSensitiveChange) {
       const contrasenaActual =
