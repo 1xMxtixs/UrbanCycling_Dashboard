@@ -9,9 +9,13 @@ import {
   Wrench,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CalendarClock,
   XCircle,
   History,
+  Maximize2,
+  Image as ImageIcon,
 } from "lucide-react"
 import { useState } from "react"
 import { useSession } from "next-auth/react"
@@ -59,6 +63,12 @@ interface OrderDetailDialogProps {
   onModifyServiceClick?: (order: WorkOrder) => void
 }
 
+interface LightboxState {
+  images: string[]
+  index: number
+  title: string
+}
+
 export function OrderDetailDialog({
   open,
   onOpenChange,
@@ -76,6 +86,18 @@ export function OrderDetailDialog({
     PERMISSIONS.WORK_ORDERS_UPDATE
   )
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+
+  const showImage = (step: number) =>
+    setLightbox((prev) =>
+      prev
+        ? {
+            ...prev,
+            index:
+              (prev.index + step + prev.images.length) % prev.images.length,
+          }
+        : prev
+    )
 
   if (!order) return null
 
@@ -427,20 +449,82 @@ export function OrderDetailDialog({
                         </div>
                       )}
 
-                      {bike.imagenUrl && (
-                        <div>
-                          <span className="text-xs text-muted-foreground block mb-1.5">
-                            Fotografía de Ingreso
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            Fotografías de Ingreso
                           </span>
-                          <div className="relative aspect-video w-full max-w-sm rounded-lg overflow-hidden border border-border">
-                            <img
-                              src={bike.imagenUrl}
-                              alt={`${bike.marca} ${bike.modelo}`}
-                              className="object-cover w-full h-full"
-                            />
-                          </div>
+                          {bike.imagenes?.length ? (
+                            <span className="text-[10px] font-bold text-muted-foreground">
+                              {bike.imagenes.length}{" "}
+                              {bike.imagenes.length === 1 ? "fotografía" : "fotografías"}
+                            </span>
+                          ) : null}
                         </div>
-                      )}
+
+                        {bike.imagenes?.length ? (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLightbox({
+                                  images: bike.imagenes ?? [],
+                                  index: 0,
+                                  title: `${bike.marca} ${bike.modelo}`,
+                                })
+                              }
+                              className="group relative block w-full max-w-lg aspect-video rounded-lg overflow-hidden border border-border bg-background cursor-pointer"
+                            >
+                              <img
+                                src={bike.imagenes[0]}
+                                alt={`${bike.marca} ${bike.modelo} - fotografía 1`}
+                                className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-3">
+                                  <Maximize2 className="h-5 w-5" />
+                                </div>
+                              </div>
+                            </button>
+
+                            {bike.imagenes.length > 1 && (
+                              <div className="flex gap-2 overflow-x-auto pb-1">
+                                {bike.imagenes.map((image, imageIndex) => (
+                                  <button
+                                    key={`${image}-${imageIndex}`}
+                                    type="button"
+                                    onClick={() =>
+                                      setLightbox({
+                                        images: bike.imagenes ?? [],
+                                        index: imageIndex,
+                                        title: `${bike.marca} ${bike.modelo}`,
+                                      })
+                                    }
+                                    className="group relative shrink-0 w-20 h-16 rounded-md overflow-hidden border border-border bg-background cursor-pointer hover:border-primary transition-colors"
+                                  >
+                                    <img
+                                      src={image}
+                                      alt={`${bike.marca} ${bike.modelo} - fotografía ${imageIndex + 1}`}
+                                      className="object-cover w-full h-full transition-transform duration-200 group-hover:scale-105"
+                                    />
+                                    <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                      {imageIndex + 1}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-8 text-center">
+                            <ImageIcon className="h-7 w-7 text-muted-foreground mb-2" />
+                            <p className="text-xs text-muted-foreground">
+                              No hay fotografías registradas
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -538,6 +622,55 @@ export function OrderDetailDialog({
             )}
           </div>
         </div>
+
+        <Dialog
+          open={lightbox !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setLightbox(null)
+          }}
+        >
+          <DialogContent className="flex max-h-[95vh] flex-col items-center gap-3 border-none bg-black/90 p-4 text-white sm:max-w-5xl [&_[data-slot=dialog-close]]:text-white">
+            {lightbox && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-sm font-semibold text-white">
+                    {lightbox.title} · {lightbox.index + 1} / {lightbox.images.length}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Fotografías de ingreso de la bicicleta
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="relative flex w-full items-center justify-center">
+                  {lightbox.images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => showImage(-1)}
+                      className="absolute left-2 z-10 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 cursor-pointer"
+                      aria-label="Fotografía anterior"
+                    >
+                      <ChevronLeft className="h-7 w-7" />
+                    </button>
+                  )}
+                  <img
+                    src={lightbox.images[lightbox.index]}
+                    alt={`${lightbox.title} - fotografía ${lightbox.index + 1}`}
+                    className="max-h-[80vh] max-w-full rounded-lg object-contain"
+                  />
+                  {lightbox.images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => showImage(1)}
+                      className="absolute right-2 z-10 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 cursor-pointer"
+                      aria-label="Fotografía siguiente"
+                    >
+                      <ChevronRight className="h-7 w-7" />
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   )
