@@ -420,6 +420,7 @@ model OrdenDeTrabajo {
   estadoPago                  String    @db.VarChar(50) @map("estado_pago")
   fechaEntregaEstimada        DateTime  @db.Date @map("fecha_entrega_estimada")
   fechaEntregaReal            DateTime? @db.Timestamp(0) @map("fecha_entrega_real")
+  diasServicio                Int?      @db.UnsignedInt @map("dias_servicio")
   observacionesIngreso        String?   @db.VarChar(500) @map("observaciones_ingreso")
   montoSubtotal               Decimal   @db.Decimal(12, 0) @map("monto_subtotal")
   descuentoProductosServicios Decimal   @db.Decimal(12, 0) @map("descuento_productos_servicios")

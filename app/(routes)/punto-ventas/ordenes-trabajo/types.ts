@@ -59,6 +59,7 @@ export interface WorkOrder {
   fechaRecepcion?: string | Date;
   fechaEntregaEstimada: string | Date;
   fechaEntregaReal?: string | Date | null;
+  diasServicio?: number | null;
   observacionesIngreso?: string | null;
   total: number | string;
   descuento?: number;
