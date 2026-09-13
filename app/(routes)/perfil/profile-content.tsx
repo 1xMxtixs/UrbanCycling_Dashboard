@@ -13,19 +13,9 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { PageHeader } from "@/components/common/PageHeader"
 import { toast } from "sonner"
-import { Check, Edit3, KeyRound, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
+import { Check, Edit3, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
 
 type Profile = {
   idUsuario: number
@@ -61,7 +51,6 @@ const editableFields: EditableField[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[+\d\s-]{7,20}$/
-const sensitiveFields: EditableField[] = ["correo", "telefono"]
 const sessionFields: EditableField[] = [
   "primerNombre",
   "segundoNombre",
@@ -150,9 +139,6 @@ export function ProfileContent() {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isIdentityConfirmationOpen, setIsIdentityConfirmationOpen] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [passwordError, setPasswordError] = useState("")
   const [loadError, setLoadError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<EditableField, string>>>({})
 
@@ -220,35 +206,26 @@ export function ProfileContent() {
     setIsEditing(false)
   }
 
-  async function submitProfile(contrasenaActual?: string) {
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!validate()) return
+
+    if (Object.keys(changes).length === 0) {
+      toast.info("No hay cambios para guardar.")
+      return
+    }
+
     setIsSaving(true)
     try {
       const response = await fetch("/api/perfil", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...changes,
-          ...(contrasenaActual ? { contrasenaActual } : {}),
-        }),
+        body: JSON.stringify(changes),
       })
       const data = await response.json().catch(() => null)
 
       if (!response.ok) {
         const errorData = data as { code?: unknown; fields?: unknown; message?: unknown } | null
-        const message =
-          typeof errorData?.message === "string"
-            ? errorData.message
-            : "No fue posible guardar los cambios."
-
-        if (
-          errorData?.code === "CLAVE_REQUERIDA" ||
-          errorData?.code === "CLAVE_INCORRECTA"
-        ) {
-          setPasswordError(message)
-          if (errorData.code === "CLAVE_INCORRECTA") setCurrentPassword("")
-          return
-        }
-
         const fields = Array.isArray(errorData?.fields) ? errorData.fields : []
         const errors = fields.reduce<Partial<Record<EditableField, string>>>((result, field) => {
           if (typeof field === "string" && editableFields.includes(field as EditableField)) {
@@ -275,9 +252,6 @@ export function ProfileContent() {
       setFormValues(toFormValues(updatedProfile))
       setFieldErrors({})
       setIsEditing(false)
-      setCurrentPassword("")
-      setPasswordError("")
-      setIsIdentityConfirmationOpen(false)
 
       const requiresSessionRefresh = sessionFields.some((field) =>
         Object.prototype.hasOwnProperty.call(changes, field),
@@ -295,57 +269,9 @@ export function ProfileContent() {
 
       toast.success("Tu perfil se actualizó correctamente.")
     } catch (error) {
-      if (contrasenaActual) {
-        setCurrentPassword("")
-        setPasswordError("")
-        setIsIdentityConfirmationOpen(false)
-      }
       toast.error(error instanceof Error ? error.message : "Ocurrió un error inesperado.")
     } finally {
       setIsSaving(false)
-    }
-  }
-
-  function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!validate()) return
-
-    if (Object.keys(changes).length === 0) {
-      toast.info("No hay cambios para guardar.")
-      return
-    }
-
-    const requiresIdentityConfirmation = sensitiveFields.some((field) =>
-      Object.prototype.hasOwnProperty.call(changes, field),
-    )
-
-    if (requiresIdentityConfirmation) {
-      setPasswordError("")
-      setIsIdentityConfirmationOpen(true)
-      return
-    }
-
-    void submitProfile()
-  }
-
-  function confirmIdentity() {
-    if (!currentPassword) {
-      setPasswordError("Ingresa tu clave actual para continuar.")
-      return
-    }
-
-    setPasswordError("")
-    void submitProfile(currentPassword)
-  }
-
-  function handleIdentityConfirmationChange(open: boolean) {
-    if (!open && isSaving) return
-
-    setIsIdentityConfirmationOpen(open)
-
-    if (!open) {
-      setCurrentPassword("")
-      setPasswordError("")
     }
   }
 
@@ -473,62 +399,6 @@ export function ProfileContent() {
           </CardContent>
         </Card>
       </div>
-
-      <AlertDialog
-        open={isIdentityConfirmationOpen}
-        onOpenChange={handleIdentityConfirmationChange}
-      >
-        <AlertDialogContent className="rounded-2xl border-border/80 bg-card p-0 shadow-2xl sm:max-w-md">
-          <AlertDialogHeader className="px-6 pt-6">
-            <AlertDialogMedia className="bg-primary/10 text-primary">
-              <KeyRound className="h-5 w-5" />
-            </AlertDialogMedia>
-            <AlertDialogTitle>Confirma tu identidad</AlertDialogTitle>
-            <AlertDialogDescription>
-              Para modificar tus datos de contacto, ingresa tu clave actual.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="space-y-1.5 px-6 pb-2">
-            <label htmlFor="contrasenaActual" className="text-xs font-semibold text-foreground">
-              Clave actual
-            </label>
-            <Input
-              id="contrasenaActual"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              disabled={isSaving}
-              aria-invalid={Boolean(passwordError)}
-              aria-describedby={passwordError ? "contrasenaActual-error" : undefined}
-              onChange={(event) => {
-                setCurrentPassword(event.target.value)
-                setPasswordError("")
-              }}
-            />
-            {passwordError && (
-              <p id="contrasenaActual-error" role="alert" className="text-xs text-destructive">
-                {passwordError}
-              </p>
-            )}
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSaving} className="rounded-xl">
-              Cancelar
-            </AlertDialogCancel>
-            <Button
-              type="button"
-              onClick={confirmIdentity}
-              disabled={isSaving}
-              className="rounded-xl"
-            >
-              {isSaving ? <Save className="h-4 w-4 animate-pulse" /> : <ShieldCheck className="h-4 w-4" />}
-              {isSaving ? "Verificando..." : "Confirmar y guardar"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
