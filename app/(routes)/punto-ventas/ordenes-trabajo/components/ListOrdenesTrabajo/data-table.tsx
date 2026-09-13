@@ -33,8 +33,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, ClipboardList, Search } from "lucide-react"
+import { CalendarRange, ChevronLeft, ChevronRight, ClipboardList, Search, X } from "lucide-react"
 import { WorkOrder } from "../../types"
+
+type PeriodFilterProps = {
+  draft: {
+    fechaInicio: string
+    fechaFin: string
+  }
+  errors: {
+    fechaInicio?: string
+    fechaFin?: string
+  }
+  applied: {
+    fechaInicio: string
+    fechaFin: string
+  } | null
+  isApplying: boolean
+  onChange: (field: "fechaInicio" | "fechaFin", value: string) => void
+  onApply: () => void
+  onClear: () => void
+}
+
+type EmptyStateProps = {
+  title: string
+  description: string
+}
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -48,6 +72,8 @@ interface DataTableProps<TData, TValue> {
   onCancelClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
   onModifyServiceClick?: (order: WorkOrder) => void
+  periodFilter: PeriodFilterProps
+  emptyState?: EmptyStateProps
 }
 
 export function DataTable<TData, TValue>({
@@ -62,6 +88,8 @@ export function DataTable<TData, TValue>({
   onCancelClick,
   onAuditClick,
   onModifyServiceClick,
+  periodFilter,
+  emptyState,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -116,39 +144,99 @@ export function DataTable<TData, TValue>({
       title="Órdenes de Trabajo"
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "orden encontrada" : "órdenes encontradas"}`}
       toolbar={
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por ID, Cliente o Bicicleta..."
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              className="pl-9"
-            />
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por ID, Cliente o Bicicleta..."
+                value={globalFilter ?? ""}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <Select
+              value={
+                (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
+              }
+              onValueChange={(value) =>
+                table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
+              }
+            >
+              <SelectTrigger className="h-9 w-full sm:w-56">
+                <SelectValue placeholder="Todos los estados" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="por-realizar">Por realizar</SelectItem>
+                <SelectItem value="activa">Activas (En curso)</SelectItem>
+                <SelectItem value="espera">En Espera</SelectItem>
+                <SelectItem value="por-entregar">Por entregar</SelectItem>
+                <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+                <SelectItem value="anulada">Anuladas</SelectItem>
+                <SelectItem value="retrasada">Retrasadas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select
-            value={
-              (table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"
-            }
-            onValueChange={(value) =>
-              table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)
-            }
-          >
-            <SelectTrigger className="h-9 w-full sm:w-56">
-              <SelectValue placeholder="Todos los estados" />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="por-realizar">Por realizar</SelectItem>
-              <SelectItem value="activa">Activas (En curso)</SelectItem>
-              <SelectItem value="espera">En Espera</SelectItem>
-              <SelectItem value="por-entregar">Por entregar</SelectItem>
-              <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
-              <SelectItem value="anulada">Anuladas</SelectItem>
-              <SelectItem value="retrasada">Retrasadas</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <CalendarRange className="h-4 w-4 text-primary" />
+              Filtrar por período
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] lg:items-end">
+              <div className="space-y-1.5">
+                <label htmlFor="fechaInicio" className="text-xs font-medium text-muted-foreground">
+                  Desde
+                </label>
+                <Input
+                  id="fechaInicio"
+                  type="date"
+                  value={periodFilter.draft.fechaInicio}
+                  aria-invalid={Boolean(periodFilter.errors.fechaInicio)}
+                  onChange={(event) => periodFilter.onChange("fechaInicio", event.target.value)}
+                />
+                {periodFilter.errors.fechaInicio && (
+                  <p className="text-xs text-destructive">{periodFilter.errors.fechaInicio}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="fechaFin" className="text-xs font-medium text-muted-foreground">
+                  Hasta
+                </label>
+                <Input
+                  id="fechaFin"
+                  type="date"
+                  value={periodFilter.draft.fechaFin}
+                  aria-invalid={Boolean(periodFilter.errors.fechaFin)}
+                  onChange={(event) => periodFilter.onChange("fechaFin", event.target.value)}
+                />
+                {periodFilter.errors.fechaFin && (
+                  <p className="text-xs text-destructive">{periodFilter.errors.fechaFin}</p>
+                )}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={periodFilter.onApply}
+                disabled={periodFilter.isApplying}
+              >
+                {periodFilter.isApplying ? "Filtrando..." : "Aplicar filtro"}
+              </Button>
+              {periodFilter.applied && (
+                <Button type="button" size="sm" variant="outline" onClick={periodFilter.onClear}>
+                  <X className="h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+            {periodFilter.applied && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Período aplicado: {periodFilter.applied.fechaInicio} al {periodFilter.applied.fechaFin}.
+              </p>
+            )}
+          </div>
         </div>
       }
       footer={
@@ -185,11 +273,12 @@ export function DataTable<TData, TValue>({
         <div className="p-6">
           <EmptyState
             icon={ClipboardList}
-            title="No se encontraron órdenes"
+            title={emptyState?.title || "No se encontraron órdenes"}
             description={
-              globalFilter
+              emptyState?.description ||
+              (globalFilter
                 ? "No hay órdenes que coincidan con el término de búsqueda ingresado."
-                : "No hay órdenes de trabajo registradas en este estado."
+                : "No hay órdenes de trabajo registradas en este estado.")
             }
           />
         </div>
