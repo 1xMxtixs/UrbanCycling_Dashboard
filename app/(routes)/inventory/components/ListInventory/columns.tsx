@@ -44,7 +44,7 @@ export function getColumns(
   return [
     {
       accessorKey: "idProducto",
-      header: "Código",
+      header: "ID",
       cell: ({ row }) => (
         <span className="font-mono text-xs font-semibold text-muted-foreground">
           #{row.original.idProducto}

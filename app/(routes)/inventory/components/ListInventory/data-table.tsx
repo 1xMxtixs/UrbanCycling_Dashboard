@@ -44,6 +44,40 @@ interface DataTableProps {
   categories: InventoryCategory[]
 }
 
+type ProductSearch =
+  | { type: "all" }
+  | { type: "id"; id: number }
+  | { type: "name"; query: string }
+  | { type: "invalid-id"; message: string }
+
+function parseProductSearch(value: string): ProductSearch {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return { type: "all" }
+  }
+
+  if (!trimmedValue.startsWith("#")) {
+    return { type: "name", query: trimmedValue.toLowerCase() }
+  }
+
+  const idValue = trimmedValue.slice(1).trim()
+  const id = Number(idValue)
+
+  if (
+    !/^\d+$/.test(idValue) ||
+    !Number.isSafeInteger(id) ||
+    id <= 0
+  ) {
+    return {
+      type: "invalid-id",
+      message: "Ingresa un ID numérico positivo después de #.",
+    }
+  }
+
+  return { type: "id", id }
+}
+
 export function DataTable({
   columns,
   data,
@@ -55,6 +89,10 @@ export function DataTable({
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
   const [productSearch, setProductSearch] = React.useState("")
+  const productSearchState = React.useMemo(
+    () => parseProductSearch(productSearch),
+    [productSearch],
+  )
 
   const categoryFilteredData = React.useMemo(() => {
     const productsByCategory =
@@ -66,21 +104,24 @@ export function DataTable({
             )
           )
 
-    const normalizedSearch = productSearch.trim().toLowerCase()
-    if (!normalizedSearch) {
+    if (productSearchState.type === "all") {
       return productsByCategory
     }
 
-    if (/^\d+$/.test(normalizedSearch)) {
+    if (productSearchState.type === "invalid-id") {
+      return []
+    }
+
+    if (productSearchState.type === "id") {
       return productsByCategory.filter(
-        (product) => String(product.idProducto) === normalizedSearch,
+        (product) => product.idProducto === productSearchState.id,
       )
     }
 
-    return productsByCategory.filter(
-      (product) => product.nombre.toLowerCase().includes(normalizedSearch),
+    return productsByCategory.filter((product) =>
+      product.nombre.toLowerCase().includes(productSearchState.query),
     )
-  }, [data, productSearch, selectedCategoryId])
+  }, [data, productSearchState, selectedCategoryId])
 
   const table = useReactTable({
     data: categoryFilteredData,
@@ -115,11 +156,28 @@ export function DataTable({
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nombre o código..."
+                aria-describedby={
+                  productSearchState.type === "invalid-id"
+                    ? "product-search-help product-search-error"
+                    : "product-search-help"
+                }
+                aria-invalid={productSearchState.type === "invalid-id"}
+                placeholder="Buscar por nombre o #ID..."
                 value={productSearch}
                 onChange={(event) => setProductSearch(event.target.value)}
                 className="pl-9"
               />
+            </div>
+
+            <div className="space-y-1">
+              <p id="product-search-help" className="text-xs text-muted-foreground">
+                Usa # seguido del ID para una búsqueda exacta.
+              </p>
+              {productSearchState.type === "invalid-id" && (
+                <p id="product-search-error" className="text-xs text-destructive">
+                  {productSearchState.message}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
@@ -197,11 +255,13 @@ export function DataTable({
               icon={Package}
               title="No se encontraron productos"
               description={
-                selectedCategoryId !== "all"
-                  ? "No hay productos asociados a la categoría seleccionada."
-                  : productSearch
+                productSearchState.type === "invalid-id"
+                  ? productSearchState.message
+                  : productSearchState.type !== "all"
                     ? "No hay productos que coincidan con la búsqueda ingresada."
-                    : "No hay productos registrados en el inventario."
+                    : selectedCategoryId !== "all"
+                      ? "No hay productos asociados a la categoría seleccionada."
+                      : "No hay productos registrados en el inventario."
               }
             />
           </div>
