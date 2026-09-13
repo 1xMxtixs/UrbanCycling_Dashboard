@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/common/PageHeader"
 import { toast } from "sonner"
-import { Check, Edit3, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
+import { Check, Edit3, KeyRound, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
 
 type Profile = {
   idUsuario: number
@@ -40,6 +40,8 @@ type EditableField =
 
 type FormValues = Record<EditableField, string>
 type FieldError = EditableField | "contrasenaActual"
+type PasswordField = "contrasenaActual" | "contrasenaNueva" | "confirmacionContrasena"
+type PasswordValues = Record<PasswordField, string>
 
 const editableFields: EditableField[] = [
   "primerNombre",
@@ -52,6 +54,8 @@ const editableFields: EditableField[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[+\d\s-]{7,20}$/
+const MIN_PASSWORD_LENGTH = 8
+const CONTROL_CHARACTERS_REGEX = /[\u0000-\u001F\u007F]/
 const sessionFields: EditableField[] = [
   "primerNombre",
   "segundoNombre",
@@ -143,6 +147,14 @@ export function ProfileContent() {
   const [loadError, setLoadError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldError, string>>>({})
   const [contrasenaActual, setContrasenaActual] = useState("")
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordValues, setPasswordValues] = useState<PasswordValues>({
+    contrasenaActual: "",
+    contrasenaNueva: "",
+    confirmacionContrasena: "",
+  })
+  const [passwordErrors, setPasswordErrors] = useState<Partial<Record<PasswordField | "form", string>>>({})
 
   useEffect(() => {
     const controller = new AbortController()
@@ -304,6 +316,109 @@ export function ProfileContent() {
     }
   }
 
+  function resetPasswordForm() {
+    setPasswordValues({
+      contrasenaActual: "",
+      contrasenaNueva: "",
+      confirmacionContrasena: "",
+    })
+    setPasswordErrors({})
+  }
+
+  function cancelPasswordChange() {
+    resetPasswordForm()
+    setIsPasswordFormOpen(false)
+  }
+
+  function updatePasswordField(field: PasswordField, value: string) {
+    setPasswordValues((current) => ({ ...current, [field]: value }))
+    setPasswordErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      ...(field === "contrasenaNueva" ? { confirmacionContrasena: undefined } : {}),
+      form: undefined,
+    }))
+  }
+
+  function validatePasswordForm() {
+    const errors: Partial<Record<PasswordField, string>> = {}
+    const { contrasenaActual, contrasenaNueva, confirmacionContrasena } = passwordValues
+
+    if (!contrasenaActual) {
+      errors.contrasenaActual = "Ingresa tu clave actual."
+    }
+
+    if (!contrasenaNueva) {
+      errors.contrasenaNueva = "Ingresa una nueva clave."
+    } else if (contrasenaNueva.length < MIN_PASSWORD_LENGTH) {
+      errors.contrasenaNueva = "La nueva clave debe tener al menos 8 caracteres."
+    } else if (CONTROL_CHARACTERS_REGEX.test(contrasenaNueva)) {
+      errors.contrasenaNueva = "La nueva clave contiene caracteres inválidos."
+    } else if (contrasenaNueva === contrasenaActual) {
+      errors.contrasenaNueva = "La nueva clave debe ser diferente de la actual."
+    }
+
+    if (!confirmacionContrasena) {
+      errors.confirmacionContrasena = "Confirma la nueva clave."
+    } else if (contrasenaNueva !== confirmacionContrasena) {
+      errors.confirmacionContrasena = "Las claves no coinciden."
+    }
+
+    setPasswordErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!validatePasswordForm()) return
+
+    setIsChangingPassword(true)
+    try {
+      const response = await fetch("/api/perfil/contrasena", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contrasenaActual: passwordValues.contrasenaActual,
+          contrasenaNueva: passwordValues.contrasenaNueva,
+        }),
+      })
+      const message = await response.text()
+
+      if (!response.ok) {
+        const errors: Partial<Record<PasswordField | "form", string>> = {}
+
+        if (message.includes("contrasena actual")) {
+          errors.contrasenaActual = message
+        } else if (message.includes("nueva contrasena")) {
+          errors.contrasenaNueva = message
+        } else {
+          errors.form = message || "No fue posible actualizar tu clave."
+        }
+
+        setPasswordErrors(errors)
+        setPasswordValues({
+          contrasenaActual: "",
+          contrasenaNueva: "",
+          confirmacionContrasena: "",
+        })
+        return
+      }
+
+      resetPasswordForm()
+      setIsPasswordFormOpen(false)
+      toast.success("Tu clave de acceso se actualizó correctamente.")
+    } catch {
+      setPasswordValues({
+        contrasenaActual: "",
+        contrasenaNueva: "",
+        confirmacionContrasena: "",
+      })
+      setPasswordErrors({ form: "No fue posible actualizar tu clave. Intenta nuevamente." })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -452,6 +567,122 @@ export function ProfileContent() {
                 </div>
               )}
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80 bg-card/90 shadow-xs lg:col-start-2 lg:col-span-2">
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="flex items-center gap-2 text-base font-bold">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Seguridad de la cuenta
+            </CardTitle>
+            <CardDescription>
+              Actualiza tu clave de acceso verificando primero tu identidad.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {!isPasswordFormOpen ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Usa una clave distinta de la actual y de al menos 8 caracteres.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsPasswordFormOpen(true)}
+                  disabled={isSaving}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Cambiar contraseña
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={changePassword} className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label htmlFor="contrasenaActualPerfil" className="text-xs font-semibold text-foreground">
+                      Clave actual
+                    </label>
+                    <Input
+                      id="contrasenaActualPerfil"
+                      name="contrasenaActualPerfil"
+                      type="password"
+                      autoComplete="current-password"
+                      value={passwordValues.contrasenaActual}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.contrasenaActual)}
+                      aria-describedby={passwordErrors.contrasenaActual ? "contrasenaActualPerfil-error" : undefined}
+                      onChange={(event) => updatePasswordField("contrasenaActual", event.target.value)}
+                    />
+                    {passwordErrors.contrasenaActual && (
+                      <p id="contrasenaActualPerfil-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.contrasenaActual}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="contrasenaNueva" className="text-xs font-semibold text-foreground">
+                      Nueva clave
+                    </label>
+                    <Input
+                      id="contrasenaNueva"
+                      name="contrasenaNueva"
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordValues.contrasenaNueva}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.contrasenaNueva)}
+                      aria-describedby={passwordErrors.contrasenaNueva ? "contrasenaNueva-error" : undefined}
+                      onChange={(event) => updatePasswordField("contrasenaNueva", event.target.value)}
+                    />
+                    {passwordErrors.contrasenaNueva && (
+                      <p id="contrasenaNueva-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.contrasenaNueva}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="confirmacionContrasena" className="text-xs font-semibold text-foreground">
+                      Confirmar nueva clave
+                    </label>
+                    <Input
+                      id="confirmacionContrasena"
+                      name="confirmacionContrasena"
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordValues.confirmacionContrasena}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.confirmacionContrasena)}
+                      aria-describedby={passwordErrors.confirmacionContrasena ? "confirmacionContrasena-error" : undefined}
+                      onChange={(event) => updatePasswordField("confirmacionContrasena", event.target.value)}
+                    />
+                    {passwordErrors.confirmacionContrasena && (
+                      <p id="confirmacionContrasena-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.confirmacionContrasena}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {passwordErrors.form && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {passwordErrors.form}
+                  </p>
+                )}
+
+                <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={cancelPasswordChange} disabled={isChangingPassword}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword ? <Save className="h-4 w-4 animate-pulse" /> : <ShieldCheck className="h-4 w-4" />}
+                    {isChangingPassword ? "Actualizando..." : "Actualizar contraseña"}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>
