@@ -29,6 +29,7 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 
 
 import { BikesSection, BikeInput } from "./BikesSection"
+import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images"
 import {
   OrderLinesSection,
   Product,
@@ -83,8 +84,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       color: "",
       descripcion: "",
       imagenUrl: "",
-      imageFile: null,
-      imagePreview: null,
+      imageFiles: [],
+      imagePreviews: [],
       isUploading: false,
       isCollapsed: false,
     },
@@ -177,8 +178,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             color: "",
             descripcion: "",
             imagenUrl: "",
-            imageFile: null,
-            imagePreview: null,
+            imageFiles: [],
+            imagePreviews: [],
             isUploading: false,
             isCollapsed: false,
           },
@@ -197,6 +198,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       toast.warning("Debe asociar al menos una bicicleta a la orden.")
       return
     }
+    bikes[index].imagePreviews.forEach((preview) => URL.revokeObjectURL(preview))
     setBikes(bikes.filter((_, i) => i !== index))
   }
 
@@ -216,40 +218,60 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setBikes(updated)
   }
 
-  const handleBikeImageChange = (
+  const handleBikeImagesChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    e.target.value = ""
+    if (files.length === 0) return
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Tipo de archivo no permitido. Solo JPG, PNG, WEBP, GIF.")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("La imagen supera el tamaño máximo de 5 MB.")
-      return
+    const validFiles: File[] = []
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(
+          `"${file.name}" no es un formato permitido. Usa JPG, PNG, WEBP o GIF.`
+        )
+        continue
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`"${file.name}" supera el tamaño máximo de 5 MB.`)
+        continue
+      }
+      validFiles.push(file)
     }
 
-    const previewUrl = URL.createObjectURL(file)
+    const available = MAX_BICYCLE_IMAGES - bikes[index].imageFiles.length
+    if (validFiles.length > available) {
+      toast.warning(
+        `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} fotos por bicicleta.`
+      )
+      validFiles.splice(Math.max(0, available))
+    }
+    if (validFiles.length === 0) return
+
     const updated = [...bikes]
     updated[index] = {
       ...updated[index],
-      imageFile: file,
-      imagePreview: previewUrl,
+      imageFiles: [...updated[index].imageFiles, ...validFiles],
+      imagePreviews: [
+        ...updated[index].imagePreviews,
+        ...validFiles.map((file) => URL.createObjectURL(file)),
+      ],
     }
     setBikes(updated)
   }
 
-  const handleRemoveBikeImage = (index: number) => {
+  const handleRemoveBikeImage = (bikeIndex: number, imageIndex: number) => {
     const updated = [...bikes]
-    updated[index] = {
-      ...updated[index],
-      imageFile: null,
-      imagePreview: null,
-      imagenUrl: "",
+    const bike = updated[bikeIndex]
+    const preview = bike.imagePreviews[imageIndex]
+    if (preview) URL.revokeObjectURL(preview)
+    updated[bikeIndex] = {
+      ...bike,
+      imageFiles: bike.imageFiles.filter((_, i) => i !== imageIndex),
+      imagePreviews: bike.imagePreviews.filter((_, i) => i !== imageIndex),
     }
     setBikes(updated)
   }
@@ -392,28 +414,34 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       // 1. Upload any pending bike images
       const bikesData = await Promise.all(
         bikes.map(async (b, idx) => {
-          let finalImageUrl = b.imagenUrl || null
-          if (b.imageFile) {
+          const imagenes: string[] = []
+          for (const [imageIdx, file] of b.imageFiles.entries()) {
             const formData = new FormData()
-            formData.append("file", b.imageFile)
+            formData.append("file", file)
             const res = await fetch("/api/upload", {
               method: "POST",
               body: formData,
             })
             if (!res.ok) {
               throw new Error(
-                `Error al subir la imagen de la bicicleta #${idx + 1}`
+                `Error al subir la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
               )
             }
-            const data = (await res.json()) as { url: string }
-            finalImageUrl = data.url
+            const data = (await res.json()) as { url?: string }
+            if (!data.url) {
+              throw new Error(
+                `El servidor no devolvió una URL para la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
+              )
+            }
+            imagenes.push(data.url)
           }
           return {
             marca: b.marca.trim(),
             modelo: b.modelo.trim(),
             color: b.color.trim(),
             descripcion: b.descripcion.trim() || null,
-            imagenUrl: finalImageUrl,
+            imagenUrl: b.imagenUrl || null,
+            imagenes,
           }
         })
       )
@@ -620,7 +648,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           onRemoveBike={handleRemoveBike}
           onUpdateBikeField={handleUpdateBikeField}
           onToggleCollapse={toggleCollapse}
-          onBikeImageChange={handleBikeImageChange}
+          onBikeImagesChange={handleBikeImagesChange}
           onRemoveBikeImage={handleRemoveBikeImage}
         />
 
