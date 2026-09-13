@@ -76,7 +76,7 @@ export function ListOrdenesTrabajo() {
   const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
   const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
 
-  const getOrders = useCallback(async (period: PeriodFilter | null) => {
+  const getOrders = useCallback(async (period: PeriodFilter | null): Promise<boolean> => {
     try {
       const searchParams = new URLSearchParams()
 
@@ -95,11 +95,11 @@ export function ListOrdenesTrabajo() {
         if (response.status === 404 && data?.code === "SIN_ORDENES_EN_PERIODO") {
           setOrders([])
           setPeriodEmptyMessage("No hay órdenes de trabajo dentro del período seleccionado.")
-          return
+          return true
         }
 
         toast.error(data?.message || "No fue posible consultar las órdenes de trabajo.")
-        return
+        return false
       }
 
       const ordenes = Array.isArray(data)
@@ -110,10 +110,16 @@ export function ListOrdenesTrabajo() {
         : []
 
       setOrders(ordenes)
-      setPeriodEmptyMessage(null)
+      setPeriodEmptyMessage(
+        period && ordenes.length === 0
+          ? "No hay órdenes de trabajo dentro del período seleccionado."
+          : null,
+      )
+      return true
     } catch (err) {
       console.error("Error fetching work orders:", err)
       toast.error("No fue posible consultar las órdenes de trabajo.")
+      return false
     } finally {
       setIsLoading(false)
     }
@@ -124,6 +130,7 @@ export function ListOrdenesTrabajo() {
   }, [appliedPeriod, getOrders])
 
   useEffect(() => {
+    // Difiere la carga inicial para evitar actualizaciones de estado síncronas durante el efecto.
     void Promise.resolve().then(() => getOrders(null))
   }, [getOrders])
 
@@ -154,19 +161,27 @@ export function ListOrdenesTrabajo() {
     if (Object.keys(errors).length > 0) return
 
     setIsFilteringByPeriod(true)
-    setAppliedPeriod(periodDraft)
-    await getOrders(periodDraft)
-    setIsFilteringByPeriod(false)
+    try {
+      if (await getOrders(periodDraft)) {
+        setAppliedPeriod(periodDraft)
+      }
+    } finally {
+      setIsFilteringByPeriod(false)
+    }
   }
 
   const clearPeriodFilter = async () => {
-    setPeriodDraft({ fechaInicio: "", fechaFin: "" })
-    setPeriodErrors({})
-    setPeriodEmptyMessage(null)
-    setAppliedPeriod(null)
     setIsFilteringByPeriod(true)
-    await getOrders(null)
-    setIsFilteringByPeriod(false)
+    try {
+      if (await getOrders(null)) {
+        setPeriodDraft({ fechaInicio: "", fechaFin: "" })
+        setPeriodErrors({})
+        setPeriodEmptyMessage(null)
+        setAppliedPeriod(null)
+      }
+    } finally {
+      setIsFilteringByPeriod(false)
+    }
   }
 
   const handleStatusChange = async (orderId: number, nextStatus: string) => {
