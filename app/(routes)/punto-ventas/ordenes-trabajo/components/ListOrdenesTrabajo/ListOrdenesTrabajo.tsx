@@ -10,6 +10,7 @@ import { UpcomingDeadlines } from "./upcoming-deadlines"
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { OrderDetailDialog } from "./OrderDetailDialog"
+import { normalizarImagenesBicicleta } from "@/lib/bicycle-images"
 import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
@@ -78,6 +79,13 @@ export function ListOrdenesTrabajo() {
           .filter((item) => item.tipoOperacion === "orden_trabajo")
           .map((item) => item.ordenTrabajo)
           .filter(Boolean)
+          .map((orden: WorkOrder) => ({
+            ...orden,
+            bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
+              ...bicicleta,
+              imagenes: normalizarImagenesBicicleta(bicicleta),
+            })),
+          }))
         : []
 
       setOrders(ordenes)
