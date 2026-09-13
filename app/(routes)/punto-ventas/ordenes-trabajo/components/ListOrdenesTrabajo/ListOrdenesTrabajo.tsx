@@ -577,6 +577,7 @@ export function ListOrdenesTrabajo() {
         onOpenChange={setOpenDetailsModal}
         order={selectedOrder}
         onPayClick={handlePayClick}
+        onGenerateReceipt={handleGenerateReceipt}
         onRescheduleClick={handleRescheduleClick}
         onCancelClick={handleCancelClick}
         onStatusChange={handleStatusChange}
@@ -591,7 +592,7 @@ export function ListOrdenesTrabajo() {
         onOpenChange={setSuppliesModalOpen}
         order={orderToAssignSupplies}
         onSuccess={() => {
-          getOrders()
+          refreshOrders()
           router.refresh()
         }}
       />

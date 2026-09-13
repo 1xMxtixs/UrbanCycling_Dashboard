@@ -1,21 +1,13 @@
 "use client"
 
-import { ColumnDef } from "@tanstack/react-table"
+import { ColumnDef, Row, Table } from "@tanstack/react-table"
 import {
   ArrowUpDown,
   MoreHorizontal,
   Eye,
   Loader2,
-  Coins,
   FileText,
-  CalendarClock,
-  XCircle,
-  History,
-  Wrench,
-  Pencil,
 } from "lucide-react"
-import { useSession } from "next-auth/react"
-import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -30,6 +22,19 @@ import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { WorkOrder } from "../../types"
 
+interface WorkOrderTableMeta {
+  updatingId?: number | null
+  onViewDetails?: (order: WorkOrder) => void
+  onStatusChange?: (orderId: number, nextStatus: string) => void
+  onPayClick?: (order: WorkOrder) => void
+  onGenerateReceipt?: (order: WorkOrder) => void
+  onRescheduleClick?: (order: WorkOrder) => void
+  onCancelClick?: (order: WorkOrder) => void
+  onAssignSuppliesClick?: (order: WorkOrder) => void
+  onAuditClick?: (order: WorkOrder) => void
+  onModifyServiceClick?: (order: WorkOrder) => void
+}
+
 function getAvailableTransitions(currentStatus: string) {
   const map: Record<string, string[]> = {
     "Por realizar": ["En curso", "En espera"],
@@ -42,23 +47,10 @@ function getAvailableTransitions(currentStatus: string) {
   return map[currentStatus] || []
 }
 
-const CellActions = ({ row, table }: { row: any; table: any }) => {
-  const order = row.original as WorkOrder
-  const meta = table.options.meta as any
-  const { data: session } = useSession()
-  const isAdmin = session?.user?.rol === "Administrador"
-  const canUpdateOrders = session?.user?.permisos?.includes(
-    PERMISSIONS.WORK_ORDERS_UPDATE
-  )
+const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrder> }) => {
+  const order = row.original
+  const meta = table.options.meta as WorkOrderTableMeta | undefined
   const transitions = getAvailableTransitions(order.estadoOrden)
-  const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
-
-  const total = Number(order.total)
-  const totalPagado = Number(order.totalPagado || 0)
-  const isPaid =
-    order.estadoPago?.toLowerCase() === "pagada" ||
-    order.estadoPago?.toLowerCase() === "pagado" ||
-    Math.max(0, total - totalPagado) === 0
 
   return (
     <DropdownMenu>
@@ -75,12 +67,22 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
 
         <DropdownMenuItem
-          onClick={() => meta?.onViewDetails(order)}
+          onClick={() => meta?.onViewDetails?.(order)}
           className="flex cursor-pointer items-center gap-2"
         >
           <Eye className="h-4 w-4" />
           Ver Detalle
         </DropdownMenuItem>
+
+        {order.estadoOrden === "Entregado" && (
+          <DropdownMenuItem
+            onClick={() => meta?.onGenerateReceipt?.(order)}
+            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
+          >
+            <FileText className="h-4 w-4" />
+            Generar Boleta
+          </DropdownMenuItem>
+        )}
         {transitions.length > 0 && (
           <>
             <DropdownMenuSeparator />
@@ -91,7 +93,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
               <DropdownMenuItem
                 key={nextState}
                 onClick={() =>
-                  meta?.onStatusChange(order.idOrdenDeTrabajo, nextState)
+                  meta?.onStatusChange?.(order.idOrdenDeTrabajo, nextState)
                 }
                 className="flex cursor-pointer items-center gap-1.5 pl-6 text-xs"
               >

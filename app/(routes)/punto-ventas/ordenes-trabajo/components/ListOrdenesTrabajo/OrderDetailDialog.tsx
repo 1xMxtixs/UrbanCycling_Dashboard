@@ -11,13 +11,10 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  CalendarClock,
-  XCircle,
   Pencil,
   Printer,
   Download,
   Mail,
-  MoreHorizontal,
   History,
   Maximize2,
   Image as ImageIcon,
@@ -38,16 +35,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
-import { WorkOrder } from "../../types"
+import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
   buildWorkOrderContent,
   buildWorkOrderHtml,
-  isWorkOrderPaid,
   workOrderFileName,
 } from "@/components/common/WorkOrderDocument"
 
@@ -68,6 +63,7 @@ interface OrderDetailDialogProps {
   onOpenChange: (open: boolean) => void
   order: WorkOrder | null
   onPayClick?: (order: WorkOrder) => void
+  onGenerateReceipt?: (order: WorkOrder) => void
   onRescheduleClick?: (order: WorkOrder) => void
   onCancelClick?: (order: WorkOrder) => void
   onStatusChange?: (orderId: number, nextStatus: string) => void
@@ -87,6 +83,7 @@ export function OrderDetailDialog({
   onOpenChange,
   order,
   onPayClick,
+  onGenerateReceipt,
   onRescheduleClick,
   onCancelClick,
   onStatusChange,
@@ -392,7 +389,7 @@ export function OrderDetailDialog({
                 <span className="text-[10px] text-muted-foreground font-sans uppercase font-bold block mb-1">
                   Pagos Registrados:
                 </span>
-                {order.pagos.map((pago: any, idx: number) => (
+                {order.pagos.map((pago: WorkOrderPayment, idx: number) => (
                   <div
                     key={idx}
                     className="flex justify-between items-center text-xs bg-background p-2 rounded border border-border"
@@ -574,6 +571,30 @@ export function OrderDetailDialog({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {isPaid && onGenerateReceipt && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onGenerateReceipt(order)}
+                className="gap-1.5 cursor-pointer font-semibold text-primary"
+              >
+                <FileText className="h-4 w-4" />
+                Generar Boleta
+              </Button>
+            )}
+
+            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onModifyServiceClick(order)}
+                className="gap-1.5 cursor-pointer font-semibold text-blue-600 dark:text-blue-400"
+              >
+                <Wrench className="h-4 w-4" />
+                Modificar servicio
+              </Button>
+            )}
+
             {canEdit && onAssignSuppliesClick && (
               <Button
                 variant="outline"
@@ -651,10 +672,6 @@ export function OrderDetailDialog({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="cursor-pointer">
-              Cerrar
-            </Button>
           </div>
         </div>
 

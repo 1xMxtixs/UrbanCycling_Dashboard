@@ -12,7 +12,6 @@ import {
   Check,
   X,
   UserCheck,
-  Calendar,
   FileText,
   PlusCircle,
   XCircle,
@@ -47,6 +46,14 @@ interface EditableLineState {
   draftDiscount: string
   isEditing: boolean
   isSaving: boolean
+}
+
+interface UserApiResponse {
+  idUsuario: number
+  primerNombre?: string
+  apellidoPaterno?: string
+  correoElectronico?: string
+  estado?: string
 }
 
 interface MechanicOption {
@@ -119,6 +126,10 @@ export function AssignSuppliesDialog({
   // Edición por línea (precio y descuento unitario)
   const [lineStates, setLineStates] = useState<Record<number, EditableLineState>>({})
 
+  // Anular Orden de Trabajo
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
+
   // Cargar catálogo de mecánicos y servicios cuando abre el diálogo
   useEffect(() => {
     if (!open) return
@@ -131,15 +142,15 @@ export function AssignSuppliesDialog({
         ])
 
         if (usersRes.ok) {
-          const usersData = await usersRes.json()
+          const usersData: unknown = await usersRes.json()
           if (Array.isArray(usersData)) {
             // Filtrar usuarios con rol de mecánico o administrador/vendedor
-            const mechs = usersData
-              .filter((u: any) => u.estado === "activo")
-              .map((u: any) => ({
+            const mechs = (usersData as UserApiResponse[])
+              .filter((u) => u.estado === "activo")
+              .map((u) => ({
                 idUsuario: u.idUsuario,
                 nombre: `${u.primerNombre ?? ""} ${u.apellidoPaterno ?? ""}`.trim() || u.correoElectronico || `Usuario #${u.idUsuario}`,
-                correo: u.correoElectronico,
+                correo: u.correoElectronico || "",
               }))
             setMechanics(mechs)
           }
@@ -602,9 +613,6 @@ export function AssignSuppliesDialog({
   }
 
   // 7. Anular Orden de Trabajo
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
-
   async function handleConfirmCancelOrder() {
     setIsCancellingOrder(true)
     try {

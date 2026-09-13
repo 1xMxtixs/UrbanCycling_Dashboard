@@ -25,13 +25,24 @@ export function workOrderFileName(order: WorkOrder): string {
   return `Orden de trabajo #${order.idOrdenDeTrabajo}.pdf`
 }
 
+/** Escapa caracteres especiales para evitar vulnerabilidades XSS en templates HTML */
+export function escapeHtml(str: unknown): string {
+  if (str === null || str === undefined) return ""
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 /**
  * Genera el HTML interno del documento (sin <html>/<head>).
  * Usa únicamente colores hexadecimales — compatible con html2canvas-pro,
  * html2canvas legacy y cualquier motor de impresión.
  */
 export function buildWorkOrderContent(order: WorkOrder): string {
-  const clientName = order.cliente
+  const rawClientName = order.cliente
     ? [
         order.cliente.primerNombre,
         order.cliente.segundoNombre,
@@ -43,6 +54,7 @@ export function buildWorkOrderContent(order: WorkOrder): string {
       order.cliente.razonSocial ||
       "Cliente Particular"
     : "Cliente Particular"
+  const clientName = escapeHtml(rawClientName)
 
   const lines = order.lineasDeOrdenDeTrabajo || []
   const payments = order.pagos || []
@@ -58,6 +70,17 @@ export function buildWorkOrderContent(order: WorkOrder): string {
   const fechaEntrega = order.fechaEntregaEstimada
     ? new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")
     : "—"
+
+  const estadoOrden = escapeHtml(order.estadoOrden)
+  const estadoPago = escapeHtml(order.estadoPago || (paid ? "Pagada" : "Pendiente"))
+  const clientRut = order.cliente?.rut ? escapeHtml(order.cliente.rut) : ""
+  const observacionesIngreso = order.observacionesIngreso
+    ? escapeHtml(order.observacionesIngreso)
+    : ""
+
+  const bikesList = bikes
+    .map((b) => `${escapeHtml(b.marca)} ${escapeHtml(b.modelo)} (${escapeHtml(b.color)})`)
+    .join(", ")
 
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;background:#fff;padding:20px;font-size:11.5px;line-height:1.45;">
@@ -85,21 +108,21 @@ export function buildWorkOrderContent(order: WorkOrder): string {
         <div>
           <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;font-weight:700;margin-bottom:6px;">Datos del Cliente</div>
           <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Nombre:</span> <strong>${clientName}</strong></p>
-          ${order.cliente?.rut ? `<p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">RUT:</span> ${order.cliente.rut}</p>` : ""}
+          ${clientRut ? `<p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">RUT:</span> ${clientRut}</p>` : ""}
           <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Recepción:</span> ${fechaRecepcion}</p>
           <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Entrega Estimada:</span> ${fechaEntrega}</p>
         </div>
         <div>
           <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;font-weight:700;margin-bottom:6px;">Estado de la Orden</div>
-          <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Estado:</span> <span style="font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#0284c7;">${order.estadoOrden}</span></p>
-          <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Estado Pago:</span> <span style="font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:${paid ? "#16a34a" : "#d97706"};">${order.estadoPago || (paid ? "Pagada" : "Pendiente")}</span></p>
-          ${bikes.length > 0 ? `<p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Bicicleta:</span> ${bikes.map((b) => `${b.marca} ${b.modelo} (${b.color})`).join(", ")}</p>` : ""}
+          <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Estado:</span> <span style="font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#0284c7;">${estadoOrden}</span></p>
+          <p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Estado Pago:</span> <span style="font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:${paid ? "#16a34a" : "#d97706"};">${estadoPago}</span></p>
+          ${bikesList ? `<p style="margin:2px 0;"><span style="color:#64748b;font-weight:500;">Bicicleta:</span> ${bikesList}</p>` : ""}
         </div>
       </div>
 
-      ${order.observacionesIngreso ? `
+      ${observacionesIngreso ? `
       <div style="background:#fffbeb;border:1px solid #fde68a;padding:8px 12px;border-radius:4px;font-size:11px;color:#92400e;margin-bottom:12px;">
-        <strong>Observaciones de Ingreso:</strong> ${order.observacionesIngreso}
+        <strong>Observaciones de Ingreso:</strong> ${observacionesIngreso}
       </div>` : ""}
 
       <!-- Tabla Líneas -->
@@ -119,11 +142,11 @@ export function buildWorkOrderContent(order: WorkOrder): string {
             ? `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:10px;border:1px solid #e2e8f0;">Sin líneas registradas</td></tr>`
             : lines.map((l) => `
             <tr>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${l.servicio?.nombre || l.producto?.nombre || "Ítem sin descripción"}</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${escapeHtml(l.servicio?.nombre || l.producto?.nombre || "Ítem sin descripción")}</td>
               <td style="text-align:center;padding:6px 8px;border:1px solid #e2e8f0;">${l.idServicio ? "Servicio" : "Insumo"}</td>
-              <td style="text-align:center;padding:6px 8px;border:1px solid #e2e8f0;">${l.cantidad}</td>
+              <td style="text-align:center;padding:6px 8px;border:1px solid #e2e8f0;">${Number(l.cantidad || 1)}</td>
               <td style="text-align:right;padding:6px 8px;border:1px solid #e2e8f0;">$${Number(l.precioUnitario).toLocaleString("es-CL")}</td>
-              <td style="text-align:right;padding:6px 8px;border:1px solid #e2e8f0;">$${(l.cantidad * Number(l.precioUnitario)).toLocaleString("es-CL")}</td>
+              <td style="text-align:right;padding:6px 8px;border:1px solid #e2e8f0;">$${(Number(l.cantidad || 1) * Number(l.precioUnitario)).toLocaleString("es-CL")}</td>
             </tr>`).join("")}
         </tbody>
       </table>
@@ -160,7 +183,7 @@ export function buildWorkOrderContent(order: WorkOrder): string {
         <tbody>
           ${payments.map((p) => `
             <tr>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${p.metodoPago || "—"}</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${escapeHtml(p.metodoPago || "—")}</td>
               <td style="padding:6px 8px;border:1px solid #e2e8f0;">${p.fechaRegistro ? new Date(p.fechaRegistro).toLocaleDateString("es-CL") : "—"}</td>
               <td style="text-align:right;padding:6px 8px;border:1px solid #e2e8f0;">$${Number(p.monto).toLocaleString("es-CL")}</td>
             </tr>`).join("")}
