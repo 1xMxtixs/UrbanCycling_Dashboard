@@ -179,7 +179,6 @@ export function ProfileContent() {
       ...(name === "correo" || name === "telefono" ? { contrasenaActual: undefined } : {}),
     }))
 
-    if (name === "correo" || name === "telefono") setContrasenaActual("")
   }
 
   function validate() {
