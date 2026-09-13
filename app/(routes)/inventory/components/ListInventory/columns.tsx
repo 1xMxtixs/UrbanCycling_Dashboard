@@ -69,6 +69,15 @@ export function getColumns(
       },
     },
     {
+      accessorKey: "idProducto",
+      header: "Código",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-semibold text-muted-foreground">
+          #{row.original.idProducto}
+        </span>
+      ),
+    },
+    {
       accessorKey: "stockActual",
       header: ({ column }) => {
         return (
