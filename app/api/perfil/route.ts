@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { Prisma } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { verifyPassword } from "@/lib/password"
 import { requireAuth } from "@/lib/require-auth"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -161,6 +162,8 @@ export async function PATCH(request: Request) {
     const updateData: Prisma.UsuarioUpdateInput = {}
     const invalidFields: string[] = []
     let correoActualizado: string | null = null
+    let correoPropuesto: string | undefined
+    let telefonoPropuesto: string | null | undefined
     const hasField = (field: string) =>
       Object.prototype.hasOwnProperty.call(data, field)
 
@@ -195,6 +198,7 @@ export async function PATCH(request: Request) {
       if (result.valid && correo && EMAIL_REGEX.test(correo)) {
         updateData.correo = correo
         correoActualizado = correo
+        correoPropuesto = correo
       } else {
         invalidFields.push("correo")
       }
@@ -205,6 +209,7 @@ export async function PATCH(request: Request) {
 
       if (result.valid && (!result.value || PHONE_REGEX.test(result.value))) {
         updateData.telefono = result.value
+        telefonoPropuesto = result.value
       } else {
         invalidFields.push("telefono")
       }
@@ -233,11 +238,46 @@ export async function PATCH(request: Request) {
       },
       select: {
         idUsuario: true,
+        correo: true,
+        telefono: true,
+        contrasenaHash: true,
       },
     })
 
     if (!user) {
       return errorResponse("USUARIO_NO_ENCONTRADO", "Usuario no encontrado.", 404)
+    }
+
+    const hasSensitiveChange =
+      (correoPropuesto !== undefined && correoPropuesto !== user.correo) ||
+      (telefonoPropuesto !== undefined && telefonoPropuesto !== user.telefono)
+
+    if (hasSensitiveChange) {
+      const contrasenaActual =
+        typeof data.contrasenaActual === "string" ? data.contrasenaActual : ""
+
+      if (!contrasenaActual) {
+        return errorResponse(
+          "CLAVE_REQUERIDA",
+          "Debe ingresar su clave actual para modificar los datos de contacto.",
+          400,
+          ["contrasenaActual"],
+        )
+      }
+
+      const currentPasswordIsValid = await verifyPassword(
+        contrasenaActual,
+        user.contrasenaHash,
+      )
+
+      if (!currentPasswordIsValid) {
+        return errorResponse(
+          "CLAVE_INCORRECTA",
+          "La clave actual ingresada es incorrecta.",
+          400,
+          ["contrasenaActual"],
+        )
+      }
     }
 
     if (correoActualizado) {
