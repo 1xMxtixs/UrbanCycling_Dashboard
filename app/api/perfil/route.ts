@@ -248,9 +248,23 @@ export async function PATCH(request: Request) {
       return errorResponse("USUARIO_NO_ENCONTRADO", "Usuario no encontrado.", 404)
     }
 
-    const hasSensitiveChange =
-      (correoPropuesto !== undefined && correoPropuesto !== user.correo) ||
-      (telefonoPropuesto !== undefined && telefonoPropuesto !== user.telefono)
+    const valorAnterior: Record<string, string | null> = {}
+    const valorNuevo: Record<string, string | null> = {}
+    const contactFields: string[] = []
+
+    if (correoPropuesto !== undefined && correoPropuesto !== user.correo) {
+      valorAnterior.correo = user.correo
+      valorNuevo.correo = correoPropuesto
+      contactFields.push("correo electrónico")
+    }
+
+    if (telefonoPropuesto !== undefined && telefonoPropuesto !== user.telefono) {
+      valorAnterior.telefono = user.telefono
+      valorNuevo.telefono = telefonoPropuesto
+      contactFields.push("teléfono")
+    }
+
+    const hasSensitiveChange = contactFields.length > 0
 
     if (hasSensitiveChange) {
       const contrasenaActual =
@@ -303,29 +317,47 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const updatedUser = await db.usuario.update({
-      where: {
-        idUsuario: session.user.idUsuario,
-      },
-      data: updateData,
-      select: {
-        idUsuario: true,
-        primerNombre: true,
-        segundoNombre: true,
-        apellidoPaterno: true,
-        apellidoMaterno: true,
-        rut: true,
-        correo: true,
-        telefono: true,
-        estado: true,
-        rol: {
-          select: {
-            idRol: true,
-            nombre: true,
-            descripcion: true,
+    const updatedUser = await db.$transaction(async (tx) => {
+      const updatedUser = await tx.usuario.update({
+        where: {
+          idUsuario: session.user.idUsuario,
+        },
+        data: updateData,
+        select: {
+          idUsuario: true,
+          primerNombre: true,
+          segundoNombre: true,
+          apellidoPaterno: true,
+          apellidoMaterno: true,
+          rut: true,
+          correo: true,
+          telefono: true,
+          estado: true,
+          rol: {
+            select: {
+              idRol: true,
+              nombre: true,
+              descripcion: true,
+            },
           },
         },
-      },
+      })
+
+      if (hasSensitiveChange) {
+        await tx.auditoria.create({
+          data: {
+            idUsuario: session.user.idUsuario,
+            tipoOperacion: "ACTUALIZAR_CONTACTO_PERFIL",
+            nombreTablaAfectada: "usuarios",
+            registroAfectado: user.idUsuario,
+            valorAnterior,
+            valorNuevo,
+            detalleCambio: `Actualización de ${contactFields.join(" y ")} del perfil.`,
+          },
+        })
+      }
+
+      return updatedUser
     })
 
     return NextResponse.json(buildProfileResponse(updatedUser))
