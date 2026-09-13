@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-const WARN_AFTER_MS  = 15 * 60 * 1000  // 15 min
+const WARN_AFTER_MS  = 20 * 60 * 1000  // 20 min
 const EXPIRE_AFTER_MS = 2 * 60 * 1000  // 2 min countdown
 const COUNTDOWN_TOTAL = EXPIRE_AFTER_MS / 1000
 
@@ -23,7 +23,7 @@ function formatCountdown(s: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
 }
 
-/** Detecta inactividad y cierra sesión tras 15 min + 2 min de aviso. */
+/** Detecta inactividad y cierra sesión tras 20 min + 2 min de aviso. */
 export function SessionGuard({ children }: { children: React.ReactNode }) {
   const { status } = useSession()
   const [isWarning, setIsWarning] = useState(false)
