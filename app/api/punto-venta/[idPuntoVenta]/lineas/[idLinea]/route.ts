@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import {
+  ajustarStockPorCantidadLineaOrden,
+  InventoryStockError,
   recalcularTotalesOrdenTrabajo,
   WorkOrderTotalsError,
 } from "@/lib/stored-procedures";
@@ -15,6 +17,9 @@ class WorkOrderLineError extends Error {
       | "ORDEN_NO_EXISTE"
       | "LINEA_NO_EXISTE"
       | "ORDEN_NO_MODIFICABLE"
+      | "ESTADO_ORDEN_NO_PERMITE_AJUSTE"
+      | "LINEA_NO_ES_INSUMO"
+      | "CANTIDAD_INVALIDA"
       | "VALORES_LINEA_INVALIDOS"
       | "CAMPOS_LINEA_REQUERIDOS",
     message: string
@@ -112,15 +117,28 @@ export async function PATCH(
       data,
       "descuentoUnitario"
     ) || Object.prototype.hasOwnProperty.call(data, "descuento_unitario");
+    const tieneCantidad = Object.prototype.hasOwnProperty.call(
+      data,
+      "cantidad"
+    );
 
-    if (!tienePrecio && !tieneDescuento) {
+    if (!tienePrecio && !tieneDescuento && !tieneCantidad) {
       throw new WorkOrderLineError(
         "CAMPOS_LINEA_REQUERIDOS",
-        "Debe indicar precioUnitario o descuentoUnitario"
+        "Debe indicar cantidad, precioUnitario o descuentoUnitario"
       );
     }
 
     const resultado = await db.$transaction(async (tx) => {
+      if (tieneCantidad) {
+        await tx.$queryRaw`
+          SELECT id_orden_de_trabajo
+          FROM ordenes_de_trabajo
+          WHERE id_orden_de_trabajo = ${idOrdenDeTrabajo}
+          FOR UPDATE
+        `;
+      }
+
       const orden = await tx.ordenDeTrabajo.findUnique({
         where: { idOrdenDeTrabajo },
       });
@@ -132,11 +150,28 @@ export async function PATCH(
         );
       }
 
-      if (["Entregado", "Anulada"].includes(orden.estado)) {
+      if (tieneCantidad && orden.estado !== "En curso") {
+        throw new WorkOrderLineError(
+          "ESTADO_ORDEN_NO_PERMITE_AJUSTE",
+          'La orden debe estar en estado "En curso" para ajustar sus insumos'
+        );
+      }
+
+      if (!tieneCantidad && ["Entregado", "Anulada"].includes(orden.estado)) {
         throw new WorkOrderLineError(
           "ORDEN_NO_MODIFICABLE",
           "La orden de trabajo no puede ser modificada en su estado actual"
         );
+      }
+
+      if (tieneCantidad) {
+        await tx.$queryRaw`
+          SELECT id_linea_de_orden_de_trabajo
+          FROM lineas_de_orden_de_trabajo
+          WHERE id_linea_de_orden_de_trabajo = ${idLineaDeOrdenDeTrabajo}
+            AND id_orden_de_trabajo = ${idOrdenDeTrabajo}
+          FOR UPDATE
+        `;
       }
 
       const linea = await tx.lineaDeOrdenDeTrabajo.findFirst({
@@ -152,6 +187,27 @@ export async function PATCH(
           "La línea no pertenece a la orden de trabajo"
         );
       }
+
+      if (tieneCantidad && !linea.idProducto) {
+        throw new WorkOrderLineError(
+          "LINEA_NO_ES_INSUMO",
+          "La línea seleccionada no corresponde a un repuesto o material"
+        );
+      }
+
+      const cantidadAnterior = linea.cantidad;
+      const cantidadNueva = tieneCantidad
+        ? Number(data.cantidad)
+        : cantidadAnterior;
+
+      if (!Number.isInteger(cantidadNueva) || cantidadNueva <= 0) {
+        throw new WorkOrderLineError(
+          "CANTIDAD_INVALIDA",
+          "La nueva cantidad debe ser un número entero mayor que cero"
+        );
+      }
+
+      const diferenciaCantidad = cantidadNueva - cantidadAnterior;
 
       const precioUnitario = tienePrecio
         ? Number(data.precioUnitario ?? data.precio_unitario)
@@ -173,9 +229,20 @@ export async function PATCH(
         );
       }
 
+      const ajusteInventario =
+        diferenciaCantidad !== 0 && linea.idProducto
+          ? await ajustarStockPorCantidadLineaOrden(tx, {
+              idProducto: linea.idProducto,
+              idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
+              diferencia: diferenciaCantidad,
+              costoUnitario: linea.costoUnitario,
+            })
+          : null;
+
       const lineaActualizada = await tx.lineaDeOrdenDeTrabajo.update({
         where: { idLineaDeOrdenDeTrabajo },
         data: {
+          cantidad: cantidadNueva,
           precioUnitario,
           descuentoUnitario,
         },
@@ -205,23 +272,41 @@ export async function PATCH(
 
       await registrarAuditoriaOrdenTrabajo(tx, {
         idUsuario: session.user.idUsuario,
-        tipoOperacion: "modificacion_linea_orden",
+        tipoOperacion:
+          tieneCantidad
+            ? "ajuste_cantidad_insumo"
+            : "modificacion_linea_orden",
         idOrdenDeTrabajo,
         valorAnterior: {
           idLineaDeOrdenDeTrabajo,
+          idProducto: linea.idProducto,
+          cantidad: cantidadAnterior,
           precioUnitario: linea.precioUnitario,
           descuentoUnitario: linea.descuentoUnitario,
+          stock: ajusteInventario?.stockAnterior,
+          montoSubtotal: orden.montoSubtotal,
+          montoTotal: orden.montoTotal,
         },
         valorNuevo: {
           idLineaDeOrdenDeTrabajo,
+          idProducto: linea.idProducto,
+          cantidad: cantidadNueva,
+          diferenciaCantidad,
           precioUnitario,
           descuentoUnitario,
+          stock: ajusteInventario?.stockNuevo,
+          montoSubtotal: ordenActualizada.montoSubtotal,
+          montoTotal: ordenActualizada.montoTotal,
         },
-        detalleCambio: "Modificacion de precio o descuento de línea",
+        detalleCambio:
+          tieneCantidad
+            ? `Cantidad del insumo modificada de ${cantidadAnterior} a ${cantidadNueva}`
+            : "Modificacion de precio o descuento de línea",
       });
 
       return {
         linea: lineaActualizada,
+        ajusteInventario,
         ordenTrabajo: ordenActualizada,
       };
     });
@@ -238,9 +323,12 @@ export async function PATCH(
         ID_INVALIDO: 400,
         CAMPOS_LINEA_REQUERIDOS: 400,
         VALORES_LINEA_INVALIDOS: 400,
+        CANTIDAD_INVALIDA: 400,
         ORDEN_NO_EXISTE: 404,
         LINEA_NO_EXISTE: 404,
         ORDEN_NO_MODIFICABLE: 409,
+        ESTADO_ORDEN_NO_PERMITE_AJUSTE: 409,
+        LINEA_NO_ES_INSUMO: 409,
       };
 
       return NextResponse.json(
@@ -249,6 +337,18 @@ export async function PATCH(
           message: error.message,
         },
         { status: statusByCode[error.code] }
+      );
+    }
+
+    if (error instanceof InventoryStockError) {
+      return NextResponse.json(
+        {
+          code: error.code,
+          message: error.message,
+        },
+        {
+          status: error.code === "PRODUCTO_NO_EXISTE" ? 404 : 409,
+        }
       );
     }
 

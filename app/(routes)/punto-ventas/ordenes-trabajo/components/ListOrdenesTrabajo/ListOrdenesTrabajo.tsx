@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,6 +10,7 @@ import { UpcomingDeadlines } from "./upcoming-deadlines"
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { OrderDetailDialog } from "./OrderDetailDialog"
+import { normalizarImagenesBicicleta } from "@/lib/bicycle-images"
 import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
@@ -18,6 +19,13 @@ import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
+
+type PeriodFilter = {
+  fechaInicio: string
+  fechaFin: string
+}
+
+type PeriodErrors = Partial<Record<keyof PeriodFilter, string>>
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
   if (!dateInput) return ""
@@ -34,6 +42,14 @@ export function ListOrdenesTrabajo() {
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
+  const [periodDraft, setPeriodDraft] = useState<PeriodFilter>({
+    fechaInicio: "",
+    fechaFin: "",
+  })
+  const [appliedPeriod, setAppliedPeriod] = useState<PeriodFilter | null>(null)
+  const [periodErrors, setPeriodErrors] = useState<PeriodErrors>({})
+  const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
+  const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
 
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
   const [openDetailsModal, setOpenDetailsModal] = useState(false)
@@ -65,41 +81,120 @@ export function ListOrdenesTrabajo() {
   const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
   const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
 
-  const getOrders = async () => {
+  const getOrders = useCallback(async (period: PeriodFilter | null): Promise<boolean> => {
     try {
-      const response = await fetch("/api/punto-venta", {
-        cache: "no-store",
-      })
+      const searchParams = new URLSearchParams()
 
-      if (!response.ok) {
-        setOrders([])
-        return
+      if (period) {
+        searchParams.set("fechaInicio", period.fechaInicio)
+        searchParams.set("fechaFin", period.fechaFin)
       }
 
-      const data = await response.json()
+      const query = searchParams.size > 0 ? `?${searchParams.toString()}` : ""
+      const response = await fetch(`/api/punto-venta${query}`, {
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        if (response.status === 404 && data?.code === "SIN_ORDENES_EN_PERIODO") {
+          setOrders([])
+          setPeriodEmptyMessage("No hay órdenes de trabajo dentro del período seleccionado.")
+          return true
+        }
+
+        toast.error(data?.message || "No fue posible consultar las órdenes de trabajo.")
+        return false
+      }
+
       const ordenes = Array.isArray(data)
         ? data
           .filter((item) => item.tipoOperacion === "orden_trabajo")
           .map((item) => item.ordenTrabajo)
           .filter(Boolean)
+          .map((orden: WorkOrder) => ({
+            ...orden,
+            bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
+              ...bicicleta,
+              imagenes: normalizarImagenesBicicleta(bicicleta),
+            })),
+          }))
         : []
 
       setOrders(ordenes)
+      setPeriodEmptyMessage(
+        period && ordenes.length === 0
+          ? "No hay órdenes de trabajo dentro del período seleccionado."
+          : null,
+      )
+      return true
     } catch (err) {
       console.error("Error fetching work orders:", err)
+      toast.error("No fue posible consultar las órdenes de trabajo.")
+      return false
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  const refreshOrders = useCallback(() => {
+    void getOrders(appliedPeriod)
+  }, [appliedPeriod, getOrders])
 
   useEffect(() => {
-    getOrders()
-    window.addEventListener("work-orders:refresh", getOrders)
+    // Difiere la carga inicial para evitar actualizaciones de estado síncronas durante el efecto.
+    void Promise.resolve().then(() => getOrders(null))
+  }, [getOrders])
+
+  useEffect(() => {
+    window.addEventListener("work-orders:refresh", refreshOrders)
 
     return () => {
-      window.removeEventListener("work-orders:refresh", getOrders)
+      window.removeEventListener("work-orders:refresh", refreshOrders)
     }
-  }, [])
+  }, [refreshOrders])
+
+  const updatePeriodField = (field: keyof PeriodFilter, value: string) => {
+    setPeriodDraft((current) => ({ ...current, [field]: value }))
+    setPeriodErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
+  const applyPeriodFilter = async () => {
+    const errors: PeriodErrors = {}
+    const { fechaInicio, fechaFin } = periodDraft
+
+    if (!fechaInicio) errors.fechaInicio = "Selecciona la fecha de inicio."
+    if (!fechaFin) errors.fechaFin = "Selecciona la fecha de fin."
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+      errors.fechaFin = "La fecha de fin debe ser posterior o igual a la fecha de inicio."
+    }
+
+    setPeriodErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    setIsFilteringByPeriod(true)
+    try {
+      if (await getOrders(periodDraft)) {
+        setAppliedPeriod(periodDraft)
+      }
+    } finally {
+      setIsFilteringByPeriod(false)
+    }
+  }
+
+  const clearPeriodFilter = async () => {
+    setIsFilteringByPeriod(true)
+    try {
+      if (await getOrders(null)) {
+        setPeriodDraft({ fechaInicio: "", fechaFin: "" })
+        setPeriodErrors({})
+        setPeriodEmptyMessage(null)
+        setAppliedPeriod(null)
+      }
+    } finally {
+      setIsFilteringByPeriod(false)
+    }
+  }
 
   const handleStatusChange = async (orderId: number, nextStatus: string) => {
     setUpdatingId(orderId)
@@ -126,7 +221,7 @@ export function ListOrdenesTrabajo() {
         })
       }
 
-      getOrders()
+      refreshOrders()
       router.refresh()
     } catch (err: any) {
       console.error(err)
@@ -203,7 +298,7 @@ export function ListOrdenesTrabajo() {
 
       setCancelModalOpen(false)
       setOrderToCancel(null)
-      getOrders()
+      refreshOrders()
       router.refresh()
     } catch {
       toast.error("No se pudo anular la orden")
@@ -250,7 +345,7 @@ export function ListOrdenesTrabajo() {
 
       setRescheduleModalOpen(false)
       setOrderToReschedule(null)
-      getOrders()
+      refreshOrders()
       router.refresh()
     } catch {
       toast.error("No se pudo reprogramar la entrega")
@@ -287,7 +382,7 @@ export function ListOrdenesTrabajo() {
       toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
       setPayModalOpen(false)
       setOpenDetailsModal(false)
-      getOrders()
+      refreshOrders()
       router.refresh()
     } catch (err: any) {
       console.error(err)
@@ -444,6 +539,23 @@ export function ListOrdenesTrabajo() {
       <DataTable
         columns={columns}
         data={orders}
+        periodFilter={{
+          draft: periodDraft,
+          errors: periodErrors,
+          applied: appliedPeriod,
+          isApplying: isFilteringByPeriod,
+          onChange: updatePeriodField,
+          onApply: applyPeriodFilter,
+          onClear: clearPeriodFilter,
+        }}
+        emptyState={
+          periodEmptyMessage
+            ? {
+                title: "Sin órdenes en este período",
+                description: periodEmptyMessage,
+              }
+            : undefined
+        }
         onViewDetails={handleViewDetails}
         onStatusChange={handleStatusChange}
         updatingId={updatingId}
@@ -537,7 +649,7 @@ export function ListOrdenesTrabajo() {
         onOpenChange={setModifyServiceModalOpen}
         order={orderToModifyService}
         onSuccess={() => {
-          getOrders()
+          refreshOrders()
           router.refresh()
         }}
       />

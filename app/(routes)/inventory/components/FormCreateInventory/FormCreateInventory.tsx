@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   SelectContent,
 } from "@/components/ui/select";
 import { ImageUpload } from "@/components/forms/ImageUpload";
-import type { FormCreateInventoryProps } from "../../types";
+import { CategoryMultiSelect } from "../CategoryMultiSelect";
+import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 
 const numericField = (fieldName: string) =>
   z
@@ -62,6 +63,8 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -78,6 +81,20 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   });
 
   const { isSubmitting, isValid } = form.formState;
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", { cache: "no-store" });
+        const result = await response.json().catch(() => null);
+        setCategories(response.ok ? result?.categories ?? [] : []);
+      } catch {
+        setCategories([]);
+      }
+    }
+
+    loadCategories();
+  }, []);
 
   const uploadImage = async (file: File): Promise<string | null> => {
     setUploadingImage(true);
@@ -127,6 +144,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
           precioVenta: Number(values.precioVenta),
           stockActual: Number(values.stockActual),
           stockMinimo: Number(values.stockMinimo),
+          categoriaIds: selectedCategoryIds,
           imageUrl,
         }),
       });
@@ -143,6 +161,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       form.reset();
       setImageFile(null);
       setImagePreview(null);
+      setSelectedCategoryIds([]);
     } catch (error) {
       console.error(error);
       toast.error(
@@ -190,6 +209,19 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="space-y-2">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categories}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSubmitting || uploadingImage}
+          />
+          <p className="text-xs text-muted-foreground">
+            Selecciona una o más categorías para facilitar el filtrado del inventario.
+          </p>
         </div>
 
         <FormField

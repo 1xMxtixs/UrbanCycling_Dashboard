@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { LogOut, User, ShieldCheck } from "lucide-react"
 
@@ -90,6 +91,16 @@ export function UserButton() {
         </div>
 
         <DropdownMenuSeparator className="my-1" />
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/perfil"
+            className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium cursor-pointer rounded-xl transition-colors"
+          >
+            <User className="h-4 w-4" />
+            <span>Mi perfil</span>
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuItem
           className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium cursor-pointer rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive transition-colors"
