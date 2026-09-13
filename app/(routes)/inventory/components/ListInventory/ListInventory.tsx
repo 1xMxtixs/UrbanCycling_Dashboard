@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { AlertTriangle, PackageX } from "lucide-react"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,7 +11,12 @@ import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
 import { FormEditInventory } from "../FormEditInventory"
 import { InventoryMovementDialog } from "../InventoryMovementDialog"
-import { Dialog } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import type { InventoryCategory } from "../../types"
 
@@ -32,6 +38,8 @@ export function ListInventory() {
   const [openMovement, setOpenMovement] = useState(false)
   const [productToEdit, setProductToEdit] = useState<ProductColumn | null>(null)
   const [openEdit, setOpenEdit] = useState(false)
+  const [openLowStock, setOpenLowStock] = useState(false)
+  const [openOutOfStock, setOpenOutOfStock] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -81,6 +89,19 @@ export function ListInventory() {
     )
   }
 
+  const activeProducts = inventory.filter(
+    (product) => product.estado?.toLowerCase() === "activo",
+  )
+
+  const lowStockProducts = activeProducts.filter(
+    (product) =>
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
+  )
+
+  const outOfStockProducts = activeProducts.filter(
+    (product) => product.stockActual === 0,
+  )
+
   const handleViewDetail = (product: ProductColumn) => {
     setSelectedProduct(product)
     setOpenDetail(true)
@@ -105,7 +126,130 @@ export function ListInventory() {
 
   return (
     <>
+      {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {lowStockProducts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpenLowStock(true)}
+              className="w-full text-left"
+            >
+              <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 transition-colors hover:bg-yellow-500/15">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-yellow-500/15">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Stock bajo
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {lowStockProducts.length === 1
+                      ? "Hay 1 producto con stock bajo."
+                      : `Hay ${lowStockProducts.length} productos con stock bajo.`}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-yellow-600 dark:text-yellow-500">
+                    Ver productos →
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+
+          {outOfStockProducts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpenOutOfStock(true)}
+              className="w-full text-left"
+            >
+              <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 transition-colors hover:bg-red-500/15">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
+                  <PackageX className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Productos agotados
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {outOfStockProducts.length === 1
+                      ? "Hay 1 producto sin stock."
+                      : `Hay ${outOfStockProducts.length} productos sin stock.`}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-500">
+                    Ver productos →
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+      )}
+
       <DataTable columns={columns} data={inventory} categories={categories} />
+
+      <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
+        <DialogContent className="max-w-2xl rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Productos con stock bajo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {lowStockProducts.map((product) => (
+              <div
+                key={product.idProducto}
+                className="flex items-center justify-between rounded-lg border border-border/80 bg-muted/30 p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{product.nombre}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Stock mínimo: {product.stockMinimo} u
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-yellow-600 dark:text-yellow-500">
+                    {product.stockActual} u
+                  </p>
+                  <p className="text-xs text-muted-foreground">Stock actual</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openOutOfStock} onOpenChange={setOpenOutOfStock}>
+        <DialogContent className="max-w-2xl rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackageX className="h-5 w-5 text-red-500" />
+              Productos agotados
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {outOfStockProducts.map((product) => (
+              <div
+                key={product.idProducto}
+                className="flex items-center justify-between rounded-lg border border-border/80 bg-muted/30 p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{product.nombre}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Stock mínimo: {product.stockMinimo} u
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-red-600 dark:text-red-500">
+                    0 u
+                  </p>
+                  <p className="text-xs text-muted-foreground">Sin stock</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}
