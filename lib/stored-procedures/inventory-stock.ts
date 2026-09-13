@@ -74,6 +74,13 @@ export type ProductoParaDescontar = {
   idLineaDeOrdenDeTrabajo?: number | null;
 };
 
+export type AjusteStockLineaOrdenInput = {
+  idProducto: number;
+  idLineaDeOrdenDeTrabajo: number;
+  diferencia: number;
+  costoUnitario: Prisma.Decimal | number;
+};
+
 export class InventoryStockError extends Error {
   constructor(
     public readonly code: "STOCK_INSUFICIENTE" | "PRODUCTO_NO_EXISTE",
@@ -117,4 +124,123 @@ export async function descontarStockProductos(
 
     throw error;
   }
+}
+
+/**
+ * Ajusta el stock por la diferencia entre la cantidad anterior y la nueva de
+ * una linea de producto de una orden de trabajo.
+ *
+ * Una diferencia positiva representa consumo adicional (SALIDA), mientras
+ * que una diferencia negativa devuelve unidades a bodega (ENTRADA).
+ */
+export async function ajustarStockPorCantidadLineaOrden(
+  tx: Prisma.TransactionClient,
+  input: AjusteStockLineaOrdenInput
+) {
+  if (input.diferencia === 0) {
+    return null;
+  }
+
+  const cantidadMovimiento = Math.abs(input.diferencia);
+  const tipoMovimiento = input.diferencia > 0 ? "SALIDA" : "ENTRADA";
+
+  if (input.diferencia > 0) {
+    const resultado = await tx.producto.updateMany({
+      where: {
+        idProducto: input.idProducto,
+        stockActual: {
+          gte: cantidadMovimiento,
+        },
+      },
+      data: {
+        stockActual: {
+          decrement: cantidadMovimiento,
+        },
+      },
+    });
+
+    if (resultado.count === 0) {
+      const producto = await tx.producto.findUnique({
+        where: {
+          idProducto: input.idProducto,
+        },
+        select: {
+          stockActual: true,
+        },
+      });
+
+      if (!producto) {
+        throw new InventoryStockError(
+          "PRODUCTO_NO_EXISTE",
+          "El insumo asociado a la linea no existe"
+        );
+      }
+
+      throw new InventoryStockError(
+        "STOCK_INSUFICIENTE",
+        "No hay stock suficiente para aumentar la cantidad del insumo"
+      );
+    }
+  } else {
+    try {
+      await tx.producto.update({
+        where: {
+          idProducto: input.idProducto,
+        },
+        data: {
+          stockActual: {
+            increment: cantidadMovimiento,
+          },
+        },
+      });
+    } catch (error) {
+      const producto = await tx.producto.findUnique({
+        where: {
+          idProducto: input.idProducto,
+        },
+        select: {
+          idProducto: true,
+        },
+      });
+
+      if (!producto) {
+        throw new InventoryStockError(
+          "PRODUCTO_NO_EXISTE",
+          "El insumo asociado a la linea no existe"
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  const movimiento = await tx.movimientoInventario.create({
+    data: {
+      idLineaDeOrdenDeTrabajo: input.idLineaDeOrdenDeTrabajo,
+      tipoMovimiento,
+      cantidad: cantidadMovimiento,
+      costoUnitario: input.costoUnitario,
+    },
+  });
+
+  const producto = await tx.producto.findUniqueOrThrow({
+    where: {
+      idProducto: input.idProducto,
+    },
+  });
+
+  const stockNuevo = producto.stockActual;
+  const stockAnterior =
+    tipoMovimiento === "SALIDA"
+      ? stockNuevo + cantidadMovimiento
+      : stockNuevo - cantidadMovimiento;
+
+  return {
+    movimiento,
+    producto,
+    tipoMovimiento,
+    cantidad: cantidadMovimiento,
+    stockAnterior,
+    stockNuevo,
+  };
 }
