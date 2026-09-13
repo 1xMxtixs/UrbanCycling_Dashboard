@@ -253,6 +253,14 @@ export function OrderDetailDialog({
                     : "Pendiente de finalizar"
                 }
               />
+              <DataField
+                label="Tiempo de Servicio"
+                value={
+                  order.diasServicio != null
+                    ? `${order.diasServicio} ${order.diasServicio === 1 ? "día" : "días"}`
+                    : "Pendiente de entrega"
+                }
+              />
             </div>
           </div>
 
