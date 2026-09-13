@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,6 +51,21 @@ const editableFields: EditableField[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[+\d\s-]{7,20}$/
+const sessionFields: EditableField[] = [
+  "primerNombre",
+  "segundoNombre",
+  "apellidoPaterno",
+  "apellidoMaterno",
+  "correo",
+]
+const invalidFieldMessages: Record<EditableField, string> = {
+  primerNombre: "Ingresa un primer nombre de hasta 50 caracteres.",
+  segundoNombre: "El segundo nombre debe tener como máximo 50 caracteres.",
+  apellidoPaterno: "Ingresa un apellido paterno de hasta 50 caracteres.",
+  apellidoMaterno: "El apellido materno debe tener como máximo 50 caracteres.",
+  correo: "Ingresa un correo válido de hasta 255 caracteres.",
+  telefono: "Ingresa un teléfono válido de hasta 20 caracteres.",
+}
 
 function toFormValues(profile: Profile): FormValues {
   return {
@@ -117,6 +133,7 @@ function Field({
 }
 
 export function ProfileContent() {
+  const { update } = useSession()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [formValues, setFormValues] = useState<FormValues | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -208,12 +225,17 @@ export function ProfileContent() {
       const data = await response.json().catch(() => null)
 
       if (!response.ok) {
-        const errorData = data as { fields?: unknown; message?: unknown } | null
+        const errorData = data as { code?: unknown; fields?: unknown; message?: unknown } | null
         const fields = Array.isArray(errorData?.fields) ? errorData.fields : []
         const errors = fields.reduce<Partial<Record<EditableField, string>>>((result, field) => {
           if (typeof field === "string" && editableFields.includes(field as EditableField)) {
-            result[field as EditableField] =
-              typeof errorData?.message === "string" ? errorData.message : "Revisa este campo."
+            const editableField = field as EditableField
+            result[editableField] =
+              errorData?.code === "CAMPOS_INVALIDOS"
+                ? invalidFieldMessages[editableField]
+                : typeof errorData?.message === "string"
+                  ? errorData.message
+                  : "Revisa este campo."
           }
           return result
         }, {})
@@ -230,6 +252,21 @@ export function ProfileContent() {
       setFormValues(toFormValues(updatedProfile))
       setFieldErrors({})
       setIsEditing(false)
+
+      const requiresSessionRefresh = sessionFields.some((field) =>
+        Object.prototype.hasOwnProperty.call(changes, field),
+      )
+
+      if (requiresSessionRefresh) {
+        try {
+          await update()
+        } catch {
+          toast.warning(
+            "Tu perfil se guardó, pero no pudimos actualizar el menú. Recarga la página.",
+          )
+        }
+      }
+
       toast.success("Tu perfil se actualizó correctamente.")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Ocurrió un error inesperado.")
