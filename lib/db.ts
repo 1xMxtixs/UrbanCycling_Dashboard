@@ -31,7 +31,13 @@ function createAdapter() {
     });
   }
 
-  // Conexión local sin SSL
+  // Managed MySQL (e.g. Aiven) needs TLS verified against its own CA.
+  // Env vars may store the PEM with escaped newlines.
+  const caCert = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n");
+  const requiresSsl = /[?&]ssl-mode=required/i.test(rawUrl);
+  const ssl = caCert ? { ca: caCert } : requiresSsl ? true : undefined;
+
+  // Conexión MySQL estándar (local sin SSL, o gestionada con SSL)
   try {
     const cleanUrl = rawUrl || "mysql://mock_user:mock_pass@localhost:3306/mock_db";
     const withoutProtocol = cleanUrl.replace(/^(mysql|mariadb):\/\//, "");
@@ -50,6 +56,9 @@ function createAdapter() {
       database,
       allowPublicKeyRetrieval: true,
       connectionLimit: 10,
+      // TLS handshake to a remote host can exceed the 1s driver default
+      connectTimeout: 10000,
+      ssl,
     });
   } catch (e) {
     return new PrismaMariaDb(
