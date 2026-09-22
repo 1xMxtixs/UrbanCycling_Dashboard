@@ -1,5 +1,6 @@
 
 import {
+    BarChart3,
     Bike,
     Building2,
     FileText,
@@ -21,7 +22,12 @@ export const dataGeneralSidebar = [
         label: "Dashboard",
         href: "/"
     },
-
+    {
+        icon: BarChart3,
+        label: "Reportes",
+        href: "/reportes",
+        permission: PERMISSIONS.REPORTS_READ
+    },
 ]
 
 export const dataOperationSidebar = [
