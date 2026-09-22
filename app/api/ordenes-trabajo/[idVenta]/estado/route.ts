@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { calcularDiasServicio } from "@/lib/service-time";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { NextResponse } from "next/server";
 
@@ -48,6 +49,9 @@ export async function PATCH(
       where: {
         idOrdenDeTrabajo,
       },
+      include: {
+        venta: { select: { fechaRegistro: true } },
+      },
     });
 
     if (!ordenTrabajo) {
@@ -85,6 +89,25 @@ export async function PATCH(
     }
     }
 
+    const fechaEntregaReal = ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined;
+
+    // UR 5.15: service time is computed and stored when the bike is effectively delivered.
+    const diasServicio =
+      estado === "Entregado"
+        ? calcularDiasServicio(ordenTrabajo.venta.fechaRegistro, fechaEntregaReal)
+        : undefined;
+
+    if (diasServicio === null) {
+      return NextResponse.json(
+        {
+          code: "TIEMPO_SERVICIO_INVALIDO",
+          message:
+            "No se pudo calcular el tiempo de servicio: la orden no tiene una fecha de ingreso válida",
+        },
+        { status: 422 }
+      );
+    }
+
     const ordenActualizada = await db.$transaction(async (tx) => {
       const orden = await tx.ordenDeTrabajo.update({
         where: {
@@ -92,7 +115,8 @@ export async function PATCH(
         },
         data: {
           estado,
-          fechaEntregaReal: ["Listo para entregar", "Entregado"].includes(estado) ? new Date() : undefined,
+          fechaEntregaReal,
+          diasServicio,
         },
       });
 
@@ -103,10 +127,12 @@ export async function PATCH(
         valorAnterior: {
           estado: ordenTrabajo.estado,
           fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
+          diasServicio: ordenTrabajo.diasServicio,
         },
         valorNuevo: {
           estado: orden.estado,
           fechaEntregaReal: orden.fechaEntregaReal,
+          diasServicio: orden.diasServicio,
         },
         detalleCambio:
           estado === "Anulada"

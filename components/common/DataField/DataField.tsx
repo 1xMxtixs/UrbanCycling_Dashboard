@@ -2,6 +2,7 @@
 
 import React from "react";
 import { type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type DataFieldVariant = "detail-item" | "table-cell" | "inline";
 
@@ -12,7 +13,6 @@ export interface DataFieldProps {
   icon?: LucideIcon;
   variant?: DataFieldVariant;
   className?: string;
-  /** @deprecated Kept for compatibility; visual styling is controlled globally. */
   valueClassName?: string;
 }
 
@@ -23,7 +23,7 @@ export function DataField({
   icon: Icon,
   variant = "detail-item",
   className = "",
-  valueClassName: _valueClassName,
+  valueClassName = "",
 }: DataFieldProps) {
   // Variante 1: Celdas compuestas en Tablas (ej. Nombre + RUT abajo)
   if (variant === "table-cell") {
@@ -31,7 +31,7 @@ export function DataField({
       <div className={`flex flex-col ${className}`}>
         <div className="flex items-center gap-1.5">
           {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-          <span className="text-sm font-semibold text-foreground">
+          <span className={cn("text-sm font-semibold text-foreground", valueClassName)}>
             {value}
           </span>
         </div>
@@ -50,7 +50,7 @@ export function DataField({
       <div className={`flex items-center gap-1.5 text-sm text-muted-foreground ${className}`}>
         {Icon && <Icon className="h-3.5 w-3.5 shrink-0 stroke-[1.5]" />}
         {label && <span>{label}:</span>}
-        <span className="text-sm font-semibold text-foreground">
+        <span className={cn("text-sm font-semibold text-foreground", valueClassName)}>
           {value}
         </span>
         {secondaryValue && (
@@ -73,7 +73,7 @@ export function DataField({
           </span>
         </div>
       )}
-      <div className="text-sm font-semibold text-foreground">
+      <div className={cn("text-sm font-semibold text-foreground", valueClassName)}>
         {value}
       </div>
       {secondaryValue && (

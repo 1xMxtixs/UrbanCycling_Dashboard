@@ -2,7 +2,24 @@
 
 Sistema de gestión integral para tiendas de ciclismo urbano. Permite administrar clientes, inventario, bicicletas, punto de venta, órdenes de trabajo y documentos tributarios desde una sola plataforma web.
 
-> Proyecto universitario — Ingeniería de Software I, Semestre 7.
+> Proyecto universitario — Ingeniería de Software II, Semestre 8.
+
+---
+
+## ⚡ Inicio rápido
+
+```bash
+git clone https://github.com/1xMxtixs/UrbanCycling_Dashboard.git
+cd UrbanCycling_Dashboard
+npm install              # también ejecuta `prisma generate`
+docker-compose up -d     # MySQL 8.0 en el puerto 3306
+# crea el archivo .env (ver "Variables de Entorno")
+npx prisma migrate dev
+npm run seed
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000) e ingresa con `admin@urbancycling.cl` / `admin123` (usuario creado por el seed).
 
 ---
 
@@ -10,156 +27,121 @@ Sistema de gestión integral para tiendas de ciclismo urbano. Permite administra
 
 | Capa | Tecnología |
 |------|-----------|
-| Framework | [Next.js 16](https://nextjs.org/) con App Router |
+| Framework | [Next.js 16](https://nextjs.org/) con App Router + Turbopack |
 | Lenguaje | TypeScript |
 | ORM | [Prisma 7](https://www.prisma.io/) con adaptador MariaDB |
-| Base de Datos | MySQL 8.0 / MariaDB (vía Docker) |
-| Autenticación | [NextAuth v4](https://next-auth.js.org/) |
+| Base de Datos | MySQL 8.0 / MariaDB (local vía Docker, producción en Aiven) |
+| Autenticación | [NextAuth v4](https://next-auth.js.org/) (Credentials + JWT) |
 | UI Components | [shadcn/ui](https://ui.shadcn.com/) + Radix UI |
 | Estilos | Tailwind CSS v4 |
-| Almacenamiento | AWS S3 (para archivos e imágenes) |
+| Almacenamiento | Cloudflare R2 (API compatible con S3) |
+| Correo | [Resend](https://resend.com/) (recuperación de contraseña) |
 | Formularios | React Hook Form + Zod |
 | Tablas | TanStack Table |
+| PDF | jsPDF + html2canvas-pro |
+| Despliegue | Vercel |
 
 ---
 
 ## 📦 Módulos del Sistema
 
-| Módulo | Descripción |
-|--------|-------------|
-| 🏪 **Punto de Venta** | Gestión de ventas, boletas y transacciones en caja |
-| 📦 **Inventario** | Control de stock de productos y repuestos |
-| 🚲 **Bicicletas** | Registro y seguimiento de bicicletas en taller |
-| 👥 **Clientes** | CRUD de clientes y su historial |
-| 🔧 **Órdenes de Trabajo (ODT)** | Gestión de órdenes de reparación y mantención |
-| 📄 **Historial de Boletas** | Consulta y reporte de documentos de venta |
-| 🧾 **Documentos Tributarios** | Generación y consulta de documentos legales |
-| 👤 **Usuarios** | Administración de cuentas y roles del sistema |
-
----
-
-## 🚀 Instalación y Configuración
-
-### Prerrequisitos
-
-- [Node.js](https://nodejs.org/) >= 20
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [Git](https://git-scm.com/)
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/1xMxtixs/UrbanCycling_Dashboard.git
-cd UrbanCycling_Dashboard
-```
-
-### 2. Instalar dependencias
-
-```bash
-npm install
-```
-
-### 3. Configurar variables de entorno
-
-Copia el archivo de ejemplo y llena los valores:
-
-```bash
-cp .env.example .env
-```
-
-> Ver la sección [Variables de Entorno](#-variables-de-entorno) para más detalles.
-
-### 4. Levantar la base de datos con Docker
-
-```bash
-docker-compose up -d
-```
-
-Esto levanta un contenedor MySQL en el puerto `3306`.
-
-### 5. Ejecutar migraciones y seed
-
-```bash
-npx prisma migrate dev
-npm run seed
-```
-
-### 6. Generar el cliente de Prisma
-
-```bash
-npx prisma generate
-```
-
-### 7. Iniciar el servidor de desarrollo
-
-```bash
-npm run dev
-```
-
-La app estará disponible en [http://localhost:3000](http://localhost:3000).
+| Módulo | Ruta | Descripción |
+|--------|------|-------------|
+| 🏪 **Punto de Venta** | `/punto-ventas/ventas` | Ventas en caja con productos y servicios |
+| 🔧 **Órdenes de Trabajo** | `/punto-ventas/ordenes-trabajo` | Reparaciones: servicios, insumos, fotos, auditoría y tiempo de servicio |
+| 📦 **Inventario** | `/inventory` | Productos, categorías, movimientos de bodega y alertas de stock bajo |
+| 🚲 **Bicicletas** | `/bicicletas` | Registro de bicicletas de clientes |
+| 👥 **Clientes** | `/clientes` | Gestión de clientes y su historial |
+| 📄 **Historial de Boletas** | `/historial-boletas` | Consulta de documentos tributarios emitidos |
+| 👤 **Usuarios** | `/usuarios` | Cuentas, roles y matriz de permisos |
+| 🙍 **Perfil** | `/perfil` | Datos personales y cambio de contraseña |
 
 ---
 
 ## 🔐 Variables de Entorno
 
-Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
+Crea un archivo `.env` en la raíz del proyecto:
 
 ```env
-# Base de datos
+# Base de datos (valores de docker-compose.yml)
 DATABASE_URL="mysql://cycling_admin:cycling_secure_password@localhost:3306/urbancycling_db"
+# Solo para MySQL administrado con TLS (ej. Aiven). PEM completo; se aceptan "\n" escapados.
+# DATABASE_CA_CERT="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
 
 # NextAuth
 NEXTAUTH_SECRET="tu_secreto_aqui"
 NEXTAUTH_URL="http://localhost:3000"
 
-# AWS S3 (opcional para almacenamiento de archivos)
-AWS_REGION="us-east-1"
-AWS_ACCESS_KEY_ID="tu_access_key"
-AWS_SECRET_ACCESS_KEY="tu_secret_key"
-AWS_BUCKET_NAME="tu_bucket"
+# Resend (requerido para recuperación de contraseña)
+RESEND_API_KEY="re_..."
+
+# Cloudflare R2 (opcional: sin estas variables las imágenes se guardan en public/uploads/)
+CLOUDFLARE_ACCOUNT_ID=""
+CLOUDFLARE_ACCESS_KEY_ID=""
+CLOUDFLARE_SECRET_ACCESS_KEY=""
+CLOUDFLARE_R2_BUCKET_NAME=""
+NEXT_PUBLIC_R2_PUBLIC_URL=""
+
+# Documentos tributarios (opcional, por defecto 76.633.070-3)
+TAX_ISSUER_RUT=""
 ```
+
+---
+
+## 🗄️ Base de Datos
+
+- Las migraciones incluyen **procedimientos almacenados** (descuento/ajuste de stock, folios, reporte diario). El motor debe soportarlos: MySQL o MariaDB sirven, TiDB **no**.
+- El cliente de Prisma se genera en `generated/prisma`. Tras cambiar `prisma/schema.prisma`, ejecuta `npx prisma generate`.
+- En producción las migraciones se aplican manualmente con `npx prisma migrate deploy` apuntando a la base de Aiven.
+
+---
+
 ## 🧑‍💻 Scripts Disponibles
 
 | Comando | Descripción |
 |---------|-------------|
-| `npm run dev` | Inicia el servidor de desarrollo con Turbopack |
-| `npm run build` | Compila la aplicación para producción |
-| `npm run start` | Inicia el servidor en modo producción |
-| `npm run lint` | Ejecuta ESLint |
-| `npm run format` | Formatea el código con Prettier |
+| `npm run dev` | Servidor de desarrollo con Turbopack |
+| `npm run build` | Compila para producción |
+| `npm run start` | Servidor en modo producción |
+| `npm run lint` | ESLint |
+| `npm run format` | Formatea con Prettier |
 | `npm run typecheck` | Verifica tipos con TypeScript |
-| `npm run seed` | Ejecuta el seed de la base de datos |
+| `npm run seed` | Pobla la base con roles, usuarios y datos de ejemplo |
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-Urban_Cycling/
+UrbanCycling_Dashboard/
 ├── app/
-│   ├── (auth)/          # Páginas de autenticación (login)
-│   ├── (routes)/        # Páginas protegidas del dashboard
+│   ├── (auth)/(routes)/     # sign-in, forgot-password, reset-password
+│   ├── (routes)/            # Páginas protegidas del dashboard
 │   │   ├── bicicletas/
 │   │   ├── clientes/
 │   │   ├── historial-boletas/
 │   │   ├── inventory/
-│   │   ├── punto-ventas/
+│   │   ├── perfil/
+│   │   ├── punto-ventas/    # ventas/ y ordenes-trabajo/
 │   │   └── usuarios/
-│   └── api/             # API Routes (NextAuth, endpoints REST)
-├── components/          # Componentes reutilizables categorizados
-│   ├── common/          # PageHeader, MetricCard, StatusBadge, EmptyState...
-│   ├── forms/           # FormDialog, ImageUpload, SegmentedTabs...
-│   ├── layout/          # Sidebar, Navbar, Logo, RouteTransition, ThemeToggle...
-│   ├── providers/       # AuthProvider, ThemeProvider
-│   └── ui/              # Componentes base shadcn/ui (Button, Dialog, Table...)
-├── hooks/               # Custom React hooks
-├── lib/                 # Utilidades, permisos y configuración
-├── prisma/              # Schema y migraciones de base de datos
-├── public/              # Assets estáticos
-├── types/               # Definiciones de tipos TypeScript
-├── docker-compose.yml   # Configuración Docker para la BD
-└── next.config.mjs      # Configuración de Next.js
+│   └── api/                 # Endpoints REST protegidos por permisos
+├── components/              # Componentes compartidos (carpeta + index.ts)
+│   └── ui/                  # Primitivas shadcn/ui
+├── generated/prisma/        # Cliente Prisma generado
+├── hooks/                   # Custom React hooks
+├── lib/                     # Auth, permisos, conexión a BD, mailer
+├── prisma/                  # Schema, migraciones y seed
+├── proxy.ts                 # Middleware: protege rutas de páginas
+└── docker-compose.yml       # MySQL local
 ```
+
+### Permisos
+
+Cada usuario tiene un rol con permisos (ej. `inventory:read`) que viajan en la sesión. Al agregar un módulo nuevo hay que actualizar **tres** lugares, porque ninguno valida a los otros:
+
+1. `lib/permissions.ts` — código del permiso.
+2. `app/api/**/route.ts` — `requirePermission(PERMISSIONS.X)`.
+3. `proxy.ts` (matcher) y `components/SidebarRoutes/SidebarRoutes.data.ts` (menú).
 
 ---
 
@@ -169,17 +151,18 @@ Urban_Cycling/
    ```bash
    git checkout -b feature/nombre-de-la-feature
    ```
-2. Realiza tus cambios y haz commit siguiendo [Conventional Commits](https://www.conventionalcommits.org/):
+2. Haz commit siguiendo [Conventional Commits](https://www.conventionalcommits.org/):
    ```bash
-   git commit -m "feat: descripción del cambio"
+   git commit -m "feat(inventario): descripción del cambio"
    ```
-3. Sube tu rama y abre un Pull Request hacia `main`.
+3. Verifica con `npm run lint` y `npm run typecheck`.
+4. Sube tu rama y abre un Pull Request hacia `main`.
 
 ---
 
 ## 👨‍💻 Equipo
 
-Desarrollado por el equipo de ISW I — Universidad, Semestre 7.
+Desarrollado por el equipo de ISW II — Semestre 8.
 
 ---
 

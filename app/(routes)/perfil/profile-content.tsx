@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/common/PageHeader"
 import { toast } from "sonner"
-import { Check, Edit3, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
+import { Check, Edit3, KeyRound, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
 
 type Profile = {
   idUsuario: number
@@ -38,6 +39,9 @@ type EditableField =
   | "telefono"
 
 type FormValues = Record<EditableField, string>
+type FieldError = EditableField | "contrasenaActual"
+type PasswordField = "contrasenaActual" | "contrasenaNueva" | "confirmacionContrasena"
+type PasswordValues = Record<PasswordField, string>
 
 const editableFields: EditableField[] = [
   "primerNombre",
@@ -50,6 +54,23 @@ const editableFields: EditableField[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[+\d\s-]{7,20}$/
+const MIN_PASSWORD_LENGTH = 8
+const CONTROL_CHARACTERS_REGEX = /[\u0000-\u001F\u007F]/
+const sessionFields: EditableField[] = [
+  "primerNombre",
+  "segundoNombre",
+  "apellidoPaterno",
+  "apellidoMaterno",
+  "correo",
+]
+const invalidFieldMessages: Record<EditableField, string> = {
+  primerNombre: "Ingresa un primer nombre de hasta 50 caracteres.",
+  segundoNombre: "El segundo nombre debe tener como máximo 50 caracteres.",
+  apellidoPaterno: "Ingresa un apellido paterno de hasta 50 caracteres.",
+  apellidoMaterno: "El apellido materno debe tener como máximo 50 caracteres.",
+  correo: "Ingresa un correo válido de hasta 255 caracteres.",
+  telefono: "Ingresa un teléfono válido de hasta 20 caracteres.",
+}
 
 function toFormValues(profile: Profile): FormValues {
   return {
@@ -117,13 +138,23 @@ function Field({
 }
 
 export function ProfileContent() {
+  const { update } = useSession()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [formValues, setFormValues] = useState<FormValues | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState("")
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<EditableField, string>>>({})
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldError, string>>>({})
+  const [contrasenaActual, setContrasenaActual] = useState("")
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordValues, setPasswordValues] = useState<PasswordValues>({
+    contrasenaActual: "",
+    contrasenaNueva: "",
+    confirmacionContrasena: "",
+  })
+  const [passwordErrors, setPasswordErrors] = useState<Partial<Record<PasswordField | "form", string>>>({})
 
   useEffect(() => {
     const controller = new AbortController()
@@ -152,7 +183,9 @@ export function ProfileContent() {
     if (!profile || !formValues) return {}
 
     return editableFields.reduce<Partial<Record<EditableField, string | null>>>((result, field) => {
-      const value = formValues[field].trim()
+      const value = field === "correo"
+        ? formValues[field].trim().toLowerCase()
+        : formValues[field].trim()
       const normalizedValue = field === "segundoNombre" || field === "apellidoMaterno" || field === "telefono"
         ? value || null
         : value
@@ -163,20 +196,32 @@ export function ProfileContent() {
     }, {})
   }, [formValues, profile])
 
+  const requiresCurrentPassword =
+    Object.prototype.hasOwnProperty.call(changes, "correo") ||
+    Object.prototype.hasOwnProperty.call(changes, "telefono")
+
   function updateField(name: EditableField, value: string) {
     setFormValues((current) => (current ? { ...current, [name]: value } : current))
-    setFieldErrors((current) => ({ ...current, [name]: undefined }))
+    setFieldErrors((current) => ({
+      ...current,
+      [name]: undefined,
+      ...(name === "correo" || name === "telefono" ? { contrasenaActual: undefined } : {}),
+    }))
+
   }
 
   function validate() {
     if (!formValues) return false
-    const errors: Partial<Record<EditableField, string>> = {}
+    const errors: Partial<Record<FieldError, string>> = {}
 
     if (!formValues.primerNombre.trim()) errors.primerNombre = "El primer nombre es obligatorio."
     if (!formValues.apellidoPaterno.trim()) errors.apellidoPaterno = "El apellido paterno es obligatorio."
     if (!EMAIL_REGEX.test(formValues.correo.trim())) errors.correo = "Ingresa un correo válido."
     if (formValues.telefono.trim() && !PHONE_REGEX.test(formValues.telefono.trim())) {
       errors.telefono = "Ingresa un teléfono válido."
+    }
+    if (requiresCurrentPassword && !contrasenaActual) {
+      errors.contrasenaActual = "Ingresa tu clave actual para modificar los datos de contacto."
     }
 
     setFieldErrors(errors)
@@ -186,6 +231,7 @@ export function ProfileContent() {
   function cancelEditing() {
     if (profile) setFormValues(toFormValues(profile))
     setFieldErrors({})
+    setContrasenaActual("")
     setIsEditing(false)
   }
 
@@ -203,21 +249,36 @@ export function ProfileContent() {
       const response = await fetch("/api/perfil", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(changes),
+        body: JSON.stringify({
+          ...changes,
+          ...(requiresCurrentPassword ? { contrasenaActual } : {}),
+        }),
       })
       const data = await response.json().catch(() => null)
 
       if (!response.ok) {
-        const errorData = data as { fields?: unknown; message?: unknown } | null
+        const errorData = data as { code?: unknown; fields?: unknown; message?: unknown } | null
         const fields = Array.isArray(errorData?.fields) ? errorData.fields : []
-        const errors = fields.reduce<Partial<Record<EditableField, string>>>((result, field) => {
+        const errors = fields.reduce<Partial<Record<FieldError, string>>>((result, field) => {
           if (typeof field === "string" && editableFields.includes(field as EditableField)) {
-            result[field as EditableField] =
-              typeof errorData?.message === "string" ? errorData.message : "Revisa este campo."
+            const editableField = field as EditableField
+            result[editableField] =
+              errorData?.code === "CAMPOS_INVALIDOS"
+                ? invalidFieldMessages[editableField]
+                : typeof errorData?.message === "string"
+                  ? errorData.message
+                  : "Revisa este campo."
           }
           return result
         }, {})
+        if (fields.includes("contrasenaActual")) {
+          errors.contrasenaActual =
+            typeof errorData?.message === "string"
+              ? errorData.message
+              : "No fue posible validar tu clave actual."
+        }
         setFieldErrors(errors)
+        setContrasenaActual("")
         throw new Error(
           typeof errorData?.message === "string"
             ? errorData.message
@@ -229,12 +290,132 @@ export function ProfileContent() {
       setProfile(updatedProfile)
       setFormValues(toFormValues(updatedProfile))
       setFieldErrors({})
+      setContrasenaActual("")
       setIsEditing(false)
+
+      const requiresSessionRefresh = sessionFields.some((field) =>
+        Object.prototype.hasOwnProperty.call(changes, field),
+      )
+
+      if (requiresSessionRefresh) {
+        try {
+          await update()
+        } catch {
+          toast.warning(
+            "Tu perfil se guardó, pero no pudimos actualizar el menú. Recarga la página.",
+          )
+        }
+      }
+
       toast.success("Tu perfil se actualizó correctamente.")
     } catch (error) {
+      setContrasenaActual("")
       toast.error(error instanceof Error ? error.message : "Ocurrió un error inesperado.")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  function resetPasswordForm() {
+    setPasswordValues({
+      contrasenaActual: "",
+      contrasenaNueva: "",
+      confirmacionContrasena: "",
+    })
+    setPasswordErrors({})
+  }
+
+  function cancelPasswordChange() {
+    resetPasswordForm()
+    setIsPasswordFormOpen(false)
+  }
+
+  function updatePasswordField(field: PasswordField, value: string) {
+    setPasswordValues((current) => ({ ...current, [field]: value }))
+    setPasswordErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      ...(field === "contrasenaNueva" ? { confirmacionContrasena: undefined } : {}),
+      form: undefined,
+    }))
+  }
+
+  function validatePasswordForm() {
+    const errors: Partial<Record<PasswordField, string>> = {}
+    const { contrasenaActual, contrasenaNueva, confirmacionContrasena } = passwordValues
+
+    if (!contrasenaActual) {
+      errors.contrasenaActual = "Ingresa tu clave actual."
+    }
+
+    if (!contrasenaNueva) {
+      errors.contrasenaNueva = "Ingresa una nueva clave."
+    } else if (contrasenaNueva.length < MIN_PASSWORD_LENGTH) {
+      errors.contrasenaNueva = "La nueva clave debe tener al menos 8 caracteres."
+    } else if (CONTROL_CHARACTERS_REGEX.test(contrasenaNueva)) {
+      errors.contrasenaNueva = "La nueva clave contiene caracteres inválidos."
+    } else if (contrasenaNueva === contrasenaActual) {
+      errors.contrasenaNueva = "La nueva clave debe ser diferente de la actual."
+    }
+
+    if (!confirmacionContrasena) {
+      errors.confirmacionContrasena = "Confirma la nueva clave."
+    } else if (contrasenaNueva !== confirmacionContrasena) {
+      errors.confirmacionContrasena = "Las claves no coinciden."
+    }
+
+    setPasswordErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!validatePasswordForm()) return
+
+    setIsChangingPassword(true)
+    try {
+      const response = await fetch("/api/perfil/contrasena", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contrasenaActual: passwordValues.contrasenaActual,
+          contrasenaNueva: passwordValues.contrasenaNueva,
+        }),
+      })
+      const message = await response.text()
+
+      if (!response.ok) {
+        const errors: Partial<Record<PasswordField | "form", string>> = {}
+
+        if (message.includes("contrasena actual")) {
+          errors.contrasenaActual = message
+        } else if (message.includes("nueva contrasena")) {
+          errors.contrasenaNueva = message
+        } else {
+          errors.form = message || "No fue posible actualizar tu clave."
+        }
+
+        setPasswordErrors(errors)
+        setPasswordValues({
+          contrasenaActual: "",
+          contrasenaNueva: "",
+          confirmacionContrasena: "",
+        })
+        return
+      }
+
+      resetPasswordForm()
+      setIsPasswordFormOpen(false)
+      toast.success("Tu clave de acceso se actualizó correctamente.")
+    } catch {
+      setPasswordValues({
+        contrasenaActual: "",
+        contrasenaNueva: "",
+        confirmacionContrasena: "",
+      })
+      setPasswordErrors({ form: "No fue posible actualizar tu clave. Intenta nuevamente." })
+    } finally {
+      setIsChangingPassword(false)
     }
   }
 
@@ -347,6 +528,33 @@ export function ProfileContent() {
                   <Field label="Correo electrónico" name="correo" type="email" value={formValues.correo} disabled={!isEditing || isSaving} error={fieldErrors.correo} onChange={updateField} />
                   <Field label="Teléfono" name="telefono" type="tel" value={formValues.telefono} placeholder="Opcional" disabled={!isEditing || isSaving} error={fieldErrors.telefono} onChange={updateField} />
                 </div>
+                {isEditing && requiresCurrentPassword && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                    <label htmlFor="contrasenaActual" className="text-xs font-semibold text-foreground">
+                      Clave actual
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Confirma tu clave para modificar el correo o teléfono de tu cuenta.
+                    </p>
+                    <Input
+                      id="contrasenaActual"
+                      name="contrasenaActual"
+                      type="password"
+                      autoComplete="current-password"
+                      value={contrasenaActual}
+                      disabled={isSaving}
+                      aria-invalid={Boolean(fieldErrors.contrasenaActual)}
+                      className="mt-3"
+                      onChange={(event) => {
+                        setContrasenaActual(event.target.value)
+                        setFieldErrors((current) => ({ ...current, contrasenaActual: undefined }))
+                      }}
+                    />
+                    {fieldErrors.contrasenaActual && (
+                      <p className="mt-1.5 text-xs text-destructive">{fieldErrors.contrasenaActual}</p>
+                    )}
+                  </div>
+                )}
               </section>
 
               {isEditing && (
@@ -359,6 +567,122 @@ export function ProfileContent() {
                 </div>
               )}
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80 bg-card/90 shadow-xs lg:col-start-2 lg:col-span-2">
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="flex items-center gap-2 text-base font-bold">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Seguridad de la cuenta
+            </CardTitle>
+            <CardDescription>
+              Actualiza tu clave de acceso verificando primero tu identidad.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {!isPasswordFormOpen ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Usa una clave distinta de la actual y de al menos 8 caracteres.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsPasswordFormOpen(true)}
+                  disabled={isSaving}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Cambiar contraseña
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={changePassword} className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label htmlFor="contrasenaActualPerfil" className="text-xs font-semibold text-foreground">
+                      Clave actual
+                    </label>
+                    <Input
+                      id="contrasenaActualPerfil"
+                      name="contrasenaActualPerfil"
+                      type="password"
+                      autoComplete="current-password"
+                      value={passwordValues.contrasenaActual}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.contrasenaActual)}
+                      aria-describedby={passwordErrors.contrasenaActual ? "contrasenaActualPerfil-error" : undefined}
+                      onChange={(event) => updatePasswordField("contrasenaActual", event.target.value)}
+                    />
+                    {passwordErrors.contrasenaActual && (
+                      <p id="contrasenaActualPerfil-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.contrasenaActual}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="contrasenaNueva" className="text-xs font-semibold text-foreground">
+                      Nueva clave
+                    </label>
+                    <Input
+                      id="contrasenaNueva"
+                      name="contrasenaNueva"
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordValues.contrasenaNueva}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.contrasenaNueva)}
+                      aria-describedby={passwordErrors.contrasenaNueva ? "contrasenaNueva-error" : undefined}
+                      onChange={(event) => updatePasswordField("contrasenaNueva", event.target.value)}
+                    />
+                    {passwordErrors.contrasenaNueva && (
+                      <p id="contrasenaNueva-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.contrasenaNueva}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="confirmacionContrasena" className="text-xs font-semibold text-foreground">
+                      Confirmar nueva clave
+                    </label>
+                    <Input
+                      id="confirmacionContrasena"
+                      name="confirmacionContrasena"
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordValues.confirmacionContrasena}
+                      disabled={isChangingPassword}
+                      aria-invalid={Boolean(passwordErrors.confirmacionContrasena)}
+                      aria-describedby={passwordErrors.confirmacionContrasena ? "confirmacionContrasena-error" : undefined}
+                      onChange={(event) => updatePasswordField("confirmacionContrasena", event.target.value)}
+                    />
+                    {passwordErrors.confirmacionContrasena && (
+                      <p id="confirmacionContrasena-error" role="alert" className="text-xs text-destructive">
+                        {passwordErrors.confirmacionContrasena}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {passwordErrors.form && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {passwordErrors.form}
+                  </p>
+                )}
+
+                <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={cancelPasswordChange} disabled={isChangingPassword}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword ? <Save className="h-4 w-4 animate-pulse" /> : <ShieldCheck className="h-4 w-4" />}
+                    {isChangingPassword ? "Actualizando..." : "Actualizar contraseña"}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

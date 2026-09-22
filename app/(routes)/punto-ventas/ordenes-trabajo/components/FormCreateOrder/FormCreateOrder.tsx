@@ -6,11 +6,13 @@ import { toast } from "sonner"
 import {
   Loader2,
   Sparkles,
+  Bike,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -70,6 +72,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [fechaEntrega, setFechaEntrega] = useState<string>("")
   const [descripcion, setDescripcion] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [conBicicleta, setConBicicleta] = useState(true)
 
   const [estadoPago, setEstadoPago] = useState<string>("pendiente")
   const [metodoPago, setMetodoPago] = useState<string>("efectivo")
@@ -77,19 +80,26 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
 
   const [openQuickCreateClient, setOpenQuickCreateClient] = useState(false)
 
-  const [bikes, setBikes] = useState<BikeInput[]>([
-    {
-      marca: "",
-      modelo: "",
-      color: "",
-      descripcion: "",
-      imagenUrl: "",
-      imageFiles: [],
-      imagePreviews: [],
-      isUploading: false,
-      isCollapsed: false,
-    },
-  ])
+  const EMPTY_BIKE: BikeInput = {
+    marca: "",
+    modelo: "",
+    color: "",
+    descripcion: "",
+    imagenUrl: "",
+    imageFiles: [],
+    imagePreviews: [],
+    isUploading: false,
+    isCollapsed: false,
+  }
+
+  const [bikes, setBikes] = useState<BikeInput[]>([{ ...EMPTY_BIKE }])
+
+  const handleToggleBike = (checked: boolean) => {
+    setConBicicleta(checked)
+    if (checked && bikes.length === 0) {
+      setBikes([{ ...EMPTY_BIKE }])
+    }
+  }
 
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>([])
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
@@ -194,7 +204,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   }
 
   const handleRemoveBike = (index: number) => {
-    if (bikes.length <= 1) {
+    if (conBicicleta && bikes.length <= 1) {
       toast.warning("Debe asociar al menos una bicicleta a la orden.")
       return
     }
@@ -365,17 +375,19 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       return
     }
 
-    const incompleteBikeIdx = bikes.findIndex(
-      (b) => !b.marca.trim() || !b.modelo.trim() || !b.color.trim()
-    )
-    if (incompleteBikeIdx !== -1) {
-      toast.error(
-        `La bicicleta #${incompleteBikeIdx + 1} está incompleta. Debe indicar Marca, Modelo y Color.`
+    if (conBicicleta) {
+      const incompleteBikeIdx = bikes.findIndex(
+        (b) => !b.marca.trim() || !b.modelo.trim() || !b.color.trim()
       )
-      const updated = [...bikes]
-      updated[incompleteBikeIdx].isCollapsed = false
-      setBikes(updated)
-      return
+      if (incompleteBikeIdx !== -1) {
+        toast.error(
+          `La bicicleta #${incompleteBikeIdx + 1} está incompleta. Debe indicar Marca, Modelo y Color.`
+        )
+        const updated = [...bikes]
+        updated[incompleteBikeIdx].isCollapsed = false
+        setBikes(updated)
+        return
+      }
     }
 
     const incompleteProductIdx = selectedProducts.findIndex(
@@ -411,40 +423,42 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setIsSubmitting(true)
 
     try {
-      // 1. Upload any pending bike images
-      const bikesData = await Promise.all(
-        bikes.map(async (b, idx) => {
-          const imagenes: string[] = []
-          for (const [imageIdx, file] of b.imageFiles.entries()) {
-            const formData = new FormData()
-            formData.append("file", file)
-            const res = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
+      // 1. Upload any pending bike images (solo si hay bicicleta asociada)
+      const bikesData = conBicicleta
+        ? await Promise.all(
+            bikes.map(async (b, idx) => {
+              const imagenes: string[] = []
+              for (const [imageIdx, file] of b.imageFiles.entries()) {
+                const formData = new FormData()
+                formData.append("file", file)
+                const res = await fetch("/api/upload", {
+                  method: "POST",
+                  body: formData,
+                })
+                if (!res.ok) {
+                  throw new Error(
+                    `Error al subir la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
+                  )
+                }
+                const data = (await res.json()) as { url?: string }
+                if (!data.url) {
+                  throw new Error(
+                    `El servidor no devolvió una URL para la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
+                  )
+                }
+                imagenes.push(data.url)
+              }
+              return {
+                marca: b.marca.trim(),
+                modelo: b.modelo.trim(),
+                color: b.color.trim(),
+                descripcion: b.descripcion.trim() || null,
+                imagenUrl: b.imagenUrl || null,
+                imagenes,
+              }
             })
-            if (!res.ok) {
-              throw new Error(
-                `Error al subir la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
-              )
-            }
-            const data = (await res.json()) as { url?: string }
-            if (!data.url) {
-              throw new Error(
-                `El servidor no devolvió una URL para la foto ${imageIdx + 1} de la bicicleta #${idx + 1}`
-              )
-            }
-            imagenes.push(data.url)
-          }
-          return {
-            marca: b.marca.trim(),
-            modelo: b.modelo.trim(),
-            color: b.color.trim(),
-            descripcion: b.descripcion.trim() || null,
-            imagenUrl: b.imagenUrl || null,
-            imagenes,
-          }
-        })
-      )
+          )
+        : []
 
       const response = await fetch("/api/punto-venta", {
         method: "POST",
@@ -452,7 +466,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          id_usuario: 1,
           id_cliente: Number(selectedClientId),
           estado_pago: estadoPago,
           metodo_pago: estadoPago === "pendiente" ? null : metodoPago,
@@ -641,16 +654,42 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           </div>
         </div>
 
-        <BikesSection
-          bikes={bikes}
-          isSubmitting={isSubmitting}
-          onAddBike={handleAddBike}
-          onRemoveBike={handleRemoveBike}
-          onUpdateBikeField={handleUpdateBikeField}
-          onToggleCollapse={toggleCollapse}
-          onBikeImagesChange={handleBikeImagesChange}
-          onRemoveBikeImage={handleRemoveBikeImage}
-        />
+        {/* ── Toggle Bicicleta ─────────────────────────────────── */}
+        <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Bike className="h-4.5 w-4.5 text-primary" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Asociar bicicleta
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {conBicicleta
+                  ? "La orden incluye una o más bicicletas"
+                  : "Venta de servicio rápido sin bicicleta registrada"}
+              </p>
+            </div>
+          </div>
+          <Switch
+            id="toggle-bicicleta"
+            checked={conBicicleta}
+            onCheckedChange={handleToggleBike}
+            disabled={isSubmitting}
+            aria-label="Asociar bicicleta a la orden"
+          />
+        </div>
+
+        {conBicicleta && (
+          <BikesSection
+            bikes={bikes}
+            isSubmitting={isSubmitting}
+            onAddBike={handleAddBike}
+            onRemoveBike={handleRemoveBike}
+            onUpdateBikeField={handleUpdateBikeField}
+            onToggleCollapse={toggleCollapse}
+            onBikeImagesChange={handleBikeImagesChange}
+            onRemoveBikeImage={handleRemoveBikeImage}
+          />
+        )}
 
         <OrderLinesSection
           products={products}
@@ -692,7 +731,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
 
           <Button
             type="submit"
-            disabled={isSubmitting || bikes.some((b) => b.isUploading)}
+            disabled={isSubmitting || (conBicicleta && bikes.some((b) => b.isUploading))}
           >
             {isSubmitting ? (
               <span className="flex items-center gap-1">

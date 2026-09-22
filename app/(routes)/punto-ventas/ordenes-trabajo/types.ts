@@ -26,6 +26,7 @@ export interface WorkOrderServiceLine {
   idProducto?: number | null;
   cantidad: number;
   precioUnitario: number | string;
+  descuentoUnitario?: number | string;
   servicio?: {
     idServicio?: number;
     nombre: string;
@@ -58,10 +59,18 @@ export interface WorkOrder {
   fechaRecepcion?: string | Date;
   fechaEntregaEstimada: string | Date;
   fechaEntregaReal?: string | Date | null;
+  diasServicio?: number | null;
   observacionesIngreso?: string | null;
   total: number | string;
   descuento?: number;
   totalPagado?: number | string;
+  idMecanicoAsignado?: number | null;
+  mecanico?: {
+    idUsuario: number;
+    primerNombre?: string | null;
+    apellidoPaterno?: string | null;
+    correo?: string | null;
+  } | null;
   cliente?: WorkOrderClient | null;
   bicicletas?: WorkOrderBike[];
   lineasDeOrdenDeTrabajo?: WorkOrderServiceLine[];
