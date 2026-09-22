@@ -24,3 +24,15 @@ export function formatClientName(cliente: ClienteNombreInput): string {
 
   return "Sin cliente";
 }
+
+/**
+ * Formatea un monto numérico como moneda chilena (CLP) sin decimales.
+ * Ejemplo: 184990 → "$184.990"
+ */
+export function formatCLP(amount: number): string {
+  return amount.toLocaleString("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  })
+}

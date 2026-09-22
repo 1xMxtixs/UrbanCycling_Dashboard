@@ -1,13 +1,13 @@
-
 import {
+  BarChart3,
   Bike,
   FileText,
   Package,
   PanelsTopLeft,
+  ShieldCheck,
   Store,
   UserCog,
   Users,
-  ShieldCheck,
 } from "lucide-react";
 
 import { PERMISSIONS } from "@/lib/permissions";
@@ -17,6 +17,12 @@ export const dataGeneralSidebar = [
     icon: PanelsTopLeft,
     label: "Dashboard",
     href: "/",
+  },
+  {
+    icon: BarChart3,
+    label: "Reportes",
+    href: "/reportes",
+    permission: PERMISSIONS.REPORTS_READ,
   },
 ];
 
