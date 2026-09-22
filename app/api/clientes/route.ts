@@ -1,9 +1,11 @@
 //endpoints generales del inventario para registrar nuevos clientes.
 import { db } from "@/lib/db"
 import { separarApellidos, separarNombres } from "@/lib/client-helpers"
-import type { Prisma } from "@/generated/prisma"
+import { validarYFormatearRut } from "@/lib/client-rut"
+import { Prisma } from "@/generated/prisma"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import { ACTIVE_WORK_ORDER_STATUSES } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 function formatearRut(rut: string) {
@@ -257,5 +259,158 @@ export async function GET() {
     return new NextResponse("Internal Server Error", {
       status: 500,
     })
+  }
+}
+
+class ClienteNoExisteError extends Error {
+  constructor() {
+    super("No existe un cliente registrado con el RUT indicado")
+    this.name = "ClienteNoExisteError"
+  }
+}
+
+class ClienteConOrdenActivaError extends Error {
+  ordenDeTrabajo: {
+    idOrdenDeTrabajo: number
+    estado: string
+  }
+
+  constructor(ordenDeTrabajo: {
+    idOrdenDeTrabajo: number
+    estado: string
+  }) {
+    super(
+      "No se puede eliminar el cliente porque tiene órdenes de trabajo activas"
+    )
+    this.name = "ClienteConOrdenActivaError"
+    this.ordenDeTrabajo = ordenDeTrabajo
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.CLIENTS_DELETE)
+
+    if (response) {
+      return response
+    }
+
+    const { searchParams } = new URL(request.url)
+    const rutParametro = searchParams.get("rut")
+    const resultadoRut = validarYFormatearRut(rutParametro ?? "")
+
+    if (!resultadoRut.valid) {
+      return NextResponse.json(
+        {
+          code: "RUT_INVALIDO",
+          message: resultadoRut.error,
+        },
+        { status: 400 }
+      )
+    }
+
+    await db.$transaction(async (tx) => {
+      const cliente = await tx.cliente.findFirst({
+        where: {
+          rut: {
+            in: [resultadoRut.formatted, resultadoRut.compact],
+          },
+        },
+        select: {
+          idCliente: true,
+        },
+      })
+
+      if (!cliente) {
+        throw new ClienteNoExisteError()
+      }
+
+      // Bloquea el cliente durante toda la transacción para evitar que una
+      // operación concurrente cree una venta/OT mientras se valida y elimina.
+      await tx.$queryRaw<{ id_cliente: number }[]>(
+        Prisma.sql`
+          SELECT id_cliente
+          FROM clientes
+          WHERE id_cliente = ${cliente.idCliente}
+          FOR UPDATE
+        `
+      )
+
+      const ordenActiva = await tx.venta.findFirst({
+        where: {
+          idCliente: cliente.idCliente,
+          ordenDeTrabajo: {
+            is: {
+              estado: {
+                in: [...ACTIVE_WORK_ORDER_STATUSES],
+              },
+            },
+          },
+        },
+        select: {
+          ordenDeTrabajo: {
+            select: {
+              idOrdenDeTrabajo: true,
+              estado: true,
+            },
+          },
+        },
+      })
+
+      if (ordenActiva?.ordenDeTrabajo) {
+        throw new ClienteConOrdenActivaError(ordenActiva.ordenDeTrabajo)
+      }
+
+      await tx.telefonoCliente.deleteMany({
+        where: {
+          idCliente: cliente.idCliente,
+        },
+      })
+
+      await tx.direccionCliente.deleteMany({
+        where: {
+          idCliente: cliente.idCliente,
+        },
+      })
+
+      await tx.cliente.delete({
+        where: {
+          idCliente: cliente.idCliente,
+        },
+      })
+    })
+
+    return new NextResponse(null, { status: 204 })
+  } catch (error) {
+    if (error instanceof ClienteNoExisteError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_NO_EXISTE",
+          message: error.message,
+        },
+        { status: 404 }
+      )
+    }
+
+    if (error instanceof ClienteConOrdenActivaError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_CON_OT_ACTIVA",
+          message: error.message,
+          ordenDeTrabajo: error.ordenDeTrabajo,
+        },
+        { status: 409 }
+      )
+    }
+
+    console.error("[CLIENTES_DELETE]", error)
+
+    return NextResponse.json(
+      {
+        code: "ERROR_INTERNO",
+        message: "No fue posible eliminar el cliente",
+      },
+      { status: 500 }
+    )
   }
 }
