@@ -5,6 +5,7 @@ import * as React from "react"
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -27,30 +28,44 @@ export function DetalleOperacionesInventario({
   consumoInsumos,
   onExportCSV,
 }: DetalleOperacionesInventarioProps) {
+  const [activeTab, setActiveTab] = React.useState("destacados")
+
   return (
     <Card>
       <CardHeader className="border-b py-5">
         <CardTitle className="text-base">
           Productos y Repuestos Destacados
         </CardTitle>
+        <CardDescription>
+          Artículos con mayor demanda y consumo en el período seleccionado
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="pt-4 sm:pt-6">
-        <Tabs defaultValue="destacados">
-          <TabsList variant="line">
-            <TabsTrigger value="destacados">
-              Productos Destacados
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                ({productosDestacados.length})
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="insumos">
-              Consumo de Insumos
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                ({consumoInsumos.length})
-              </span>
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center justify-between">
+            <TabsList variant="line">
+              <TabsTrigger value="destacados">
+                Productos Destacados
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  ({productosDestacados.length})
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="insumos">
+                Consumo de Insumos
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  ({consumoInsumos.length})
+                </span>
+              </TabsTrigger>
+            </TabsList>
+
+            {activeTab === "insumos" && (
+              <Button variant="outline" size="sm" onClick={onExportCSV}>
+                <Download className="h-3.5 w-3.5" />
+                Exportar CSV
+              </Button>
+            )}
+          </div>
 
           <TabsContent
             value="destacados"
@@ -67,15 +82,6 @@ export function DetalleOperacionesInventario({
             value="insumos"
             className="mt-4 animate-in fade-in-0 duration-200"
           >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Mostrando {consumoInsumos.length} insumos utilizados en reparaciones
-              </p>
-              <Button variant="outline" size="sm" onClick={onExportCSV}>
-                <Download className="h-3.5 w-3.5" />
-                Exportar CSV
-              </Button>
-            </div>
             <DataTable
               columns={consumoInsumosColumns}
               data={consumoInsumos}

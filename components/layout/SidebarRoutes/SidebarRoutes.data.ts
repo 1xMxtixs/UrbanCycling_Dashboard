@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Bike,
   FileText,
   Package,
@@ -17,12 +16,6 @@ export const dataGeneralSidebar = [
     icon: PanelsTopLeft,
     label: "Dashboard",
     href: "/",
-  },
-  {
-    icon: BarChart3,
-    label: "Reportes",
-    href: "/reportes",
-    permission: PERMISSIONS.REPORTS_READ,
   },
 ];
 
