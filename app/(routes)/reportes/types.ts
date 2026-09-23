@@ -1,4 +1,4 @@
-﻿export interface DateRange {
+export interface DateRange {
   from: string // YYYY-MM-DD
   to: string   // YYYY-MM-DD
 }
@@ -14,6 +14,7 @@ export interface FinancialSummaryData {
 }
 
 export interface TimeSeriesPoint {
+  date: string          // formato ISO "YYYY-MM-DD"
   label: string         // ej: "Lun 16", "Sem 1", "Ene 2026"
   laborAmount: number   // Mano de obra
   partsAmount: number   // Repuestos e insumos

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 
 import { DateRangeFilter } from "./components/DateRangeFilter"
 import { FinancialSummaryCards } from "./components/FinancialSummaryCards"
-import { LaborVsPartsChart } from "./components/LaborVsPartsChart"
+import { ChartManoObraVsRepuestos, type ManoObraVsRepuestosPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
 import { PaymentMethodsChart } from "./components/PaymentMethodsChart"
 import { TopProductsTable } from "./components/TopProductsTable"
 import { SupplyConsumptionTable } from "./components/SupplyConsumptionTable"
@@ -171,7 +171,15 @@ export default function ReportesPage() {
           <ChartsSkeleton />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-            <LaborVsPartsChart data={reportsData.laborVsParts} />
+            <ChartManoObraVsRepuestos
+              data={
+                reportsData.laborVsParts.series.map((s) => ({
+                  date: s.date,
+                  manoObra: s.laborAmount,
+                  repuestos: s.partsAmount,
+                })) satisfies ManoObraVsRepuestosPoint[]
+              }
+            />
             <PaymentMethodsChart data={reportsData.paymentMethods} />
           </div>
         )}
