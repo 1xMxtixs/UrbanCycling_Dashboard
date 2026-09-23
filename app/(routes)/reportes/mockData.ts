@@ -1,4 +1,4 @@
-﻿import type { ReportsData, DateRange, TimeSeriesPoint } from "./types"
+import type { ReportsData, DateRange, TimeSeriesPoint } from "./types"
 
 export function getMockReportsData(range: DateRange): ReportsData {
   const fromTime = new Date(range.from).getTime()
@@ -17,9 +17,14 @@ export function getMockReportsData(range: DateRange): ReportsData {
     for (let i = 0; i < diffDays; i++) {
       const cur = new Date(fromTime)
       cur.setDate(cur.getDate() + i)
+      const year = cur.getFullYear()
+      const month = String(cur.getMonth() + 1).padStart(2, "0")
+      const day = String(cur.getDate()).padStart(2, "0")
+      const isoDate = `${year}-${month}-${day}`
       const dayLabel = `${dayNames[cur.getDay()]} ${cur.getDate()}`
       const factor = (i % 2 === 0 ? 1.15 : 0.85)
       series.push({
+        date: isoDate,
         label: dayLabel,
         laborAmount: Math.round(48500 * factor),
         partsAmount: Math.round(36200 * factor * 0.95),
@@ -29,8 +34,15 @@ export function getMockReportsData(range: DateRange): ReportsData {
     // Granularidad semanal (4 semanas)
     const weeksCount = Math.min(5, Math.ceil(diffDays / 7))
     for (let w = 1; w <= weeksCount; w++) {
+      const cur = new Date(fromTime)
+      cur.setDate(cur.getDate() + (w - 1) * 7)
+      const year = cur.getFullYear()
+      const month = String(cur.getMonth() + 1).padStart(2, "0")
+      const day = String(cur.getDate()).padStart(2, "0")
+      const isoDate = `${year}-${month}-${day}`
       const factor = 1 + (w * 0.1)
       series.push({
+        date: isoDate,
         label: `Semana ${w}`,
         laborAmount: Math.round((48500 * 6 * factor) / 2),
         partsAmount: Math.round((36200 * 6 * factor) / 2),
@@ -40,9 +52,15 @@ export function getMockReportsData(range: DateRange): ReportsData {
     // Granularidad mensual / quincenal
     const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     const startMonth = new Date(fromTime).getMonth()
+    const startYear = new Date(fromTime).getFullYear()
     for (let m = 0; m < 4; m++) {
+      const targetDate = new Date(startYear, startMonth + m, 1)
+      const year = targetDate.getFullYear()
+      const month = String(targetDate.getMonth() + 1).padStart(2, "0")
+      const isoDate = `${year}-${month}-01`
       const mIdx = (startMonth + m) % 12
       series.push({
+        date: isoDate,
         label: months[mIdx],
         laborAmount: Math.round(48500 * 18 * (1 + m * 0.08)),
         partsAmount: Math.round(36200 * 18 * (1 + m * 0.08)),
