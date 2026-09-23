@@ -120,6 +120,9 @@ export async function GET() {
     }
 
     const proveedores = await db.proveedor.findMany({
+      where: {
+        estado: "activo",
+      },
       select: {
         idProveedor: true,
         razonSocial: true,

@@ -25,6 +25,96 @@ function parseProveedorId(value: string) {
   return id
 }
 
+class ProveedorInactivoError extends Error {
+  constructor() {
+    super("PROVEEDOR_INACTIVO")
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  context: RouteContext,
+) {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.SUPPLIERS_DELETE)
+
+    if (response) {
+      return response
+    }
+
+    const { id } = await context.params
+    const idProveedor = parseProveedorId(id)
+
+    if (!idProveedor) {
+      return NextResponse.json(
+        {
+          code: "ID_PROVEEDOR_INVALIDO",
+          message: "El identificador del proveedor no es válido",
+        },
+        { status: 400 },
+      )
+    }
+
+    const resultado = await db.proveedor.updateMany({
+      where: {
+        idProveedor,
+        estado: "activo",
+      },
+      data: {
+        estado: "inactivo",
+      },
+    })
+
+    if (resultado.count > 0) {
+      return NextResponse.json(
+        {
+          code: "PROVEEDOR_ELIMINADO",
+          message: "El proveedor fue eliminado correctamente",
+        },
+        { status: 200 },
+      )
+    }
+
+    const proveedor = await db.proveedor.findUnique({
+      where: {
+        idProveedor,
+      },
+      select: {
+        idProveedor: true,
+        estado: true,
+      },
+    })
+
+    if (!proveedor) {
+      return NextResponse.json(
+        {
+          code: "PROVEEDOR_NO_ENCONTRADO",
+          message: "El proveedor solicitado no existe",
+        },
+        { status: 404 },
+      )
+    }
+
+    return NextResponse.json(
+      {
+        code: "PROVEEDOR_YA_INACTIVO",
+        message: "El proveedor ya se encuentra eliminado",
+      },
+      { status: 409 },
+    )
+  } catch (error) {
+    console.error("Error al eliminar proveedor:", error)
+
+    return NextResponse.json(
+      {
+        code: "ERROR_ELIMINAR_PROVEEDOR",
+        message: "No fue posible eliminar el proveedor",
+      },
+      { status: 500 },
+    )
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: RouteContext,
@@ -86,11 +176,16 @@ export async function PATCH(
         },
         select: {
           idProveedor: true,
+          estado: true,
         },
       })
 
       if (!existente) {
         return null
+      }
+
+      if (existente.estado !== "activo") {
+        throw new ProveedorInactivoError()
       }
 
       return transaction.proveedor.update({
@@ -165,6 +260,16 @@ export async function PATCH(
       { status: 200 },
     )
   } catch (error) {
+    if (error instanceof ProveedorInactivoError) {
+      return NextResponse.json(
+        {
+          code: "PROVEEDOR_INACTIVO",
+          message: "No se puede actualizar un proveedor inactivo",
+        },
+        { status: 409 },
+      )
+    }
+
     const databaseError = error as { code?: string }
 
     if (databaseError.code === "P2002") {
