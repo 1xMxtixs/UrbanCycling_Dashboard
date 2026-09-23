@@ -56,10 +56,14 @@ export interface SupplyConsumptionItem {
   estimatedCost: number
 }
 
+import type { TodaySale } from "@/components/reportes/today-sales-columns"
+
 export interface ReportsData {
   financialSummary: FinancialSummaryData
   laborVsParts: LaborVsPartsData
   paymentMethods: PaymentMethodItem[]
   topProducts: TopProductItem[]
   supplyConsumption: SupplyConsumptionItem[]
+  todaySales: TodaySale[]
 }
+

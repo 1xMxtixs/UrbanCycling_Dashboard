@@ -16,14 +16,20 @@ import {
 export function SidebarRoutes() {
   const { data: session } = useSession()
   const permissions = session?.user.permisos ?? []
+  const userRole = (session?.user.rol || "").toLowerCase()
+  const isAdmin = userRole === "administrador" || userRole === "admin"
 
   const filterRoutes = (routes: Array<{
     label: string
     icon: LucideIcon
     href: string
     permission?: PermissionCode
+    adminOnly?: boolean
   }>) => {
     return routes.filter((item) => {
+      if (item.adminOnly && !isAdmin) {
+        return false
+      }
       if (!item.permission) {
         return true
       }

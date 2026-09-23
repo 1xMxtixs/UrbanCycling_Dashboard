@@ -14,13 +14,22 @@ import {
     Wrench
 } from 'lucide-react'
 
-import { PERMISSIONS } from "@/lib/permissions"
+import { PERMISSIONS, type PermissionCode } from "@/lib/permissions"
 
-export const dataGeneralSidebar = [
+export interface SidebarRouteItem {
+    icon: any
+    label: string
+    href: string
+    permission?: PermissionCode
+    adminOnly?: boolean
+}
+
+export const dataGeneralSidebar: SidebarRouteItem[] = [
     {
         icon: PanelsTopLeft,
         label: "Dashboard",
-        href: "/"
+        href: "/dashboard",
+        adminOnly: true
     },
 ]
 
