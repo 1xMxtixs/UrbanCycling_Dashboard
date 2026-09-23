@@ -66,4 +66,3 @@ export interface ReportsData {
   supplyConsumption: SupplyConsumptionItem[]
   todaySales: TodaySale[]
 }
-

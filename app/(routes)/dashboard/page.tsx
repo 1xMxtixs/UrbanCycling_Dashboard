@@ -19,8 +19,8 @@ import {
   TableSkeleton,
 } from "./components/ReportsSkeletons"
 
-import { getMockReportsData } from "../mockData"
-import type { DateRange, ReportsData } from "../types"
+import { getMockReportsData } from "./mockData"
+import type { DateRange, ReportsData } from "./types"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()

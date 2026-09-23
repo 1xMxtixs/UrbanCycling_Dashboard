@@ -2,7 +2,7 @@ import React from "react"
 import { DollarSign, Calendar, Wrench } from "lucide-react"
 import { MetricCard } from "@/components/common/MetricCard"
 import { formatCLP } from "@/lib/formatters"
-import type { FinancialSummaryData } from "../../types"
+import type { FinancialSummaryData } from "../types"
 
 interface FinancialSummaryCardsProps {
   data: FinancialSummaryData
