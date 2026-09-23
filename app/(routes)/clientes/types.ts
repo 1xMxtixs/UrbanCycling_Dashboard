@@ -81,4 +81,5 @@ export interface ClientesTableMeta {
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
+  onInactivate?: (clientId: number) => Promise<void>;
 }

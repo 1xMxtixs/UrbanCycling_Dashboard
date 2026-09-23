@@ -1,7 +1,15 @@
 "use client";
 
+import * as React from "react";
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Eye, ClipboardList, Pencil } from "lucide-react";
+import {
+  ArrowUpDown,
+  MoreHorizontal,
+  Eye,
+  ClipboardList,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISSIONS } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -12,7 +20,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { InactivateClientDialog } from "./InactivateClientDialog";
 import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
 
 export type { ClienteNatural, ClienteJuridica };
@@ -26,45 +36,81 @@ const CellActions = <TData extends { id: number }>({
   row,
   table,
 }: CellActionsProps<TData>) => {
-  const client = row.original;
+  const client = row.original as TData & {
+    nombre?: string;
+    estado?: string;
+  };
   const meta = table.options.meta as ClientesTableMeta | undefined;
   const { data: session } = useSession();
   const canEdit = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_UPDATE);
+  const canDelete = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_DELETE);
+  const isActivo = String(client.estado).toLowerCase() === "activo";
+
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-        <DropdownMenuItem
-          onClick={() => meta?.onViewDetails?.(client.id)}
-          className="flex cursor-pointer items-center gap-2"
-        >
-          <Eye className="h-4 w-4 text-muted-foreground" />
-          Ver Detalle
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => meta?.onViewHistory?.(client.id)}
-          className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
-        >
-          <ClipboardList className="h-4 w-4 text-primary" />
-          Historial de Órdenes
-        </DropdownMenuItem>
-        {canEdit && (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
           <DropdownMenuItem
-            onClick={() => meta?.onEdit?.(client.id)}
+            onClick={() => meta?.onViewDetails?.(client.id)}
             className="flex cursor-pointer items-center gap-2"
           >
-            <Pencil className="h-4 w-4 text-muted-foreground" />
-            Editar
+            <Eye className="h-4 w-4 text-muted-foreground" />
+            Ver Detalle
           </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem
+            onClick={() => meta?.onViewHistory?.(client.id)}
+            className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
+          >
+            <ClipboardList className="h-4 w-4 text-primary" />
+            Historial de Órdenes
+          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem
+              onClick={() => meta?.onEdit?.(client.id)}
+              className="flex cursor-pointer items-center gap-2"
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+              Editar
+            </DropdownMenuItem>
+          )}
+          {canDelete && isActivo && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setDialogOpen(true);
+                }}
+                className="flex cursor-pointer items-center gap-2 text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Inactivar cliente
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {canDelete && (
+        <InactivateClientDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          clientId={client.id}
+          clientName={client.nombre ?? "este cliente"}
+          onConfirm={async (id) => {
+            await meta?.onInactivate?.(id);
+          }}
+        />
+      )}
+    </>
   );
 };
 

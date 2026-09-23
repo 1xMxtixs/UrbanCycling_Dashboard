@@ -41,6 +41,7 @@ interface DataTableProps<TData, Tvalue> {
   onViewDetails?: (id: number) => void
   onViewHistory?: (id: number) => void
   onEdit?: (id: number) => void
+  onInactivate?: (id: number) => Promise<void>
 }
 
 export function DataTable<TData, Tvalue>({
@@ -49,6 +50,7 @@ export function DataTable<TData, Tvalue>({
   onViewDetails,
   onViewHistory,
   onEdit,
+  onInactivate,
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -71,6 +73,7 @@ export function DataTable<TData, Tvalue>({
       onViewDetails,
       onViewHistory,
       onEdit,
+      onInactivate,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

@@ -12,6 +12,7 @@ interface ClientesTabsViewProps {
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
+  onInactivate?: (id: number) => Promise<void>;
 }
 
 export function ClientesTabsView({
@@ -20,6 +21,7 @@ export function ClientesTabsView({
   onViewDetails,
   onViewHistory,
   onEdit,
+  onInactivate,
 }: ClientesTabsViewProps) {
   return (
     <div className="w-full space-y-6">
@@ -50,6 +52,7 @@ export function ClientesTabsView({
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}
+            onInactivate={onInactivate}
           />
         </TabsContent>
 
@@ -60,6 +63,7 @@ export function ClientesTabsView({
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}
+            onInactivate={onInactivate}
           />
         </TabsContent>
       </Tabs>
