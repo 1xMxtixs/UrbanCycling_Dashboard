@@ -183,6 +183,9 @@ export async function GET() {
     }
 
     const clientes = await db.cliente.findMany({
+      where: {
+        estado: "activo",
+      },
       orderBy: {
         fechaRegistro: "desc",
       },
@@ -287,6 +290,13 @@ class ClienteConOrdenActivaError extends Error {
   }
 }
 
+class ClienteYaInactivoError extends Error {
+  constructor() {
+    super("El cliente ya se encuentra eliminado")
+    this.name = "ClienteYaInactivoError"
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_DELETE)
@@ -318,11 +328,16 @@ export async function DELETE(request: Request) {
         },
         select: {
           idCliente: true,
+          estado: true,
         },
       })
 
       if (!cliente) {
         throw new ClienteNoExisteError()
+      }
+
+      if (cliente.estado !== "activo") {
+        throw new ClienteYaInactivoError()
       }
 
       // Bloquea el cliente durante toda la transacción para evitar que una
@@ -361,26 +376,23 @@ export async function DELETE(request: Request) {
         throw new ClienteConOrdenActivaError(ordenActiva.ordenDeTrabajo)
       }
 
-      await tx.telefonoCliente.deleteMany({
+      await tx.cliente.update({
         where: {
           idCliente: cliente.idCliente,
         },
-      })
-
-      await tx.direccionCliente.deleteMany({
-        where: {
-          idCliente: cliente.idCliente,
-        },
-      })
-
-      await tx.cliente.delete({
-        where: {
-          idCliente: cliente.idCliente,
+        data: {
+          estado: "inactivo",
         },
       })
     })
 
-    return new NextResponse(null, { status: 204 })
+    return NextResponse.json(
+      {
+        code: "CLIENTE_ELIMINADO",
+        message: "El cliente fue eliminado correctamente",
+      },
+      { status: 200 }
+    )
   } catch (error) {
     if (error instanceof ClienteNoExisteError) {
       return NextResponse.json(
@@ -398,6 +410,16 @@ export async function DELETE(request: Request) {
           code: "CLIENTE_CON_OT_ACTIVA",
           message: error.message,
           ordenDeTrabajo: error.ordenDeTrabajo,
+        },
+        { status: 409 }
+      )
+    }
+
+    if (error instanceof ClienteYaInactivoError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_YA_INACTIVO",
+          message: error.message,
         },
         { status: 409 }
       )
