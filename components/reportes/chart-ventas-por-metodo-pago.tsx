@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Pie, PieChart } from "recharts"
+import { Cell, Pie, PieChart } from "recharts"
 
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -47,7 +48,8 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
     () =>
       data.map((d, i) => ({
         ...d,
-        fill: `var(--chart-${(i % 5) + 1})`,
+        colorVar: `var(--chart-${(i % 5) + 1})`,
+        gradientId: `fillMetodo${i}`,
         pct: total > 0 ? Math.round((d.monto / total) * 100) : 0,
       })),
     [data, total]
@@ -57,28 +59,55 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
     <Card className="flex flex-col">
       <CardHeader className="border-b py-5">
         <CardTitle className="text-base">Ventas por Método de Pago</CardTitle>
+        <CardDescription>
+          Participación por medio de pago en el período seleccionado
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-1 pt-4 sm:pt-6">
+      <CardContent className="flex flex-1 flex-col pt-4 sm:pt-6">
         {data.length === 0 ? (
-          <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex flex-1 min-h-[220px] items-center justify-center text-sm text-muted-foreground">
             No hay datos suficientes para este período.
           </div>
         ) : (
+          <div className="flex flex-1 min-h-[220px] items-center justify-center">
           <ChartContainer
             config={chartConfig}
-            className="mx-auto aspect-square max-h-[220px]"
+            className="mx-auto aspect-square h-full max-h-[220px]"
           >
             <PieChart>
+              <defs>
+                {chartData.map((d) => (
+                  <linearGradient
+                    key={d.gradientId}
+                    id={d.gradientId}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor={d.colorVar} stopOpacity={0.95} />
+                    <stop offset="95%" stopColor={d.colorVar} stopOpacity={0.55} />
+                  </linearGradient>
+                ))}
+              </defs>
               <ChartTooltip
                 cursor={false}
                 content={
                   <ChartTooltipContent
                     hideLabel
-                    formatter={(value, _name, item) => [
-                      `${formatCLP(Number(value))} · ${item.payload.pct}%`,
-                      item.payload.label,
-                    ]}
+                    formatter={(value, _name, item) => (
+                      <div className="flex w-full items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: item.payload.colorVar }}
+                        />
+                        <span className="text-muted-foreground">{item.payload.label}</span>
+                        <span className="ml-auto font-medium tabular-nums text-foreground">
+                          {formatCLP(Number(value))} · {item.payload.pct}%
+                        </span>
+                      </div>
+                    )}
                   />
                 }
               />
@@ -87,9 +116,16 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
                 dataKey="monto"
                 nameKey="label"
                 innerRadius={60}
-              />
+                strokeWidth={2}
+                stroke="var(--background)"
+              >
+                {chartData.map((d) => (
+                  <Cell key={d.metodo} fill={`url(#${d.gradientId})`} />
+                ))}
+              </Pie>
             </PieChart>
           </ChartContainer>
+          </div>
         )}
 
         <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm">
@@ -97,7 +133,7 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
             <div key={d.metodo} className="flex items-center gap-2">
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: d.fill }}
+                style={{ backgroundColor: d.colorVar }}
               />
               <span className="text-muted-foreground">{d.label}</span>
               <span className="text-xs text-muted-foreground">({d.pagos} pagos)</span>
