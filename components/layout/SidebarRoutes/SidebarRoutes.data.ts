@@ -8,18 +8,28 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, type PermissionCode } from "@/lib/permissions";
 
-export const dataGeneralSidebar = [
+export interface SidebarRouteItem {
+  icon: LucideIcon;
+  label: string;
+  href: string;
+  permission?: PermissionCode;
+  adminOnly?: boolean;
+}
+
+export const dataGeneralSidebar: SidebarRouteItem[] = [
   {
     icon: PanelsTopLeft,
     label: "Dashboard",
-    href: "/",
+    href: "/dashboard",
+    adminOnly: true,
   },
 ];
 
-export const dataOperationSidebar = [
+export const dataOperationSidebar: SidebarRouteItem[] = [
   {
     icon: Store,
     label: "Punto de Venta",
@@ -34,7 +44,7 @@ export const dataOperationSidebar = [
   },
 ];
 
-export const dataManagementSidebar = [
+export const dataManagementSidebar: SidebarRouteItem[] = [
   {
     icon: Users,
     label: "Clientes",
@@ -61,7 +71,7 @@ export const dataManagementSidebar = [
   },
 ];
 
-export const dataAdministrationSidebar = [
+export const dataAdministrationSidebar: SidebarRouteItem[] = [
   {
     icon: UserCog,
     label: "Usuarios",

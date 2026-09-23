@@ -220,5 +220,42 @@ export function getMockReportsData(range: DateRange): ReportsData {
         estimatedCost: 11000 * multiplier,
       },
     ],
+    todaySales: [
+      {
+        id: "V-1042",
+        hora: "09:30",
+        cliente: "Matías Silva",
+        monto: 24990,
+        estado: "pagada",
+      },
+      {
+        id: "V-1043",
+        hora: "11:15",
+        cliente: "Camila Rojas",
+        monto: 6990,
+        estado: "pagada",
+      },
+      {
+        id: "V-1044",
+        hora: "13:00",
+        cliente: "Gonzalo Morales",
+        monto: 48500,
+        estado: "pendiente",
+      },
+      {
+        id: "V-1045",
+        hora: "15:45",
+        cliente: "Valentina Henríquez",
+        monto: 8990,
+        estado: "pagada",
+      },
+      {
+        id: "V-1046",
+        hora: "17:20",
+        cliente: "Esteban Fuentes",
+        monto: 18990,
+        estado: "pagada",
+      },
+    ],
   }
 }
