@@ -286,6 +286,7 @@ model LineaDeAjuste {
 
 model Producto {
   idProducto    Int     @id @default(autoincrement()) @db.UnsignedInt @map("id_producto")
+  codigoProveedor String? @db.VarChar(50) @map("codigo_proveedor")
   tipoProducto  String  @db.VarChar(20)  @map("tipo_producto")
   nombre        String  @db.VarChar(100) @unique
   descripcion   String? @db.VarChar(50)
