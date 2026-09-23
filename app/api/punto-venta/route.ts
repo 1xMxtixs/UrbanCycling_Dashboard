@@ -4,79 +4,79 @@
 import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
-} from "@/lib/bicycle-images";
-import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/permissions";
-import { requirePermission } from "@/lib/require-permission";
+} from "@/lib/bicycle-images"
+import { db } from "@/lib/db"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 import {
   descontarStockProductos,
   InventoryStockError,
   recalcularTotalesOrdenTrabajo,
-} from "@/lib/stored-procedures";
-import { NextResponse } from "next/server";
+} from "@/lib/stored-procedures"
+import { NextResponse } from "next/server"
 
-const prisma = db;
+const prisma = db
 
 type ProductoInput = {
-  id_producto?: unknown;
-  idProducto?: unknown;
-  cantidad?: unknown;
-  precio_unitario?: unknown;
-  precioUnitario?: unknown;
-  descuento_unitario?: unknown;
-  descuentoUnitario?: unknown;
-  costo_unitario?: unknown;
-  costoUnitario?: unknown;
-};
+  id_producto?: unknown
+  idProducto?: unknown
+  cantidad?: unknown
+  precio_unitario?: unknown
+  precioUnitario?: unknown
+  descuento_unitario?: unknown
+  descuentoUnitario?: unknown
+  costo_unitario?: unknown
+  costoUnitario?: unknown
+}
 
 type ServicioInput = {
-  id_servicio?: unknown;
-  idServicio?: unknown;
-  cantidad?: unknown;
-  precio_unitario?: unknown;
-  precioUnitario?: unknown;
-  descuento_unitario?: unknown;
-  descuentoUnitario?: unknown;
-  costo_unitario?: unknown;
-  costoUnitario?: unknown;
-};
+  id_servicio?: unknown
+  idServicio?: unknown
+  cantidad?: unknown
+  precio_unitario?: unknown
+  precioUnitario?: unknown
+  descuento_unitario?: unknown
+  descuentoUnitario?: unknown
+  costo_unitario?: unknown
+  costoUnitario?: unknown
+}
 
 type BicicletaInput = {
-  tipo?: unknown;
-  marca?: unknown;
-  modelo?: unknown;
-  color?: unknown;
-  descripcion?: unknown;
-  imagenUrl?: unknown;
-  imagenes?: unknown;
-  imagenesUrl?: unknown;
-  imagenesUrls?: unknown;
-};
+  tipo?: unknown
+  marca?: unknown
+  modelo?: unknown
+  color?: unknown
+  descripcion?: unknown
+  imagenUrl?: unknown
+  imagenes?: unknown
+  imagenesUrl?: unknown
+  imagenesUrls?: unknown
+}
 
 function parsePositiveInteger(value: unknown) {
-  const parsedValue = Number(value);
+  const parsedValue = Number(value)
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return Number.NaN;
+    return Number.NaN
   }
 
-  return parsedValue;
+  return parsedValue
 }
 
 function toNumber(value: unknown) {
-  return Number(value ?? 0);
+  return Number(value ?? 0)
 }
 
 function normalizarProductos(input: unknown): ProductoInput[] {
-  return Array.isArray(input) ? input : [];
+  return Array.isArray(input) ? input : []
 }
 
 function normalizarServicios(input: unknown): ServicioInput[] {
-  return Array.isArray(input) ? input : [];
+  return Array.isArray(input) ? input : []
 }
 
 function normalizarBicicletas(input: unknown): BicicletaInput[] {
-  return Array.isArray(input) ? input : [];
+  return Array.isArray(input) ? input : []
 }
 
 function calcularMontos(
@@ -87,9 +87,9 @@ function calcularMontos(
   const montoTotal = Math.max(
     0,
     montoSubtotal - descuentoLineas - descuentoGlobal
-  );
-  const montoNeto = Math.round(montoTotal / 1.19);
-  const montoIva = montoTotal - montoNeto;
+  )
+  const montoNeto = Math.round(montoTotal / 1.19)
+  const montoIva = montoTotal - montoNeto
 
   return {
     montoSubtotal,
@@ -97,12 +97,12 @@ function calcularMontos(
     montoTotal,
     montoNeto,
     montoIva,
-  };
+  }
 }
 
 function sanitizarUsuario(usuario: any) {
   if (!usuario) {
-    return usuario;
+    return usuario
   }
 
   const {
@@ -111,26 +111,28 @@ function sanitizarUsuario(usuario: any) {
     contrasena_hash,
     password,
     ...usuarioSeguro
-  } = usuario;
+  } = usuario
 
-  return usuarioSeguro;
+  return usuarioSeguro
 }
 
-function sanitizarActores<T extends { usuario?: any; mecanico?: any }>(data: T) {
+function sanitizarActores<T extends { usuario?: any; mecanico?: any }>(
+  data: T
+) {
   return {
     ...data,
     usuario: sanitizarUsuario(data.usuario),
     mecanico: sanitizarUsuario(data.mecanico),
-  };
+  }
 }
 
 function adaptarVenta(venta: any) {
   if (!venta) {
-    return null;
+    return null
   }
 
-  const ventaSegura = sanitizarActores(venta);
-  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {};
+  const ventaSegura = sanitizarActores(venta)
+  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {}
 
   return {
     ...ventaSegura,
@@ -146,21 +148,21 @@ function adaptarVenta(venta: any) {
     estadoVenta: ventaEnMostrador.estado,
     estadoPago: ventaEnMostrador.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
-  };
+  }
 }
 
 function adaptarOrdenTrabajo(ordenTrabajo: any) {
   if (!ordenTrabajo) {
-    return null;
+    return null
   }
 
-  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
-  
-  const asignaciones = ordenTrabajoSegura.venta?.ventaEnMostrador?.asignacionesPago ?? [];
+  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
+
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
-  );
+  )
 
   return {
     ...ordenTrabajoSegura,
@@ -178,7 +180,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
       monto: a.pago?.monto,
       tipoAbono: a.tipoAbono,
     })),
-  };
+  }
 }
 
 function mapearProducto(item: ProductoInput) {
@@ -193,7 +195,7 @@ function mapearProducto(item: ProductoInput) {
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
     costoUnitario: Number(item.costo_unitario ?? item.costoUnitario ?? 0),
-  };
+  }
 }
 
 function mapearServicio(item: ServicioInput) {
@@ -208,7 +210,7 @@ function mapearServicio(item: ServicioInput) {
       item.descuento_unitario ?? item.descuentoUnitario ?? 0
     ),
     costoUnitario: Number(item.costo_unitario ?? item.costoUnitario ?? 0),
-  };
+  }
 }
 
 function validarValoresLinea(
@@ -221,7 +223,7 @@ function validarValoresLinea(
     Number.isFinite(descuentoUnitario) &&
     descuentoUnitario >= 0 &&
     descuentoUnitario <= precioUnitario
-  );
+  )
 }
 
 function mapearBicicleta(item: BicicletaInput) {
@@ -230,9 +232,11 @@ function mapearBicicleta(item: BicicletaInput) {
     marca: String(item.marca ?? "").trim(),
     modelo: String(item.modelo ?? "").trim(),
     color: String(item.color ?? "").trim(),
-    descripcionAdicional: item.descripcion ? String(item.descripcion).trim() : null,
+    descripcionAdicional: item.descripcion
+      ? String(item.descripcion).trim()
+      : null,
     imagenes: normalizarImagenesBicicleta(item),
-  };
+  }
 }
 
 function agruparProductos(productos: ReturnType<typeof mapearProducto>[]) {
@@ -241,26 +245,26 @@ function agruparProductos(productos: ReturnType<typeof mapearProducto>[]) {
       productosMap.set(
         item.idProducto,
         (productosMap.get(item.idProducto) ?? 0) + item.cantidad
-      );
+      )
 
-      return productosMap;
+      return productosMap
     }, new Map<number, number>())
   ).map(([idProducto, cantidad]) => ({
     idProducto,
     cantidad,
-  }));
+  }))
 }
 
 function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   if (tieneVenta && tieneOrden) {
-    return "mixta";
+    return "mixta"
   }
 
   if (tieneOrden) {
-    return "orden_trabajo";
+    return "orden_trabajo"
   }
 
-  return "venta";
+  return "venta"
 }
 
 const etapasOrdenTrabajo = [
@@ -270,7 +274,7 @@ const etapasOrdenTrabajo = [
   "Listo para entregar",
   "Entregado",
   "Anulada",
-];
+]
 
 function normalizarTextoFiltro(value: string) {
   return value
@@ -279,25 +283,25 @@ function normalizarTextoFiltro(value: string) {
     .trim()
     .toLowerCase()
     .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
 }
 
 function obtenerEtapaFiltro(req: Request) {
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url)
   const etapaInput =
     searchParams.get("etapa") ??
     searchParams.get("estadoOrden") ??
     searchParams.get("estado_orden") ??
-    searchParams.get("estado");
+    searchParams.get("estado")
 
   if (!etapaInput) {
     return {
       fueSolicitada: false,
       etapa: null,
-    };
+    }
   }
 
-  const etapaNormalizada = normalizarTextoFiltro(etapaInput);
+  const etapaNormalizada = normalizarTextoFiltro(etapaInput)
 
   return {
     fueSolicitada: true,
@@ -305,47 +309,47 @@ function obtenerEtapaFiltro(req: Request) {
       etapasOrdenTrabajo.find(
         (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
       ) ?? null,
-  };
+  }
 }
 
 function obtenerParametroFecha(searchParams: URLSearchParams, keys: string[]) {
   for (const key of keys) {
     if (searchParams.has(key)) {
-      return searchParams.get(key);
+      return searchParams.get(key)
     }
   }
 
-  return null;
+  return null
 }
 
 function parseFechaFiltro(value: string | null) {
   if (!value?.trim()) {
-    return null;
+    return null
   }
 
-  const fechaInput = value.trim();
-  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? [];
+  const fechaInput = value.trim()
+  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? []
 
   if (!datePart) {
-    return null;
+    return null
   }
 
-  const [year, month, day] = datePart.split("-").map(Number);
-  const fecha = new Date(Date.UTC(year, month - 1, day));
+  const [year, month, day] = datePart.split("-").map(Number)
+  const fecha = new Date(Date.UTC(year, month - 1, day))
 
   if (
     fecha.getUTCFullYear() !== year ||
     fecha.getUTCMonth() !== month - 1 ||
     fecha.getUTCDate() !== day
   ) {
-    return null;
+    return null
   }
 
-  return fecha;
+  return fecha
 }
 
 function obtenerPeriodoFiltro(req: Request) {
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url)
   const fechaInicioInput = obtenerParametroFecha(searchParams, [
     "fechaInicio",
     "fecha_inicio",
@@ -353,7 +357,7 @@ function obtenerPeriodoFiltro(req: Request) {
     "fecha_desde",
     "desde",
     "inicio",
-  ]);
+  ])
   const fechaFinInput = obtenerParametroFecha(searchParams, [
     "fechaFin",
     "fecha_fin",
@@ -361,8 +365,8 @@ function obtenerPeriodoFiltro(req: Request) {
     "fecha_hasta",
     "hasta",
     "fin",
-  ]);
-  const fueSolicitado = fechaInicioInput !== null || fechaFinInput !== null;
+  ])
+  const fueSolicitado = fechaInicioInput !== null || fechaFinInput !== null
 
   if (!fueSolicitado) {
     return {
@@ -370,7 +374,7 @@ function obtenerPeriodoFiltro(req: Request) {
       error: null,
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
   if (!fechaInicioInput?.trim() || !fechaFinInput?.trim()) {
@@ -382,41 +386,44 @@ function obtenerPeriodoFiltro(req: Request) {
       },
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
-  const inicio = parseFechaFiltro(fechaInicioInput);
-  const fin = parseFechaFiltro(fechaFinInput);
+  const inicio = parseFechaFiltro(fechaInicioInput)
+  const fin = parseFechaFiltro(fechaFinInput)
 
   if (!inicio || !fin || inicio > fin) {
     return {
       fueSolicitado,
       error: {
         code: "RANGO_FECHAS_INVALIDO",
-        message: "El rango de fechas no es valido. Corrija las fechas ingresadas",
+        message:
+          "El rango de fechas no es valido. Corrija las fechas ingresadas",
       },
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
-  const finExclusivo = new Date(fin);
-  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1);
+  const finExclusivo = new Date(fin)
+  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1)
 
   return {
     fueSolicitado,
     error: null,
     inicio,
     finExclusivo,
-  };
+  }
 }
 
 function obtenerMetodoPago(rawData: any) {
-  return rawData.pago?.metodo_pago ??
+  return (
+    rawData.pago?.metodo_pago ??
     rawData.pago?.metodoPago ??
     rawData.metodo_pago ??
     rawData.metodoPago ??
-    null;
+    null
+  )
 }
 
 function obtenerMontoPago(rawData: any): number | null {
@@ -426,105 +433,118 @@ function obtenerMontoPago(rawData: any): number | null {
     rawData.pago?.monto ??
     rawData.monto_pagado ??
     rawData.montoPagado ??
-    null;
+    null
 
-  return monto === null || monto === undefined ? null : Number(monto);
+  return monto === null || monto === undefined ? null : Number(monto)
 }
 
 function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
-  return rawData.pago?.estado ?? rawData.estado_pago_detalle ?? estadoPorDefecto;
+  return rawData.pago?.estado ?? rawData.estado_pago_detalle ?? estadoPorDefecto
 }
 
 export async function POST(req: Request) {
   try {
-    const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.SALES_CREATE
+    )
 
     if (response || !session) {
       return response || new NextResponse("No autorizado", { status: 401 })
     }
 
-    const rawData = await req.json();
-    const idUsuario = session.user.idUsuario;
-    const rawIdCliente = rawData.id_cliente ?? rawData.idCliente;
-    const idCliente = rawIdCliente !== null && rawIdCliente !== undefined && rawIdCliente !== ""
-      ? parsePositiveInteger(rawIdCliente)
-      : null;
+    const rawData = await req.json()
+    const idUsuario = session.user.idUsuario
+    const rawIdCliente = rawData.id_cliente ?? rawData.idCliente
+    const idCliente =
+      rawIdCliente !== null && rawIdCliente !== undefined && rawIdCliente !== ""
+        ? parsePositiveInteger(rawIdCliente)
+        : null
 
-    const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0);
-    const estadoPago = rawData.estado_pago ?? rawData.estadoPago ?? "pendiente";
-    const productosVenta = normalizarProductos(rawData.productos).map(mapearProducto);
-    const ordenInput = rawData.orden_trabajo ?? rawData.ordenTrabajo ?? null;
-    const tieneOrden = Boolean(ordenInput);
+    const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0)
+    const estadoPago = rawData.estado_pago ?? rawData.estadoPago ?? "pendiente"
+    const productosVenta = normalizarProductos(rawData.productos).map(
+      mapearProducto
+    )
+    const ordenInput = rawData.orden_trabajo ?? rawData.ordenTrabajo ?? null
+    const tieneOrden = Boolean(ordenInput)
     const productosOrden = tieneOrden
       ? normalizarProductos(ordenInput.productos).map(mapearProducto)
-      : [];
+      : []
     const serviciosOrden = tieneOrden
       ? normalizarServicios(ordenInput.servicios).map(mapearServicio)
-      : [];
+      : []
     const bicicletas = tieneOrden
       ? normalizarBicicletas(ordenInput.bicicletas).map(mapearBicicleta)
-      : [];
+      : []
 
-    if (Number.isNaN(idUsuario) || (idCliente !== null && Number.isNaN(idCliente))) {
+    if (
+      Number.isNaN(idUsuario) ||
+      (idCliente !== null && Number.isNaN(idCliente))
+    ) {
       return NextResponse.json(
         {
           code: "FALTAN_DATOS",
           message: "Debe indicar usuario y cliente validos",
         },
         { status: 400 }
-      );
+      )
     }
 
     const productosInvalidos = [...productosVenta, ...productosOrden].find(
       (item) =>
         Number.isNaN(item.idProducto) ||
         Number.isNaN(item.cantidad) ||
-        (item.precioUnitario !== null && !Number.isFinite(item.precioUnitario)) ||
+        (item.precioUnitario !== null &&
+          !Number.isFinite(item.precioUnitario)) ||
         !Number.isFinite(item.descuentoUnitario) ||
         item.descuentoUnitario < 0
-    );
+    )
 
     if (productosInvalidos) {
       return NextResponse.json(
         {
           code: "PRODUCTO_INVALIDO",
-          message: "Todos los productos deben tener ID, cantidad y precio validos",
+          message:
+            "Todos los productos deben tener ID, cantidad y precio validos",
         },
         { status: 400 }
-      );
+      )
     }
 
     const serviciosInvalidos = serviciosOrden.find(
       (item) =>
         Number.isNaN(item.idServicio) ||
         Number.isNaN(item.cantidad) ||
-        (item.precioUnitario !== null && !Number.isFinite(item.precioUnitario)) ||
+        (item.precioUnitario !== null &&
+          !Number.isFinite(item.precioUnitario)) ||
         !Number.isFinite(item.descuentoUnitario) ||
         item.descuentoUnitario < 0
-    );
+    )
 
     if (serviciosInvalidos) {
       return NextResponse.json(
         {
           code: "SERVICIO_INVALIDO",
-          message: "Todos los servicios deben tener ID, cantidad y precio validos",
+          message:
+            "Todos los servicios deben tener ID, cantidad y precio validos",
         },
         { status: 400 }
-      );
+      )
     }
 
     if (Number.isNaN(descuento) || descuento < 0) {
       return NextResponse.json(
         {
           code: "DESCUENTO_GLOBAL_INVALIDO",
-          message: "El descuento global debe ser un numero mayor o igual a cero",
+          message:
+            "El descuento global debe ser un numero mayor o igual a cero",
         },
         { status: 400 }
-      );
+      )
     }
     const bicicletasInvalidas = bicicletas.find(
       (item) => !item.marca || !item.modelo || !item.color
-    );
+    )
 
     if (bicicletasInvalidas) {
       return NextResponse.json(
@@ -533,12 +553,12 @@ export async function POST(req: Request) {
           message: "Cada bicicleta debe tener marca, modelo y color",
         },
         { status: 400 }
-      );
+      )
     }
 
     const bicicletaConDemasiadasImagenes = bicicletas.find(
       (item) => item.imagenes.length > MAX_BICYCLE_IMAGES
-    );
+    )
 
     if (bicicletaConDemasiadasImagenes) {
       return NextResponse.json(
@@ -547,7 +567,7 @@ export async function POST(req: Request) {
           message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
         },
         { status: 400 }
-      );
+      )
     }
 
     if (!productosVenta.length && !tieneOrden) {
@@ -557,14 +577,14 @@ export async function POST(req: Request) {
           message: "Debe ingresar productos o una orden de trabajo",
         },
         { status: 400 }
-      );
+      )
     }
 
     const usuario = await prisma.usuario.findUnique({
       where: {
         idUsuario,
       },
-    });
+    })
 
     if (!usuario) {
       return NextResponse.json(
@@ -573,7 +593,7 @@ export async function POST(req: Request) {
           message: "El usuario indicado no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     if (idCliente !== null) {
@@ -581,7 +601,7 @@ export async function POST(req: Request) {
         where: {
           idCliente,
         },
-      });
+      })
 
       if (!cliente) {
         return NextResponse.json(
@@ -590,15 +610,15 @@ export async function POST(req: Request) {
             message: "El cliente no esta registrado",
           },
           { status: 404 }
-        );
+        )
       }
     }
 
-    const productosVentaAgrupados = agruparProductos(productosVenta);
+    const productosVentaAgrupados = agruparProductos(productosVenta)
     const productosAgrupados = agruparProductos([
       ...productosVenta,
       ...productosOrden,
-    ]);
+    ])
     const productos: any[] = productosAgrupados.length
       ? await prisma.producto.findMany({
           where: {
@@ -607,13 +627,13 @@ export async function POST(req: Request) {
             },
           },
         })
-      : [];
+      : []
     const productosPorId = new Map<number, any>(
       productos.map((producto: any) => [producto.idProducto, producto])
-    );
+    )
     const productoNoExiste = productosAgrupados.find(
       (item) => !productosPorId.has(item.idProducto)
-    );
+    )
 
     if (productoNoExiste) {
       return NextResponse.json(
@@ -624,17 +644,17 @@ export async function POST(req: Request) {
           id_producto: productoNoExiste.idProducto,
         },
         { status: 404 }
-      );
+      )
     }
 
     const productoSinStock = productosAgrupados.find((item) => {
-      const producto = productosPorId.get(item.idProducto);
+      const producto = productosPorId.get(item.idProducto)
 
-      return producto && producto.stockActual < item.cantidad;
-    });
+      return producto && producto.stockActual < item.cantidad
+    })
 
     if (productoSinStock) {
-      const producto = productosPorId.get(productoSinStock.idProducto)!;
+      const producto = productosPorId.get(productoSinStock.idProducto)!
 
       return NextResponse.json(
         {
@@ -651,7 +671,7 @@ export async function POST(req: Request) {
           cantidadDisponible: producto.stockActual,
         },
         { status: 409 }
-      );
+      )
     }
 
     const servicios: any[] = serviciosOrden.length
@@ -665,13 +685,13 @@ export async function POST(req: Request) {
             productosServicio: true,
           },
         })
-      : [];
+      : []
     const serviciosPorId = new Map<number, any>(
       servicios.map((servicio: any) => [servicio.idServicio, servicio])
-    );
+    )
     const servicioNoExiste = serviciosOrden.find(
       (item) => !serviciosPorId.has(item.idServicio)
-    );
+    )
 
     if (servicioNoExiste) {
       return NextResponse.json(
@@ -680,17 +700,17 @@ export async function POST(req: Request) {
           message: `El servicio con ID ${servicioNoExiste.idServicio} no existe`,
         },
         { status: 404 }
-      );
+      )
     }
 
     const servicioInactivo = serviciosOrden.find((item) => {
-      const servicio = serviciosPorId.get(item.idServicio);
+      const servicio = serviciosPorId.get(item.idServicio)
 
-      return servicio && servicio.estado !== "activo";
-    });
+      return servicio && servicio.estado !== "activo"
+    })
 
     if (servicioInactivo) {
-      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!;
+      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!
 
       return NextResponse.json(
         {
@@ -698,13 +718,13 @@ export async function POST(req: Request) {
           message: `El servicio ${servicio.nombre} no esta activo`,
         },
         { status: 409 }
-      );
+      )
     }
 
     const lineasVenta = productosVenta.map((item) => {
-      const producto = productosPorId.get(item.idProducto)!;
+      const producto = productosPorId.get(item.idProducto)!
       const precioUnitario =
-        item.precioUnitario ?? toNumber(producto.precioVenta);
+        item.precioUnitario ?? toNumber(producto.precioVenta)
 
       return {
         idProducto: producto.idProducto,
@@ -712,12 +732,12 @@ export async function POST(req: Request) {
         precioUnitario,
         descuentoUnitario: item.descuentoUnitario,
         costoUnitario: item.costoUnitario,
-      };
-    });
+      }
+    })
     const lineasOrdenProductos = productosOrden.map((item) => {
-      const producto = productosPorId.get(item.idProducto)!;
+      const producto = productosPorId.get(item.idProducto)!
       const precioUnitario =
-        item.precioUnitario ?? toNumber(producto.precioVenta);
+        item.precioUnitario ?? toNumber(producto.precioVenta)
 
       return {
         idProducto: producto.idProducto,
@@ -726,12 +746,12 @@ export async function POST(req: Request) {
         precioUnitario,
         descuentoUnitario: item.descuentoUnitario,
         costoUnitario: item.costoUnitario,
-      };
-    });
+      }
+    })
     const lineasOrdenServicios = serviciosOrden.map((item) => {
-      const servicio = serviciosPorId.get(item.idServicio)!;
+      const servicio = serviciosPorId.get(item.idServicio)!
       const precioUnitario =
-        item.precioUnitario ?? toNumber(servicio.precioVenta);
+        item.precioUnitario ?? toNumber(servicio.precioVenta)
 
       return {
         idProducto: null,
@@ -740,8 +760,8 @@ export async function POST(req: Request) {
         precioUnitario,
         descuentoUnitario: item.descuentoUnitario,
         costoUnitario: item.costoUnitario,
-      };
-    });
+      }
+    })
     const lineaConValoresInvalidos = [
       ...lineasVenta,
       ...lineasOrdenProductos,
@@ -749,7 +769,7 @@ export async function POST(req: Request) {
     ].find(
       (linea) =>
         !validarValoresLinea(linea.precioUnitario, linea.descuentoUnitario)
-    );
+    )
 
     if (lineaConValoresInvalidos) {
       return NextResponse.json(
@@ -759,52 +779,53 @@ export async function POST(req: Request) {
             "El precio unitario debe ser mayor o igual a cero y el descuento no puede superar el precio",
         },
         { status: 400 }
-      );
+      )
     }
     const descuentoVentaLineas = lineasVenta.reduce(
       (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
       0
-    );
+    )
     const descuentoOrdenLineas = [
       ...lineasOrdenProductos,
       ...lineasOrdenServicios,
     ].reduce(
       (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
       0
-    );
+    )
     const totalVenta = lineasVenta.reduce(
       (total, linea) => total + linea.cantidad * linea.precioUnitario,
       0
-    );
+    )
     const totalOrden = [
       ...lineasOrdenProductos,
       ...lineasOrdenServicios,
-    ].reduce((total, linea) => total + linea.cantidad * linea.precioUnitario, 0);
-    const totalBruto = totalVenta + totalOrden;
-    const ventaDescuentoGlobal = tieneOrden ? 0 : descuento;
-    const ordenDescuentoGlobal = tieneOrden ? descuento : 0;
+    ].reduce((total, linea) => total + linea.cantidad * linea.precioUnitario, 0)
+    const totalBruto = totalVenta + totalOrden
+    const ventaDescuentoGlobal = tieneOrden ? 0 : descuento
+    const ordenDescuentoGlobal = tieneOrden ? descuento : 0
     const montosVenta = calcularMontos(
       totalVenta,
       ventaDescuentoGlobal,
       descuentoVentaLineas
-    );
+    )
     const montosOrden = calcularMontos(
       totalOrden,
       ordenDescuentoGlobal,
       descuentoOrdenLineas
-    );
-    const subtotalOrdenDescontado = totalOrden - descuentoOrdenLineas;
+    )
+    const subtotalOrdenDescontado = totalOrden - descuentoOrdenLineas
     const subtotalOperacionDescontado =
-      totalBruto - descuentoVentaLineas - descuentoOrdenLineas;
+      totalBruto - descuentoVentaLineas - descuentoOrdenLineas
 
     if (descuento > subtotalOperacionDescontado) {
       return NextResponse.json(
         {
           code: "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL",
-          message: "El descuento global no puede superar el subtotal descontado",
+          message:
+            "El descuento global no puede superar el subtotal descontado",
         },
         { status: 400 }
-      );
+      )
     }
     if (tieneOrden && descuento > subtotalOrdenDescontado) {
       return NextResponse.json(
@@ -814,11 +835,11 @@ export async function POST(req: Request) {
             "El descuento global no puede superar el subtotal de la orden de trabajo",
         },
         { status: 400 }
-      );
+      )
     }
-    const metodoPago = obtenerMetodoPago(rawData);
-    const montoPagoSolicitado = obtenerMontoPago(rawData);
-    const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago);
+    const metodoPago = obtenerMetodoPago(rawData)
+    const montoPagoSolicitado = obtenerMontoPago(rawData)
+    const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago)
 
     if (
       metodoPago &&
@@ -831,7 +852,7 @@ export async function POST(req: Request) {
           message: "El monto pagado debe ser un numero mayor a cero",
         },
         { status: 400 }
-      );
+      )
     }
 
     const resultado = await prisma.$transaction(async (tx) => {
@@ -839,36 +860,39 @@ export async function POST(req: Request) {
         data: {
           idUsuario,
           idCliente,
-          ventaEnMostrador: (lineasVenta.length > 0 || tieneOrden)
-            ? {
-                create: {
-                  estado:
-                    rawData.estado_venta ?? rawData.estadoVenta ?? "confirmada",
-                  estadoPago,
-                  montoSubtotal: montosVenta.montoSubtotal,
-                  descuentoProductos: 0,
-                  descuentoGlobal: montosVenta.descuentoGlobal,
-                  montoTotal: montosVenta.montoTotal,
-                  montoNeto: montosVenta.montoNeto,
-                  montoIva: montosVenta.montoIva,
-                  lineasDeVenta: {
-                    create: lineasVenta.map((linea) => ({
-                      idProducto: linea.idProducto,
-                      cantidad: linea.cantidad,
-                      precioUnitario: linea.precioUnitario,
-                      descuentoUnitario: linea.descuentoUnitario,
-                      costoUnitario: linea.costoUnitario,
-                    })),
+          ventaEnMostrador:
+            lineasVenta.length > 0 || tieneOrden
+              ? {
+                  create: {
+                    estado:
+                      rawData.estado_venta ??
+                      rawData.estadoVenta ??
+                      "confirmada",
+                    estadoPago,
+                    montoSubtotal: montosVenta.montoSubtotal,
+                    descuentoProductos: 0,
+                    descuentoGlobal: montosVenta.descuentoGlobal,
+                    montoTotal: montosVenta.montoTotal,
+                    montoNeto: montosVenta.montoNeto,
+                    montoIva: montosVenta.montoIva,
+                    lineasDeVenta: {
+                      create: lineasVenta.map((linea) => ({
+                        idProducto: linea.idProducto,
+                        cantidad: linea.cantidad,
+                        precioUnitario: linea.precioUnitario,
+                        descuentoUnitario: linea.descuentoUnitario,
+                        costoUnitario: linea.costoUnitario,
+                      })),
+                    },
                   },
-                },
-              }
-            : undefined,
+                }
+              : undefined,
           ordenDeTrabajo: tieneOrden
             ? {
                 create: {
                   idMecanicoAsignado:
-                    ordenInput.id_mecanico_asignado ??
-                    ordenInput.idMecanicoAsignado
+                    (ordenInput.id_mecanico_asignado ??
+                    ordenInput.idMecanicoAsignado)
                       ? Number(
                           ordenInput.id_mecanico_asignado ??
                             ordenInput.idMecanicoAsignado
@@ -897,16 +921,18 @@ export async function POST(req: Request) {
                   montoIva: montosOrden.montoIva,
                   bicicletas: bicicletas.length
                     ? {
-                        create: bicicletas.map(({ imagenes, ...bicicleta }) => ({
-                          ...bicicleta,
-                          imagenes: imagenes.length
-                            ? {
-                                create: imagenes.map((urlImagen) => ({
-                                  urlImagen,
-                                })),
-                              }
-                            : undefined,
-                        })),
+                        create: bicicletas.map(
+                          ({ imagenes, ...bicicleta }) => ({
+                            ...bicicleta,
+                            imagenes: imagenes.length
+                              ? {
+                                  create: imagenes.map((urlImagen) => ({
+                                    urlImagen,
+                                  })),
+                                }
+                              : undefined,
+                          })
+                        ),
                       }
                     : undefined,
                 },
@@ -942,9 +968,9 @@ export async function POST(req: Request) {
             },
           },
         },
-      });
+      })
 
-      const venta = ventaBase.ventaEnMostrador ? ventaBase : null;
+      const venta = ventaBase.ventaEnMostrador ? ventaBase : null
       const ordenTrabajo = ventaBase.ordenDeTrabajo
         ? {
             ...ventaBase.ordenDeTrabajo,
@@ -952,16 +978,13 @@ export async function POST(req: Request) {
             usuario: ventaBase.usuario,
             cliente: ventaBase.cliente,
           }
-        : null;
+        : null
 
-      const lineasOrden = [
-        ...lineasOrdenProductos,
-        ...lineasOrdenServicios,
-      ];
-      const lineasOrdenCreadas = [];
+      const lineasOrden = [...lineasOrdenProductos, ...lineasOrdenServicios]
+      const lineasOrdenCreadas = []
 
       for (const item of productosVentaAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!;
+        const producto = productosPorId.get(item.idProducto)!
 
         await tx.producto.update({
           where: {
@@ -970,7 +993,7 @@ export async function POST(req: Request) {
           data: {
             stockActual: producto.stockActual - item.cantidad,
           },
-        });
+        })
       }
 
       if (ordenTrabajo) {
@@ -985,39 +1008,39 @@ export async function POST(req: Request) {
               descuentoUnitario: linea.descuentoUnitario,
               costoUnitario: linea.costoUnitario,
             },
-          });
+          })
 
-          lineasOrdenCreadas.push(lineaCreada);
+          lineasOrdenCreadas.push(lineaCreada)
         }
 
         const itemsStockOrden = lineasOrdenCreadas.flatMap((linea) => {
-          const items = [];
+          const items = []
 
           if (linea.idProducto) {
             items.push({
               idProducto: linea.idProducto,
               cantidad: linea.cantidad,
               idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
-            });
+            })
           }
 
           if (linea.idServicio) {
-            const servicio = serviciosPorId.get(linea.idServicio);
+            const servicio = serviciosPorId.get(linea.idServicio)
 
             for (const insumo of servicio?.productosServicio ?? []) {
               items.push({
                 idProducto: insumo.idProducto,
                 cantidad: insumo.cantidad * linea.cantidad,
                 idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
-              });
+              })
             }
           }
 
-          return items;
-        });
+          return items
+        })
 
-        await descontarStockProductos(tx, itemsStockOrden);
-        await recalcularTotalesOrdenTrabajo(tx, ordenTrabajo.idOrdenDeTrabajo);
+        await descontarStockProductos(tx, itemsStockOrden)
+        await recalcularTotalesOrdenTrabajo(tx, ordenTrabajo.idOrdenDeTrabajo)
       }
 
       const ordenTrabajoActualizada = ordenTrabajo
@@ -1036,11 +1059,11 @@ export async function POST(req: Request) {
               },
             },
           })
-        : null;
+        : null
       const totalOperacionFinal =
         Number(ordenTrabajoActualizada?.montoTotal ?? 0) +
-        Number(venta?.ventaEnMostrador?.montoTotal ?? 0);
-      const montoPago = montoPagoSolicitado ?? totalOperacionFinal;
+        Number(venta?.ventaEnMostrador?.montoTotal ?? 0)
+      const montoPago = montoPagoSolicitado ?? totalOperacionFinal
 
       const pago = metodoPago
         ? await tx.pago.create({
@@ -1052,19 +1075,19 @@ export async function POST(req: Request) {
               monto: montoPago,
             },
           })
-        : null;
+        : null
 
       if (pago && venta?.ventaEnMostrador) {
         await tx.asignacionPago.create({
           data: {
             idPago: pago.idPago,
-            idVentaEnMostrador: venta.ventaEnMostrador.idVentaEnMostrador,
+            idVenta: venta.idVenta,
             idOrdenDeCompra: null,
             montoAsociado: montoPago,
             tipoAbono:
               montoPago >= totalOperacionFinal ? "pago_total" : "abono",
           },
-        });
+        })
       }
 
       return {
@@ -1078,12 +1101,15 @@ export async function POST(req: Request) {
             }
           : null,
         pago,
-      };
-    });
+      }
+    })
 
-    const venta = adaptarVenta(resultado.venta);
-    const ordenTrabajo = adaptarOrdenTrabajo(resultado.ordenTrabajo);
-    const tipoOperacion = calcularTipoOperacion(Boolean(venta), Boolean(ordenTrabajo));
+    const venta = adaptarVenta(resultado.venta)
+    const ordenTrabajo = adaptarOrdenTrabajo(resultado.ordenTrabajo)
+    const tipoOperacion = calcularTipoOperacion(
+      Boolean(venta),
+      Boolean(ordenTrabajo)
+    )
     const montosOperacionFinal = {
       montoSubtotal:
         Number(venta?.montoSubtotal ?? 0) +
@@ -1094,7 +1120,7 @@ export async function POST(req: Request) {
         Number(venta?.montoNeto ?? 0) + Number(ordenTrabajo?.montoNeto ?? 0),
       montoIva:
         Number(venta?.montoIva ?? 0) + Number(ordenTrabajo?.montoIva ?? 0),
-    };
+    }
 
     return NextResponse.json(
       {
@@ -1123,7 +1149,7 @@ export async function POST(req: Request) {
         pago: resultado.pago,
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
     if (error instanceof InventoryStockError) {
       return NextResponse.json(
@@ -1132,15 +1158,15 @@ export async function POST(req: Request) {
           message: error.message,
         },
         { status: error.code === "STOCK_INSUFICIENTE" ? 409 : 404 }
-      );
+      )
     }
 
-    console.log("[PUNTO_VENTA_POST]", error);
+    console.log("[PUNTO_VENTA_POST]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
 export async function GET(req: Request) {
@@ -1151,8 +1177,8 @@ export async function GET(req: Request) {
       return response
     }
 
-    const etapaFiltro = obtenerEtapaFiltro(req);
-    const periodoFiltro = obtenerPeriodoFiltro(req);
+    const etapaFiltro = obtenerEtapaFiltro(req)
+    const periodoFiltro = obtenerPeriodoFiltro(req)
 
     if (etapaFiltro.fueSolicitada && !etapaFiltro.etapa) {
       return NextResponse.json(
@@ -1162,14 +1188,14 @@ export async function GET(req: Request) {
           etapasDisponibles: etapasOrdenTrabajo,
         },
         { status: 400 }
-      );
+      )
     }
 
     if (periodoFiltro.error) {
-      return NextResponse.json(periodoFiltro.error, { status: 400 });
+      return NextResponse.json(periodoFiltro.error, { status: 400 })
     }
 
-    const filtrosVenta = [];
+    const filtrosVenta = []
 
     if (etapaFiltro.etapa) {
       filtrosVenta.push({
@@ -1178,7 +1204,7 @@ export async function GET(req: Request) {
             estado: etapaFiltro.etapa,
           },
         },
-      });
+      })
     }
 
     if (periodoFiltro.inicio && periodoFiltro.finExclusivo) {
@@ -1190,7 +1216,7 @@ export async function GET(req: Request) {
           gte: periodoFiltro.inicio,
           lt: periodoFiltro.finExclusivo,
         },
-      });
+      })
     }
 
     const ventas = await prisma.venta.findMany({
@@ -1205,16 +1231,16 @@ export async function GET(req: Request) {
       include: {
         usuario: true,
         cliente: true,
+        asignacionesPago: {
+          include: {
+            pago: true,
+          },
+        },
         ventaEnMostrador: {
           include: {
             lineasDeVenta: {
               include: {
                 producto: true,
-              },
-            },
-            asignacionesPago: {
-              include: {
-                pago: true,
               },
             },
           },
@@ -1236,61 +1262,70 @@ export async function GET(req: Request) {
           },
         },
       },
-    });
+    })
 
-    const operaciones = ventas.flatMap((venta: any) => {
-      const items = [];
+    const operaciones = ventas
+      .flatMap((venta: any) => {
+        const items = []
 
-      if (!etapaFiltro.etapa && !periodoFiltro.fueSolicitado && venta.ventaEnMostrador && (venta.ventaEnMostrador.lineasDeVenta?.length > 0)) {
-        const ventaAdaptada = adaptarVenta(venta);
+        if (
+          !etapaFiltro.etapa &&
+          !periodoFiltro.fueSolicitado &&
+          venta.ventaEnMostrador &&
+          venta.ventaEnMostrador.lineasDeVenta?.length > 0
+        ) {
+          const ventaAdaptada = adaptarVenta(venta)
 
-        items.push({
-          idPuntoVenta: `venta-${venta.idVenta}`,
-          tipoOperacion: "venta",
-          fechaCreacion: venta.fechaRegistro,
-          fechaRegistro: venta.fechaRegistro,
-          total: venta.ventaEnMostrador.montoTotal,
-          montoTotal: venta.ventaEnMostrador.montoTotal,
-          estadoPago: venta.ventaEnMostrador.estadoPago,
-          estadoVenta: venta.ventaEnMostrador.estado,
-          cliente: venta.cliente,
-          usuario: sanitizarUsuario(venta.usuario),
-          venta: ventaAdaptada,
-        });
-      }
+          items.push({
+            idPuntoVenta: `venta-${venta.idVenta}`,
+            tipoOperacion: "venta",
+            fechaCreacion: venta.fechaRegistro,
+            fechaRegistro: venta.fechaRegistro,
+            total: venta.ventaEnMostrador.montoTotal,
+            montoTotal: venta.ventaEnMostrador.montoTotal,
+            estadoPago: venta.ventaEnMostrador.estadoPago,
+            estadoVenta: venta.ventaEnMostrador.estado,
+            cliente: venta.cliente,
+            usuario: sanitizarUsuario(venta.usuario),
+            venta: ventaAdaptada,
+          })
+        }
 
-      if (
-        venta.ordenDeTrabajo &&
-        (!etapaFiltro.etapa || venta.ordenDeTrabajo.estado === etapaFiltro.etapa)
-      ) {
-        const ordenTrabajo = {
-          ...venta.ordenDeTrabajo,
-          venta,
-          usuario: venta.usuario,
-          cliente: venta.cliente,
-        };
-        const ordenTrabajoAdaptada = adaptarOrdenTrabajo(ordenTrabajo);
+        if (
+          venta.ordenDeTrabajo &&
+          (!etapaFiltro.etapa ||
+            venta.ordenDeTrabajo.estado === etapaFiltro.etapa)
+        ) {
+          const ordenTrabajo = {
+            ...venta.ordenDeTrabajo,
+            venta,
+            usuario: venta.usuario,
+            cliente: venta.cliente,
+          }
+          const ordenTrabajoAdaptada = adaptarOrdenTrabajo(ordenTrabajo)
 
-        items.push({
-          idPuntoVenta: `orden-${venta.ordenDeTrabajo.idOrdenDeTrabajo}`,
-          tipoOperacion: "orden_trabajo",
-          fechaCreacion: venta.fechaRegistro,
-          fechaRegistro: venta.fechaRegistro,
-          total: venta.ordenDeTrabajo.montoTotal,
-          montoTotal: venta.ordenDeTrabajo.montoTotal,
-          estadoPago: venta.ordenDeTrabajo.estadoPago,
-          estadoOrden: venta.ordenDeTrabajo.estado,
-          cliente: venta.cliente,
-          usuario: sanitizarUsuario(venta.usuario),
-          ordenTrabajo: ordenTrabajoAdaptada,
-        });
-      }
+          items.push({
+            idPuntoVenta: `orden-${venta.ordenDeTrabajo.idOrdenDeTrabajo}`,
+            tipoOperacion: "orden_trabajo",
+            fechaCreacion: venta.fechaRegistro,
+            fechaRegistro: venta.fechaRegistro,
+            total: venta.ordenDeTrabajo.montoTotal,
+            montoTotal: venta.ordenDeTrabajo.montoTotal,
+            estadoPago: venta.ordenDeTrabajo.estadoPago,
+            estadoOrden: venta.ordenDeTrabajo.estado,
+            cliente: venta.cliente,
+            usuario: sanitizarUsuario(venta.usuario),
+            ordenTrabajo: ordenTrabajoAdaptada,
+          })
+        }
 
-      return items;
-    }).sort(
-      (a: any, b: any) =>
-        new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime()
-    );
+        return items
+      })
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.fechaRegistro).getTime() -
+          new Date(a.fechaRegistro).getTime()
+      )
 
     if (etapaFiltro.etapa && operaciones.length === 0) {
       if (periodoFiltro.fueSolicitado) {
@@ -1300,7 +1335,7 @@ export async function GET(req: Request) {
             message: "No hay ordenes de trabajo dentro del rango ingresado",
           },
           { status: 404 }
-        );
+        )
       }
 
       return NextResponse.json(
@@ -1310,7 +1345,7 @@ export async function GET(req: Request) {
           etapa: etapaFiltro.etapa,
         },
         { status: 404 }
-      );
+      )
     }
 
     if (periodoFiltro.fueSolicitado && operaciones.length === 0) {
@@ -1320,16 +1355,16 @@ export async function GET(req: Request) {
           message: "No hay ordenes de trabajo dentro del rango ingresado",
         },
         { status: 404 }
-      );
+      )
     }
 
-    return NextResponse.json(operaciones);
+    return NextResponse.json(operaciones)
   } catch (error) {
-    console.log("[PUNTO_VENTA_GET]", error);
+    console.log("[PUNTO_VENTA_GET]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }

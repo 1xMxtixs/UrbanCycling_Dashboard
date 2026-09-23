@@ -723,7 +723,9 @@ async function main() {
         monto: venta.montoTotal,
         asignaciones: {
           create: {
-            idVenta: venta.idVenta,
+            venta: {
+              connect: { idVenta: venta.idVenta },
+            },
             montoAsociado: venta.montoTotal,
             tipoAbono: "Contado",
           },
