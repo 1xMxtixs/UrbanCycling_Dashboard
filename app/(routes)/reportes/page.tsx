@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { DateRangeFilter } from "./components/DateRangeFilter"
 import { FinancialSummaryCards } from "./components/FinancialSummaryCards"
 import { ChartManoObraVsRepuestos, type ManoObraVsRepuestosPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
-import { PaymentMethodsChart } from "./components/PaymentMethodsChart"
+import { ChartVentasPorMetodoPago, type MetodoPagoDatum } from "@/components/reportes/chart-ventas-por-metodo-pago"
 import { TopProductsTable } from "./components/TopProductsTable"
 import { SupplyConsumptionTable } from "./components/SupplyConsumptionTable"
 import { AccessDeniedState } from "./components/AccessDeniedState"
@@ -180,7 +180,16 @@ export default function ReportesPage() {
                 })) satisfies ManoObraVsRepuestosPoint[]
               }
             />
-            <PaymentMethodsChart data={reportsData.paymentMethods} />
+            <ChartVentasPorMetodoPago
+              data={
+                reportsData.paymentMethods.map((pm) => ({
+                  metodo: pm.method,
+                  label: pm.label,
+                  monto: pm.amount,
+                  pagos: pm.count,
+                })) satisfies MetodoPagoDatum[]
+              }
+            />
           </div>
         )}
       </div>
