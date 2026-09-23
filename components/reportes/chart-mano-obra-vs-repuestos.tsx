@@ -56,7 +56,7 @@ export function ChartManoObraVsRepuestos({ data }: ChartManoObraVsRepuestosProps
   }, [data])
 
   return (
-    <Card className="pt-0">
+    <Card className="flex flex-col pt-0">
       <CardHeader className="border-b py-5">
         <CardTitle className="text-base">Mano de Obra vs. Repuestos</CardTitle>
         <CardDescription>
@@ -64,13 +64,14 @@ export function ChartManoObraVsRepuestos({ data }: ChartManoObraVsRepuestosProps
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="flex flex-1 flex-col px-2 pt-4 sm:px-6 sm:pt-6">
         {data.length === 0 ? (
-          <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex flex-1 min-h-[220px] items-center justify-center text-sm text-muted-foreground">
             No hay datos suficientes para este período.
           </div>
         ) : (
-          <ChartContainer config={chartConfig} className="aspect-auto h-[220px] w-full">
+          <div className="flex-1 min-h-[220px]">
+          <ChartContainer config={chartConfig} className="aspect-auto h-full w-full">
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="fillManoObra" x1="0" y1="0" x2="0" y2="1">
@@ -106,11 +107,23 @@ export function ChartManoObraVsRepuestos({ data }: ChartManoObraVsRepuestosProps
                         day: "numeric",
                       })
                     }
-                    formatter={(value, name) => [
-                      formatCLP(Number(value)),
-                      chartConfig[name as keyof typeof chartConfig]?.label ?? name,
-                    ]}
-                    indicator="dot"
+                    formatter={(value, name) => (
+                      <div className="flex w-full items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              chartConfig[name as keyof typeof chartConfig]?.color,
+                          }}
+                        />
+                        <span className="text-muted-foreground">
+                          {chartConfig[name as keyof typeof chartConfig]?.label ?? name}
+                        </span>
+                        <span className="ml-auto font-medium tabular-nums text-foreground">
+                          {formatCLP(Number(value))}
+                        </span>
+                      </div>
+                    )}
                   />
                 }
               />
@@ -130,6 +143,7 @@ export function ChartManoObraVsRepuestos({ data }: ChartManoObraVsRepuestosProps
               />
             </AreaChart>
           </ChartContainer>
+          </div>
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4 text-sm">

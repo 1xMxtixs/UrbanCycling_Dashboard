@@ -2,19 +2,15 @@
 
 import React, { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Package, Wrench } from "lucide-react"
 import { PageHeader } from "@/components/common/PageHeader"
-import { DataTableContainer } from "@/components/common/DataTableContainer"
-import { Tabs } from "@/components/ui/tabs"
-import { SegmentedTabs, SegmentedTabItem } from "@/components/forms/SegmentedTabs"
-import { cn } from "@/lib/utils"
 
 import { DateRangeFilter } from "./components/DateRangeFilter"
 import { FinancialSummaryCards } from "./components/FinancialSummaryCards"
 import { ChartManoObraVsRepuestos, type ManoObraVsRepuestosPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
 import { ChartVentasPorMetodoPago, type MetodoPagoDatum } from "@/components/reportes/chart-ventas-por-metodo-pago"
-import { TopProductsTable } from "./components/TopProductsTable"
-import { SupplyConsumptionTable } from "./components/SupplyConsumptionTable"
+import { DetalleOperacionesInventario } from "@/components/reportes/detalle-operaciones-inventario"
+import type { ProductoDestacado } from "@/components/reportes/productos-destacados-columns"
+import type { ConsumoInsumo } from "@/components/reportes/consumo-insumos-columns"
 import { AccessDeniedState } from "./components/AccessDeniedState"
 import {
   FinancialSummarySkeleton,
@@ -47,7 +43,6 @@ export default function ReportesPage() {
   const [dateRange, setDateRange] = useState<DateRange>(getInitialRange)
   const [reportsData, setReportsData] = useState<ReportsData | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [activeTab, setActiveTab] = useState<string>("productos")
 
   // Comprobar rol o permisos (Administrador o reports:read)
   const userRole = session?.user?.rol?.toLowerCase() || ""
@@ -110,21 +105,6 @@ export default function ReportesPage() {
       </div>
     )
   }
-
-  const tabItems: SegmentedTabItem[] = [
-    {
-      value: "productos",
-      label: "Productos Destacados",
-      icon: Package,
-      count: reportsData?.topProducts.length,
-    },
-    {
-      value: "insumos",
-      label: "Consumo de Insumos",
-      icon: Wrench,
-      count: reportsData?.supplyConsumption.length,
-    },
-  ]
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -208,36 +188,52 @@ export default function ReportesPage() {
           <TableSkeleton />
         ) : (
           <div className="transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-            <DataTableContainer
-              title={
-                activeTab === "productos"
-                  ? "Productos y Repuestos Destacados"
-                  : "Reporte de Consumo de Insumos"
+            <DetalleOperacionesInventario
+              productosDestacados={
+                reportsData.topProducts.map((p) => ({
+                  ranking: p.ranking,
+                  nombre: p.name,
+                  sku: p.sku || "",
+                  categoria: p.category || "General",
+                  unidades: p.quantitySold,
+                  totalRecaudado: p.totalRevenue,
+                })) satisfies ProductoDestacado[]
               }
-              description={
-                activeTab === "productos"
-                  ? "Artículos con mayor demanda y volumen de recaudación en el período seleccionado."
-                  : "Registro de insumos y materiales utilizados en órdenes de trabajo completadas."
+              consumoInsumos={
+                reportsData.supplyConsumption.map((c) => ({
+                  codigo: c.code,
+                  nombre: c.name,
+                  categoria: c.category,
+                  cantidadUsada: `${c.quantityUsed} ${c.unit}`,
+                  ordenesAsociadas: c.associatedOrdersCount,
+                  costoTotalEst: c.estimatedCost,
+                })) satisfies ConsumoInsumo[]
               }
-              toolbar={
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="w-full"
-                >
-                  <SegmentedTabs items={tabItems} className="mb-2" />
-                </Tabs>
-              }
-            >
-              {activeTab === "productos" ? (
-                <TopProductsTable products={reportsData.topProducts} />
-              ) : (
-                <SupplyConsumptionTable
-                  supplies={reportsData.supplyConsumption}
-                  dateRange={dateRange}
-                />
-              )}
-            </DataTableContainer>
+              onExportCSV={() => {
+                if (!reportsData.supplyConsumption.length) return
+                const headers = "Codigo,Insumo,Categoria,Cantidad Utilizada,Unidad,Ordenes Asociadas,Costo Estimado CLP\n"
+                const rows = reportsData.supplyConsumption
+                  .map(
+                    (item) =>
+                      `"${item.code}","${item.name}","${item.category}",${item.quantityUsed},"${item.unit}",${item.associatedOrdersCount},${item.estimatedCost}`
+                  )
+                  .join("\n")
+
+                const blob = new Blob([headers + rows], {
+                  type: "text/csv;charset=utf-8;",
+                })
+                const link = document.createElement("a")
+                const url = URL.createObjectURL(blob)
+                link.setAttribute("href", url)
+                link.setAttribute(
+                  "download",
+                  `consumo_insumos_${dateRange.from}_a_${dateRange.to}.csv`
+                )
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+              }}
+            />
           </div>
         )}
       </div>
