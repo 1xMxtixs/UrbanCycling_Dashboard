@@ -88,7 +88,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
 
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
   
-  const asignaciones = ordenTrabajoSegura.venta?.ventaEnMostrador?.asignacionesPago ?? [];
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? [];
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
@@ -244,16 +244,16 @@ export async function GET(
         include: {
           usuario: true,
           cliente: true,
+          asignacionesPago: {
+            include: {
+              pago: true,
+            },
+          },
           ventaEnMostrador: {
             include: {
               lineasDeVenta: {
                 include: {
                   producto: true,
-                },
-              },
-              asignacionesPago: {
-                include: {
-                  pago: true,
                 },
               },
             },
@@ -287,15 +287,12 @@ export async function GET(
           include: {
             usuario: true,
             cliente: true,
-            ventaEnMostrador: {
+            asignacionesPago: {
               include: {
-                asignacionesPago: {
-                  include: {
-                    pago: true,
-                  },
-                },
+                pago: true,
               },
             },
+            ventaEnMostrador: true,
           },
         },
         mecanico: true,
