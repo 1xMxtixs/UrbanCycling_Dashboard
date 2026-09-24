@@ -88,6 +88,16 @@ export async function PATCH(request: Request, context: RouteContext) {
       return new NextResponse("El cliente no existe", { status: 404 })
     }
 
+    if (clienteActual.estado !== "activo") {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_INACTIVO",
+          message: "No se puede actualizar un cliente inactivo",
+        },
+        { status: 409 }
+      )
+    }
+
     const esPersonaNatural = clienteActual.tipoCliente === "natural"
     const esPersonaJuridica = ["juridica", "juridico"].includes(
       clienteActual.tipoCliente
