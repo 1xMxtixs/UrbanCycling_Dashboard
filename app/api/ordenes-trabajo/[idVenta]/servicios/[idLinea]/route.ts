@@ -12,10 +12,13 @@ class ServicePriceError extends Error {
   constructor(
     public readonly code:
       | "ID_INVALIDO"
+      | "JSON_INVALIDO"
       | "PRECIO_INVALIDO"
       | "ORDEN_NO_EXISTE"
       | "LINEA_SERVICIO_NO_EXISTE"
-      | "ORDEN_NO_MODIFICABLE",
+      | "ESTADO_ORDEN_NO_PERMITE_MODIFICACION"
+      | "ORDEN_CON_PAGOS"
+      | "ORDEN_CON_DOCUMENTO_TRIBUTARIO",
     message: string
   ) {
     super(message);
@@ -78,7 +81,23 @@ export async function PATCH(
       );
     }
 
-    const data = (await req.json()) as Record<string, unknown>;
+    let data: Record<string, unknown>;
+
+    try {
+      const body: unknown = await req.json();
+
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        throw new Error("El body debe ser un objeto JSON");
+      }
+
+      data = body as Record<string, unknown>;
+    } catch {
+      throw new ServicePriceError(
+        "JSON_INVALIDO",
+        "El cuerpo de la solicitud debe ser un JSON válido"
+      );
+    }
+
     const precioUnitario = parseServicePrice(
       data.precioUnitario ?? data.precio_unitario
     );
@@ -93,6 +112,28 @@ export async function PATCH(
     const resultado = await db.$transaction(async (tx) => {
       const orden = await tx.ordenDeTrabajo.findUnique({
         where: { idOrdenDeTrabajo },
+        include: {
+          venta: {
+            include: {
+              ventaEnMostrador: {
+                select: {
+                  estadoPago: true,
+                  asignacionesPago: {
+                    select: { idAsignacionPago: true },
+                  },
+                },
+              },
+              origenesDTE: {
+                where: {
+                  documentoTributario: {
+                    estado: "emitido",
+                  },
+                },
+                select: { idOrigenDocumentoTributario: true },
+              },
+            },
+          },
+        },
       });
 
       if (!orden) {
@@ -102,10 +143,30 @@ export async function PATCH(
         );
       }
 
-      if (["Entregado", "Anulada"].includes(orden.estado)) {
+      if (orden.estado !== "En curso") {
         throw new ServicePriceError(
-          "ORDEN_NO_MODIFICABLE",
-          "La orden de trabajo no puede ser modificada en su estado actual"
+          "ESTADO_ORDEN_NO_PERMITE_MODIFICACION",
+          "La orden debe estar en estado En curso para modificar el precio de un servicio"
+        );
+      }
+
+      const ventaEnMostrador = orden.venta?.ventaEnMostrador;
+      const tienePagos =
+        orden.estadoPago === "pagada" ||
+        ventaEnMostrador?.estadoPago === "pagada" ||
+        (ventaEnMostrador?.asignacionesPago.length ?? 0) > 0;
+
+      if (tienePagos) {
+        throw new ServicePriceError(
+          "ORDEN_CON_PAGOS",
+          "La orden no puede modificar precios porque tiene pagos registrados"
+        );
+      }
+
+      if ((orden.venta?.origenesDTE.length ?? 0) > 0) {
+        throw new ServicePriceError(
+          "ORDEN_CON_DOCUMENTO_TRIBUTARIO",
+          "La orden no puede modificar precios porque tiene un documento tributario emitido"
         );
       }
 
@@ -172,10 +233,13 @@ export async function PATCH(
     if (error instanceof ServicePriceError) {
       const statusByCode: Record<ServicePriceError["code"], number> = {
         ID_INVALIDO: 400,
+        JSON_INVALIDO: 400,
         PRECIO_INVALIDO: 400,
         ORDEN_NO_EXISTE: 404,
         LINEA_SERVICIO_NO_EXISTE: 404,
-        ORDEN_NO_MODIFICABLE: 409,
+        ESTADO_ORDEN_NO_PERMITE_MODIFICACION: 409,
+        ORDEN_CON_PAGOS: 409,
+        ORDEN_CON_DOCUMENTO_TRIBUTARIO: 409,
       };
 
       return NextResponse.json(
