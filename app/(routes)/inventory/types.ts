@@ -27,3 +27,12 @@ export type ProductColumn = {
 export interface FormCreateInventoryProps {
   setOpenModalCreate: (open: boolean) => void;
 }
+
+export type ServiceColumn = {
+  idServicio: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  precioVenta: number;
+  estado: string;
+};
