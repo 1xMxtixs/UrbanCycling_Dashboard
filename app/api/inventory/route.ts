@@ -2,11 +2,16 @@
 import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
+import {
+  productSearchQuerySchema,
+  sortArticleSearchResults,
+} from "@/lib/inventory-search"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
 function withImageAlias(product: {
   idProducto: number
+  nombre: string
   urlImagen: string
   categoriasProducto?: Array<{
     categoria: {
@@ -131,6 +136,17 @@ export async function GET(request: Request) {
       searchParams.has("idProducto") || searchParams.has("id")
 
     if (hasProductId) {
+      if (searchParams.has("q")) {
+        return NextResponse.json(
+          {
+            code: "BUSQUEDA_AMBIGUA",
+            message:
+              "Use la búsqueda por ID o por nombre, pero no ambas a la vez.",
+          },
+          { status: 400 },
+        )
+      }
+
       const productIdValue =
         searchParams.get("idProducto") ?? searchParams.get("id")
 
@@ -172,6 +188,113 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.json(withImageAlias(product))
+    }
+
+    const searchQuery = searchParams.get("q")
+
+    if (searchQuery !== null) {
+      const validation = productSearchQuerySchema.safeParse(searchQuery)
+
+      if (!validation.success) {
+        return NextResponse.json(
+          {
+            code: "BUSQUEDA_INVALIDA",
+            message:
+              validation.error.issues[0]?.message ??
+              "El texto de búsqueda no es válido.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const query = validation.data
+      const categoryId = parseCategoryId(
+        searchParams.get("categoriaId") ??
+          searchParams.get("idCategoria") ??
+          searchParams.get("categoria")
+      )
+
+      if (Number.isNaN(categoryId)) {
+        return NextResponse.json(
+          {
+            code: "CATEGORIA_INVALIDA",
+            message: "Debe seleccionar una categoría válida para filtrar.",
+          },
+          { status: 400 }
+        )
+      }
+
+      if (categoryId !== null) {
+        const category = await db.categoria.findUnique({
+          where: { idCategoria: categoryId },
+          select: { idCategoria: true },
+        })
+
+        if (!category) {
+          return NextResponse.json(
+            {
+              code: "CATEGORIA_NO_EXISTE",
+              message: "La categoría seleccionada no existe.",
+            },
+            { status: 404 }
+          )
+        }
+      }
+
+      const [products, services] = await Promise.all([
+        db.producto.findMany({
+          where:
+            categoryId === null
+              ? { nombre: { contains: query } }
+              : {
+                  AND: [
+                    { nombre: { contains: query } },
+                    {
+                      categoriasProducto: {
+                        some: { idCategoria: categoryId },
+                      },
+                    },
+                  ],
+                },
+          orderBy: { nombre: "asc" },
+          include: productCategoriesInclude,
+        }),
+        categoryId === null
+          ? db.servicio.findMany({
+              where: { nombre: { contains: query } },
+              orderBy: { nombre: "asc" },
+            })
+          : Promise.resolve([]),
+      ])
+
+      const items = sortArticleSearchResults(
+        [
+          ...products.map((product) => ({
+            tipo: "producto" as const,
+            ...withImageAlias(product),
+          })),
+          ...services.map((service) => ({
+            tipo: "servicio" as const,
+            ...service,
+            idServicio: Number(service.idServicio),
+            precioVenta: Number(service.precioVenta),
+          })),
+        ],
+        query
+      )
+
+      return NextResponse.json({
+        code:
+          items.length > 0
+            ? "ARTICULOS_ENCONTRADOS"
+            : "ARTICULOS_NO_ENCONTRADOS",
+        message:
+          items.length > 0
+            ? "Coincidencias encontradas."
+            : "No se encontraron productos o servicios con ese nombre.",
+        items,
+        count: items.length,
+      })
     }
 
     const categoryId = parseCategoryId(
