@@ -2,39 +2,39 @@
 // A falta de una tabla punto_venta, el parametro acepta valores como:
 // - venta-12
 // - orden-8
-import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/permissions";
-import { requirePermission } from "@/lib/require-permission";
+import { db } from "@/lib/db"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
 import {
   recalcularTotalesOrdenTrabajo,
   WorkOrderTotalsError,
-} from "@/lib/stored-procedures";
-import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
-import { NextResponse } from "next/server";
+} from "@/lib/stored-procedures"
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
+import { NextResponse } from "next/server"
 
-const prisma = db;
+const prisma = db
 
 function parseIdPuntoVenta(idPuntoVenta: string) {
-  const [tipo, id] = idPuntoVenta.split("-");
-  const parsedId = Number(id);
+  const [tipo, id] = idPuntoVenta.split("-")
+  const parsedId = Number(id)
 
   if (
     !["venta", "orden"].includes(tipo) ||
     !Number.isInteger(parsedId) ||
     parsedId <= 0
   ) {
-    return null;
+    return null
   }
 
   return {
     tipo,
     id: parsedId,
-  };
+  }
 }
 
 function sanitizarUsuario(usuario: any) {
   if (!usuario) {
-    return usuario;
+    return usuario
   }
 
   const {
@@ -43,26 +43,28 @@ function sanitizarUsuario(usuario: any) {
     contrasena_hash,
     password,
     ...usuarioSeguro
-  } = usuario;
+  } = usuario
 
-  return usuarioSeguro;
+  return usuarioSeguro
 }
 
-function sanitizarActores<T extends { usuario?: any; mecanico?: any }>(data: T) {
+function sanitizarActores<T extends { usuario?: any; mecanico?: any }>(
+  data: T
+) {
   return {
     ...data,
     usuario: sanitizarUsuario(data.usuario),
     mecanico: sanitizarUsuario(data.mecanico),
-  };
+  }
 }
 
 function adaptarVenta(venta: any) {
   if (!venta) {
-    return null;
+    return null
   }
 
-  const ventaSegura = sanitizarActores(venta);
-  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {};
+  const ventaSegura = sanitizarActores(venta)
+  const ventaEnMostrador = ventaSegura.ventaEnMostrador ?? {}
 
   return {
     ...ventaSegura,
@@ -78,21 +80,21 @@ function adaptarVenta(venta: any) {
     estadoVenta: ventaEnMostrador.estado,
     estadoPago: ventaEnMostrador.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
-  };
+  }
 }
 
 function adaptarOrdenTrabajo(ordenTrabajo: any) {
   if (!ordenTrabajo) {
-    return null;
+    return null
   }
 
-  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
-  
-  const asignaciones = ordenTrabajoSegura.venta?.ventaEnMostrador?.asignacionesPago ?? [];
+  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
+
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
-  );
+  )
 
   return {
     ...ordenTrabajoSegura,
@@ -113,57 +115,57 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
       monto: a.pago?.monto,
       tipoAbono: a.tipoAbono,
     })),
-  };
+  }
 }
 
 function normalizarFechaSoloDia(fecha: Date) {
   return new Date(
     Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate())
-  );
+  )
 }
 
 function parseFechaEntregaEstimada(value: unknown) {
   if (typeof value !== "string" || !value.trim()) {
-    return null;
+    return null
   }
 
-  const fechaInput = value.trim();
-  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? [];
+  const fechaInput = value.trim()
+  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? []
 
   if (!datePart) {
-    return null;
+    return null
   }
 
-  const [year, month, day] = datePart.split("-").map(Number);
-  const fecha = new Date(Date.UTC(year, month - 1, day));
+  const [year, month, day] = datePart.split("-").map(Number)
+  const fecha = new Date(Date.UTC(year, month - 1, day))
 
   if (
     fecha.getUTCFullYear() !== year ||
     fecha.getUTCMonth() !== month - 1 ||
     fecha.getUTCDate() !== day
   ) {
-    return null;
+    return null
   }
 
-  return fecha;
+  return fecha
 }
 
 function hasOwn(data: Record<string, unknown>, key: string) {
-  return Object.prototype.hasOwnProperty.call(data, key);
+  return Object.prototype.hasOwnProperty.call(data, key)
 }
 
 function getAliasedValue(data: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     if (hasOwn(data, key)) {
-      return data[key];
+      return data[key]
     }
   }
 
-  return undefined;
+  return undefined
 }
 
 function hasAnyAlias(data: Record<string, unknown>, ...keys: string[]) {
-  return keys.some((key) => hasOwn(data, key));
+  return keys.some((key) => hasOwn(data, key))
 }
 
 function isBlank(value: unknown) {
@@ -171,21 +173,21 @@ function isBlank(value: unknown) {
     value === null ||
     value === undefined ||
     (typeof value === "string" && !value.trim())
-  );
+  )
 }
 
 function parseOptionalPositiveInteger(value: unknown) {
   if (isBlank(value)) {
-    return null;
+    return null
   }
 
-  const parsedValue = Number(value);
+  const parsedValue = Number(value)
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return Number.NaN;
+    return Number.NaN
   }
 
-  return parsedValue;
+  return parsedValue
 }
 
 function camposRequeridosVacios(data: Record<string, unknown>) {
@@ -194,20 +196,20 @@ function camposRequeridosVacios(data: Record<string, unknown>) {
     ["estado_pago", "estadoPago"],
     ["estado_orden", "estadoOrden", "estado"],
     ["descuento", "descuentoGlobal"],
-  ];
+  ]
 
   return camposRequeridos.some((aliases) => {
-    const fueEnviado = hasAnyAlias(data, ...aliases);
-    const value = getAliasedValue(data, ...aliases);
+    const fueEnviado = hasAnyAlias(data, ...aliases)
+    const value = getAliasedValue(data, ...aliases)
 
-    return fueEnviado && isBlank(value);
-  });
+    return fueEnviado && isBlank(value)
+  })
 }
 
 function compactObject(data: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
-  );
+  )
 }
 
 export async function GET(
@@ -215,8 +217,8 @@ export async function GET(
   { params }: { params: Promise<{ idPuntoVenta: string }> }
 ) {
   try {
-    const { idPuntoVenta } = await params;
-    const parsed = parseIdPuntoVenta(idPuntoVenta);
+    const { idPuntoVenta } = await params
+    const parsed = parseIdPuntoVenta(idPuntoVenta)
 
     if (!parsed) {
       return NextResponse.json(
@@ -225,11 +227,13 @@ export async function GET(
           message: "Use un identificador referencial como venta-1 u orden-1",
         },
         { status: 400 }
-      );
+      )
     }
 
     const requiredPermission =
-      parsed.tipo === "venta" ? PERMISSIONS.SALES_READ : PERMISSIONS.WORK_ORDERS_READ
+      parsed.tipo === "venta"
+        ? PERMISSIONS.SALES_READ
+        : PERMISSIONS.WORK_ORDERS_READ
     const { session, response } = await requirePermission(requiredPermission)
 
     if (response || !session) {
@@ -244,6 +248,11 @@ export async function GET(
         include: {
           usuario: true,
           cliente: true,
+          asignacionesPago: {
+            include: {
+              pago: true,
+            },
+          },
           ventaEnMostrador: {
             include: {
               lineasDeVenta: {
@@ -251,15 +260,10 @@ export async function GET(
                   producto: true,
                 },
               },
-              asignacionesPago: {
-                include: {
-                  pago: true,
-                },
-              },
             },
           },
         },
-      });
+      })
 
       if (!venta) {
         return NextResponse.json(
@@ -268,14 +272,14 @@ export async function GET(
             message: "La venta indicada no existe",
           },
           { status: 404 }
-        );
+        )
       }
 
       return NextResponse.json({
         idPuntoVenta,
         tipoOperacion: "venta",
         venta: adaptarVenta(venta),
-      });
+      })
     }
 
     const ordenTrabajo = await prisma.ordenDeTrabajo.findUnique({
@@ -287,15 +291,12 @@ export async function GET(
           include: {
             usuario: true,
             cliente: true,
-            ventaEnMostrador: {
+            asignacionesPago: {
               include: {
-                asignacionesPago: {
-                  include: {
-                    pago: true,
-                  },
-                },
+                pago: true,
               },
             },
+            ventaEnMostrador: true,
           },
         },
         mecanico: true,
@@ -311,7 +312,7 @@ export async function GET(
           },
         },
       },
-    });
+    })
 
     if (!ordenTrabajo) {
       return NextResponse.json(
@@ -320,21 +321,21 @@ export async function GET(
           message: "La orden de trabajo indicada no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     return NextResponse.json({
       idPuntoVenta,
       tipoOperacion: "orden_trabajo",
       ordenTrabajo: adaptarOrdenTrabajo(ordenTrabajo),
-    });
+    })
   } catch (error) {
-    console.log("[PUNTO_VENTA_DETALLE_GET]", error);
+    console.log("[PUNTO_VENTA_DETALLE_GET]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -343,8 +344,8 @@ export async function PATCH(
   { params }: { params: Promise<{ idPuntoVenta: string }> }
 ) {
   try {
-    const { idPuntoVenta } = await params;
-    const parsed = parseIdPuntoVenta(idPuntoVenta);
+    const { idPuntoVenta } = await params
+    const parsed = parseIdPuntoVenta(idPuntoVenta)
 
     if (!parsed) {
       return NextResponse.json(
@@ -353,7 +354,7 @@ export async function PATCH(
           message: "Use un identificador referencial como venta-1 u orden-1",
         },
         { status: 400 }
-      );
+      )
     }
 
     const requiredPermission =
@@ -366,7 +367,7 @@ export async function PATCH(
       return response
     }
 
-    const data = (await req.json()) as Record<string, unknown>;
+    const data = (await req.json()) as Record<string, unknown>
 
     if (parsed.tipo === "venta") {
       const ventaActualizada = await prisma.venta.update({
@@ -377,12 +378,16 @@ export async function PATCH(
           ventaEnMostrador: {
             update: {
               descuentoGlobal:
-                data.descuento !== undefined || data.descuentoGlobal !== undefined
+                data.descuento !== undefined ||
+                data.descuentoGlobal !== undefined
                   ? Number(data.descuento ?? data.descuentoGlobal)
                   : undefined,
               estadoPago: data.estado_pago ?? data.estadoPago ?? undefined,
               estado:
-                data.estado_venta ?? data.estadoVenta ?? data.estado ?? undefined,
+                data.estado_venta ??
+                data.estadoVenta ??
+                data.estado ??
+                undefined,
             },
           },
         },
@@ -399,41 +404,51 @@ export async function PATCH(
             },
           },
         },
-      });
+      })
 
       return NextResponse.json({
         idPuntoVenta,
         tipoOperacion: "venta",
         venta: adaptarVenta(ventaActualizada),
-      });
+      })
     }
 
     const tieneFechaEntregaEstimada = hasAnyAlias(
       data,
       "fecha_entrega_estimada",
       "fechaEntregaEstimada"
-    );
+    )
     const fechaEntregaEstimadaInput = getAliasedValue(
       data,
       "fecha_entrega_estimada",
       "fechaEntregaEstimada"
-    );
-    const tieneEstadoPago = hasAnyAlias(data, "estado_pago", "estadoPago");
-    const estadoPago = getAliasedValue(data, "estado_pago", "estadoPago");
-    const tieneEstadoOrden = hasAnyAlias(data, "estado_orden", "estadoOrden", "estado");
-    const estadoOrden = getAliasedValue(data, "estado_orden", "estadoOrden", "estado");
-    const tieneDescuento = hasAnyAlias(data, "descuento", "descuentoGlobal");
-    const descuento = getAliasedValue(data, "descuento", "descuentoGlobal");
+    )
+    const tieneEstadoPago = hasAnyAlias(data, "estado_pago", "estadoPago")
+    const estadoPago = getAliasedValue(data, "estado_pago", "estadoPago")
+    const tieneEstadoOrden = hasAnyAlias(
+      data,
+      "estado_orden",
+      "estadoOrden",
+      "estado"
+    )
+    const estadoOrden = getAliasedValue(
+      data,
+      "estado_orden",
+      "estadoOrden",
+      "estado"
+    )
+    const tieneDescuento = hasAnyAlias(data, "descuento", "descuentoGlobal")
+    const descuento = getAliasedValue(data, "descuento", "descuentoGlobal")
     const tieneMecanicoAsignado = hasAnyAlias(
       data,
       "id_mecanico_asignado",
       "idMecanicoAsignado"
-    );
+    )
     const idMecanicoAsignadoInput = getAliasedValue(
       data,
       "id_mecanico_asignado",
       "idMecanicoAsignado"
-    );
+    )
 
     if (camposRequeridosVacios(data)) {
       if (
@@ -446,7 +461,7 @@ export async function PATCH(
             message: "Debe ingresar una fecha estimada de entrega",
           },
           { status: 400 }
-        );
+        )
       }
 
       return NextResponse.json(
@@ -455,15 +470,15 @@ export async function PATCH(
           message: "Debe llenar los campos requeridos",
         },
         { status: 400 }
-      );
+      )
     }
 
-    let fechaEntregaEstimada: Date | undefined;
-    let idMecanicoAsignado: number | null | undefined;
+    let fechaEntregaEstimada: Date | undefined
+    let idMecanicoAsignado: number | null | undefined
 
     if (tieneFechaEntregaEstimada) {
       fechaEntregaEstimada =
-        parseFechaEntregaEstimada(fechaEntregaEstimadaInput) ?? undefined;
+        parseFechaEntregaEstimada(fechaEntregaEstimadaInput) ?? undefined
 
       if (!fechaEntregaEstimada) {
         return NextResponse.json(
@@ -476,12 +491,12 @@ export async function PATCH(
               : "La fecha ingresada no es valida",
           },
           { status: 400 }
-        );
+        )
       }
     }
 
     if (tieneMecanicoAsignado) {
-      idMecanicoAsignado = parseOptionalPositiveInteger(idMecanicoAsignadoInput);
+      idMecanicoAsignado = parseOptionalPositiveInteger(idMecanicoAsignadoInput)
 
       if (Number.isNaN(idMecanicoAsignado)) {
         return NextResponse.json(
@@ -490,7 +505,7 @@ export async function PATCH(
             message: "El mecanico asignado no es valido",
           },
           { status: 400 }
-        );
+        )
       }
     }
 
@@ -504,7 +519,7 @@ export async function PATCH(
           message: "El descuento no es valido",
         },
         { status: 400 }
-      );
+      )
     }
 
     const ordenTrabajoActual = await prisma.ordenDeTrabajo.findUnique({
@@ -514,7 +529,7 @@ export async function PATCH(
       include: {
         venta: true,
       },
-    });
+    })
 
     if (!ordenTrabajoActual) {
       return NextResponse.json(
@@ -523,7 +538,7 @@ export async function PATCH(
           message: "La orden de trabajo indicada no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     if (
@@ -538,7 +553,7 @@ export async function PATCH(
           message: "La fecha ingresada no es valida",
         },
         { status: 400 }
-      );
+      )
     }
 
     if (idMecanicoAsignado) {
@@ -546,7 +561,7 @@ export async function PATCH(
         where: {
           idUsuario: idMecanicoAsignado,
         },
-      });
+      })
 
       if (!mecanico) {
         return NextResponse.json(
@@ -555,7 +570,7 @@ export async function PATCH(
             message: "El mecanico asignado no existe",
           },
           { status: 404 }
-        );
+        )
       }
     }
 
@@ -569,7 +584,7 @@ export async function PATCH(
       fechaEntregaEstimada,
       observacionesIngreso:
         data.observaciones_ingreso ?? data.observacionesIngreso ?? undefined,
-    };
+    }
     const cambiosAuditoria = compactObject({
       descuentoGlobal: updateData.descuentoGlobal,
       estado: updateData.estado,
@@ -577,7 +592,7 @@ export async function PATCH(
       idMecanicoAsignado: updateData.idMecanicoAsignado,
       fechaEntregaEstimada: updateData.fechaEntregaEstimada,
       observacionesIngreso: updateData.observacionesIngreso,
-    });
+    })
 
     const ordenActualizada = await prisma.$transaction(async (tx) => {
       const orden = await tx.ordenDeTrabajo.update({
@@ -605,10 +620,10 @@ export async function PATCH(
             },
           },
         },
-      });
+      })
 
       if (tieneDescuento) {
-        await recalcularTotalesOrdenTrabajo(tx, parsed.id);
+        await recalcularTotalesOrdenTrabajo(tx, parsed.id)
       }
 
       if (Object.keys(cambiosAuditoria).length > 0) {
@@ -623,7 +638,9 @@ export async function PATCH(
               ? ordenTrabajoActual.descuentoGlobal
               : undefined,
             estado: tieneEstadoOrden ? ordenTrabajoActual.estado : undefined,
-            estadoPago: tieneEstadoPago ? ordenTrabajoActual.estadoPago : undefined,
+            estadoPago: tieneEstadoPago
+              ? ordenTrabajoActual.estadoPago
+              : undefined,
             idMecanicoAsignado: tieneMecanicoAsignado
               ? ordenTrabajoActual.idMecanicoAsignado
               : undefined,
@@ -639,7 +656,7 @@ export async function PATCH(
           detalleCambio: tieneFechaEntregaEstimada
             ? "Reprogramacion de fecha estimada de entrega"
             : "Modificacion de orden de trabajo",
-        });
+        })
       }
 
       return tx.ordenDeTrabajo.findUniqueOrThrow({
@@ -662,14 +679,14 @@ export async function PATCH(
             },
           },
         },
-      });
-    });
+      })
+    })
 
     return NextResponse.json({
       idPuntoVenta,
       tipoOperacion: "orden_trabajo",
       ordenTrabajo: adaptarOrdenTrabajo(ordenActualizada),
-    });
+    })
   } catch (error) {
     if (error instanceof WorkOrderTotalsError) {
       return NextResponse.json(
@@ -678,14 +695,14 @@ export async function PATCH(
           message: error.message,
         },
         { status: 400 }
-      );
+      )
     }
 
-    console.log("[PUNTO_VENTA_DETALLE_PATCH]", error);
+    console.log("[PUNTO_VENTA_DETALLE_PATCH]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
