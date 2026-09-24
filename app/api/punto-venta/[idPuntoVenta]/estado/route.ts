@@ -153,13 +153,10 @@ export async function PATCH(
             const ventaObj = await tx.venta.findUnique({
               where: { idVenta: parsed.id },
               include: {
-                ventaEnMostrador: {
-                  include: {
-                    asignacionesPago: {
-                      select: { montoAsociado: true },
-                    },
-                  },
+                asignacionesPago: {
+                  select: { montoAsociado: true },
                 },
+                ventaEnMostrador: true,
               },
             })
 
@@ -168,7 +165,7 @@ export async function PATCH(
             }
 
             const totalVenta = Number(ventaObj.ventaEnMostrador.montoTotal)
-            const totalPagado = ventaObj.ventaEnMostrador.asignacionesPago.reduce(
+            const totalPagado = ventaObj.asignacionesPago.reduce(
               (total, asignacion) => total + Number(asignacion.montoAsociado),
               0
             )
@@ -189,8 +186,7 @@ export async function PATCH(
               await tx.asignacionPago.create({
                 data: {
                   idPago: nuevoPago.idPago,
-                  idVentaEnMostrador:
-                    ventaObj.ventaEnMostrador.idVentaEnMostrador,
+                  idVenta: ventaObj.idVenta,
                   idOrdenDeCompra: null,
                   montoAsociado: saldoPendiente,
                   tipoAbono: "pago_total",
@@ -280,11 +276,8 @@ export async function PATCH(
       include: {
         venta: {
           include: {
-            ventaEnMostrador: {
-              include: {
-                asignacionesPago: true,
-              },
-            },
+            asignacionesPago: true,
+            ventaEnMostrador: true,
           },
         },
       },
@@ -330,7 +323,7 @@ export async function PATCH(
     let finalEstadoPago = estadoPago
     const totalOrden = Number(ordenTrabajo.montoTotal)
     const totalPagadoPrev =
-      ordenTrabajo.venta?.ventaEnMostrador?.asignacionesPago?.reduce(
+      ordenTrabajo.venta?.asignacionesPago?.reduce(
         (sum: number, ap: { montoAsociado: unknown }) =>
           sum + Number(ap.montoAsociado),
         0
@@ -376,8 +369,7 @@ export async function PATCH(
           await tx.asignacionPago.create({
             data: {
               idPago: nuevoPago.idPago,
-              idVentaEnMostrador:
-                ordenTrabajo.venta.ventaEnMostrador.idVentaEnMostrador,
+              idVenta: ordenTrabajo.venta.idVenta,
               idOrdenDeCompra: null,
               montoAsociado: montoAPagar,
               tipoAbono: isFullPayment ? "pago_total" : "abono",
@@ -415,15 +407,12 @@ export async function PATCH(
               include: {
                 usuario: true,
                 cliente: true,
-                ventaEnMostrador: {
+                asignacionesPago: {
                   include: {
-                    asignacionesPago: {
-                      include: {
-                        pago: true,
-                      },
-                    },
+                    pago: true,
                   },
                 },
+                ventaEnMostrador: true,
               },
             },
             mecanico: true,
