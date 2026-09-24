@@ -153,13 +153,10 @@ export async function PATCH(
             const ventaObj = await tx.venta.findUnique({
               where: { idVenta: parsed.id },
               include: {
-                ventaEnMostrador: {
-                  include: {
-                    asignacionesPago: {
-                      select: { montoAsociado: true },
-                    },
-                  },
+                asignacionesPago: {
+                  select: { montoAsociado: true },
                 },
+                ventaEnMostrador: true,
               },
             })
 
@@ -168,12 +165,13 @@ export async function PATCH(
             }
 
             const totalVenta = Number(ventaObj.ventaEnMostrador.montoTotal)
-            const totalPagado = ventaObj.ventaEnMostrador.asignacionesPago.reduce(
+            const totalPagado = ventaObj.asignacionesPago.reduce(
               (total, asignacion) => total + Number(asignacion.montoAsociado),
               0
             )
             const saldoPendiente = Math.max(0, totalVenta - totalPagado)
-            let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
+            let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null =
+              null
 
             if (saldoPendiente > 0) {
               nuevoPago = await tx.pago.create({
@@ -189,8 +187,7 @@ export async function PATCH(
               await tx.asignacionPago.create({
                 data: {
                   idPago: nuevoPago.idPago,
-                  idVentaEnMostrador:
-                    ventaObj.ventaEnMostrador.idVentaEnMostrador,
+                  idVenta: ventaObj.idVenta,
                   idOrdenDeCompra: null,
                   montoAsociado: saldoPendiente,
                   tipoAbono: "pago_total",
@@ -280,11 +277,8 @@ export async function PATCH(
       include: {
         venta: {
           include: {
-            ventaEnMostrador: {
-              include: {
-                asignacionesPago: true,
-              },
-            },
+            asignacionesPago: true,
+            ventaEnMostrador: true,
           },
         },
       },
@@ -312,25 +306,25 @@ export async function PATCH(
           )
         }
       } else {
-      const estadosSiguientes =
-        transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
+        const estadosSiguientes =
+          transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
 
-      if (!estadosSiguientes.includes(estadoOrden)) {
-        return NextResponse.json(
-          {
-            code: "CAMBIO_ESTADO_NO_PERMITIDO",
-            message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
-          },
-          { status: 409 }
-        )
-      }
+        if (!estadosSiguientes.includes(estadoOrden)) {
+          return NextResponse.json(
+            {
+              code: "CAMBIO_ESTADO_NO_PERMITIDO",
+              message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
+            },
+            { status: 409 }
+          )
+        }
       }
     }
 
     let finalEstadoPago = estadoPago
     const totalOrden = Number(ordenTrabajo.montoTotal)
     const totalPagadoPrev =
-      ordenTrabajo.venta?.ventaEnMostrador?.asignacionesPago?.reduce(
+      ordenTrabajo.venta?.asignacionesPago?.reduce(
         (sum: number, ap: { montoAsociado: unknown }) =>
           sum + Number(ap.montoAsociado),
         0
@@ -376,8 +370,7 @@ export async function PATCH(
           await tx.asignacionPago.create({
             data: {
               idPago: nuevoPago.idPago,
-              idVentaEnMostrador:
-                ordenTrabajo.venta.ventaEnMostrador.idVentaEnMostrador,
+              idVenta: ordenTrabajo.venta.idVenta,
               idOrdenDeCompra: null,
               montoAsociado: montoAPagar,
               tipoAbono: isFullPayment ? "pago_total" : "abono",
@@ -415,15 +408,12 @@ export async function PATCH(
               include: {
                 usuario: true,
                 cliente: true,
-                ventaEnMostrador: {
+                asignacionesPago: {
                   include: {
-                    asignacionesPago: {
-                      include: {
-                        pago: true,
-                      },
-                    },
+                    pago: true,
                   },
                 },
+                ventaEnMostrador: true,
               },
             },
             mecanico: true,
