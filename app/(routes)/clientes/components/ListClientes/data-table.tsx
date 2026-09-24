@@ -41,6 +41,7 @@ interface DataTableProps<TData, Tvalue> {
   onViewDetails?: (id: number) => void
   onViewHistory?: (id: number) => void
   onEdit?: (id: number) => void
+  onInactivate?: (id: number) => Promise<void>
 }
 
 export function DataTable<TData, Tvalue>({
@@ -49,9 +50,12 @@ export function DataTable<TData, Tvalue>({
   onViewDetails,
   onViewHistory,
   onEdit,
+  onInactivate,
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
+    { id: "estado", value: "activo" },
+  ])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [isMounted, setIsMounted] = React.useState(false)
 
@@ -71,6 +75,7 @@ export function DataTable<TData, Tvalue>({
       onViewDetails,
       onViewHistory,
       onEdit,
+      onInactivate,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -110,18 +115,18 @@ export function DataTable<TData, Tvalue>({
             </div>
 
             <Select
-              value={(table.getColumn("estado")?.getFilterValue() as string) ?? "all"}
+              value={(table.getColumn("estado")?.getFilterValue() as string) ?? "activo"}
               onValueChange={(value) =>
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
               }
             >
               <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder="Estado: Todos" />
+                <SelectValue placeholder="Solo Activos" />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="activo">Solo Activos</SelectItem>
                 <SelectItem value="inactivo">Solo Inactivos</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem>
               </SelectContent>
             </Select>
           </div>

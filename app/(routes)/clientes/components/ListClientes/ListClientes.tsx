@@ -141,6 +141,30 @@ export function ListClientes() {
     }
   };
 
+  const handleInactivate = async (id: number) => {
+    const res = await fetch(`/api/clientes/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(
+        data?.message || "No se pudo inactivar el cliente. Intenta nuevamente."
+      );
+    }
+
+    // Actualizar estado local inmediatamente sin recargar toda la página
+    setRawClientes((prev) =>
+      prev.map((c) => (c.idCliente === id ? { ...c, estado: "inactivo" } : c))
+    );
+    setClientesNaturales((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, estado: "inactivo" } : c))
+    );
+    setClientesJuridicas((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, estado: "inactivo" } : c))
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -225,6 +249,7 @@ export function ListClientes() {
             onViewDetails={handleViewDetails}
             onViewHistory={handleViewHistory}
             onEdit={handleEdit}
+            onInactivate={handleInactivate}
           />
         </TabsContent>
 

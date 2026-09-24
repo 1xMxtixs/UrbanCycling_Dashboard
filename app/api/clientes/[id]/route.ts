@@ -270,3 +270,78 @@ export async function PATCH(request: Request, context: RouteContext) {
     return new NextResponse("Internal Server Error", { status: 500 })
   }
 }
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.CLIENTS_DELETE)
+
+    if (response) {
+      return response
+    }
+
+    const { id } = await context.params
+    const idCliente = parseClienteId(id)
+
+    if (Number.isNaN(idCliente)) {
+      return NextResponse.json(
+        { message: "El ID del cliente no es válido" },
+        { status: 400 }
+      )
+    }
+
+    const cliente = await db.cliente.findUnique({
+      where: { idCliente },
+      include: {
+        ventas: {
+          include: {
+            ordenDeTrabajo: true,
+          },
+        },
+      },
+    })
+
+    if (!cliente) {
+      return NextResponse.json(
+        { message: "El cliente no existe" },
+        { status: 404 }
+      )
+    }
+
+    // Comprobar si tiene órdenes de trabajo activas
+    const estadosInactivos = ["entregado", "anulada", "cancelada"]
+    const ordenesActivas = cliente.ventas
+      .filter((v) => v.ordenDeTrabajo)
+      .map((v) => v.ordenDeTrabajo!)
+      .filter((ot) => !estadosInactivos.includes(ot.estado.toLowerCase()))
+
+    if (ordenesActivas.length > 0) {
+      const cantidad = ordenesActivas.length
+      const texto =
+        cantidad === 1
+          ? "1 orden de trabajo activa"
+          : `${cantidad} órdenes de trabajo activas`
+      return NextResponse.json(
+        {
+          message: `No se puede inactivar: el cliente tiene ${texto}.`,
+        },
+        { status: 409 }
+      )
+    }
+
+    await db.cliente.update({
+      where: { idCliente },
+      data: { estado: "inactivo" },
+    })
+
+    return NextResponse.json({
+      message: "Cliente inactivado correctamente",
+    })
+  } catch (error) {
+    console.log("[CLIENTES_ID_DELETE]", error)
+    return NextResponse.json(
+      { message: "Error interno del servidor al inactivar el cliente" },
+      { status: 500 }
+    )
+  }
+}
+
