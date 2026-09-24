@@ -41,7 +41,7 @@ const direccionProveedorSchema = z.object({
   calle: textoRequerido(150),
   numero: textoRequerido(20),
   unidad: textoOpcional(20),
-  descripcion: textoOpcional(50),
+  descripcion: textoOpcional(50).default(""),
 })
 
 const proveedorFieldsSchema = {
