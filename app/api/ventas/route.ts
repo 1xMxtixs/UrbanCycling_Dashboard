@@ -135,6 +135,10 @@ export async function POST(req: Request) {
       where: {
         idCliente,
       },
+      select: {
+        idCliente: true,
+        estado: true,
+      },
     })
 
     if (!cliente) {
@@ -145,6 +149,16 @@ export async function POST(req: Request) {
             "El cliente no está registrado. Debe registrarlo antes de crear la venta.",
         },
         { status: 404 }
+      )
+    }
+
+    if (cliente.estado !== "activo") {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_INACTIVO",
+          message: "No se pueden registrar ventas para un cliente inactivo",
+        },
+        { status: 409 }
       )
     }
 

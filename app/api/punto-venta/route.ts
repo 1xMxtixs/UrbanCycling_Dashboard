@@ -612,6 +612,16 @@ export async function POST(req: Request) {
           { status: 404 }
         )
       }
+
+      if (cliente.estado !== "activo") {
+        return NextResponse.json(
+          {
+            code: "CLIENTE_INACTIVO",
+            message: "No se pueden crear operaciones para un cliente inactivo",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const productosVentaAgrupados = agruparProductos(productosVenta)
