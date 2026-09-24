@@ -15,6 +15,11 @@ export const PERMISSIONS = {
   CLIENTS_UPDATE: "clients:update",
   CLIENTS_DELETE: "clients:delete",
 
+  SUPPLIERS_READ: "suppliers:read",
+  SUPPLIERS_CREATE: "suppliers:create",
+  SUPPLIERS_UPDATE: "suppliers:update",
+  SUPPLIERS_DELETE: "suppliers:delete",
+
   WORK_ORDERS_READ: "work-orders:read",
   WORK_ORDERS_CREATE: "work-orders:create",
   WORK_ORDERS_UPDATE: "work-orders:update",
