@@ -89,7 +89,7 @@ const CellActions = <TData extends { id: number }>({
                   e.preventDefault();
                   setDialogOpen(true);
                 }}
-                className="flex cursor-pointer items-center gap-2 text-destructive focus:text-destructive"
+                className="flex cursor-pointer items-center gap-2 text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
                 Inactivar cliente
