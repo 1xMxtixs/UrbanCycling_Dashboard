@@ -1,11 +1,42 @@
+"use client"
+
+import { useRef, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
-import { Menu, Search, Command } from "lucide-react"
+import { Menu, Search, X } from "lucide-react"
 import { SidebarRoutes } from "../SidebarRoutes"
 import { ToggleTheme } from "../ToggleTheme"
 import { UserButton } from "./UserButton"
+import { TransversalSearchDropdown } from "@/components/common/TransversalSearch"
+import { useTransversalSearch } from "@/hooks/use-transversal-search"
+import { cn } from "@/lib/utils"
 
 export function Navbar() {
+  const {
+    query,
+    setQuery,
+    results,
+    status,
+    hasResults,
+    isOpen,
+    clearSearch,
+  } = useTransversalSearch()
+
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Cierra el dropdown si el foco sale del contenedor completo
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.relatedTarget as Node | null)
+      ) {
+        clearSearch()
+      }
+    },
+    [clearSearch],
+  )
+
   return (
     <header className="sticky top-0 z-30 flex items-center px-4 md:px-8 justify-between w-full bg-background/80 backdrop-blur-md border-b border-border/80 h-20 transition-all">
       {/* Mobile Menu Trigger */}
@@ -26,19 +57,61 @@ export function Navbar() {
       </div>
 
       {/* Global Quick Search Bar */}
-      <div className="relative w-60 sm:w-72 md:w-96 hidden sm:block">
+      <div
+        ref={containerRef}
+        className="relative w-60 sm:w-72 md:w-96 hidden sm:block"
+        onBlur={handleBlur}
+      >
         <Search
           strokeWidth={2}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10"
         />
         <Input
+          id="navbar-search"
+          type="search"
+          role="combobox"
+          aria-label="Buscar productos y servicios"
+          aria-expanded={isOpen}
+          aria-autocomplete="list"
+          aria-controls={isOpen ? "navbar-search-results" : undefined}
           placeholder="Buscar clientes, productos, órdenes..."
-          className="h-10 pl-10 pr-12 rounded-xl bg-muted/40 border-border/70 text-xs md:text-sm focus-visible:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") clearSearch()
+          }}
+          autoComplete="off"
+          className={cn(
+            "h-10 pl-10 pr-10 rounded-xl bg-muted/40 border-border/70 text-xs md:text-sm shadow-2xs placeholder:text-muted-foreground/70",
+            "transition-all duration-200 ease-linear focus-visible:bg-background",
+            isOpen && "rounded-b-none border-b-transparent",
+          )}
         />
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-background border border-border/80 text-[10px] font-semibold text-muted-foreground select-none pointer-events-none shadow-2xs">
-          <Command className="h-3 w-3" />
-          <span>K</span>
-        </div>
+
+        {/* Botón de limpiar cuando hay texto ingresado */}
+        {query && (
+          <button
+            type="button"
+            aria-label="Limpiar búsqueda"
+            onClick={clearSearch}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {/* Dropdown de resultados */}
+        {isOpen && (
+          <div id="navbar-search-results">
+            <TransversalSearchDropdown
+              query={query}
+              results={results}
+              status={status}
+              hasResults={hasResults}
+              onClose={clearSearch}
+            />
+          </div>
+        )}
       </div>
 
       {/* Action buttons & User */}
