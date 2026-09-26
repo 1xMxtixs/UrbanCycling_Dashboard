@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select"
 import { CalendarRange, ChevronLeft, ChevronRight, ClipboardList, Search, X } from "lucide-react"
 import { WorkOrder } from "../../types"
+import { includesNormalizedText } from "@/lib/search-normalization"
 
 type PeriodFilterProps = {
   draft: {
@@ -75,6 +76,7 @@ interface DataTableProps<TData, TValue> {
   onModifyServiceClick?: (order: WorkOrder) => void
   periodFilter: PeriodFilterProps
   emptyState?: EmptyStateProps
+  initialSearch?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -92,6 +94,7 @@ export function DataTable<TData, TValue>({
   onModifyServiceClick,
   periodFilter,
   emptyState,
+  initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -101,6 +104,10 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  React.useEffect(() => {
+    setGlobalFilter(initialSearch)
+  }, [initialSearch])
 
   const table = useReactTable({
     data,
@@ -128,6 +135,12 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) =>
+      row
+        .getAllCells()
+        .some((cell) =>
+          includesNormalizedText(String(cell.getValue() ?? ""), String(filterValue ?? "")),
+        ),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,

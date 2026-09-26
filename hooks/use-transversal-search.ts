@@ -9,6 +9,7 @@ import type {
   SearchResults,
   SearchStatus,
 } from "@/types/search"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 
 const DEBOUNCE_MS = 300
 const MIN_QUERY_LENGTH = 2
@@ -108,12 +109,23 @@ async function fetchCatalog(): Promise<{
       const rawClientes = (await clientesRes.json()) as RawCliente[]
       cachedClientes = Array.isArray(rawClientes)
         ? rawClientes.map((c) => {
+            const razonSocial = c.razonSocial?.trim()
+            const esPersonaJuridica = ["juridica", "juridico"].includes(
+              c.tipoCliente.trim().toLocaleLowerCase("es-CL"),
+            )
+            const nombreNatural = [
+              c.primerNombre,
+              c.segundoNombre,
+              c.apellidoPaterno,
+              c.apellidoMaterno,
+            ]
+              .filter(Boolean)
+              .join(" ")
             const nombre =
-              c.tipoCliente === "juridica"
-                ? c.razonSocial || "Empresa sin razón social"
-                : [c.primerNombre, c.segundoNombre, c.apellidoPaterno, c.apellidoMaterno]
-                    .filter(Boolean)
-                    .join(" ") || "Cliente sin nombre"
+              razonSocial ||
+              (esPersonaJuridica
+                ? "Empresa sin razón social"
+                : nombreNatural || "Cliente sin nombre")
 
             return {
               idCliente: c.idCliente,
@@ -188,23 +200,23 @@ function filterResults(
   clientes: SearchCliente[],
   ordenes: SearchWorkOrder[],
 ): SearchResults {
-  const q = query.trim().toLowerCase()
+  const q = normalizeSearchText(query)
   const qClean = q.replace(/^#/, "").trim()
 
   const filteredProducts = products
-    .filter((p) => p.nombre.toLowerCase().includes(q) || String(p.idProducto) === qClean)
+    .filter((p) => includesNormalizedText(p.nombre, q) || String(p.idProducto) === qClean)
     .slice(0, 4)
 
   const filteredServices = services
-    .filter((s) => s.nombre.toLowerCase().includes(q) || s.codigo.toLowerCase().includes(q))
+    .filter((s) => includesNormalizedText(s.nombre, q) || includesNormalizedText(s.codigo, q))
     .slice(0, 3)
 
   const filteredClientes = clientes
     .filter((c) => {
-      const rutClean = c.rut.toLowerCase().replace(/[\.\-]/g, "")
+      const rutClean = normalizeSearchText(c.rut).replace(/[\.\-]/g, "")
       const searchRutClean = q.replace(/[\.\-]/g, "")
       return (
-        c.nombreCompleto.toLowerCase().includes(q) ||
+        includesNormalizedText(c.nombreCompleto, q) ||
         (searchRutClean.length >= 3 && rutClean.includes(searchRutClean)) ||
         (c.telefono && c.telefono.includes(q))
       )
@@ -217,8 +229,8 @@ function filterResults(
         String(o.idOrdenDeTrabajo) === qClean ||
         String(o.idOrdenDeTrabajo).includes(qClean) ||
         `#${o.idOrdenDeTrabajo}`.includes(q)
-      const clientMatch = o.clienteNombre.toLowerCase().includes(q)
-      const bikeMatch = o.bicicletaResumen?.toLowerCase().includes(q)
+      const clientMatch = includesNormalizedText(o.clienteNombre, q)
+      const bikeMatch = includesNormalizedText(o.bicicletaResumen, q)
       return idMatch || clientMatch || bikeMatch
     })
     .slice(0, 4)
