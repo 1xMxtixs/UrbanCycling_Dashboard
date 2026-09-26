@@ -1,4 +1,10 @@
 import { db } from "../lib/db";
+import {
+  EstadoRegistro,
+  EstadoPagoVenta,
+  EstadoVentaMostrador,
+  EstadoPago,
+} from "../generated/prisma";
 
 async function main() {
   console.log("🌱 Iniciando seed de datos...\n");
@@ -21,6 +27,7 @@ async function main() {
   await db.bicicleta.deleteMany();
   await db.lineaDeOrdenDeTrabajo.deleteMany();
   await db.ordenDeTrabajo.deleteMany();
+  await db.estadoOrdenTrabajo.deleteMany();
   await db.lineaDeVenta.deleteMany();
   await db.ventaEnMostrador.deleteMany();
   await db.venta.deleteMany();
@@ -42,6 +49,24 @@ async function main() {
   await db.rolPermiso.deleteMany();
   await db.rol.deleteMany();
   await db.permiso.deleteMany();
+
+  // ──────────────────────────────────────────────
+  // 0. CATÁLOGO ESTADOS ORDEN DE TRABAJO
+  // ──────────────────────────────────────────────
+  console.log("📋 Creando estados de orden de trabajo...");
+  const estadosOtData = [
+    { codigo: "POR_REALIZAR", nombre: "Por realizar", orden: 1, esFinal: false },
+    { codigo: "EN_ESPERA", nombre: "En espera", orden: 2, esFinal: false },
+    { codigo: "EN_CURSO", nombre: "En curso", orden: 3, esFinal: false },
+    { codigo: "LISTO_PARA_ENTREGAR", nombre: "Listo para entregar", orden: 4, esFinal: false },
+    { codigo: "ENTREGADO", nombre: "Entregado", orden: 5, esFinal: true },
+    { codigo: "ANULADA", nombre: "Anulada", orden: 6, esFinal: true },
+  ];
+
+  for (const estado of estadosOtData) {
+    await db.estadoOrdenTrabajo.create({ data: estado });
+  }
+  console.log(`  ${estadosOtData.length} estados de OT creados.`);
 
   // ──────────────────────────────────────────────
   // 1. PERMISOS
@@ -100,7 +125,7 @@ async function main() {
     data: {
       nombre: "Administrador",
       descripcion: "Acceso completo al sistema",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       permisosRol: { create: adminPermisos.map((id) => ({ idPermiso: id })) },
     },
   }));
@@ -108,7 +133,7 @@ async function main() {
     data: {
       nombre: "Mecánico",
       descripcion: "Acceso a módulos de bicicletas y ordenes de trabajo",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       permisosRol: {
         create: permisos
           .filter((p) =>
@@ -128,7 +153,7 @@ async function main() {
     data: {
       nombre: "Vendedor",
       descripcion: "Acceso a ventas en mostrador y clientes",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       permisosRol: {
         create: permisos
           .filter((p) =>
@@ -149,7 +174,7 @@ async function main() {
     data: {
       nombre: "Bodeguero",
       descripcion: "Acceso a inventario y compras",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       permisosRol: {
         create: permisos
           .filter((p) =>
@@ -181,7 +206,7 @@ async function main() {
         rut: "11111111-1",
         correo: "admin@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 1111 1111",
       },
     }),
@@ -194,7 +219,7 @@ async function main() {
         rut: "22222222-2",
         correo: "carlos.munoz@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 2222 2222",
       },
     }),
@@ -207,7 +232,7 @@ async function main() {
         rut: "33333333-3",
         correo: "pedro.ramirez@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 3333 3333",
       },
     }),
@@ -221,7 +246,7 @@ async function main() {
         rut: "44444444-4",
         correo: "maria.gonzalez@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 4444 4444",
       },
     }),
@@ -234,7 +259,7 @@ async function main() {
         rut: "55555555-5",
         correo: "ana.torres@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 5555 5555",
       },
     }),
@@ -247,7 +272,7 @@ async function main() {
         rut: "66666666-6",
         correo: "luis.fernandez@urbancycling.cl",
         contrasenaHash: hash,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefono: "+56 9 6666 6666",
       },
     }),
@@ -259,16 +284,16 @@ async function main() {
   // ──────────────────────────────────────────────
   console.log("📂 Creando categorías...");
   const categorias = await Promise.all([
-    db.categoria.create({ data: { nombre: "Cuadros", descripcion: "Cuadros de bicicletas", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Ruedas", descripcion: "Ruedas y neumáticos", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Frenos", descripcion: "Sistemas de frenado", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Transmisión", descripcion: "Cadenas, platos y piñones", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Suspensión", descripcion: "Horquillas y amortiguadores", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Rodamiento", descripcion: "Rodamientos y juegos de dirección", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Accesorios", descripcion: "Luces, campanas, portaequipajes", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Indumentaria", descripcion: "Ropa y calzado ciclista", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Lubricantes", descripcion: "Aceites y grasas", estado: "activo" } }),
-    db.categoria.create({ data: { nombre: "Herramientas", descripcion: "Herramientas de taller", estado: "activo" } }),
+    db.categoria.create({ data: { nombre: "Cuadros", descripcion: "Cuadros de bicicletas", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Ruedas", descripcion: "Ruedas y neumáticos", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Frenos", descripcion: "Sistemas de frenado", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Transmisión", descripcion: "Cadenas, platos y piñones", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Suspensión", descripcion: "Horquillas y amortiguadores", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Rodamiento", descripcion: "Rodamientos y juegos de dirección", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Accesorios", descripcion: "Luces, campanas, portaequipajes", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Indumentaria", descripcion: "Ropa y calzado ciclista", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Lubricantes", descripcion: "Aceites y grasas", estado: EstadoRegistro.ACTIVO } }),
+    db.categoria.create({ data: { nombre: "Herramientas", descripcion: "Herramientas de taller", estado: EstadoRegistro.ACTIVO } }),
   ]);
   console.log(`  ${categorias.length} categorías creadas.`);
 
@@ -312,7 +337,7 @@ async function main() {
           tipoProducto: p.tipoProducto,
           nombre: p.nombre,
           descripcion: p.descripcion,
-          estado: "activo",
+          estado: EstadoRegistro.ACTIVO,
           precioVenta: p.precioVenta,
           costoPromedio: p.costoPromedio,
           stockMinimo: p.stockMinimo,
@@ -331,18 +356,18 @@ async function main() {
   // 6. SERVICIOS
   // ──────────────────────────────────────────────
   console.log("🔧 Creando servicios...");
-  const serviciosData = [
-    { codigo: "SERV-AJCAM", nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: "activo" },
-    { codigo: "SERV-AJFRE", nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: "activo" },
-    { codigo: "SERV-CAD", nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: "activo" },
-    { codigo: "SERV-CENRU", nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: "activo" },
-    { codigo: "SERV-CUB", nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: "activo" },
-    { codigo: "SERV-MTB", nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: "activo" },
-    { codigo: "SERV-RUTA", nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: "activo" },
-    { codigo: "SERV-SANG", nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: "activo" },
-    { codigo: "SERV-MONT", nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: "activo" },
-    { codigo: "SERV-DIAG", nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: "activo" },
-  ];
+const serviciosData = [
+  { codigo: "SERV-AJCAM", nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-AJFRE", nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-CAD", nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-CENRU", nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-CUB", nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-MTB", nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-RUTA", nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-SANG", nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-MONT", nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: EstadoRegistro.ACTIVO },
+  { codigo: "SERV-DIAG", nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
+];
   const servicios = await Promise.all(
     serviciosData.map((servicio) =>
       db.servicio.create({
@@ -371,16 +396,16 @@ async function main() {
   // ──────────────────────────────────────────────
   console.log("👤 Creando clientes...");
   const clientesData = [
-    { tipoCliente: "natural", rut: "12345678-9", primerNombre: "Juan", apellidoPaterno: "Perez", apellidoMaterno: "Gonzalez", correo: "juan.perez@email.com", estado: "activo", telefono: "+56 9 1234 5678", region: "Metropolitana", ciudad: "Santiago", comuna: "Providencia", calle: "Av. Providencia", numero: "1234" },
-    { tipoCliente: "natural", rut: "23456789-0", primerNombre: "María", apellidoPaterno: "López", apellidoMaterno: "Rojas", correo: "maria.lopez@email.com", estado: "activo", telefono: "+56 9 2345 6789", region: "Metropolitana", ciudad: "Santiago", comuna: "Las Condes", calle: "Av. Las Condes", numero: "567" },
-    { tipoCliente: "natural", rut: "34567890-1", primerNombre: "Pedro", apellidoPaterno: "Ramírez", apellidoMaterno: "Soto", correo: "pedro.ramirez@email.com", estado: "activo", telefono: "+56 9 3456 7890", region: "Valparaíso", ciudad: "Viña del Mar", comuna: "Viña del Mar", calle: "Av. San Martín", numero: "890" },
-    { tipoCliente: "natural", rut: "45678901-2", primerNombre: "Ana", apellidoPaterno: "Torres", apellidoMaterno: "Vega", correo: "ana.torres@email.com", estado: "activo", telefono: "+56 9 4567 8901", region: "Metropolitana", ciudad: "Santiago", comuna: "Ñuñoa", calle: "Calle Seminario", numero: "345" },
-    { tipoCliente: "juridico", rut: "76543210-8", razonSocial: "Ciclismo Total SpA", giro: "Venta de bicicletas y accesorios", nombreContacto: "Roberto Muñoz", correo: "contacto@ciclismototal.cl", estado: "activo", telefono: "+56 2 2123 4567", region: "Metropolitana", ciudad: "Santiago", comuna: "Santiago Centro", calle: "Calle Moneda", numero: "456" },
-    { tipoCliente: "natural", rut: "56789012-3", primerNombre: "Luis", apellidoPaterno: "Fernández", apellidoMaterno: "Rivas", correo: "luis.fernandez@email.com", estado: "activo", telefono: "+56 9 5678 9012", region: "Metropolitana", ciudad: "Santiago", comuna: "Estación Central", calle: "Av. Libertador", numero: "2100" },
-    { tipoCliente: "natural", rut: "67890123-4", primerNombre: "Carolina", apellidoPaterno: "Martínez", apellidoMaterno: "Díaz", correo: "carolina.martinez@email.com", estado: "activo", telefono: "+56 9 6789 0123", region: "O'Higgins", ciudad: "Rancagua", comuna: "Rancagua", calle: "Calle Estado", numero: "789" },
-    { tipoCliente: "juridico", rut: "87654321-9", razonSocial: "Bike Parts Chile Ltda", giro: "Importación y distribución de repuestos", nombreContacto: "Patricio Vera", correo: "ventas@bikeparts.cl", estado: "activo", telefono: "+56 2 2987 6543", region: "Metropolitana", ciudad: "Santiago", comuna: "Maipú", calle: "Av. Los Pajaritos", numero: "1500" },
-    { tipoCliente: "natural", rut: "78901234-5", primerNombre: "Francisco", apellidoPaterno: "Aravena", apellidoMaterno: "Mora", correo: "francisco.aravena@email.com", estado: "activo", telefono: "+56 9 7890 1234", region: "Biobío", ciudad: "Concepción", comuna: "Concepción", calle: "Calle Barros Arana", numero: "234" },
-    { tipoCliente: "natural", rut: "89012345-6", primerNombre: "Daniela", apellidoPaterno: "Reyes", apellidoMaterno: "Castro", correo: "daniela.reyes@email.com", estado: "activo", telefono: "+56 9 8901 2345", region: "Metropolitana", ciudad: "Santiago", comuna: "La Florida", calle: "Av. Vicuña Mackenna", numero: "4567" },
+    { tipoCliente: "natural", rut: "12345678-9", primerNombre: "Juan", apellidoPaterno: "Perez", apellidoMaterno: "Gonzalez", correo: "juan.perez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 1234 5678", region: "Metropolitana", ciudad: "Santiago", comuna: "Providencia", calle: "Av. Providencia", numero: "1234" },
+    { tipoCliente: "natural", rut: "23456789-0", primerNombre: "María", apellidoPaterno: "López", apellidoMaterno: "Rojas", correo: "maria.lopez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 2345 6789", region: "Metropolitana", ciudad: "Santiago", comuna: "Las Condes", calle: "Av. Las Condes", numero: "567" },
+    { tipoCliente: "natural", rut: "34567890-1", primerNombre: "Pedro", apellidoPaterno: "Ramírez", apellidoMaterno: "Soto", correo: "pedro.ramirez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 3456 7890", region: "Valparaíso", ciudad: "Viña del Mar", comuna: "Viña del Mar", calle: "Av. San Martín", numero: "890" },
+    { tipoCliente: "natural", rut: "45678901-2", primerNombre: "Ana", apellidoPaterno: "Torres", apellidoMaterno: "Vega", correo: "ana.torres@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 4567 8901", region: "Metropolitana", ciudad: "Santiago", comuna: "Ñuñoa", calle: "Calle Seminario", numero: "345" },
+    { tipoCliente: "juridico", rut: "76543210-8", razonSocial: "Ciclismo Total SpA", giro: "Venta de bicicletas y accesorios", nombreContacto: "Roberto Muñoz", correo: "contacto@ciclismototal.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2123 4567", region: "Metropolitana", ciudad: "Santiago", comuna: "Santiago Centro", calle: "Calle Moneda", numero: "456" },
+    { tipoCliente: "natural", rut: "56789012-3", primerNombre: "Luis", apellidoPaterno: "Fernández", apellidoMaterno: "Rivas", correo: "luis.fernandez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 5678 9012", region: "Metropolitana", ciudad: "Santiago", comuna: "Estación Central", calle: "Av. Libertador", numero: "2100" },
+    { tipoCliente: "natural", rut: "67890123-4", primerNombre: "Carolina", apellidoPaterno: "Martínez", apellidoMaterno: "Díaz", correo: "carolina.martinez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 6789 0123", region: "O'Higgins", ciudad: "Rancagua", comuna: "Rancagua", calle: "Calle Estado", numero: "789" },
+    { tipoCliente: "juridico", rut: "87654321-9", razonSocial: "Bike Parts Chile Ltda", giro: "Importación y distribución de repuestos", nombreContacto: "Patricio Vera", correo: "ventas@bikeparts.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2987 6543", region: "Metropolitana", ciudad: "Santiago", comuna: "Maipú", calle: "Av. Los Pajaritos", numero: "1500" },
+    { tipoCliente: "natural", rut: "78901234-5", primerNombre: "Francisco", apellidoPaterno: "Aravena", apellidoMaterno: "Mora", correo: "francisco.aravena@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 7890 1234", region: "Biobío", ciudad: "Concepción", comuna: "Concepción", calle: "Calle Barros Arana", numero: "234" },
+    { tipoCliente: "natural", rut: "89012345-6", primerNombre: "Daniela", apellidoPaterno: "Reyes", apellidoMaterno: "Castro", correo: "daniela.reyes@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 8901 2345", region: "Metropolitana", ciudad: "Santiago", comuna: "La Florida", calle: "Av. Vicuña Mackenna", numero: "4567" },
   ];
 
   const clientes = await Promise.all(
@@ -428,7 +453,7 @@ async function main() {
       rut: "98765432-1",
       giro: "Venta al por mayor de bicicletas y repuestos",
       condicionesDePago: "30 días",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO, // <-- Aquí
       telefonos: { create: [{ telefono: "+56 2 2123 4567", descripcion: "Principal" }] },
       correos: { create: [{ correo: "ventas@distribuidora.cl", descripcion: "Ventas" }] },
     },
@@ -439,7 +464,7 @@ async function main() {
       rut: "11223344-5",
       giro: "Importación de componentes para bicicletas",
       condicionesDePago: "60 días",
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO, // <-- Aquí
       telefonos: { create: [{ telefono: "+56 2 2987 6543", descripcion: "Oficina" }] },
       correos: { create: [{ correo: "import@taiwanbike.com", descripcion: "Contacto" }] },
     },
@@ -474,15 +499,20 @@ async function main() {
     fecha.setDate(fecha.getDate() - v.diasAtras);
     fecha.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60));
 
+    const estadoVenta = Math.random() > 0.3 ? EstadoVentaMostrador.COMPLETADA : EstadoVentaMostrador.BORRADOR;
+    const estadoPago = estadoVenta === EstadoVentaMostrador.COMPLETADA
+      ? (Math.random() > 0.2 ? EstadoPagoVenta.PAGADA : EstadoPagoVenta.PENDIENTE)
+      : EstadoPagoVenta.PENDIENTE;
+
     const venta = await db.venta.create({
       data: {
         idUsuario: v.idUsuario,
         idCliente: v.idCliente,
+        estadoPago,
         fechaRegistro: fecha,
         ventaEnMostrador: {
           create: {
-            estado: Math.random() > 0.3 ? "Completada" : "Pendiente",
-            estadoPago: Math.random() > 0.2 ? "Pagado" : "Pendiente",
+            estado: estadoVenta,
             montoSubtotal: subtotal,
             descuentoProductos: descProductos,
             descuentoGlobal: descGlobal,
@@ -538,35 +568,38 @@ async function main() {
       idCliente: clientes[1].idCliente,
       idMecanico: usuarios[1].idUsuario,
       diasAtras: 20,
-      estado: "Entregado",
+      estadoCodigo: "ENTREGADO",
+      estadoPago: EstadoPagoVenta.PAGADA,
       fechaEntregaEstimadaDias: 5,
       fechaEntregaRealDias: 5,
       items: [
         { idServicio: servicios[5].idServicio, cantidad: 1, precioUnitario: 45000 },
         { idProducto: productos[10].idProducto, cantidad: 1, precioUnitario: 55000 },
       ],
-      bicicletas: [{ tipo: "MTB", marca: "Trek", modelo: "Marlin 7", color: "Rojo", descripcionAdicional: "Bicicleta MTB 29", }],
+      bicicletas: [{ tipo: "MTB", marca: "Trek", modelo: "Marlin 7", color: "Rojo", descripcionAdicional: "Bicicleta MTB 29" }],
     },
     {
       idUsuario: usuarios[0].idUsuario,
       idCliente: clientes[2].idCliente,
       idMecanico: usuarios[2].idUsuario,
       diasAtras: 15,
-      estado: "Listo para entregar",
+      estadoCodigo: "LISTO_PARA_ENTREGAR",
+      estadoPago: EstadoPagoVenta.PARCIAL,
       fechaEntregaEstimadaDias: 3,
       fechaEntregaRealDias: null,
       items: [
         { idServicio: servicios[7].idServicio, cantidad: 1, precioUnitario: 25000 },
         { idProducto: productos[7].idProducto, cantidad: 2, precioUnitario: 12000 },
       ],
-      bicicletas: [{ tipo: "MTB", marca: "Specialized", modelo: "Rockhopper", color: "Negro", descripcionAdicional: "Bicicleta 29 ready", }],
+      bicicletas: [{ tipo: "MTB", marca: "Specialized", modelo: "Rockhopper", color: "Negro", descripcionAdicional: "Bicicleta 29 ready" }],
     },
     {
       idUsuario: usuarios[0].idUsuario,
       idCliente: clientes[3].idCliente,
       idMecanico: usuarios[1].idUsuario,
       diasAtras: 10,
-      estado: "En curso",
+      estadoCodigo: "EN_CURSO",
+      estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 7,
       fechaEntregaRealDias: null,
       items: [
@@ -581,7 +614,8 @@ async function main() {
       idCliente: clientes[5].idCliente,
       idMecanico: usuarios[2].idUsuario,
       diasAtras: 5,
-      estado: "Por realizar",
+      estadoCodigo: "POR_REALIZAR",
+      estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 10,
       fechaEntregaRealDias: null,
       items: [
@@ -594,7 +628,8 @@ async function main() {
       idCliente: clientes[6].idCliente,
       idMecanico: usuarios[1].idUsuario,
       diasAtras: 12,
-      estado: "En espera",
+      estadoCodigo: "EN_ESPERA",
+      estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 2,
       fechaEntregaRealDias: null,
       items: [
@@ -607,7 +642,8 @@ async function main() {
       idCliente: clientes[8].idCliente,
       idMecanico: usuarios[2].idUsuario,
       diasAtras: 2,
-      estado: "Por realizar",
+      estadoCodigo: "POR_REALIZAR",
+      estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 7,
       fechaEntregaRealDias: null,
       items: [
@@ -641,12 +677,12 @@ async function main() {
       data: {
         idUsuario: o.idUsuario,
         idCliente: o.idCliente,
+        estadoPago: o.estadoPago,
         fechaRegistro: fecha,
         ordenDeTrabajo: {
           create: {
             idMecanicoAsignado: o.idMecanico,
-            estado: o.estado,
-            estadoPago: o.estado === "Entregado" ? "Pagado" : "Pendiente",
+            estado: o.estadoCodigo,
             fechaEntregaEstimada,
             fechaEntregaReal: fechaEntregaReal || undefined,
             observacionesIngreso: Math.random() > 0.5 ? "Cliente solicita revisión completa" : null,
@@ -711,29 +747,36 @@ async function main() {
   console.log(`  ${ordenesData.length} órdenes de trabajo creadas.`);
 
   // ──────────────────────────────────────────────
-  // 12. PAGOS (para las ventas completadas)
+  // 12. PAGOS (para las ventas pagadas)
   // ──────────────────────────────────────────────
   console.log("💰 Creando pagos...");
-  const ventasPagadas = await db.ventaEnMostrador.findMany({
-    where: { estadoPago: "Pagado" },
+  const ventasPagadas = await db.venta.findMany({
+    where: {
+      estadoPago: EstadoPagoVenta.PAGADA,
+      ventaEnMostrador: { isNot: null },
+    },
+    include: { ventaEnMostrador: true },
   });
+
   for (const venta of ventasPagadas) {
-    await db.pago.create({
-      data: {
-        idUsuario: usuarios[3].idUsuario,
-        fechaRegistro: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
-        estado: "Completado",
-        metodoPago: ["Efectivo", "Débito", "Crédito", "Transferencia"][Math.floor(Math.random() * 4)],
-        monto: venta.montoTotal,
-        asignaciones: {
-          create: {
-            idVentaEnMostrador: venta.idVentaEnMostrador,
-            montoAsociado: venta.montoTotal,
-            tipoAbono: "Contado",
+    if (venta.ventaEnMostrador) {
+      await db.pago.create({
+        data: {
+          idUsuario: usuarios[3].idUsuario,
+          fechaRegistro: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
+          estado: EstadoPago.COMPLETADO,
+          metodoPago: ["Efectivo", "Débito", "Crédito", "Transferencia"][Math.floor(Math.random() * 4)],
+          monto: venta.ventaEnMostrador.montoTotal,
+          asignaciones: {
+            create: {
+              idVentaEnMostrador: venta.ventaEnMostrador.idVentaEnMostrador,
+              montoAsociado: venta.ventaEnMostrador.montoTotal,
+              tipoAbono: "Contado",
+            },
           },
         },
-      },
-    });
+      });
+    }
   }
 
   console.log("\n✅ Seed completado exitosamente!");
