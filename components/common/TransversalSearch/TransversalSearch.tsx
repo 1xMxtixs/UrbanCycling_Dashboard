@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useCallback } from "react"
+import { useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Package,
@@ -186,7 +186,9 @@ function ClientItem({
   cliente: SearchCliente
   onClick: () => void
 }) {
-  const isJuridica = cliente.tipoCliente === "juridica"
+  const isJuridica = ["juridica", "juridico"].includes(
+    cliente.tipoCliente.trim().toLocaleLowerCase("es-CL"),
+  )
 
   return (
     <button
@@ -329,14 +331,29 @@ export function TransversalSearchDropdown({
   const handleWorkOrderClick = useCallback(
     (orden: SearchWorkOrder) => {
       onClose()
-      router.push(`/punto-ventas/ordenes-trabajo?ordenId=${orden.idOrdenDeTrabajo}`)
+      router.push(`/punto-ventas?tab=ordenes&ordenId=${orden.idOrdenDeTrabajo}`)
     },
     [router, onClose],
   )
 
-  const handleViewAll = useCallback(() => {
+  const handleViewAllProducts = useCallback(() => {
     onClose()
     router.push(`/inventory?search=${encodeURIComponent(query.trim())}`)
+  }, [router, onClose, query])
+
+  const handleViewAllServices = useCallback(() => {
+    onClose()
+    router.push(`/inventory?search=${encodeURIComponent(query.trim())}`)
+  }, [router, onClose, query])
+
+  const handleViewAllClientes = useCallback(() => {
+    onClose()
+    router.push(`/clientes?search=${encodeURIComponent(query.trim())}`)
+  }, [router, onClose, query])
+
+  const handleViewAllWorkOrders = useCallback(() => {
+    onClose()
+    router.push(`/punto-ventas?tab=ordenes&search=${encodeURIComponent(query.trim())}`)
   }, [router, onClose, query])
 
   return (
@@ -390,6 +407,7 @@ export function TransversalSearchDropdown({
                   />
                 ))}
               </div>
+              <ViewAllButton label="Ver todos los resultados en Clientes" onClick={handleViewAllClientes} />
             </div>
           )}
 
@@ -406,6 +424,7 @@ export function TransversalSearchDropdown({
                   />
                 ))}
               </div>
+              <ViewAllButton label="Ver todos los resultados en Órdenes de Trabajo" onClick={handleViewAllWorkOrders} />
             </div>
           )}
 
@@ -422,6 +441,7 @@ export function TransversalSearchDropdown({
                   />
                 ))}
               </div>
+              <ViewAllButton label="Ver todos los resultados en Inventario" onClick={handleViewAllProducts} />
             </div>
           )}
 
@@ -438,22 +458,26 @@ export function TransversalSearchDropdown({
                   />
                 ))}
               </div>
+              <ViewAllButton label="Ver todos los resultados en Inventario" onClick={handleViewAllServices} />
             </div>
           )}
-
-          {/* Ver todos en inventario */}
-          <div className="px-2 pt-2 pb-1">
-            <button
-              type="button"
-              onClick={handleViewAll}
-              className="group flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-medium text-primary transition-colors duration-200 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <span>Ver todos los resultados en Inventario</span>
-              <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </button>
-          </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ViewAllButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <div className="px-2 pt-1.5">
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-medium text-primary transition-colors duration-200 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <span>{label}</span>
+        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+      </button>
     </div>
   )
 }

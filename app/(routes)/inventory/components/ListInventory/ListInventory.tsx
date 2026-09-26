@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { useSession } from "next-auth/react"
 import { AlertTriangle, PackageX } from "lucide-react"
@@ -20,23 +20,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 import type { InventoryCategory } from "../../types"
 
 export function ListInventory() {
   const { data: session } = useSession()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const productIdParam = searchParams.get("productId")
   const searchParam = searchParams.get("search") ?? ""
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(productIdParam)
 
   const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
 
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
-    null,
+    null
   )
   const [openDetail, setOpenDetail] = useState(false)
   const [selectedMovementProduct, setSelectedMovementProduct] =
@@ -56,7 +60,9 @@ export function ListInventory() {
         ])
 
         const categoriesData = await categoriesResponse.json().catch(() => null)
-        setCategories(categoriesResponse.ok ? categoriesData?.categories ?? [] : [])
+        setCategories(
+          categoriesResponse.ok ? (categoriesData?.categories ?? []) : []
+        )
 
         if (!response.ok) {
           setInventory([])
@@ -84,7 +90,12 @@ export function ListInventory() {
 
   // Auto-apertura de ficha de producto si viene ?productId=...
   useEffect(() => {
-    if (!productIdParam || inventory.length === 0) return
+    if (
+      !productIdParam ||
+      inventory.length === 0 ||
+      isCurrentParameterDismissed()
+    )
+      return
 
     const targetId = Number(productIdParam)
     if (!isNaN(targetId)) {
@@ -94,8 +105,7 @@ export function ListInventory() {
         setOpenDetail(true)
       }
     }
-  }, [productIdParam, inventory])
-
+  }, [productIdParam, inventory, isCurrentParameterDismissed])
 
   if (isLoading) {
     return (
@@ -111,21 +121,35 @@ export function ListInventory() {
   }
 
   const activeProducts = inventory.filter(
-    (product) => product.estado?.toLowerCase() === "activo",
+    (product) => product.estado?.toLowerCase() === "activo"
   )
 
   const lowStockProducts = activeProducts.filter(
     (product) =>
-      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo
   )
 
   const outOfStockProducts = activeProducts.filter(
-    (product) => product.stockActual === 0,
+    (product) => product.stockActual === 0
   )
 
   const handleViewDetail = (product: ProductColumn) => {
     setSelectedProduct(product)
     setOpenDetail(true)
+  }
+
+  const handleDetailOpenChange = (open: boolean) => {
+    setOpenDetail(open)
+
+    if (!open && productIdParam) {
+      dismissCurrentParameter()
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("productId")
+      const query = params.toString()
+      router.replace(query ? `/inventory?${query}` : "/inventory", {
+        scroll: false,
+      })
+    }
   }
 
   const handleEditProduct = (product: ProductColumn) => {
@@ -142,7 +166,7 @@ export function ListInventory() {
   const columns = getColumns(
     handleViewDetail,
     handleRegisterMovement,
-    canUpdate,
+    canUpdate
   )
 
   return (
@@ -279,7 +303,7 @@ export function ListInventory() {
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}
-        onOpenChange={setOpenDetail}
+        onOpenChange={handleDetailOpenChange}
         onEdit={handleEditProduct}
       />
       <InventoryMovementDialog

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
-
 import { KpiCards } from "./kpi-cards"
 import { UpcomingDeadlines } from "./upcoming-deadlines"
 import { DataTable } from "./data-table"
@@ -20,6 +19,7 @@ import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -42,6 +42,9 @@ export function ListOrdenesTrabajo() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ordenIdParam = searchParams.get("ordenId")
+  const searchParam = searchParams.get("search") ?? ""
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(ordenIdParam)
 
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -52,19 +55,22 @@ export function ListOrdenesTrabajo() {
   })
   const [appliedPeriod, setAppliedPeriod] = useState<PeriodFilter | null>(null)
   const [periodErrors, setPeriodErrors] = useState<PeriodErrors>({})
-  const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
+  const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(
+    null
+  )
   const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
 
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
   const [openDetailsModal, setOpenDetailsModal] = useState(false)
 
-
   const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
-  const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
+  const [orderToAssignSupplies, setOrderToAssignSupplies] =
+    useState<WorkOrder | null>(null)
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] =
+    useState<string>("efectivo")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
@@ -72,7 +78,9 @@ export function ListOrdenesTrabajo() {
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false)
-  const [orderToReschedule, setOrderToReschedule] = useState<WorkOrder | null>(null)
+  const [orderToReschedule, setOrderToReschedule] = useState<WorkOrder | null>(
+    null
+  )
   const [newDeliveryDate, setNewDeliveryDate] = useState("")
   const [isRescheduling, setIsRescheduling] = useState(false)
 
@@ -84,63 +92,74 @@ export function ListOrdenesTrabajo() {
   const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
 
   const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
-  const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
+  const [orderToModifyService, setOrderToModifyService] =
+    useState<WorkOrder | null>(null)
 
-  const getOrders = useCallback(async (period: PeriodFilter | null): Promise<boolean> => {
-    try {
-      const searchParams = new URLSearchParams()
+  const getOrders = useCallback(
+    async (period: PeriodFilter | null): Promise<boolean> => {
+      try {
+        const searchParams = new URLSearchParams()
 
-      if (period) {
-        searchParams.set("fechaInicio", period.fechaInicio)
-        searchParams.set("fechaFin", period.fechaFin)
-      }
-
-      const query = searchParams.size > 0 ? `?${searchParams.toString()}` : ""
-      const response = await fetch(`/api/punto-venta${query}`, {
-        cache: "no-store",
-      })
-      const data = await response.json().catch(() => null)
-
-      if (!response.ok) {
-        if (response.status === 404 && data?.code === "SIN_ORDENES_EN_PERIODO") {
-          setOrders([])
-          setPeriodEmptyMessage("No hay órdenes de trabajo dentro del período seleccionado.")
-          return true
+        if (period) {
+          searchParams.set("fechaInicio", period.fechaInicio)
+          searchParams.set("fechaFin", period.fechaFin)
         }
 
-        toast.error(data?.message || "No fue posible consultar las órdenes de trabajo.")
+        const query = searchParams.size > 0 ? `?${searchParams.toString()}` : ""
+        const response = await fetch(`/api/punto-venta${query}`, {
+          cache: "no-store",
+        })
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok) {
+          if (
+            response.status === 404 &&
+            data?.code === "SIN_ORDENES_EN_PERIODO"
+          ) {
+            setOrders([])
+            setPeriodEmptyMessage(
+              "No hay órdenes de trabajo dentro del período seleccionado."
+            )
+            return true
+          }
+
+          toast.error(
+            data?.message || "No fue posible consultar las órdenes de trabajo."
+          )
+          return false
+        }
+
+        const ordenes = Array.isArray(data)
+          ? data
+              .filter((item) => item.tipoOperacion === "orden_trabajo")
+              .map((item) => item.ordenTrabajo)
+              .filter(Boolean)
+              .map((orden: WorkOrder) => ({
+                ...orden,
+                bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
+                  ...bicicleta,
+                  imagenes: normalizarImagenesBicicleta(bicicleta),
+                })),
+              }))
+          : []
+
+        setOrders(ordenes)
+        setPeriodEmptyMessage(
+          period && ordenes.length === 0
+            ? "No hay órdenes de trabajo dentro del período seleccionado."
+            : null
+        )
+        return true
+      } catch (err) {
+        console.error("Error fetching work orders:", err)
+        toast.error("No fue posible consultar las órdenes de trabajo.")
         return false
+      } finally {
+        setIsLoading(false)
       }
-
-      const ordenes = Array.isArray(data)
-        ? data
-          .filter((item) => item.tipoOperacion === "orden_trabajo")
-          .map((item) => item.ordenTrabajo)
-          .filter(Boolean)
-          .map((orden: WorkOrder) => ({
-            ...orden,
-            bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
-              ...bicicleta,
-              imagenes: normalizarImagenesBicicleta(bicicleta),
-            })),
-          }))
-        : []
-
-      setOrders(ordenes)
-      setPeriodEmptyMessage(
-        period && ordenes.length === 0
-          ? "No hay órdenes de trabajo dentro del período seleccionado."
-          : null,
-      )
-      return true
-    } catch (err) {
-      console.error("Error fetching work orders:", err)
-      toast.error("No fue posible consultar las órdenes de trabajo.")
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    },
+    []
+  )
 
   const refreshOrders = useCallback(() => {
     void getOrders(appliedPeriod)
@@ -161,7 +180,8 @@ export function ListOrdenesTrabajo() {
 
   // Auto-apertura de modal de detalle si viene ?ordenId=...
   useEffect(() => {
-    if (!ordenIdParam || orders.length === 0) return
+    if (!ordenIdParam || orders.length === 0 || isCurrentParameterDismissed())
+      return
 
     const targetId = Number(ordenIdParam)
     if (!isNaN(targetId)) {
@@ -171,8 +191,7 @@ export function ListOrdenesTrabajo() {
         setOpenDetailsModal(true)
       }
     }
-  }, [ordenIdParam, orders])
-
+  }, [ordenIdParam, orders, isCurrentParameterDismissed])
 
   const updatePeriodField = (field: keyof PeriodFilter, value: string) => {
     setPeriodDraft((current) => ({ ...current, [field]: value }))
@@ -186,7 +205,8 @@ export function ListOrdenesTrabajo() {
     if (!fechaInicio) errors.fechaInicio = "Selecciona la fecha de inicio."
     if (!fechaFin) errors.fechaFin = "Selecciona la fecha de fin."
     if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
-      errors.fechaFin = "La fecha de fin debe ser posterior o igual a la fecha de inicio."
+      errors.fechaFin =
+        "La fecha de fin debe ser posterior o igual a la fecha de inicio."
     }
 
     setPeriodErrors(errors)
@@ -289,13 +309,16 @@ export function ListOrdenesTrabajo() {
     setIsCancellingOrder(true)
 
     try {
-      const res = await fetch(`/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ estado: "Anulada" }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToCancel.idOrdenDeTrabajo}/estado`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ estado: "Anulada" }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
@@ -338,15 +361,18 @@ export function ListOrdenesTrabajo() {
     setIsRescheduling(true)
 
     try {
-      const res = await fetch(`/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fechaEntregaEstimada: newDeliveryDate,
-        }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToReschedule.idOrdenDeTrabajo}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fechaEntregaEstimada: newDeliveryDate,
+          }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
@@ -356,7 +382,9 @@ export function ListOrdenesTrabajo() {
 
       toast.success("Fecha estimada de entrega actualizada correctamente.")
 
-      if (selectedOrder?.idOrdenDeTrabajo === orderToReschedule.idOrdenDeTrabajo) {
+      if (
+        selectedOrder?.idOrdenDeTrabajo === orderToReschedule.idOrdenDeTrabajo
+      ) {
         setSelectedOrder({
           ...selectedOrder,
           fechaEntregaEstimada: newDeliveryDate,
@@ -382,26 +410,31 @@ export function ListOrdenesTrabajo() {
       const totalPagado = Number(orderToPay.totalPagado || 0)
       const saldoRestante = Math.max(0, total - totalPagado)
 
-      const res = await fetch(`/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          estadoPago: "pagada",
-          metodoPago: selectedMetodoPago,
-          montoPago: saldoRestante,
-        }),
-      })
+      const res = await fetch(
+        `/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            estadoPago: "pagada",
+            metodoPago: selectedMetodoPago,
+            montoPago: saldoRestante,
+          }),
+        }
+      )
 
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.message || "Error al registrar el pago restante")
       }
 
-      toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
+      toast.success(
+        "Pago registrado correctamente. La orden ahora está Pagada."
+      )
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      handleDetailsOpenChange(false)
       refreshOrders()
       router.refresh()
     } catch (err: any) {
@@ -415,6 +448,21 @@ export function ListOrdenesTrabajo() {
   const handleViewDetails = (order: WorkOrder) => {
     setSelectedOrder(order)
     setOpenDetailsModal(true)
+  }
+
+  const handleDetailsOpenChange = (open: boolean) => {
+    setOpenDetailsModal(open)
+
+    if (!open && ordenIdParam) {
+      dismissCurrentParameter()
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("ordenId")
+      const query = params.toString()
+      router.replace(
+        query ? `/punto-ventas?${query}` : "/punto-ventas?tab=ordenes",
+        { scroll: false }
+      )
+    }
   }
 
   const handleGenerateReceipt = async (order: WorkOrder) => {
@@ -451,7 +499,8 @@ export function ListOrdenesTrabajo() {
 
   const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
     const clientLabel = order?.cliente
-      ? order.cliente.razonSocial || `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
+      ? order.cliente.razonSocial ||
+        `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
       : "Cliente General"
     const lineas = order?.lineasDeOrdenDeTrabajo || []
 
@@ -483,12 +532,16 @@ export function ListOrdenesTrabajo() {
           ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
           <div class="divider"></div>
           <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
-          ${lineas.map((line: any) => `
+          ${lineas
+            .map(
+              (line: any) => `
             <div class="flex">
               <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto"}</span>
               <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
             </div>
-          `).join("")}
+          `
+            )
+            .join("")}
           <div class="divider"></div>
           <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
           <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
@@ -551,7 +604,7 @@ export function ListOrdenesTrabajo() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="animate-in space-y-6 duration-300 fade-in">
       {/* 1. Panel de KPIs */}
       <KpiCards orders={orders} />
 
@@ -559,6 +612,7 @@ export function ListOrdenesTrabajo() {
       <DataTable
         columns={columns}
         data={orders}
+        initialSearch={searchParam}
         periodFilter={{
           draft: periodDraft,
           errors: periodErrors,
@@ -594,7 +648,7 @@ export function ListOrdenesTrabajo() {
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={handleDetailsOpenChange}
         order={selectedOrder}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}

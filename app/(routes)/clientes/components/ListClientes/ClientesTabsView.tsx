@@ -9,6 +9,7 @@ import { SegmentedTabs } from "@/components/forms/SegmentedTabs";
 interface ClientesTabsViewProps {
   clientesNaturales: ClienteNatural[];
   clientesJuridicas: ClienteJuridica[];
+  initialSearch?: string;
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
@@ -17,6 +18,7 @@ interface ClientesTabsViewProps {
 export function ClientesTabsView({
   clientesNaturales,
   clientesJuridicas,
+  initialSearch = "",
   onViewDetails,
   onViewHistory,
   onEdit,
@@ -47,6 +49,7 @@ export function ClientesTabsView({
           <DataTable
             columns={columnsNaturales}
             data={clientesNaturales}
+            initialSearch={initialSearch}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}
@@ -57,6 +60,7 @@ export function ClientesTabsView({
           <DataTable
             columns={columnsJuridicas}
             data={clientesJuridicas}
+            initialSearch={initialSearch}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}

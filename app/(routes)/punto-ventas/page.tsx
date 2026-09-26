@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Wrench, Store } from "lucide-react"
 
 import VentasPage from "./ventas/page"
@@ -8,14 +9,33 @@ import OrdenesTrabajoPage from "./ordenes-trabajo/page"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { SegmentedTabs } from "@/components/forms/SegmentedTabs"
 
-export default function PuntoVentasPage() {
-  const [activeTab, setActiveTab] = useState<"ordenes" | "ventas">("ordenes")
+type PuntoVentasTab = "ordenes" | "ventas"
+
+function PuntoVentasContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeTab: PuntoVentasTab =
+    searchParams.get("tab") === "ventas" ? "ventas" : "ordenes"
+
+  const handleTabChange = (value: string) => {
+    if (value !== "ordenes" && value !== "ventas") return
+
+    const nextTab = value as PuntoVentasTab
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", nextTab)
+
+    if (nextTab === "ventas") {
+      params.delete("ordenId")
+    }
+
+    router.replace(`/punto-ventas?${params.toString()}`, { scroll: false })
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as "ordenes" | "ventas")}
+        onValueChange={handleTabChange}
         className="w-full space-y-6"
       >
         {/* Switcher perfectamente integrado y alineado a la izquierda */}
@@ -45,5 +65,13 @@ export default function PuntoVentasPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function PuntoVentasPage() {
+  return (
+    <Suspense fallback={null}>
+      <PuntoVentasContent />
+    </Suspense>
   )
 }

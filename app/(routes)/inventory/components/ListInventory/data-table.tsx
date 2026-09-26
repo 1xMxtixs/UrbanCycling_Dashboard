@@ -37,6 +37,7 @@ import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
 import { KpiCards } from "./kpi-cards"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
@@ -59,7 +60,7 @@ function parseProductSearch(value: string): ProductSearch {
   }
 
   if (!trimmedValue.startsWith("#")) {
-    return { type: "name", query: trimmedValue.toLowerCase() }
+    return { type: "name", query: normalizeSearchText(trimmedValue) }
   }
 
   const idValue = trimmedValue.slice(1).trim()
@@ -93,9 +94,7 @@ export function DataTable({
   const [productSearch, setProductSearch] = React.useState(initialSearch)
 
   React.useEffect(() => {
-    if (initialSearch) {
-      setProductSearch(initialSearch)
-    }
+    setProductSearch(initialSearch)
   }, [initialSearch])
 
   const productSearchState = React.useMemo(
@@ -129,7 +128,7 @@ export function DataTable({
     }
 
     return productsByCategory.filter((product) =>
-      product.nombre.toLowerCase().includes(productSearchState.query),
+      includesNormalizedText(product.nombre, productSearchState.query),
     )
   }, [data, productSearchState, selectedCategoryId])
 
