@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ClientesTabsView } from "./ClientesTabsView";
+
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 import { MetricCard } from "@/components/common/MetricCard";
@@ -40,6 +42,9 @@ import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 
 export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
+  const searchParams = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
+  const [activeMainTab, setActiveMainTab] = useState<"directorio" | "historial">(initialTab);
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
@@ -50,6 +55,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
   const [openEditModal, setOpenEditModal] = useState(false);
   const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const fetchClientes = async () => {
     setIsLoading(true);
@@ -124,6 +130,22 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     };
   }, []);
 
+  // Auto-apertura de detalle de cliente si viene ?clienteId=...
+  useEffect(() => {
+    if (!clienteIdParam || rawClientes.length === 0) return;
+
+    const targetId = Number(clienteIdParam);
+    if (!isNaN(targetId)) {
+      const found = rawClientes.find((c) => c.idCliente === targetId);
+      if (found) {
+        setActiveMainTab("directorio");
+        setSelectedClienteId(targetId);
+        setOpenDetailsModal(true);
+      }
+    }
+  }, [clienteIdParam, rawClientes]);
+
+
   const handleViewDetails = (id: number) => {
     setSelectedClienteId(id);
     setOpenDetailsModal(true);
@@ -188,7 +210,8 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Selector de Vista Principal: Directorio vs Historial de Clientes */}
       <Tabs
-        value={initialTab}
+        value={activeMainTab}
+        onValueChange={(value) => setActiveMainTab(value as "directorio" | "historial")}
         className="w-full space-y-6"
       >
         <div className="hidden" aria-hidden="true">

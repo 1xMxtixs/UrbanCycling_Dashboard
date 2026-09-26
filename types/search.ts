@@ -18,9 +18,31 @@ export type SearchService = {
   estado: string
 }
 
+export type SearchCliente = {
+  idCliente: number
+  tipoCliente: string
+  rut: string
+  nombreCompleto: string
+  telefono?: string
+  correo?: string
+  estado: string
+}
+
+export type SearchWorkOrder = {
+  idOrdenDeTrabajo: number
+  clienteNombre: string
+  rutCliente?: string
+  bicicletaResumen?: string
+  estadoOrden: string
+  total: number | string
+}
+
 export type SearchResults = {
   productos: SearchProduct[]
   servicios: SearchService[]
+  clientes: SearchCliente[]
+  ordenes: SearchWorkOrder[]
 }
 
 export type SearchStatus = "idle" | "loading" | "success" | "error"
+

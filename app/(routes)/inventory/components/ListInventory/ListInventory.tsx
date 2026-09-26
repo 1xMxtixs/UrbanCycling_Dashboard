@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
+
 import { useSession } from "next-auth/react"
 import { AlertTriangle, PackageX } from "lucide-react"
 import { toast } from "sonner"
@@ -25,6 +27,10 @@ import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 
 export function ListInventory() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
+  const productIdParam = searchParams.get("productId")
+  const searchParam = searchParams.get("search") ?? ""
+
   const canUpdate = Boolean(
     session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
   )
@@ -81,6 +87,21 @@ export function ListInventory() {
       window.removeEventListener("inventory:refresh", getInventory)
     }
   }, [])
+
+  // Auto-apertura de ficha de producto si viene ?productId=...
+  useEffect(() => {
+    if (!productIdParam || inventory.length === 0) return
+
+    const targetId = Number(productIdParam)
+    if (!isNaN(targetId)) {
+      const found = inventory.find((p) => p.idProducto === targetId)
+      if (found) {
+        setSelectedProduct(found)
+        setOpenDetail(true)
+      }
+    }
+  }, [productIdParam, inventory])
+
 
   if (isLoading) {
     return (
@@ -237,7 +258,12 @@ export function ListInventory() {
         </div>
       )}
 
-      <DataTable columns={columns} data={inventory} categories={categories} />
+      <DataTable
+        columns={columns}
+        data={inventory}
+        categories={categories}
+        initialSearch={searchParam}
+      />
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
         <DialogContent className="max-w-2xl rounded-xl">
