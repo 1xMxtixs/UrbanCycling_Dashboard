@@ -27,7 +27,7 @@ datasource db {
   //    --------------------------------------------------------------------
 
   //    --------------------------------------------------------------------
-  //    1. DECLARACIÓN ENUMS
+  //    0. DECLARACIÓN ENUMS
   //    --------------------------------------------------------------------
 
 enum EstadoRegistro {
@@ -652,15 +652,29 @@ model LineaDeOrdenDeCompra {
 model Pago {
   idPago        Int         @id @default(autoincrement()) @db.UnsignedInt @map("id_pago")
   idUsuario     Int         @db.UnsignedInt @map("id_usuario")
-  fechaRegistro DateTime    @db.Timestamp(0) @map("fecha_registro")
+  fechaRegistro DateTime    @db.Timestamp(0) @default(now()) @map("fecha_registro")
   estado        EstadoPago  @default(PENDIENTE) @map("estado")
-  metodoPago    String      @db.VarChar(20)  @map("metodo_pago")
+  metodoPago    String      @db.VarChar(30)  @map("metodo_pago")
   monto         Decimal     @db.Decimal(12, 0)
 
   usuario      Usuario          @relation(fields: [idUsuario], references: [idUsuario])
+  metodoPagoRel MetodoPago      @relation(fields:[metodoPago], references: [codigo])
   asignaciones AsignacionPago[]
 
   @@map("pagos")
+}
+
+model MetodoPago {
+  idMetodoPago  Int @id @default(autoincrement()) @db.UnsignedInt @map("id_metodo_pago")
+  codigo        String @unique @db.VarChar(30)
+  nombre        String @db.VarChar(50)
+  descripcion   String? @db.VarChar(255)
+  orden         Int    @db.UnsignedInt @default(0)
+  estado        EstadoRegistro @default(ACTIVO) @map("estado")
+
+  pagos Pago[]
+
+  @@map("metodos_pago")
 }
 
 

@@ -18,6 +18,7 @@ async function main() {
   await db.documentoTributario.deleteMany();
   await db.asignacionPago.deleteMany();
   await db.pago.deleteMany();
+  await db.metodoPago.deleteMany(); // <-- Limpieza catálogo metodos_pago
   await db.movimientoInventario.deleteMany();
   await db.lineaDeAjuste.deleteMany();
   await db.ajusteInventario.deleteMany();
@@ -51,7 +52,7 @@ async function main() {
   await db.permiso.deleteMany();
 
   // ──────────────────────────────────────────────
-  // 0. CATÁLOGO ESTADOS ORDEN DE TRABAJO
+  // 0. CATÁLOGOS BASE (ESTADOS OT & MÉTODOS DE PAGO)
   // ──────────────────────────────────────────────
   console.log("📋 Creando estados de orden de trabajo...");
   const estadosOtData = [
@@ -67,6 +68,19 @@ async function main() {
     await db.estadoOrdenTrabajo.create({ data: estado });
   }
   console.log(`  ${estadosOtData.length} estados de OT creados.`);
+
+  console.log("💳 Creando métodos de pago...");
+  const metodosPagoData = [
+    { codigo: "EFECTIVO", nombre: "Efectivo", descripcion: "Pago en efectivo en caja", orden: 1, estado: EstadoRegistro.ACTIVO },
+    { codigo: "DEBITO", nombre: "Tarjeta de Débito", descripcion: "Pago mediante tarjeta de débito / Redcompra", orden: 2, estado: EstadoRegistro.ACTIVO },
+    { codigo: "CREDITO", nombre: "Tarjeta de Crédito", descripcion: "Pago mediante tarjeta de crédito", orden: 3, estado: EstadoRegistro.ACTIVO },
+    { codigo: "TRANSFERENCIA", nombre: "Transferencia Bancaria", descripcion: "Transferencia electrónica bancaria directa", orden: 4, estado: EstadoRegistro.ACTIVO },
+  ];
+
+  for (const metodo of metodosPagoData) {
+    await db.metodoPago.create({ data: metodo });
+  }
+  console.log(`  ${metodosPagoData.length} métodos de pago creados.`);
 
   // ──────────────────────────────────────────────
   // 1. PERMISOS
@@ -356,18 +370,18 @@ async function main() {
   // 6. SERVICIOS
   // ──────────────────────────────────────────────
   console.log("🔧 Creando servicios...");
-const serviciosData = [
-  { codigo: "SERV-AJCAM", nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-AJFRE", nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-CAD", nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-CENRU", nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-CUB", nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-MTB", nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-RUTA", nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-SANG", nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-MONT", nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: EstadoRegistro.ACTIVO },
-  { codigo: "SERV-DIAG", nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
-];
+  const serviciosData = [
+    { codigo: "SERV-AJCAM", nombre: "Ajuste de Cambios", descripcion: "Regulación de cambios delantero y trasero", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-AJFRE", nombre: "Ajuste de Frenos", descripcion: "Regulación de frenos (v-brake o disco)", precioVenta: 12000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-CAD", nombre: "Cambio de Cadena", descripcion: "Reemplazo de cadena + ajuste", precioVenta: 10000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-CENRU", nombre: "Centrado de Rueda", descripcion: "Centrado y tensado de rayos", precioVenta: 18000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-CUB", nombre: "Cambio de Cubierta", descripcion: "Reemplazo de cubierta y cámara", precioVenta: 8000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-MTB", nombre: "Service Completo MTB", descripcion: "Revisión general + limpieza + ajustes", precioVenta: 45000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-RUTA", nombre: "Service Completo Ruta", descripcion: "Revisión general + limpieza + ajustes ruta", precioVenta: 50000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-SANG", nombre: "Sangrado Frenos Hidráulicos", descripcion: "Purgado y relleno de líquido frenos", precioVenta: 25000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-MONT", nombre: "Montaje de Bicicleta Nueva", descripcion: "Ensamblaje y puesta a punto de bicicleta nueva", precioVenta: 35000, estado: EstadoRegistro.ACTIVO },
+    { codigo: "SERV-DIAG", nombre: "Diagnóstico Mecánico", descripcion: "Revisión técnica completa con informe", precioVenta: 15000, estado: EstadoRegistro.ACTIVO },
+  ];
   const servicios = await Promise.all(
     serviciosData.map((servicio) =>
       db.servicio.create({
@@ -453,7 +467,7 @@ const serviciosData = [
       rut: "98765432-1",
       giro: "Venta al por mayor de bicicletas y repuestos",
       condicionesDePago: "30 días",
-      estado: EstadoRegistro.ACTIVO, // <-- Aquí
+      estado: EstadoRegistro.ACTIVO,
       telefonos: { create: [{ telefono: "+56 2 2123 4567", descripcion: "Principal" }] },
       correos: { create: [{ correo: "ventas@distribuidora.cl", descripcion: "Ventas" }] },
     },
@@ -464,7 +478,7 @@ const serviciosData = [
       rut: "11223344-5",
       giro: "Importación de componentes para bicicletas",
       condicionesDePago: "60 días",
-      estado: EstadoRegistro.ACTIVO, // <-- Aquí
+      estado: EstadoRegistro.ACTIVO,
       telefonos: { create: [{ telefono: "+56 2 2987 6543", descripcion: "Oficina" }] },
       correos: { create: [{ correo: "import@taiwanbike.com", descripcion: "Contacto" }] },
     },
@@ -758,6 +772,8 @@ const serviciosData = [
     include: { ventaEnMostrador: true },
   });
 
+  const metodosDisponibles = ["EFECTIVO", "DEBITO", "CREDITO", "TRANSFERENCIA"];
+
   for (const venta of ventasPagadas) {
     if (venta.ventaEnMostrador) {
       await db.pago.create({
@@ -765,7 +781,7 @@ const serviciosData = [
           idUsuario: usuarios[3].idUsuario,
           fechaRegistro: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
           estado: EstadoPago.COMPLETADO,
-          metodoPago: ["Efectivo", "Débito", "Crédito", "Transferencia"][Math.floor(Math.random() * 4)],
+          metodoPago: metodosDisponibles[Math.floor(Math.random() * metodosDisponibles.length)],
           monto: venta.ventaEnMostrador.montoTotal,
           asignaciones: {
             create: {
