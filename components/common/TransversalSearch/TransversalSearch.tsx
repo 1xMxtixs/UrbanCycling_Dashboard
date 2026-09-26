@@ -8,10 +8,20 @@ import {
   Search,
   ArrowRight,
   AlertCircle,
+  User,
+  Building2,
+  ClipboardList,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import type { SearchProduct, SearchService, SearchStatus, SearchResults } from "@/types/search"
+import type {
+  SearchProduct,
+  SearchService,
+  SearchCliente,
+  SearchWorkOrder,
+  SearchStatus,
+  SearchResults,
+} from "@/types/search"
 
 interface TransversalSearchDropdownProps {
   query: string
@@ -49,6 +59,35 @@ function getStockLabel(product: SearchProduct): {
     label: `Stock: ${product.stockActual}u`,
     className:
       "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  }
+}
+
+function getOrderStatusBadge(status: string): {
+  label: string
+  className: string
+} {
+  const s = status.toLowerCase()
+  if (s === "entregado" || s === "completado" || s === "finalizado") {
+    return {
+      label: "Entregado",
+      className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    }
+  }
+  if (s === "cancelado" || s === "anulado") {
+    return {
+      label: "Cancelado",
+      className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+    }
+  }
+  if (s === "en_proceso" || s === "en taller") {
+    return {
+      label: "En Taller",
+      className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    }
+  }
+  return {
+    label: status.replace(/_/g, " "),
+    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   }
 }
 
@@ -140,6 +179,96 @@ function ServiceItem({
   )
 }
 
+function ClientItem({
+  cliente,
+  onClick,
+}: {
+  cliente: SearchCliente
+  onClick: () => void
+}) {
+  const isJuridica = cliente.tipoCliente === "juridica"
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors duration-200 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+    >
+      {/* Icon */}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10">
+        {isJuridica ? (
+          <Building2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+        ) : (
+          <User className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {cliente.nombreCompleto}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {cliente.rut} {cliente.telefono ? `· ${cliente.telefono}` : ""}
+        </p>
+      </div>
+
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform duration-200 group-hover:translate-x-0.5" />
+    </button>
+  )
+}
+
+function WorkOrderItem({
+  orden,
+  onClick,
+}: {
+  orden: SearchWorkOrder
+  onClick: () => void
+}) {
+  const badge = getOrderStatusBadge(orden.estadoOrden)
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors duration-200 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+    >
+      {/* Icon */}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-purple-500/20 bg-purple-500/10">
+        <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-xs text-foreground">
+            OT #{orden.idOrdenDeTrabajo}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            · {orden.clienteNombre}
+          </span>
+        </div>
+        <p className="truncate text-xs text-muted-foreground">
+          {orden.bicicletaResumen ? `${orden.bicicletaResumen} · ` : ""}
+          {formatCLP(orden.total)}
+        </p>
+      </div>
+
+      {/* Badge Estado */}
+      <span
+        className={cn(
+          "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none capitalize",
+          badge.className,
+        )}
+      >
+        {badge.label}
+      </span>
+
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform duration-200 group-hover:translate-x-0.5" />
+    </button>
+  )
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -176,7 +305,7 @@ export function TransversalSearchDropdown({
   const handleProductClick = useCallback(
     (product: SearchProduct) => {
       onClose()
-      router.push(`/inventory?search=${encodeURIComponent(product.nombre)}`)
+      router.push(`/inventory?productId=${product.idProducto}`)
     },
     [router, onClose],
   )
@@ -184,7 +313,23 @@ export function TransversalSearchDropdown({
   const handleServiceClick = useCallback(
     (service: SearchService) => {
       onClose()
-      router.push(`/inventory?search=${encodeURIComponent(service.nombre)}&tab=servicios`)
+      router.push(`/inventory?search=${encodeURIComponent(service.nombre)}`)
+    },
+    [router, onClose],
+  )
+
+  const handleClienteClick = useCallback(
+    (cliente: SearchCliente) => {
+      onClose()
+      router.push(`/clientes?clienteId=${cliente.idCliente}`)
+    },
+    [router, onClose],
+  )
+
+  const handleWorkOrderClick = useCallback(
+    (orden: SearchWorkOrder) => {
+      onClose()
+      router.push(`/punto-ventas/ordenes-trabajo?ordenId=${orden.idOrdenDeTrabajo}`)
     },
     [router, onClose],
   )
@@ -199,7 +344,7 @@ export function TransversalSearchDropdown({
       role="listbox"
       aria-label="Resultados de búsqueda"
       className={cn(
-        "absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl bg-card border border-border/80 shadow-2xl",
+        "absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-[480px] overflow-y-auto rounded-xl bg-card border border-border/80 shadow-2xl",
         "animate-in fade-in zoom-in-95 duration-300",
       )}
     >
@@ -214,7 +359,7 @@ export function TransversalSearchDropdown({
         </div>
       )}
 
-      {/* Sin resultados — Excepción 1 del CU-10 */}
+      {/* Sin resultados */}
       {status === "success" && !hasResults && (
         <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/60">
@@ -224,16 +369,49 @@ export function TransversalSearchDropdown({
             Sin resultados para &ldquo;{query}&rdquo;
           </p>
           <p className="text-xs text-muted-foreground">
-            No se encontraron productos ni servicios con ese nombre.
+            No se encontraron clientes, productos ni órdenes con ese término.
           </p>
         </div>
       )}
 
       {/* Resultados */}
       {status === "success" && hasResults && (
-        <div className="py-1.5">
+        <div className="py-1.5 divide-y divide-border/40">
+          {/* Clientes */}
+          {results.clientes?.length > 0 && (
+            <div className="pb-1">
+              <SectionLabel>Clientes</SectionLabel>
+              <div className="space-y-0.5 px-1">
+                {results.clientes.map((cliente) => (
+                  <ClientItem
+                    key={cliente.idCliente}
+                    cliente={cliente}
+                    onClick={() => handleClienteClick(cliente)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Órdenes de Trabajo */}
+          {results.ordenes?.length > 0 && (
+            <div className="pb-1 pt-1">
+              <SectionLabel>Órdenes de Trabajo</SectionLabel>
+              <div className="space-y-0.5 px-1">
+                {results.ordenes.map((orden) => (
+                  <WorkOrderItem
+                    key={orden.idOrdenDeTrabajo}
+                    orden={orden}
+                    onClick={() => handleWorkOrderClick(orden)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Productos */}
           {results.productos.length > 0 && (
-            <div>
+            <div className="pb-1 pt-1">
               <SectionLabel>Productos</SectionLabel>
               <div className="space-y-0.5 px-1">
                 {results.productos.map((product) => (
@@ -247,8 +425,9 @@ export function TransversalSearchDropdown({
             </div>
           )}
 
+          {/* Servicios */}
           {results.servicios.length > 0 && (
-            <div className={results.productos.length > 0 ? "mt-1 border-t border-border/40 pt-1" : ""}>
+            <div className="pb-1 pt-1">
               <SectionLabel>Servicios</SectionLabel>
               <div className="space-y-0.5 px-1">
                 {results.servicios.map((service) => (
@@ -263,7 +442,7 @@ export function TransversalSearchDropdown({
           )}
 
           {/* Ver todos en inventario */}
-          <div className="mt-1 border-t border-border/40 px-2 pt-1.5 pb-1">
+          <div className="px-2 pt-2 pb-1">
             <button
               type="button"
               onClick={handleViewAll}
@@ -278,3 +457,4 @@ export function TransversalSearchDropdown({
     </div>
   )
 }
+

@@ -70,8 +70,9 @@ export function Navbar() {
           id="navbar-search"
           type="search"
           role="combobox"
-          aria-label="Buscar productos y servicios"
+          aria-label="Buscar clientes, productos, servicios y órdenes"
           aria-expanded={isOpen}
+
           aria-autocomplete="list"
           aria-controls={isOpen ? "navbar-search-results" : undefined}
           placeholder="Buscar clientes, productos, órdenes..."

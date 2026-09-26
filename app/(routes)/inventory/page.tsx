@@ -1,7 +1,9 @@
+import { Suspense } from "react"
 import { HeaderInventory } from "./components/HeaderInventory"
 import { ListInventory } from "./components/ListInventory"
 import { ListMovements } from "./components/ListMovements"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function InventoryPage() {
   return (
@@ -17,7 +19,9 @@ export default function InventoryPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="productos" className="mt-0 space-y-6 focus-visible:outline-none">
-          <ListInventory />
+          <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+            <ListInventory />
+          </Suspense>
         </TabsContent>
         <TabsContent value="movimientos" className="mt-0 space-y-6 focus-visible:outline-none">
           <ListMovements />
@@ -26,3 +30,4 @@ export default function InventoryPage() {
     </div>
   )
 }
+

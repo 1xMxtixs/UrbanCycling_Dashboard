@@ -42,6 +42,7 @@ interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
   data: ProductColumn[]
   categories: InventoryCategory[]
+  initialSearch?: string
 }
 
 type ProductSearch =
@@ -82,17 +83,26 @@ export function DataTable({
   columns,
   data,
   categories,
+  initialSearch = "",
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
-  const [productSearch, setProductSearch] = React.useState("")
+  const [productSearch, setProductSearch] = React.useState(initialSearch)
+
+  React.useEffect(() => {
+    if (initialSearch) {
+      setProductSearch(initialSearch)
+    }
+  }, [initialSearch])
+
   const productSearchState = React.useMemo(
     () => parseProductSearch(productSearch),
     [productSearch],
   )
+
 
   const categoryFilteredData = React.useMemo(() => {
     const productsByCategory =

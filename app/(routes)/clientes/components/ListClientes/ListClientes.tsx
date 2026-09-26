@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ClientesTabsView } from "./ClientesTabsView";
+
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { MetricCard } from "@/components/common/MetricCard";
 import {
@@ -38,6 +40,9 @@ import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 
 export function ListClientes() {
+  const searchParams = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
+
   const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
@@ -49,6 +54,7 @@ export function ListClientes() {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const fetchClientes = async () => {
     setIsLoading(true);
@@ -119,6 +125,22 @@ export function ListClientes() {
       window.removeEventListener("clientes:refresh", fetchClientes);
     };
   }, []);
+
+  // Auto-apertura de detalle de cliente si viene ?clienteId=...
+  useEffect(() => {
+    if (!clienteIdParam || rawClientes.length === 0) return;
+
+    const targetId = Number(clienteIdParam);
+    if (!isNaN(targetId)) {
+      const found = rawClientes.find((c) => c.idCliente === targetId);
+      if (found) {
+        setActiveMainTab("directorio");
+        setSelectedClienteId(targetId);
+        setOpenDetailsModal(true);
+      }
+    }
+  }, [clienteIdParam, rawClientes]);
+
 
   const handleViewDetails = (id: number) => {
     setSelectedClienteId(id);
