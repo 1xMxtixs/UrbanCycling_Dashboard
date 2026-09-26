@@ -942,15 +942,12 @@ export async function GET(req: Request) {
           include: {
             usuario: true,
             cliente: true,
-            ventaEnMostrador: {
+            asignacionesPago: {
               include: {
-                asignacionesPago: {
-                  include: {
-                    pago: true,
-                  },
-                },
+                pago: true,
               },
             },
+            ventaEnMostrador: true,
           },
         },
         mecanico: true,
@@ -975,7 +972,7 @@ export async function GET(req: Request) {
         0
       );
 
-      const asignaciones = (orden.venta as any)?.ventaEnMostrador?.asignacionesPago ?? [];
+      const asignaciones = orden.venta?.asignacionesPago ?? [];
       const totalPagado = asignaciones.reduce(
         (sum: number, a: any) => sum + toNumber(a.montoAsociado),
         0

@@ -345,10 +345,11 @@ async function main() {
   ];
 
   const productos = await Promise.all(
-    productosData.map((p) =>
+    productosData.map((p, index) =>
       db.producto.create({
         data: {
           tipoProducto: p.tipoProducto,
+          codigoProveedor: `PROV-ART-${String(index + 1).padStart(4, "0")}`, // <-- Código de ejemplo
           nombre: p.nombre,
           descripcion: p.descripcion,
           estado: EstadoRegistro.ACTIVO,
@@ -785,7 +786,7 @@ async function main() {
           monto: venta.ventaEnMostrador.montoTotal,
           asignaciones: {
             create: {
-              idVentaEnMostrador: venta.ventaEnMostrador.idVentaEnMostrador,
+              idVenta: venta.idVenta,
               montoAsociado: venta.ventaEnMostrador.montoTotal,
               tipoAbono: "Contado",
             },
