@@ -1,6 +1,7 @@
 // Endpoint para generar documentos tributarios desde ventas u ordenes de trabajo.
 import { NextResponse } from "next/server"
 
+import { EstadoDocumentoTributario } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -72,6 +73,12 @@ export async function POST(request: Request) {
     const origin = normalizeTaxDocumentOrigin(data.origen)
     const tipoDte = normalizeTaxDocumentType(data.tipoDte)
     const rutEmisor = getIssuerRut(data)
+    const estadoInput = String(data.estado ?? DEFAULT_TAX_DOCUMENT_STATUS)
+      .trim()
+      .toUpperCase()
+    const estado = Object.values(EstadoDocumentoTributario).find(
+      (valor) => valor === estadoInput,
+    )
 
     if (!origin) {
       return NextResponse.json(
@@ -80,6 +87,16 @@ export async function POST(request: Request) {
           message: "Debe indicar origen venta u orden-trabajo",
         },
         { status: 400 }
+      )
+    }
+
+    if (!estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_DOCUMENTO_INVALIDO",
+          message: `Use uno de estos estados: ${Object.values(EstadoDocumentoTributario).join(", ")}`,
+        },
+        { status: 400 },
       )
     }
 
@@ -266,7 +283,7 @@ export async function POST(request: Request) {
           montoTotal,
           montoNeto,
           montoIva,
-          estado: String(data.estado ?? DEFAULT_TAX_DOCUMENT_STATUS).trim(),
+          estado,
           origenes: {
             create: {
               idVenta: linkedVentaId,

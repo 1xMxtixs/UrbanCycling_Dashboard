@@ -1,7 +1,12 @@
 // Controlador para registrar pedidos a proveedores.
 import { NextResponse } from "next/server"
 
-import { EstadoRegistro } from "@/generated/prisma"
+import {
+  EstadoOrdenCompra,
+  EstadoPagoOrdenCompra,
+  EstadoRecepcionOrdenCompra,
+  EstadoRegistro,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -277,9 +282,9 @@ export async function POST(request: Request) {
         idProveedor,
         fechaRegistro: fechaEmision,
         fechaEntregaEstimada,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        estadoRecepcion: "PENDIENTE",
+        estado: EstadoOrdenCompra.BORRADOR,
+        estadoPago: EstadoPagoOrdenCompra.PENDIENTE,
+        estadoRecepcion: EstadoRecepcionOrdenCompra.PENDIENTE,
         montoSubtotal,
         descuentoProductos,
         descuentoGlobal,
