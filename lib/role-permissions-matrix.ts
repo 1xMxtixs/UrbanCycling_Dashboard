@@ -28,6 +28,10 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "clients:create",
     "clients:update",
     "clients:delete",
+    "suppliers:read",
+    "suppliers:create",
+    "suppliers:update",
+    "suppliers:delete",
     "work-orders:read",
     "work-orders:create",
     "work-orders:update",
@@ -108,6 +112,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { code: "clients:create", label: "Crear clientes" },
       { code: "clients:update", label: "Actualizar clientes" },
       { code: "clients:delete", label: "Eliminar clientes" },
+    ],
+  },
+  {
+    label: "Proveedores",
+    permissions: [
+      { code: "suppliers:read", label: "Ver proveedores" },
+      { code: "suppliers:create", label: "Registrar proveedores" },
+      { code: "suppliers:update", label: "Actualizar proveedores" },
+      { code: "suppliers:delete", label: "Eliminar proveedores" },
     ],
   },
   {
