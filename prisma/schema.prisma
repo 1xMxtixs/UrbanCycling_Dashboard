@@ -373,6 +373,7 @@ model Venta {
   reclamosComoReclamada ReclamoGarantia[]             @relation("VentaReclamada")
   reclamosComoGenerada  ReclamoGarantia[]             @relation("VentaGenerada")
   origenesDTE            OrigenDocumentoTributario[]  
+  asignacionesPago       AsignacionPago[]
 
   @@map("ventas")
 }
@@ -389,9 +390,8 @@ model VentaEnMostrador {
   montoNeto          Decimal @db.Decimal(12, 0) @map("monto_neto")
   montoIva           Decimal @db.Decimal(12, 0) @map("monto_iva")
 
-  venta             Venta @relation(fields: [idVenta], references: [idVenta])
-  lineasDeVenta     LineaDeVenta[]
-  asignacionesPago  AsignacionPago[]
+  venta         Venta @relation(fields: [idVenta], references: [idVenta])
+  lineasDeVenta LineaDeVenta[]
 
   @@map("ventas_en_mostrador")
 }
@@ -567,14 +567,14 @@ model Pago {
 model AsignacionPago {
   idAsignacionPago   Int     @id @default(autoincrement()) @db.UnsignedInt @map("id_asignacion_pago")
   idPago             Int     @db.UnsignedInt @map("id_pago")
-  idVentaEnMostrador Int?    @db.UnsignedInt @map("id_venta")
+  idVenta             Int?    @db.UnsignedInt @map("id_venta")
   idOrdenDeCompra    Int?    @db.UnsignedInt @map("id_orden_de_compra")
   montoAsociado      Decimal @db.Decimal(12, 0) @map("monto_asociado")
   tipoAbono          String  @db.VarChar(50) @map("tipo_abono")
 
-  pago             Pago              @relation(fields: [idPago],             references: [idPago])
-  ventaEnMostrador VentaEnMostrador? @relation(fields: [idVentaEnMostrador], references: [idVentaEnMostrador])
-  ordenDeCompra    OrdenDeCompra?    @relation(fields: [idOrdenDeCompra],    references: [idOrdenDeCompra])
+  pago          Pago           @relation(fields: [idPago],          references: [idPago])
+  venta         Venta?         @relation(fields: [idVenta],         references: [idVenta])
+  ordenDeCompra OrdenDeCompra? @relation(fields: [idOrdenDeCompra], references: [idOrdenDeCompra])
 
   @@map("asignaciones_pago")
 }
