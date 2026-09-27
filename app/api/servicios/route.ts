@@ -42,6 +42,11 @@ function obtenerEstadoFiltro(req: Request) {
   return estado ? resolverEstadoRegistro(estado) : null
 }
 
+/**
+ * GET /api/servicios?estado=...
+ * Lista servicios ordenados por nombre. El filtro acepta ACTIVO/INACTIVO en
+ * mayúsculas o minúsculas para poblar catálogos y selectores.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -81,6 +86,11 @@ export async function GET(req: Request) {
   }
 }
 
+/**
+ * POST /api/servicios
+ * Crea un servicio después de validar duplicados, precio y EstadoRegistro, y
+ * devuelve el registro normalizado para actualizar la interfaz.
+ */
 export async function POST(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)

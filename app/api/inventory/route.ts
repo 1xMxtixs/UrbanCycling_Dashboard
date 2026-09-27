@@ -120,6 +120,11 @@ function validateStockMinimum(stockMinimo: unknown) {
   return null
 }
 
+/**
+ * GET /api/inventory
+ * Lista productos o consulta uno por ID. También admite categoriaId para
+ * alimentar la tabla y los filtros del módulo de inventario.
+ */
 export async function GET(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -258,6 +263,11 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * POST /api/inventory
+ * Crea un producto, valida su stock mínimo, EstadoRegistro y categorías, y
+ * devuelve el registro con los aliases de imagen esperados por el frontend.
+ */
 export async function POST(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)

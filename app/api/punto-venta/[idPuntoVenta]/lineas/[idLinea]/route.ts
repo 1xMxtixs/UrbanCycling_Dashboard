@@ -78,6 +78,11 @@ function sanitizarOrdenTrabajo(orden: Record<string, unknown>) {
   };
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta/lineas/:idLinea
+ * Edita cantidad, precio o descuento de una línea de OT y recalcula los
+ * totales que la pantalla de detalle presenta al usuario.
+ */
 export async function PATCH(
   req: Request,
   {

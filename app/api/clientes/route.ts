@@ -55,6 +55,11 @@ function crearCorreoRespaldo(rut: string) {
   return `cliente.${rutLimpio}@urbancycling.local`
 }
 
+/**
+ * POST /api/clientes
+ * Registra una persona o empresa y devuelve la ficha creada para refrescar
+ * formularios y selectores de clientes sin una segunda consulta.
+ */
 export async function POST(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_CREATE)
@@ -174,6 +179,11 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * GET /api/clientes
+ * Lista clientes activos con sus datos de contacto y un indicador de órdenes
+ * de trabajo activas para la tabla principal de clientes.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_READ)
@@ -298,6 +308,11 @@ class ClienteYaInactivoError extends Error {
   }
 }
 
+/**
+ * DELETE /api/clientes?idCliente=...
+ * Desactiva lógicamente un cliente cuando no tiene órdenes activas. La vista
+ * debe retirarlo de los listados de clientes disponibles al recibir 200.
+ */
 export async function DELETE(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_DELETE)

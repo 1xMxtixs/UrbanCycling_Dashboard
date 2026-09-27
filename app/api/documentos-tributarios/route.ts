@@ -31,6 +31,11 @@ async function getNextFolio() {
   return (lastDocument?.numeroFolio ?? 0) + 1
 }
 
+/**
+ * GET /api/documentos-tributarios
+ * Lista los documentos tributarios y sus ventas de origen para la vista de
+ * boletas, facturas e historial tributario.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.RECEIPTS_CREATE)
@@ -59,6 +64,11 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/documentos-tributarios
+ * Emite un documento a partir de una venta u orden de trabajo. Valida el tipo,
+ * estado y origen antes de calcular neto e IVA y reservar el siguiente folio.
+ */
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(

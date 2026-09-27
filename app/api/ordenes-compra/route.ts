@@ -96,6 +96,11 @@ function parseLines(value: unknown): PurchaseLine[] | null {
   return lines
 }
 
+/**
+ * POST /api/ordenes-compra
+ * Crea una orden en BORRADOR con sus líneas, importes y fechas. Los estados de
+ * pago y recepción comienzan en PENDIENTE y se guardan en campos separados.
+ */
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(

@@ -48,6 +48,11 @@ function splitSurnames(value: string) {
   }
 }
 
+/**
+ * POST /api/auth/register
+ * Crea un usuario desde el formulario de registro. Acepta nombres agrupados o
+ * separados, normaliza RUT/correo y responde sin exponer la contraseña.
+ */
 export async function POST(request: Request) {
   try {
     const data = await request.json()

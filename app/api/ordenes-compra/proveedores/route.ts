@@ -6,6 +6,11 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+/**
+ * GET /api/ordenes-compra/proveedores
+ * Entrega proveedores activos y sus condiciones de pago para el selector del
+ * formulario de creación de órdenes de compra.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ)

@@ -420,6 +420,11 @@ function obtenerMontoPago(rawData: any): number | null {
   return monto === null || monto === undefined ? null : Number(monto)
 }
 
+/**
+ * POST /api/punto-venta
+ * Registra una venta directa o una orden de trabajo según las líneas enviadas.
+ * Valida cliente, stock, servicios, bicicletas, estados y datos de pago.
+ */
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -1217,6 +1222,11 @@ export async function POST(req: Request) {
     )
   }
 }
+/**
+ * GET /api/punto-venta
+ * Entrega ventas y órdenes en una colección unificada para las tablas del POS.
+ * Admite filtros de etapa, fecha y período con códigos o nombres de estado OT.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)

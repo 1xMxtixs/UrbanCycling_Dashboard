@@ -59,6 +59,11 @@ async function obtenerServicio(serviceId: number) {
   })
 }
 
+/**
+ * GET /api/servicios/:id
+ * Devuelve un servicio normalizado para mostrar o precargar su formulario de
+ * edición.
+ */
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -87,6 +92,11 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * PATCH /api/servicios/:id
+ * Actualiza parcialmente un servicio y valida código, nombre, precio y estado
+ * antes de devolver la versión normalizada.
+ */
 export async function PATCH(req: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_UPDATE)
@@ -183,6 +193,11 @@ export async function PATCH(req: Request, context: RouteContext) {
   }
 }
 
+/**
+ * DELETE /api/servicios/:id
+ * Elimina servicios sin referencias y desactiva los que ya tienen historial,
+ * permitiendo que el frontend los retire sin romper órdenes anteriores.
+ */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_DELETE)

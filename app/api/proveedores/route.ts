@@ -6,6 +6,11 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { crearProveedorSchema } from "@/lib/provider-validation"
 import { requirePermission } from "@/lib/require-permission"
 
+/**
+ * POST /api/proveedores
+ * Registra un proveedor activo junto con sus teléfonos y devuelve la ficha
+ * creada para incorporarla inmediatamente a tablas y selectores.
+ */
 export async function POST(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.SUPPLIERS_CREATE)
@@ -112,6 +117,11 @@ export async function POST(request: Request) {
   }
 }
 
+/**
+ * GET /api/proveedores
+ * Lista proveedores activos, ordenados por razón social, para administración
+ * y selección en compras.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.SUPPLIERS_READ)

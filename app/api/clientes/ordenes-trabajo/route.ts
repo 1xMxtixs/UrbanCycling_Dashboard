@@ -72,6 +72,11 @@ function obtenerNombreCliente(cliente: {
     .join(" ")
 }
 
+/**
+ * GET /api/clientes/ordenes-trabajo?rut=...
+ * Busca un cliente por RUT y devuelve sus órdenes con el estado operativo de
+ * la OT y el estado financiero almacenado en la venta raíz.
+ */
 export async function GET(request: NextRequest) {
   try {
     const { response } = await requirePermission(

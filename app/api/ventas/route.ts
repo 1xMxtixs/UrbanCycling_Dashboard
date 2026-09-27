@@ -67,6 +67,11 @@ function parsePositiveInteger(value: unknown) {
   return parsedValue
 }
 
+/**
+ * POST /api/ventas
+ * Registra una venta directa, descuenta stock y devuelve totales y líneas. El
+ * estado financiero se guarda en Venta y el operativo en VentaEnMostrador.
+ */
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
@@ -359,6 +364,11 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * GET /api/ventas
+ * Lista ventas directas con cliente, vendedor, líneas y estados adaptados para
+ * la tabla histórica de ventas.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)

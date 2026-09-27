@@ -112,6 +112,11 @@ const bicycleHistoryInclude = {
   },
 }
 
+/**
+ * GET /api/bicycles/historial
+ * Entrega bicicletas que tienen órdenes finalizadas para poblar el selector
+ * del historial de mantenciones.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.BICYCLES_READ)
@@ -142,6 +147,11 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/bicycles/historial
+ * Recibe el ID de una bicicleta y devuelve sus órdenes finalizadas con sus
+ * servicios, productos y datos de entrega para la vista de historial.
+ */
 export async function POST(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.BICYCLES_READ)

@@ -152,6 +152,11 @@ function parseNonNegativeNumber(value: unknown, integer = false) {
   return numberValue
 }
 
+/**
+ * GET /api/inventory/:id
+ * Devuelve un producto con categorías e imágenes adaptadas al modelo que usa
+ * el formulario de detalle y edición de inventario.
+ */
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -207,6 +212,11 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * PATCH /api/inventory/:id
+ * Aplica una edición parcial del producto, valida categorías, stock, importes
+ * y EstadoRegistro, y luego devuelve el producto actualizado.
+ */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_UPDATE)
@@ -434,6 +444,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * DELETE /api/inventory/:id
+ * Elimina un producto sin referencias; si ya participa en operaciones, el
+ * controlador conserva la integridad y responde el conflicto correspondiente.
+ */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_DELETE)

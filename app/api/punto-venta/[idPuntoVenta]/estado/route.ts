@@ -96,6 +96,11 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   }
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta/estado
+ * Ejecuta transiciones de estado de una venta u OT. Acepta IDs venta-N u
+ * orden-N, valida la transición y actualiza el estado financiero en Venta.
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }

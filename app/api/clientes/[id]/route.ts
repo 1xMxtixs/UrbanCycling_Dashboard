@@ -39,6 +39,11 @@ function parseClienteId(id: string): number {
   return idCliente
 }
 
+/**
+ * PATCH /api/clientes/:id
+ * Actualiza la ficha de un cliente activo. El frontend puede enviar datos
+ * personales, comerciales y de contacto en una actualización parcial.
+ */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_UPDATE)

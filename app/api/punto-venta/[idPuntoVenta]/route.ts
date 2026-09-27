@@ -217,6 +217,11 @@ function compactObject(data: Record<string, unknown>) {
   )
 }
 
+/**
+ * GET /api/punto-venta/:idPuntoVenta
+ * Devuelve el detalle unificado de una venta u orden usando IDs venta-N u
+ * orden-N, listo para diálogos de detalle sin exponer credenciales de usuarios.
+ */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }
@@ -344,6 +349,11 @@ export async function GET(
   }
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta
+ * Actualiza campos generales de una venta u OT. Los aliases snake_case y
+ * camelCase son aceptados; los pagos siempre se persisten en la venta raíz.
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }

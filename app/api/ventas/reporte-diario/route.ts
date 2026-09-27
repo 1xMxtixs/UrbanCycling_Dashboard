@@ -68,6 +68,11 @@ function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[numbe
   }
 }
 
+/**
+ * GET /api/ventas/reporte-diario?fecha=YYYY-MM-DD
+ * Devuelve las ventas del día, el total de ingresos y la cantidad de ventas
+ * para tarjetas, tablas y exportaciones del reporte diario.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.REPORTS_READ)

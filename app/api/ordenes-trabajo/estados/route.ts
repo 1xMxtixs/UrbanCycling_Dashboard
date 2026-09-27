@@ -5,6 +5,11 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+/**
+ * GET /api/ordenes-trabajo/estados
+ * Devuelve el catálogo de estados ordenado por su posición de flujo. Se usa
+ * directamente para construir Selects y mostrar nombre, código y estado final.
+ */
 export async function GET() {
   try {
     // El catálogo solo está disponible para usuarios que pueden consultar órdenes.
