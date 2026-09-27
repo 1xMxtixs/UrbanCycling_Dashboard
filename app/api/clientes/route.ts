@@ -2,7 +2,7 @@
 import { db } from "@/lib/db"
 import { separarApellidos, separarNombres } from "@/lib/client-helpers"
 import { validarYFormatearRut } from "@/lib/client-rut"
-import { Prisma } from "@/generated/prisma"
+import { EstadoRegistro, Prisma } from "@/generated/prisma"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 import { ACTIVE_WORK_ORDER_STATUSES } from "@/lib/work-order-status"
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       correo: correo
         ? String(correo).trim().toLowerCase()
         : crearCorreoRespaldo(rutFormateado),
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       telefonos: {
         create: {
           telefono: String(telefono).trim(),
@@ -184,7 +184,7 @@ export async function GET() {
 
     const clientes = await db.cliente.findMany({
       where: {
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
       },
       orderBy: {
         fechaRegistro: "desc",
@@ -219,7 +219,8 @@ export async function GET() {
             observacionesIngreso: orden.observacionesIngreso,
             total: orden.montoTotal,
             descuento: orden.descuentoGlobal,
-            estadoPago: orden.estadoPago,
+            // El estado financiero pertenece a la venta y es compartido por todos sus subtipos.
+            estadoPago: venta.estadoPago,
             estadoOrden: orden.estado,
             fechaCreacion: venta.fechaRegistro,
           }
@@ -336,7 +337,7 @@ export async function DELETE(request: Request) {
         throw new ClienteNoExisteError()
       }
 
-      if (cliente.estado !== "activo") {
+      if (cliente.estado !== EstadoRegistro.ACTIVO) {
         throw new ClienteYaInactivoError()
       }
 
@@ -351,6 +352,7 @@ export async function DELETE(request: Request) {
         `
       )
 
+      // Los códigos compartidos mantienen esta regla alineada con el flujo de las OT.
       const ordenActiva = await tx.venta.findFirst({
         where: {
           idCliente: cliente.idCliente,
@@ -381,7 +383,7 @@ export async function DELETE(request: Request) {
           idCliente: cliente.idCliente,
         },
         data: {
-          estado: "inactivo",
+          estado: EstadoRegistro.INACTIVO,
         },
       })
     })
