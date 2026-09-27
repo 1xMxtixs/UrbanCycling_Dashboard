@@ -1,7 +1,16 @@
 // Endpoints generales para registrar y listar ventas directas de productos.
-import { EstadoRegistro } from "@/generated/prisma"
+import {
+  EstadoPagoVenta,
+  EstadoRegistro,
+  EstadoVentaMostrador,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
+import {
+  resolverEstadoPago,
+  resolverEstadoVenta,
+  respuestaInvalida,
+} from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import { NextResponse } from "next/server"
 
@@ -70,9 +79,27 @@ export async function POST(req: Request) {
     const idUsuario = session.user.idUsuario
     const idCliente = parsePositiveInteger(data.id_cliente ?? data.idCliente)
     const descuento = Number(data.descuento ?? 0)
-    const estadoPago = data.estado_pago ?? data.estadoPago ?? "pagado"
-    const estadoVenta = data.estado_venta ?? data.estadoVenta ?? "confirmada"
+    const estadoPagoInput =
+      data.estado_pago ?? data.estadoPago ?? EstadoPagoVenta.PAGADA
+    const estadoPago = resolverEstadoPago(estadoPagoInput)
+    const estadoVentaInput =
+      data.estado_venta ?? data.estadoVenta ?? EstadoVentaMostrador.COMPLETADA
+    const estadoVenta = resolverEstadoVenta(estadoVentaInput)
     const productosInput = data.productos ?? data.lineas ?? []
+
+    if (!estadoPago) {
+      return respuestaInvalida(
+        "ESTADO_PAGO_INVALIDO",
+        "Estado de pago inválido",
+      )
+    }
+
+    if (!estadoVenta) {
+      return respuestaInvalida(
+        "ESTADO_VENTA_INVALIDO",
+        "Estado de venta inválido",
+      )
+    }
 
     if (Number.isNaN(idUsuario) || Number.isNaN(idCliente)) {
       return NextResponse.json(
@@ -259,10 +286,11 @@ export async function POST(req: Request) {
         data: {
           idUsuario,
           idCliente,
+          // El estado financiero pertenece a la venta raíz y cubre todos sus subtipos.
+          estadoPago,
           ventaEnMostrador: {
             create: {
               estado: estadoVenta,
-              estadoPago,
               montoSubtotal: montos.montoSubtotal,
               descuentoProductos: 0,
               descuentoGlobal: montos.descuentoGlobal,
