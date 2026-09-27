@@ -5,6 +5,12 @@ import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
 } from "@/lib/bicycle-images"
+import {
+  EstadoPago,
+  EstadoPagoVenta,
+  EstadoRegistro,
+  EstadoVentaMostrador,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -13,6 +19,7 @@ import {
   InventoryStockError,
   recalcularTotalesOrdenTrabajo,
 } from "@/lib/stored-procedures"
+import { ESTADO_OT, type EstadoOt } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 const prisma = db
@@ -146,7 +153,7 @@ function adaptarVenta(venta: any) {
     montoTotal: ventaEnMostrador.montoTotal,
     descuentoGlobal: ventaEnMostrador.descuentoGlobal,
     estadoVenta: ventaEnMostrador.estado,
-    estadoPago: ventaEnMostrador.estadoPago,
+    estadoPago: ventaSegura.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
   }
 }
@@ -163,12 +170,14 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
   )
+  const estadoCatalogo = ordenTrabajoSegura.estadoOrden
 
   return {
     ...ordenTrabajoSegura,
     total: ordenTrabajoSegura.montoTotal,
     descuento: ordenTrabajoSegura.descuentoGlobal,
-    estadoOrden: ordenTrabajoSegura.estado,
+    codigoEstadoOrden: ordenTrabajoSegura.estado,
+    estadoOrden: estadoCatalogo?.nombre ?? ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
     totalPagado,
@@ -267,14 +276,7 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   return "venta"
 }
 
-const etapasOrdenTrabajo = [
-  "Por realizar",
-  "En curso",
-  "En espera",
-  "Listo para entregar",
-  "Entregado",
-  "Anulada",
-]
+const etapasOrdenTrabajo = Object.values(ESTADO_OT)
 
 function normalizarTextoFiltro(value: string) {
   return value
@@ -286,6 +288,22 @@ function normalizarTextoFiltro(value: string) {
     .replace(/\s+/g, " ")
 }
 
+// Convierte tanto códigos como etiquetas legibles al código persistido por la OT.
+function resolverEstadoOrden(value: unknown): EstadoOt | null {
+  if (typeof value !== "string" || !value.trim()) {
+    return null
+  }
+
+  const estadoNormalizado = normalizarTextoFiltro(value)
+
+  return (
+    etapasOrdenTrabajo.find(
+      (estado) => normalizarTextoFiltro(estado) === estadoNormalizado
+    ) ?? null
+  )
+}
+
+// Lee los alias admitidos por la API y entrega un único código para el filtro Prisma.
 function obtenerEtapaFiltro(req: Request) {
   const { searchParams } = new URL(req.url)
   const etapaInput =
@@ -301,15 +319,35 @@ function obtenerEtapaFiltro(req: Request) {
     }
   }
 
-  const etapaNormalizada = normalizarTextoFiltro(etapaInput)
-
   return {
     fueSolicitada: true,
-    etapa:
-      etapasOrdenTrabajo.find(
-        (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
-      ) ?? null,
+    etapa: resolverEstadoOrden(etapaInput),
   }
+}
+
+function resolverEstadoPagoVenta(value: unknown): EstadoPagoVenta | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const codigo = value.trim().toUpperCase()
+
+  return Object.values(EstadoPagoVenta).find((estado) => estado === codigo) ?? null
+}
+
+function resolverEstadoVenta(value: unknown): EstadoVentaMostrador | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const codigo = value.trim().toUpperCase()
+  const codigoCanonico = codigo === "CONFIRMADA" ? "COMPLETADA" : codigo
+
+  return (
+    Object.values(EstadoVentaMostrador).find(
+      (estado) => estado === codigoCanonico
+    ) ?? null
+  )
 }
 
 function obtenerParametroFecha(searchParams: URLSearchParams, keys: string[]) {
@@ -438,10 +476,6 @@ function obtenerMontoPago(rawData: any): number | null {
   return monto === null || monto === undefined ? null : Number(monto)
 }
 
-function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
-  return rawData.pago?.estado ?? rawData.estado_pago_detalle ?? estadoPorDefecto
-}
-
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -461,12 +495,27 @@ export async function POST(req: Request) {
         : null
 
     const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0)
-    const estadoPago = rawData.estado_pago ?? rawData.estadoPago ?? "pendiente"
+    const estadoPagoInput = rawData.estado_pago ?? rawData.estadoPago
+    const estadoPago = estadoPagoInput
+      ? resolverEstadoPagoVenta(estadoPagoInput)
+      : EstadoPagoVenta.PENDIENTE
     const productosVenta = normalizarProductos(rawData.productos).map(
       mapearProducto
     )
     const ordenInput = rawData.orden_trabajo ?? rawData.ordenTrabajo ?? null
     const tieneOrden = Boolean(ordenInput)
+    const estadoOrdenInput = tieneOrden
+      ? (ordenInput.estado_orden ?? ordenInput.estadoOrden)
+      : null
+    const estadoOrden = tieneOrden
+      ? estadoOrdenInput
+        ? resolverEstadoOrden(estadoOrdenInput)
+        : ESTADO_OT.POR_REALIZAR
+      : null
+    const estadoVentaInput = rawData.estado_venta ?? rawData.estadoVenta
+    const estadoVenta = estadoVentaInput
+      ? resolverEstadoVenta(estadoVentaInput)
+      : EstadoVentaMostrador.COMPLETADA
     const productosOrden = tieneOrden
       ? normalizarProductos(ordenInput.productos).map(mapearProducto)
       : []
@@ -485,6 +534,39 @@ export async function POST(req: Request) {
         {
           code: "FALTAN_DATOS",
           message: "Debe indicar usuario y cliente validos",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!estadoPago) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_PAGO_INVALIDO",
+          message: "El estado de pago indicado no es válido",
+          estadosDisponibles: Object.values(EstadoPagoVenta),
+        },
+        { status: 400 }
+      )
+    }
+
+    if (tieneOrden && !estadoOrden) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_ORDEN_INVALIDO",
+          message: "El estado de la orden indicado no es válido",
+          estadosDisponibles: etapasOrdenTrabajo,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!estadoVenta) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_VENTA_INVALIDO",
+          message: "El estado de la venta indicado no es válido",
+          estadosDisponibles: Object.values(EstadoVentaMostrador),
         },
         { status: 400 }
       )
@@ -613,7 +695,7 @@ export async function POST(req: Request) {
         )
       }
 
-      if (cliente.estado !== "activo") {
+      if (cliente.estado !== EstadoRegistro.ACTIVO) {
         return NextResponse.json(
           {
             code: "CLIENTE_INACTIVO",
@@ -716,7 +798,7 @@ export async function POST(req: Request) {
     const servicioInactivo = serviciosOrden.find((item) => {
       const servicio = serviciosPorId.get(item.idServicio)
 
-      return servicio && servicio.estado !== "activo"
+      return servicio && servicio.estado !== EstadoRegistro.ACTIVO
     })
 
     if (servicioInactivo) {
@@ -847,9 +929,11 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
-    const metodoPago = obtenerMetodoPago(rawData)
+    const metodoPagoInput = obtenerMetodoPago(rawData)
+    const metodoPago = metodoPagoInput
+      ? String(metodoPagoInput).trim().toUpperCase()
+      : null
     const montoPagoSolicitado = obtenerMontoPago(rawData)
-    const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago)
 
     if (
       metodoPago &&
@@ -865,20 +949,36 @@ export async function POST(req: Request) {
       )
     }
 
+    if (metodoPago) {
+      // La FK de pagos exige un código activo del catálogo de métodos de pago.
+      const metodoRegistrado = await prisma.metodoPago.findUnique({
+        where: { codigo: metodoPago },
+        select: { estado: true },
+      })
+
+      if (!metodoRegistrado || metodoRegistrado.estado !== EstadoRegistro.ACTIVO) {
+        return NextResponse.json(
+          {
+            code: "METODO_PAGO_INVALIDO",
+            message: "El método de pago indicado no existe o está inactivo",
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     const resultado = await prisma.$transaction(async (tx) => {
       const ventaBase = await tx.venta.create({
         data: {
           idUsuario,
           idCliente,
+          // Venta concentra el estado financiero de cualquier operación del POS.
+          estadoPago,
           ventaEnMostrador:
             lineasVenta.length > 0 || tieneOrden
               ? {
                   create: {
-                    estado:
-                      rawData.estado_venta ??
-                      rawData.estadoVenta ??
-                      "confirmada",
-                    estadoPago,
+                    estado: estadoVenta,
                     montoSubtotal: montosVenta.montoSubtotal,
                     descuentoProductos: 0,
                     descuentoGlobal: montosVenta.descuentoGlobal,
@@ -908,11 +1008,7 @@ export async function POST(req: Request) {
                             ordenInput.idMecanicoAsignado
                         )
                       : null,
-                  estado:
-                    ordenInput.estado_orden ??
-                    ordenInput.estadoOrden ??
-                    "Por realizar",
-                  estadoPago,
+                  estado: estadoOrden!,
                   fechaEntregaEstimada: ordenInput.fecha_entrega_estimada
                     ? new Date(ordenInput.fecha_entrega_estimada)
                     : ordenInput.fechaEntregaEstimada
@@ -964,6 +1060,12 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
+              estadoOrden: {
+                select: {
+                  codigo: true,
+                  nombre: true,
+                },
+              },
               bicicletas: {
                 include: {
                   imagenes: true,
@@ -1060,6 +1162,12 @@ export async function POST(req: Request) {
             },
             include: {
               mecanico: true,
+              estadoOrden: {
+                select: {
+                  codigo: true,
+                  nombre: true,
+                },
+              },
               bicicletas: true,
               lineasDeOrdenDeTrabajo: {
                 include: {
@@ -1080,18 +1188,20 @@ export async function POST(req: Request) {
             data: {
               idUsuario,
               fechaRegistro: new Date(),
-              estado: estadoRegistroPago,
-              metodoPago: String(metodoPago),
+              // La transacción recién registrada ya fue aceptada por el POS.
+              estado: EstadoPago.COMPLETADO,
+              metodoPago,
               monto: montoPago,
             },
           })
         : null
 
-      if (pago && venta?.ventaEnMostrador) {
+      if (pago) {
+        // La asignación siempre apunta a la Venta raíz, incluso cuando se paga una OT.
         await tx.asignacionPago.create({
           data: {
             idPago: pago.idPago,
-            idVenta: venta.idVenta,
+            idVenta: ventaBase.idVenta,
             idOrdenDeCompra: null,
             montoAsociado: montoPago,
             tipoAbono:
@@ -1100,12 +1210,30 @@ export async function POST(req: Request) {
         })
       }
 
+      const estadoPagoFinal = pago
+        ? montoPago >= totalOperacionFinal
+          ? EstadoPagoVenta.PAGADA
+          : EstadoPagoVenta.PARCIAL
+        : estadoPago
+
+      if (estadoPagoFinal !== ventaBase.estadoPago) {
+        await tx.venta.update({
+          where: { idVenta: ventaBase.idVenta },
+          data: { estadoPago: estadoPagoFinal },
+        })
+      }
+
+      const ventaActualizada = {
+        ...ventaBase,
+        estadoPago: estadoPagoFinal,
+      }
+
       return {
-        venta,
+        venta: venta ? ventaActualizada : null,
         ordenTrabajo: ordenTrabajoActualizada
           ? {
               ...ordenTrabajoActualizada,
-              venta: ventaBase,
+              venta: ventaActualizada,
               usuario: ventaBase.usuario,
               cliente: ventaBase.cliente,
             }
@@ -1258,6 +1386,13 @@ export async function GET(req: Request) {
         ordenDeTrabajo: {
           include: {
             mecanico: true,
+            // El código sirve para reglas y el nombre para etiquetas del frontend.
+            estadoOrden: {
+              select: {
+                codigo: true,
+                nombre: true,
+              },
+            },
             bicicletas: {
               include: {
                 imagenes: true,
@@ -1293,7 +1428,7 @@ export async function GET(req: Request) {
             fechaRegistro: venta.fechaRegistro,
             total: venta.ventaEnMostrador.montoTotal,
             montoTotal: venta.ventaEnMostrador.montoTotal,
-            estadoPago: venta.ventaEnMostrador.estadoPago,
+            estadoPago: venta.estadoPago,
             estadoVenta: venta.ventaEnMostrador.estado,
             cliente: venta.cliente,
             usuario: sanitizarUsuario(venta.usuario),
@@ -1321,8 +1456,11 @@ export async function GET(req: Request) {
             fechaRegistro: venta.fechaRegistro,
             total: venta.ordenDeTrabajo.montoTotal,
             montoTotal: venta.ordenDeTrabajo.montoTotal,
-            estadoPago: venta.ordenDeTrabajo.estadoPago,
-            estadoOrden: venta.ordenDeTrabajo.estado,
+            estadoPago: venta.estadoPago,
+            codigoEstadoOrden: venta.ordenDeTrabajo.estado,
+            estadoOrden:
+              venta.ordenDeTrabajo.estadoOrden?.nombre ??
+              venta.ordenDeTrabajo.estado,
             cliente: venta.cliente,
             usuario: sanitizarUsuario(venta.usuario),
             ordenTrabajo: ordenTrabajoAdaptada,
