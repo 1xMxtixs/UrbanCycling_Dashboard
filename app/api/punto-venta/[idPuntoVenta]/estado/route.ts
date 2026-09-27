@@ -170,7 +170,8 @@ export async function PATCH(
               0
             )
             const saldoPendiente = Math.max(0, totalVenta - totalPagado)
-            let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
+            let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null =
+              null
 
             if (saldoPendiente > 0) {
               nuevoPago = await tx.pago.create({
@@ -305,18 +306,18 @@ export async function PATCH(
           )
         }
       } else {
-      const estadosSiguientes =
-        transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
+        const estadosSiguientes =
+          transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
 
-      if (!estadosSiguientes.includes(estadoOrden)) {
-        return NextResponse.json(
-          {
-            code: "CAMBIO_ESTADO_NO_PERMITIDO",
-            message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
-          },
-          { status: 409 }
-        )
-      }
+        if (!estadosSiguientes.includes(estadoOrden)) {
+          return NextResponse.json(
+            {
+              code: "CAMBIO_ESTADO_NO_PERMITIDO",
+              message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
+            },
+            { status: 409 }
+          )
+        }
       }
     }
 
