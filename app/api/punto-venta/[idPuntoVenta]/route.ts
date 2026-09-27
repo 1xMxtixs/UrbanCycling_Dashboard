@@ -639,7 +639,7 @@ export async function PATCH(
               : undefined,
             estado: tieneEstadoOrden ? ordenTrabajoActual.estado : undefined,
             estadoPago: tieneEstadoPago
-              ? ordenTrabajoActual.estadoPago
+              ? ordenTrabajoActual.venta.estadoPago
               : undefined,
             idMecanicoAsignado: tieneMecanicoAsignado
               ? ordenTrabajoActual.idMecanicoAsignado

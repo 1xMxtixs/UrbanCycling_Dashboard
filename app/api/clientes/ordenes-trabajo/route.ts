@@ -124,11 +124,11 @@ export async function GET(request: NextRequest) {
             idUsuario: true,
             idCliente: true,
             fechaRegistro: true,
+            estadoPago: true,
             ordenDeTrabajo: {
               select: {
                 idOrdenDeTrabajo: true,
                 estado: true,
-                estadoPago: true,
                 fechaEntregaEstimada: true,
                 fechaEntregaReal: true,
                 observacionesIngreso: true,
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
           observacionesIngreso: orden.observacionesIngreso,
           total: orden.montoTotal,
           descuento: orden.descuentoGlobal,
-          estadoPago: orden.estadoPago,
+          estadoPago: venta.estadoPago,
           estadoOrden: orden.estado,
           fechaCreacion: venta.fechaRegistro,
         }

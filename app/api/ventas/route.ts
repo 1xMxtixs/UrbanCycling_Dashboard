@@ -32,7 +32,6 @@ function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
 function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[number] & {
   ventaEnMostrador?: {
     estado: string
-    estadoPago: string
     montoTotal: unknown
     descuentoGlobal: unknown
     lineasDeVenta?: unknown[]
@@ -43,7 +42,7 @@ function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[numbe
     fechaCreacion: venta.fechaRegistro,
     total: venta.ventaEnMostrador?.montoTotal ?? 0,
     descuento: venta.ventaEnMostrador?.descuentoGlobal ?? 0,
-    estadoPago: venta.ventaEnMostrador?.estadoPago ?? null,
+    estadoPago: venta.estadoPago,
     estadoVenta: venta.ventaEnMostrador?.estado ?? null,
     lineasDeVenta: venta.ventaEnMostrador?.lineasDeVenta ?? [],
   }
