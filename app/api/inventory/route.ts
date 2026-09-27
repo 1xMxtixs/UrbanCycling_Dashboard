@@ -1,7 +1,9 @@
 // Endpoints generales del inventario para listar productos y registrar nuevos items.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -69,7 +71,7 @@ async function validateCategoryIds(categoryIds: number[]) {
   const categories = await db.categoria.findMany({
     where: {
       idCategoria: { in: categoryIds },
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
     },
     select: { idCategoria: true },
   })
@@ -306,6 +308,18 @@ export async function POST(request: Request) {
       return new NextResponse("Product already exists", { status: 409 })
     }
 
+    const estado = resolverEstadoRegistro(data.estado ?? EstadoRegistro.ACTIVO)
+
+    if (!estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_REGISTRO_INVALIDO",
+          message: "El estado del producto debe ser ACTIVO o INACTIVO",
+        },
+        { status: 400 },
+      )
+    }
+
     const product = await db.$transaction(async (tx) => {
       const createdProduct = await tx.producto.create({
         data: {
@@ -316,7 +330,7 @@ export async function POST(request: Request) {
           costoPromedio: data.costoPromedio ?? data.precioCosto ?? 0,
           stockActual: data.stockActual,
           stockMinimo: data.stockMinimo,
-          estado: data.estado,
+          estado,
           urlImagen: data.urlImagen ?? data.imageUrl ?? "",
         },
       })

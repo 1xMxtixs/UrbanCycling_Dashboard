@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { actualizarProveedorSchema } from "@/lib/provider-validation"
@@ -58,10 +59,10 @@ export async function DELETE(
     const resultado = await db.proveedor.updateMany({
       where: {
         idProveedor,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
       },
       data: {
-        estado: "inactivo",
+        estado: EstadoRegistro.INACTIVO,
       },
     })
 
@@ -184,7 +185,7 @@ export async function PATCH(
         return null
       }
 
-      if (existente.estado !== "activo") {
+      if (existente.estado !== EstadoRegistro.ACTIVO) {
         throw new ProveedorInactivoError()
       }
 

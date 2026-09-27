@@ -1,7 +1,9 @@
 // Endpoint de registro de usuarios adaptado al schema actual de autenticacion.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { hashPassword } from "@/lib/password"
 
 const DEFAULT_REGISTER_ROLE = "Sin Rol"
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
     const correoElectronico = normalizeEmail(String(data.correoElectronico ?? ""))
     const contrasena = String(data.contrasena ?? "")
     const idRol = data.idRol ? Number(data.idRol) : null
-    const estado = String(data.estado ?? "activo").trim().toLowerCase()
+    const estado = resolverEstadoRegistro(data.estado ?? EstadoRegistro.ACTIVO)
 
     if (
       !primerNombre ||
@@ -77,6 +79,16 @@ export async function POST(request: Request) {
       !contrasena
     ) {
       return new NextResponse("Faltan campos obligatorios", { status: 400 })
+    }
+
+    if (!estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_REGISTRO_INVALIDO",
+          message: "El estado del usuario debe ser ACTIVO o INACTIVO",
+        },
+        { status: 400 },
+      )
     }
 
     if (contrasena.length < 8) {

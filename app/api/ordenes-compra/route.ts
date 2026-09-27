@@ -1,6 +1,7 @@
 // Controlador para registrar pedidos a proveedores.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     }
 
     const providers = await db.proveedor.findMany({
-      where: { estado: "activo" },
+      where: { estado: EstadoRegistro.ACTIVO },
       select: { idProveedor: true },
       take: 1,
     })
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
       }),
     ])
 
-    if (!provider || provider.estado !== "activo") {
+    if (!provider || provider.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "PROVEEDOR_NO_DISPONIBLE",

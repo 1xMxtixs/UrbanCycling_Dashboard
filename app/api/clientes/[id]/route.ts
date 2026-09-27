@@ -1,5 +1,5 @@
 // Endpoint para actualizar parcialmente la ficha de un cliente por ID.
-import type { Prisma } from "@/generated/prisma"
+import { EstadoRegistro, type Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
 import {
@@ -88,7 +88,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return new NextResponse("El cliente no existe", { status: 404 })
     }
 
-    if (clienteActual.estado !== "activo") {
+    if (clienteActual.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "CLIENTE_INACTIVO",

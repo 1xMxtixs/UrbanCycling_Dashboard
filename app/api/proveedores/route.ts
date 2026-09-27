@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { crearProveedorSchema } from "@/lib/provider-validation"
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const proveedor = await db.proveedor.create({
       data: {
         ...datosProveedor,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
         telefonos: {
           create: telefonos.map((telefono) => ({
             telefono: telefono.telefono,
@@ -121,7 +122,7 @@ export async function GET() {
 
     const proveedores = await db.proveedor.findMany({
       where: {
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
       },
       select: {
         idProveedor: true,

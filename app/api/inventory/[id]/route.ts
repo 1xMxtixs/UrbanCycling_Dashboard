@@ -1,7 +1,9 @@
 // Endpoints del inventario para consultar, actualizar o eliminar un producto por ID.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -85,7 +87,7 @@ async function validateCategoryIds(categoryIds: number[]) {
   const categories = await db.categoria.findMany({
     where: {
       idCategoria: { in: categoryIds },
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
     },
     select: { idCategoria: true },
   })
@@ -286,7 +288,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       costoPromedio?: number
       stockActual?: number
       stockMinimo?: number
-      estado?: string
+      estado?: EstadoRegistro
       urlImagen?: string
     } = {}
     const invalidFields: string[] = []
@@ -339,7 +341,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if ("estado" in data) {
-      const value = parseRequiredText(data.estado, 20)
+      const value = resolverEstadoRegistro(data.estado)
       if (value) updateData.estado = value
       else invalidFields.push("estado")
     }

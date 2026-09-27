@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -17,7 +19,7 @@ type ServicioRow = {
   nombre: string
   descripcion: string | null
   precioVenta: unknown
-  estado: string
+  estado: EstadoRegistro
 }
 
 const servicioUpdateSchema = z.object({
@@ -25,7 +27,10 @@ const servicioUpdateSchema = z.object({
   nombre: z.string().trim().min(1).max(100).optional(),
   descripcion: z.string().trim().max(500).optional().nullable(),
   precioVenta: z.coerce.number().min(0).optional(),
-  estado: z.string().trim().min(1).max(20).optional(),
+  estado: z.preprocess(
+    resolverEstadoRegistro,
+    z.enum(EstadoRegistro),
+  ).optional(),
 })
 
 function parseServiceId(id: string) {
@@ -218,7 +223,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
           idServicio: serviceId,
         },
         data: {
-          estado: "inactivo",
+          estado: EstadoRegistro.INACTIVO,
         },
       })
 

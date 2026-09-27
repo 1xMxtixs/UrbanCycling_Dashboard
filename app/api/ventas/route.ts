@@ -1,4 +1,5 @@
 // Endpoints generales para registrar y listar ventas directas de productos.
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -152,7 +153,7 @@ export async function POST(req: Request) {
       )
     }
 
-    if (cliente.estado !== "activo") {
+    if (cliente.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "CLIENTE_INACTIVO",
