@@ -5,21 +5,17 @@ import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
 } from "@/lib/bicycle-images"
-import {
-  EstadoPago,
-  EstadoPagoVenta,
-  EstadoRegistro,
-  EstadoVentaMostrador,
-} from "@/generated/prisma"
+import { EstadoPago, EstadoPagoVenta, EstadoRegistro, EstadoVentaMostrador } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
+import { ESTADOS_OT_DISPONIBLES, estadoOrdenInclude, resolverEstadoOt, resolverEstadoPago, resolverEstadoVenta, respuestaInvalida } from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import {
   descontarStockProductos,
   InventoryStockError,
   recalcularTotalesOrdenTrabajo,
 } from "@/lib/stored-procedures"
-import { ESTADO_OT, type EstadoOt } from "@/lib/work-order-status"
+import { ESTADO_OT } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 const prisma = db
@@ -276,33 +272,6 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   return "venta"
 }
 
-const etapasOrdenTrabajo = Object.values(ESTADO_OT)
-
-function normalizarTextoFiltro(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-}
-
-// Convierte tanto códigos como etiquetas legibles al código persistido por la OT.
-function resolverEstadoOrden(value: unknown): EstadoOt | null {
-  if (typeof value !== "string" || !value.trim()) {
-    return null
-  }
-
-  const estadoNormalizado = normalizarTextoFiltro(value)
-
-  return (
-    etapasOrdenTrabajo.find(
-      (estado) => normalizarTextoFiltro(estado) === estadoNormalizado
-    ) ?? null
-  )
-}
-
 // Lee los alias admitidos por la API y entrega un único código para el filtro Prisma.
 function obtenerEtapaFiltro(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -321,33 +290,8 @@ function obtenerEtapaFiltro(req: Request) {
 
   return {
     fueSolicitada: true,
-    etapa: resolverEstadoOrden(etapaInput),
+    etapa: resolverEstadoOt(etapaInput),
   }
-}
-
-function resolverEstadoPagoVenta(value: unknown): EstadoPagoVenta | null {
-  if (typeof value !== "string") {
-    return null
-  }
-
-  const codigo = value.trim().toUpperCase()
-
-  return Object.values(EstadoPagoVenta).find((estado) => estado === codigo) ?? null
-}
-
-function resolverEstadoVenta(value: unknown): EstadoVentaMostrador | null {
-  if (typeof value !== "string") {
-    return null
-  }
-
-  const codigo = value.trim().toUpperCase()
-  const codigoCanonico = codigo === "CONFIRMADA" ? "COMPLETADA" : codigo
-
-  return (
-    Object.values(EstadoVentaMostrador).find(
-      (estado) => estado === codigoCanonico
-    ) ?? null
-  )
 }
 
 function obtenerParametroFecha(searchParams: URLSearchParams, keys: string[]) {
@@ -497,7 +441,7 @@ export async function POST(req: Request) {
     const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0)
     const estadoPagoInput = rawData.estado_pago ?? rawData.estadoPago
     const estadoPago = estadoPagoInput
-      ? resolverEstadoPagoVenta(estadoPagoInput)
+      ? resolverEstadoPago(estadoPagoInput)
       : EstadoPagoVenta.PENDIENTE
     const productosVenta = normalizarProductos(rawData.productos).map(
       mapearProducto
@@ -509,7 +453,7 @@ export async function POST(req: Request) {
       : null
     const estadoOrden = tieneOrden
       ? estadoOrdenInput
-        ? resolverEstadoOrden(estadoOrdenInput)
+        ? resolverEstadoOt(estadoOrdenInput)
         : ESTADO_OT.POR_REALIZAR
       : null
     const estadoVentaInput = rawData.estado_venta ?? rawData.estadoVenta
@@ -540,36 +484,15 @@ export async function POST(req: Request) {
     }
 
     if (!estadoPago) {
-      return NextResponse.json(
-        {
-          code: "ESTADO_PAGO_INVALIDO",
-          message: "El estado de pago indicado no es válido",
-          estadosDisponibles: Object.values(EstadoPagoVenta),
-        },
-        { status: 400 }
-      )
+      return respuestaInvalida("ESTADO_PAGO_INVALIDO", "Estado de pago inválido")
     }
 
     if (tieneOrden && !estadoOrden) {
-      return NextResponse.json(
-        {
-          code: "ESTADO_ORDEN_INVALIDO",
-          message: "El estado de la orden indicado no es válido",
-          estadosDisponibles: etapasOrdenTrabajo,
-        },
-        { status: 400 }
-      )
+      return respuestaInvalida("ESTADO_ORDEN_INVALIDO", "Estado de orden inválido")
     }
 
     if (!estadoVenta) {
-      return NextResponse.json(
-        {
-          code: "ESTADO_VENTA_INVALIDO",
-          message: "El estado de la venta indicado no es válido",
-          estadosDisponibles: Object.values(EstadoVentaMostrador),
-        },
-        { status: 400 }
-      )
+      return respuestaInvalida("ESTADO_VENTA_INVALIDO", "Estado de venta inválido")
     }
 
     const productosInvalidos = [...productosVenta, ...productosOrden].find(
@@ -956,14 +879,11 @@ export async function POST(req: Request) {
         select: { estado: true },
       })
 
-      if (!metodoRegistrado || metodoRegistrado.estado !== EstadoRegistro.ACTIVO) {
-        return NextResponse.json(
-          {
-            code: "METODO_PAGO_INVALIDO",
-            message: "El método de pago indicado no existe o está inactivo",
-          },
-          { status: 400 }
-        )
+      if (
+        !metodoRegistrado ||
+        metodoRegistrado.estado !== EstadoRegistro.ACTIVO
+      ) {
+        return respuestaInvalida("METODO_PAGO_INVALIDO", "Método de pago inválido")
       }
     }
 
@@ -1060,12 +980,7 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
-              estadoOrden: {
-                select: {
-                  codigo: true,
-                  nombre: true,
-                },
-              },
+              estadoOrden: estadoOrdenInclude,
               bicicletas: {
                 include: {
                   imagenes: true,
@@ -1162,12 +1077,7 @@ export async function POST(req: Request) {
             },
             include: {
               mecanico: true,
-              estadoOrden: {
-                select: {
-                  codigo: true,
-                  nombre: true,
-                },
-              },
+              estadoOrden: estadoOrdenInclude,
               bicicletas: true,
               lineasDeOrdenDeTrabajo: {
                 include: {
@@ -1323,7 +1233,7 @@ export async function GET(req: Request) {
         {
           code: "ETAPA_INVALIDA",
           message: "La etapa seleccionada no es valida",
-          etapasDisponibles: etapasOrdenTrabajo,
+          etapasDisponibles: ESTADOS_OT_DISPONIBLES,
         },
         { status: 400 }
       )
@@ -1387,12 +1297,7 @@ export async function GET(req: Request) {
           include: {
             mecanico: true,
             // El código sirve para reglas y el nombre para etiquetas del frontend.
-            estadoOrden: {
-              select: {
-                codigo: true,
-                nombre: true,
-              },
-            },
+            estadoOrden: estadoOrdenInclude,
             bicicletas: {
               include: {
                 imagenes: true,
