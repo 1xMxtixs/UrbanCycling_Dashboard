@@ -278,7 +278,9 @@ export async function POST(request: Request) {
           idOrdenDeTrabajo: orden.idOrdenDeTrabajo,
           idVenta: garantia.idVentaReclamada,
           fechaIngreso,
-          estado: garantia.estado,
+          // Mantiene el mismo contrato que el listado y el detalle para que el
+          // frontend pueda reutilizar componentes sin transformar la respuesta.
+          estado: presentarEstadoGarantia(garantia.estado),
           motivo: garantia.motivo,
         },
       },
