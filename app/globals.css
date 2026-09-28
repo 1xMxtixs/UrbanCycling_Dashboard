@@ -172,8 +172,7 @@
 }
 
 .glass-sidebar {
-  background: color-mix(in oklch, var(--sidebar) 85%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--sidebar);
 }
 
 .glass-dropdown {

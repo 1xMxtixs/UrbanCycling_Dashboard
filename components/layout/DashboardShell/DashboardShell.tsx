@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { RouteTransition } from "@/components/layout/RouteTransition"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import type { PermissionCode } from "@/lib/permissions"
 
 const COOKIE_NAME = "sidebar-collapsed"
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -12,9 +13,11 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 type DashboardShellProps = {
   children: React.ReactNode
   defaultCollapsed: boolean
+  permissions: PermissionCode[]
+  isAdmin: boolean
 }
 
-export function DashboardShell({ children, defaultCollapsed }: DashboardShellProps) {
+export function DashboardShell({ children, defaultCollapsed, permissions, isAdmin }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   useEffect(() => {
@@ -49,14 +52,16 @@ export function DashboardShell({ children, defaultCollapsed }: DashboardShellPro
         className="group/layout flex w-full min-h-screen"
         data-state={collapsed ? "collapsed" : "expanded"}
       >
-        <div className="hidden xl:block xl:fixed h-full w-80 group-data-[state=collapsed]/layout:w-18 transition-[width] duration-200 ease-linear">
+        <div className="hidden lg:block lg:fixed lg:inset-y-0 w-80 group-data-[state=collapsed]/layout:w-18 transition-[width] duration-200 motion-reduce:transition-none ease-linear">
           <Sidebar
             collapsed={collapsed}
             onToggle={() => setCollapsed((prev) => !prev)}
+            permissions={permissions}
+            isAdmin={isAdmin}
           />
         </div>
-        <div className="w-full xl:ml-80 xl:group-data-[state=collapsed]/layout:ml-18 flex flex-col min-h-screen transition-[margin-left] duration-200 ease-linear">
-          <Navbar />
+        <div className="w-full lg:ml-80 lg:group-data-[state=collapsed]/layout:ml-18 flex flex-col min-h-screen transition-[margin-left] duration-200 motion-reduce:transition-none ease-linear">
+          <Navbar permissions={permissions} />
           <main className="flex-1 p-6 md:p-8 bg-muted/30">
             <div className="max-w-7xl mx-auto space-y-6">
               <RouteTransition>{children}</RouteTransition>

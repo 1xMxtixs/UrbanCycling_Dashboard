@@ -1,19 +1,17 @@
-"use client"
-
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 import { cn } from "@/lib/utils"
 
 export function Logo({ collapsed = false }: { collapsed?: boolean }) {
-  const router = useRouter()
   return (
-    <div
+    <Link
+      href="/"
+      aria-label="Ir al dashboard de Urban Cycling"
       className={cn(
         "group min-h-20 h-20 flex items-center border-b border-sidebar-border/80 cursor-pointer transition-[padding,background-color] duration-200 hover:bg-sidebar-accent/50 select-none",
         collapsed ? "justify-center px-0 gap-0" : "px-6 gap-3.5"
       )}
-      onClick={() => router.push("/")}
     >
       <div className="flex shrink-0 items-center justify-center p-2 rounded-xl bg-primary/10 border border-primary/20 transition-transform duration-200 group-hover:scale-105 group-hover:bg-primary/15 shadow-xs">
         <Image
@@ -38,6 +36,6 @@ export function Logo({ collapsed = false }: { collapsed?: boolean }) {
           Management Hub
         </span>
       </div>
-    </div>
+    </Link>
   )
 }

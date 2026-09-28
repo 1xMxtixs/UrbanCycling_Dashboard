@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { LogOut, User, ShieldCheck } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 import {
   DropdownMenu,
@@ -27,12 +28,16 @@ function getInitials(name?: string | null, email?: string | null) {
   return "UC"
 }
 
-export function UserButton() {
+type UserButtonProps = {
+  collapsed?: boolean
+}
+
+export function UserButton({ collapsed = false }: UserButtonProps) {
   const { data: session, status } = useSession()
 
   if (status === "loading") {
     return (
-      <div className="h-10 w-10 animate-pulse rounded-xl bg-muted border border-border" />
+      <div className={cn("h-11 animate-pulse rounded-xl border border-border bg-muted", collapsed ? "w-11" : "w-full")} />
     )
   }
 
@@ -47,12 +52,16 @@ export function UserButton() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Abrir menú de usuario"
-          className="group flex items-center gap-2.5 p-1.5 pr-3 rounded-xl hover:bg-muted/80 border border-border/60 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none shadow-xs"
+          title={collapsed ? "Abrir menú de usuario" : undefined}
+          className={cn(
+            "group flex items-center gap-2.5 rounded-xl border border-border/60 p-1.5 transition-all duration-200 motion-reduce:transition-none hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none shadow-xs",
+            collapsed ? "h-11 w-11 justify-center" : "w-full pr-3"
+          )}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs transition-transform group-hover:scale-105">
             {initials}
           </div>
-          <div className="hidden md:flex flex-col text-left leading-none">
+          <div className={cn("flex flex-col text-left leading-none", collapsed && "hidden")}>
             <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">
               {session.user.name || "Usuario"}
             </span>
@@ -64,7 +73,8 @@ export function UserButton() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        align="end"
+        align={collapsed ? "start" : "center"}
+        side="top"
         sideOffset={8}
         className="w-72 p-1.5 overflow-hidden bg-popover/95 backdrop-blur-md rounded-2xl border border-border shadow-xl animate-in fade-in-0 zoom-in-95"
       >
