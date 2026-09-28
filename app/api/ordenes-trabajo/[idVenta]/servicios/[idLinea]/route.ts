@@ -115,12 +115,12 @@ export async function PATCH(
         include: {
           venta: {
             include: {
+              asignacionesPago: {
+                select: { idAsignacionPago: true },
+              },
               ventaEnMostrador: {
                 select: {
                   estadoPago: true,
-                  asignacionesPago: {
-                    select: { idAsignacionPago: true },
-                  },
                 },
               },
               origenesDTE: {
@@ -154,7 +154,7 @@ export async function PATCH(
       const tienePagos =
         orden.estadoPago === "pagada" ||
         ventaEnMostrador?.estadoPago === "pagada" ||
-        (ventaEnMostrador?.asignacionesPago.length ?? 0) > 0;
+        (orden.venta?.asignacionesPago.length ?? 0) > 0;
 
       if (tienePagos) {
         throw new ServicePriceError(
