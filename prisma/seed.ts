@@ -776,20 +776,6 @@ async function main() {
   const metodosDisponibles = ["EFECTIVO", "DEBITO", "CREDITO", "TRANSFERENCIA"];
 
   for (const venta of ventasPagadas) {
-<<<<<<< HEAD
-    await db.pago.create({
-      data: {
-        idUsuario: usuarios[3].idUsuario,
-        fechaRegistro: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
-        estado: "Completado",
-        metodoPago: ["Efectivo", "Débito", "Crédito", "Transferencia"][Math.floor(Math.random() * 4)],
-        monto: venta.montoTotal,
-        asignaciones: {
-          create: {
-            idVenta: venta.idVenta,
-            montoAsociado: venta.montoTotal,
-            tipoAbono: "Contado",
-=======
     if (venta.ventaEnMostrador) {
       await db.pago.create({
         data: {
@@ -804,7 +790,6 @@ async function main() {
               montoAsociado: venta.ventaEnMostrador.montoTotal,
               tipoAbono: "Contado",
             },
->>>>>>> 3217bda927d6b259a68ee7d7a9775ae7fd428424
           },
         },
       });
