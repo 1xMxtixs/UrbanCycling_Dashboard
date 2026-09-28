@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { formatClientName } from "@/lib/formatters"
+import { escapeHtml, formatClientName } from "@/lib/formatters"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
@@ -205,19 +205,19 @@ export function ListVentas() {
         <body>
           <div class="text-center header-title">URBAN CYCLING</div>
           <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
+          <div class="text-center">RUT Emisor: ${escapeHtml(dte.rutEmisor)}</div>
           <div class="divider"></div>
           <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
           <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
           <div class="divider"></div>
           <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${sale?.cliente?.rut ? `<div>RUT Receptor: ${sale.cliente.rut}</div>` : ""}
+          <div>Cliente: ${escapeHtml(clientLabel)}</div>
+          ${sale?.cliente?.rut ? `<div>RUT Receptor: ${escapeHtml(sale.cliente.rut)}</div>` : ""}
           <div class="divider"></div>
           <div class="bold" style="margin-bottom: 5px;">DETALLE DE PRODUCTOS:</div>
           ${lineas.map((line: any) => `
             <div class="flex">
-              <span>${line.cantidad}x ${line.producto?.nombre || "Producto"}</span>
+              <span>${line.cantidad}x ${escapeHtml(line.producto?.nombre || "Producto")}</span>
               <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
             </div>
           `).join("")}

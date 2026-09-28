@@ -8,6 +8,7 @@
  */
 
 import type { WorkOrder } from "@/app/(routes)/punto-ventas/ordenes-trabajo/types"
+import { escapeHtml } from "@/lib/formatters"
 
 /** Determina si una orden está completamente pagada. */
 export function isWorkOrderPaid(order: WorkOrder): boolean {
@@ -23,17 +24,6 @@ export function isWorkOrderPaid(order: WorkOrder): boolean {
 /** Retorna el nombre estandarizado del archivo para esta orden. */
 export function workOrderFileName(order: WorkOrder): string {
   return `Orden de trabajo #${order.idOrdenDeTrabajo}.pdf`
-}
-
-/** Escapa caracteres especiales para evitar vulnerabilidades XSS en templates HTML */
-export function escapeHtml(str: unknown): string {
-  if (str === null || str === undefined) return ""
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
 }
 
 /**

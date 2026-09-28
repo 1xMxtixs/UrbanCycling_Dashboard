@@ -11,6 +11,7 @@ import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { OrderDetailDialog } from "./OrderDetailDialog"
 import { normalizarImagenesBicicleta } from "@/lib/bicycle-images"
+import { escapeHtml } from "@/lib/formatters"
 import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
@@ -453,19 +454,19 @@ export function ListOrdenesTrabajo() {
         <body>
           <div class="text-center header-title">URBAN CYCLING</div>
           <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
+          <div class="text-center">RUT Emisor: ${escapeHtml(dte.rutEmisor)}</div>
           <div class="divider"></div>
           <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
           <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
           <div class="divider"></div>
           <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
+          <div>Cliente: ${escapeHtml(clientLabel)}</div>
+          ${order?.cliente?.rut ? `<div>RUT Receptor: ${escapeHtml(order.cliente.rut)}</div>` : ""}
           <div class="divider"></div>
           <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
           ${lineas.map((line: any) => `
             <div class="flex">
-              <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto"}</span>
+              <span>${line.cantidad}x ${escapeHtml(line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto")}</span>
               <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
             </div>
           `).join("")}
