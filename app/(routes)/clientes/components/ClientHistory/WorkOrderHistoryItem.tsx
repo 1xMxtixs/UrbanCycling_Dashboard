@@ -5,21 +5,21 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Calendar, ChevronDown, ChevronUp, ExternalLink, Wrench } from "lucide-react";
 import type { DBOrdenTrabajoCliente } from "../../types";
+import { ESTADO_PAGO } from "@/lib/payment-status";
+import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status";
 
 export const getOrderStatusConfig = (estado: string) => {
-  const l = estado.toLowerCase();
-  if (["entregado", "completada"].includes(l)) return { status: "success" as const, label: "Entregado" };
-  if (["listo para entregar", "por entregar"].includes(l)) return { status: "warning" as const, label: "Listo para entregar" };
-  if (["en curso", "activa"].includes(l)) return { status: "info" as const, label: "En curso" };
-  if (["en espera"].includes(l)) return { status: "warning" as const, label: "En espera" };
-  if (["anulada"].includes(l)) return { status: "danger" as const, label: "Anulada" };
-  return { status: "neutral" as const, label: estado };
+  if (estado === ESTADO_OT.ENTREGADO) return { status: "success" as const, label: "Entregado" };
+  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR) return { status: "warning" as const, label: "Listo para entregar" };
+  if (estado === ESTADO_OT.EN_CURSO) return { status: "info" as const, label: "En curso" };
+  if (estado === ESTADO_OT.EN_ESPERA) return { status: "warning" as const, label: "En espera" };
+  if (estado === ESTADO_OT.ANULADA) return { status: "danger" as const, label: "Anulada" };
+  return { status: "neutral" as const, label: getNombreEstadoOt(estado) };
 };
 
 export const getPaymentStatusConfig = (estado?: string) => {
-  const l = (estado || "").toLowerCase();
-  if (l === "pagado" || l === "pagada") return { status: "success" as const, label: "Pagado" };
-  if (l === "parcial" || l === "abono") return { status: "warning" as const, label: "Abono parcial" };
+  if (estado === ESTADO_PAGO.PAGADA) return { status: "success" as const, label: "Pagado" };
+  if (estado === ESTADO_PAGO.ABONO) return { status: "warning" as const, label: "Abono parcial" };
   return { status: "danger" as const, label: "Pendiente" };
 };
 

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ESTADO_PAGO } from "@/lib/payment-status"
 import {
   Select,
   SelectContent,
@@ -75,7 +76,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [descuento, setDescuento] = useState<number>(0)
   const [metodoPago, setMetodoPago] = useState<string>("efectivo")
-  const [estadoPago, setEstadoPago] = useState<string>("pagada")
+  const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PAGADA)
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -535,8 +536,8 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    <SelectItem value="pagada">Pagada (Cierre de Venta)</SelectItem>
-                    <SelectItem value="pendiente">Pendiente (Abono posterior)</SelectItem>
+                    <SelectItem value={ESTADO_PAGO.PAGADA}>Pagada (Cierre de Venta)</SelectItem>
+                    <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendiente (Abono posterior)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

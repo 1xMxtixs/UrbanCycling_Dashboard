@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { SaleOperation } from "../../types"
 
 interface SaleDetailDialogProps {
@@ -48,11 +49,11 @@ export function SaleDetailDialog({
             <span className={`text-xs px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider ${
               isAnulada
                 ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:text-red-400"
-                : (sale.estadoPago?.toLowerCase() === "pagada" || sale.estadoPago?.toLowerCase() === "pagado")
+                : sale.estadoPago === ESTADO_PAGO.PAGADA
                   ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/40 dark:text-green-400"
                   : "bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400"
             }`}>
-              {isAnulada ? "Anulada" : sale.estadoPago}
+              {isAnulada ? "Anulada" : getNombreEstadoPago(sale.estadoPago)}
             </span>
           </DialogTitle>
           <DialogDescription>
@@ -146,7 +147,7 @@ export function SaleDetailDialog({
         {/* Acciones del Modal */}
         <div className="flex justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
           <div>
-            {!isAnulada && sale.estadoPago?.toLowerCase() === "pendiente" && (
+            {!isAnulada && sale.estadoPago === ESTADO_PAGO.PENDIENTE && (
               <Button
                 variant="default"
                 size="sm"

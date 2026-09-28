@@ -2,6 +2,7 @@
 
 import { Clock, AlertTriangle, AlertCircle, Calendar } from "lucide-react"
 import { WorkOrder } from "../../types"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status"
 
 interface UpcomingDeadlinesProps {
   orders: WorkOrder[]
@@ -14,7 +15,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
   // Filter uncompleted orders that are due or overdue
   const upcomingOrders = orders
     .filter((o) => {
-      const isCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(o.estadoOrden)
+      const isCompleted = ESTADOS_OT_CERRADOS.includes(o.estadoOrden as never) || o.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
       if (isCompleted) return false
       const rawDate = new Date(o.fechaEntregaEstimada)
       const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())

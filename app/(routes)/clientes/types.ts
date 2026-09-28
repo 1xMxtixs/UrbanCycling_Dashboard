@@ -54,6 +54,7 @@ export interface DBOrdenTrabajoCliente {
   descuento: number;
   estadoPago: string;
   estadoOrden: string;
+  estadoOrdenNombre?: string | null;
   fechaCreacion: string;
 }
 

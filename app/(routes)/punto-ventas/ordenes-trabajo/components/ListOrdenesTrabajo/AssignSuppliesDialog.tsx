@@ -38,6 +38,7 @@ import {
 import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { WorkOrder, WorkOrderServiceLine } from "../../types"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status"
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,7 @@ export function AssignSuppliesDialog({
   const totalPagado = toNum(order.totalPagado)
   const saldoPendiente = Math.max(0, totalFinal - totalPagado)
 
-  const canEdit = !["Entregado", "Anulada"].includes(order.estadoOrden)
+  const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
 
   // ─── Operaciones Backend ───────────────────────────────────────────────────
 
@@ -621,7 +622,7 @@ export function AssignSuppliesDialog({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estado: "Anulada" }),
+        body: JSON.stringify({ estado: ESTADO_OT.ANULADA }),
       })
 
       if (!res.ok) {

@@ -54,6 +54,7 @@ export interface WorkOrder {
   idUsuario?: number;
   idCliente?: number;
   estadoOrden: string;
+  estadoOrdenNombre?: string | null;
   estadoPago?: string;
   fechaCreacion?: string | Date;
   fechaRecepcion?: string | Date;

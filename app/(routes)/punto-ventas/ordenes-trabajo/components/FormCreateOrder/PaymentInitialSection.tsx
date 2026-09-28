@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ESTADO_PAGO } from "@/lib/payment-status"
 
 interface PaymentInitialSectionProps {
   estadoPago: string
@@ -52,11 +53,11 @@ export function PaymentInitialSection({
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
-              <SelectItem value="pendiente">
+              <SelectItem value={ESTADO_PAGO.PENDIENTE}>
                 Pendiente (Sin Pago Inicial)
               </SelectItem>
-              <SelectItem value="abono">Abono (Pago Parcial)</SelectItem>
-              <SelectItem value="pagada">
+              <SelectItem value={ESTADO_PAGO.ABONO}>Abono (Pago Parcial)</SelectItem>
+              <SelectItem value={ESTADO_PAGO.PAGADA}>
                 Pago Total (${grandTotal.toLocaleString("es-CL")})
               </SelectItem>
             </SelectContent>
@@ -64,7 +65,7 @@ export function PaymentInitialSection({
         </div>
 
         {/* Método de Pago */}
-        {estadoPago !== "pendiente" && (
+        {estadoPago !== ESTADO_PAGO.PENDIENTE && (
           <div className="animate-in space-y-1.5 duration-200 fade-in">
             <Label
               htmlFor="metodoPago"
@@ -87,7 +88,7 @@ export function PaymentInitialSection({
         )}
 
         {/* Monto del Abono */}
-        {estadoPago === "abono" && (
+        {estadoPago === ESTADO_PAGO.ABONO && (
           <div className="animate-in space-y-1.5 duration-200 fade-in">
             <Label
               htmlFor="montoAbono"

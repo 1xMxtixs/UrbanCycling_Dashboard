@@ -8,6 +8,7 @@ export type Bicicleta = {
   imagenUrl: string | null;
   ordenDeTrabajo: {
     estadoOrden: string;
+    estadoOrdenNombre?: string | null;
     estadoPago?: string;
     total?: number;
     cliente: {
@@ -23,6 +24,7 @@ export type Bicicleta = {
 export type OrdenTrabajoResumen = {
   idOrdenDeTrabajo: number;
   estadoOrden: string;
+  estadoOrdenNombre?: string | null;
   estadoPago: string;
   total: number;
   cliente: {

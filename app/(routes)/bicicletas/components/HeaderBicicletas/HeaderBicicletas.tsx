@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Plus } from "lucide-react";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
 import { formatClientName } from "@/lib/formatters";
+import { getNombreEstadoOt } from "@/lib/work-order-status";
 import type { OrdenTrabajoResumen } from "../../types";
 
 export function HeaderBicicletas() {
@@ -135,7 +136,7 @@ export function HeaderBicicletas() {
                       Orden #{orden.idOrdenDeTrabajo} -{" "}
                       {formatClientName(orden.cliente)}
                       {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
-                      {orden.estadoOrden}
+                      {getNombreEstadoOt(orden.estadoOrden, orden.estadoOrdenNombre)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -158,7 +159,7 @@ export function HeaderBicicletas() {
                     </p>
                   </div>
                   <div className="space-y-0.5 text-left sm:text-right text-muted-foreground">
-                    <p>Estado: <span className="font-semibold text-foreground">{selectedOrden.estadoOrden}</span></p>
+                    <p>Estado: <span className="font-semibold text-foreground">{getNombreEstadoOt(selectedOrden.estadoOrden, selectedOrden.estadoOrdenNombre)}</span></p>
                     <p>Total: <span className="font-bold text-foreground">${Number(selectedOrden.total ?? 0).toLocaleString("es-CL")}</span></p>
                   </div>
                 </div>

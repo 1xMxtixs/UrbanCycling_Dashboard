@@ -15,6 +15,7 @@ import { SaleDetailDialog } from "./SaleDetailDialog"
 import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
+import { ESTADO_PAGO } from "@/lib/payment-status"
 
 export function ListVentas() {
   const router = useRouter()
@@ -123,7 +124,7 @@ export function ListVentas() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: "pagada",
+          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
         }),
       })
@@ -272,10 +273,10 @@ export function ListVentas() {
   // Cálculos de KPIs
   const totalSalesCount = sales.length
   const totalRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && (s.estadoPago?.toLowerCase() === "pagada" || s.estadoPago?.toLowerCase() === "pagado"))
+    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago === ESTADO_PAGO.PAGADA)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const pendingRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago?.toLowerCase() === "pendiente")
+    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago === ESTADO_PAGO.PENDIENTE)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const canceledCount = sales
     .filter((s) => s.estadoVenta?.toLowerCase() === "anulada")

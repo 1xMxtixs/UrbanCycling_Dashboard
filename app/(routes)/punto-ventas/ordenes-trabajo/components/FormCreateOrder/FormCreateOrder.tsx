@@ -32,6 +32,8 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 
 import { BikesSection, BikeInput } from "./BikesSection"
 import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_OT } from "@/lib/work-order-status"
 import {
   OrderLinesSection,
   Product,
@@ -74,7 +76,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [conBicicleta, setConBicicleta] = useState(true)
 
-  const [estadoPago, setEstadoPago] = useState<string>("pendiente")
+  const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PENDIENTE)
   const [metodoPago, setMetodoPago] = useState<string>("efectivo")
   const [montoAbono, setMontoAbono] = useState<number>(0)
 
@@ -411,7 +413,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     }
 
     if (
-      estadoPago === "abono" &&
+      estadoPago === ESTADO_PAGO.ABONO &&
       (montoAbono <= 0 || montoAbono >= grandTotal)
     ) {
       toast.error(
@@ -468,18 +470,18 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         body: JSON.stringify({
           id_cliente: Number(selectedClientId),
           estado_pago: estadoPago,
-          metodo_pago: estadoPago === "pendiente" ? null : metodoPago,
+          metodo_pago: estadoPago === ESTADO_PAGO.PENDIENTE ? null : metodoPago,
           monto_pagado:
-            estadoPago === "pagada"
+            estadoPago === ESTADO_PAGO.PAGADA
               ? grandTotal
-              : estadoPago === "abono"
+              : estadoPago === ESTADO_PAGO.ABONO
                 ? montoAbono
                 : 0,
           descuento: 0,
           ordenTrabajo: {
             fechaEntregaEstimada: new Date(fechaEntrega).toISOString(),
             observacionesIngreso: descripcion.trim() || null,
-            estadoOrden: "Por realizar",
+            estadoOrden: ESTADO_OT.POR_REALIZAR,
             servicios: selectedServices.map((s) => ({
               idServicio: Number(s.idServicio),
               cantidad: s.cantidad,

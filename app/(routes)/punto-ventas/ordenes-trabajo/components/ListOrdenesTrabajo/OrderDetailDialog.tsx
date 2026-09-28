@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, ESTADOS_OT_FINALIZADOS, getNombreEstadoOt, TRANSICIONES_OT } from "@/lib/work-order-status"
 import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
   buildWorkOrderContent,
@@ -47,15 +49,7 @@ import {
 } from "@/components/common/WorkOrderDocument"
 
 function getAvailableTransitions(currentStatus: string) {
-  const map: Record<string, string[]> = {
-    "Por realizar": ["En curso", "En espera"],
-    "En curso": ["Listo para entregar", "En espera"],
-    "En espera": ["En curso", "Listo para entregar"],
-    "Listo para entregar": ["Entregado", "En curso"],
-    "Entregado": [],
-    "Anulada": [],
-  }
-  return map[currentStatus] || []
+  return TRANSICIONES_OT[currentStatus as keyof typeof TRANSICIONES_OT] || []
 }
 
 interface OrderDetailDialogProps {
@@ -129,18 +123,15 @@ export function OrderDetailDialog({
   const montoNeto = Math.round(total / 1.19)
 
   const transitions = getAvailableTransitions(order.estadoOrden)
-  const canCancel = !["Entregado", "Anulada"].includes(order.estadoOrden)
-  const canEdit = !["Entregado", "Anulada"].includes(order.estadoOrden)
+  const canCancel = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
+  const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
   const totalPagado = Number(order.totalPagado || 0)
   const isPaid =
-    order.estadoPago?.toLowerCase() === "pagada" ||
-    order.estadoPago?.toLowerCase() === "pagado" ||
+    order.estadoPago === ESTADO_PAGO.PAGADA ||
     Math.max(0, total - totalPagado) === 0
 
   const renderStatusBadge = (ord: WorkOrder) => {
-    const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(
-      ord.estadoOrden
-    )
+    const isFullyCompleted = ESTADOS_OT_FINALIZADOS.includes(ord.estadoOrden as never) || ord.estadoOrden === ESTADO_OT.ANULADA
     const dEstimada = new Date(ord.fechaEntregaEstimada)
     const localEndDay = new Date(
       dEstimada.getUTCFullYear(),
@@ -158,20 +149,20 @@ export function OrderDetailDialog({
     }
 
     switch (ord.estadoOrden) {
-      case "Por realizar":
+      case ESTADO_OT.POR_REALIZAR:
         return <StatusBadge status="neutral" label="Por realizar" />
-      case "En curso":
+      case ESTADO_OT.EN_CURSO:
         return <StatusBadge status="info" label="Activa" />
-      case "En espera":
+      case ESTADO_OT.EN_ESPERA:
         return <StatusBadge status="warning" label="En Espera" />
-      case "Listo para entregar":
+      case ESTADO_OT.LISTO_PARA_ENTREGAR:
         return <StatusBadge status="warning" label="Por Entregar" />
-      case "Entregado":
+      case ESTADO_OT.ENTREGADO:
         return <StatusBadge status="success" label="Completada" />
-      case "Anulada":
+      case ESTADO_OT.ANULADA:
         return <StatusBadge status="danger" label="Anulada" />
       default:
-        return <StatusBadge status="neutral" label={ord.estadoOrden} />
+        return <StatusBadge status="neutral" label={getNombreEstadoOt(ord.estadoOrden, ord.estadoOrdenNombre)} />
     }
   }
 
@@ -363,7 +354,7 @@ export function OrderDetailDialog({
                 <span
                   className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${isPaid
                     ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
-                    : order.estadoPago?.toLowerCase() === "abono"
+                    : order.estadoPago === ESTADO_PAGO.ABONO
                       ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
                       : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
                     }`}
@@ -591,7 +582,7 @@ export function OrderDetailDialog({
               </Button>
             )}
 
-            {order.estadoOrden === "En curso" && canUpdateOrders && onModifyServiceClick && (
+            {order.estadoOrden === ESTADO_OT.EN_CURSO && canUpdateOrders && onModifyServiceClick && (
               <Button
                 variant="outline"
                 size="sm"

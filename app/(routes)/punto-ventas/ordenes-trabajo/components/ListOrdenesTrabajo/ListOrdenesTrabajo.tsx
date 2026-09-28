@@ -19,6 +19,8 @@ import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_OT } from "@/lib/work-order-status"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -274,7 +276,7 @@ export function ListOrdenesTrabajo() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estado: "Anulada" }),
+        body: JSON.stringify({ estado: ESTADO_OT.ANULADA }),
       })
 
       if (!res.ok) {
@@ -292,7 +294,7 @@ export function ListOrdenesTrabajo() {
       if (selectedOrder?.idOrdenDeTrabajo === orderToCancel.idOrdenDeTrabajo) {
         setSelectedOrder({
           ...selectedOrder,
-          estadoOrden: "Anulada",
+          estadoOrden: ESTADO_OT.ANULADA,
         })
       }
 
@@ -368,7 +370,7 @@ export function ListOrdenesTrabajo() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: "pagada",
+          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
           montoPago: saldoRestante,
         }),

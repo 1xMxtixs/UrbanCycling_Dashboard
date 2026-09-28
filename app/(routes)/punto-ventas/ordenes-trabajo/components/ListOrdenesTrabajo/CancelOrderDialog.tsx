@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { WorkOrder } from "../../types"
+import { getNombreEstadoOt } from "@/lib/work-order-status"
 
 interface CancelOrderDialogProps {
   open: boolean
@@ -49,7 +50,7 @@ export function CancelOrderDialog({
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Estado actual</span>
-              <span className="font-bold text-foreground">{order.estadoOrden}</span>
+              <span className="font-bold text-foreground">{getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}</span>
             </div>
           </div>
 

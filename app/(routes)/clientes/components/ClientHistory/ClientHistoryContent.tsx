@@ -11,6 +11,7 @@ import { User, Building2, Phone, Mail, MapPin, Calendar, ClipboardList, Wrench, 
 import { formatClientName } from "@/lib/formatters";
 import type { DBCliente } from "../../types";
 import { WorkOrderHistoryItem, getOrderStatusConfig } from "./WorkOrderHistoryItem";
+import { ESTADO_OT, NOMBRES_ESTADO_OT } from "@/lib/work-order-status";
 
 export function ClientHistoryContent({
   cliente,
@@ -32,7 +33,7 @@ export function ClientHistoryContent({
   const filteredOrdenes = useMemo(() => {
     return ordenes.filter((o) => {
       const match = !searchTerm.trim() || String(o.idOrdenDeTrabajo).includes(searchTerm.trim()) || (o.observacionesIngreso?.toLowerCase().includes(searchTerm.toLowerCase()));
-      const status = statusFilter === "all" || o.estadoOrden.toLowerCase() === statusFilter.toLowerCase();
+      const status = statusFilter === "all" || o.estadoOrden === statusFilter;
       return match && status;
     });
   }, [ordenes, searchTerm, statusFilter]);
@@ -135,12 +136,9 @@ export function ClientHistoryContent({
               <SelectTrigger className="h-8.5 text-xs w-full sm:w-40 bg-background"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="por realizar">Por realizar</SelectItem>
-                <SelectItem value="en curso">En curso</SelectItem>
-                <SelectItem value="en espera">En espera</SelectItem>
-                <SelectItem value="listo para entregar">Listo para entregar</SelectItem>
-                <SelectItem value="entregado">Entregado</SelectItem>
-                <SelectItem value="anulada">Anulada</SelectItem>
+                {Object.values(ESTADO_OT).map((estado) => (
+                  <SelectItem key={estado} value={estado}>{NOMBRES_ESTADO_OT[estado]}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

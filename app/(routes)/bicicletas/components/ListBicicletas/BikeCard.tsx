@@ -4,6 +4,7 @@ import { Bike, CalendarDays, ClipboardList, UserRound, Wrench, Palette } from "l
 import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
 import { formatClientName } from "@/lib/formatters";
+import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status";
 import type { Bicicleta } from "../../types";
 
 type BikeCardProps = {
@@ -11,10 +12,9 @@ type BikeCardProps = {
 };
 
 function mapEstadoToStatusType(estado: string): StatusType {
-  const normalized = estado.toLowerCase();
-  if (normalized === "entregado") return "success";
-  if (normalized === "en curso") return "info";
-  if (normalized === "listo para entregar" || normalized === "en espera") return "warning";
+  if (estado === ESTADO_OT.ENTREGADO) return "success";
+  if (estado === ESTADO_OT.EN_CURSO) return "info";
+  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR || estado === ESTADO_OT.EN_ESPERA) return "warning";
   return "neutral";
 }
 
@@ -22,6 +22,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
+  const estadoOrdenNombre = getNombreEstadoOt(estadoOrden, bicicleta.ordenDeTrabajo?.estadoOrdenNombre);
   const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
   const statusType = mapEstadoToStatusType(estadoOrden);
 
@@ -68,7 +69,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               value={nombreCliente}
               valueClassName="line-clamp-1 font-semibold"
             />
-            <StatusBadge status={statusType} label={estadoOrden} />
+            <StatusBadge status={statusType} label={estadoOrdenNombre} />
           </div>
         </div>
       </div>
@@ -102,7 +103,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             />
             <div className="flex items-center justify-between text-foreground pt-0.5">
               <span className="text-xs text-muted-foreground font-medium">Estado actual:</span>
-              <StatusBadge status={statusType} label={estadoOrden} />
+              <StatusBadge status={statusType} label={estadoOrdenNombre} />
             </div>
           </div>
         </div>

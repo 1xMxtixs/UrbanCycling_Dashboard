@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
+import { ESTADO_PAGO } from "@/lib/payment-status"
 import {
   Select,
   SelectContent,
@@ -129,8 +130,8 @@ export function DataTable<TData, TValue>({
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados de pago</SelectItem>
-                <SelectItem value="pagada">Pagadas</SelectItem>
-                <SelectItem value="pendiente">Pendientes</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PAGADA}>Pagadas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendientes</SelectItem>
                 <SelectItem value="anulada">Anuladas</SelectItem>
               </SelectContent>
             </Select>
