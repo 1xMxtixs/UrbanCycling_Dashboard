@@ -11,6 +11,7 @@ export type RoleName =
   | "Mecánico"
   | "Vendedor"
   | "Bodeguero"
+  | "Asesor Técnico"
   | "Sin Rol"
 
 /** Permisos asignados a cada rol según el seed. */
@@ -36,6 +37,7 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "work-orders:create",
     "work-orders:update",
     "work-orders:update-status",
+    "warranties:create",
     "sales:read",
     "sales:create",
     "payments:create",
@@ -76,6 +78,10 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "inventory:create",
     "inventory:update",
     "inventory:delete",
+  ],
+  "Asesor Técnico": [
+    "work-orders:read",
+    "warranties:create",
   ],
   "Sin Rol": [],
 }
@@ -133,6 +139,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    label: "Garantías",
+    permissions: [
+      { code: "warranties:create", label: "Registrar solicitudes" },
+    ],
+  },
+  {
     label: "Ventas y Pagos",
     permissions: [
       { code: "sales:read", label: "Ver ventas" },
@@ -163,6 +175,7 @@ export const DISPLAY_ROLES: RoleName[] = [
   "Vendedor",
   "Mecánico",
   "Bodeguero",
+  "Asesor Técnico",
 ]
 
 export const ROLE_STYLE: Record<RoleName, { text: string; bg: string; avatar: string }> = {
@@ -185,6 +198,11 @@ export const ROLE_STYLE: Record<RoleName, { text: string; bg: string; avatar: st
     text: "text-amber-600 dark:text-amber-400",
     bg: "bg-amber-500/8 border-amber-500/20",
     avatar: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  "Asesor Técnico": {
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-500/8 border-emerald-500/20",
+    avatar: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   },
   "Sin Rol": {
     text: "text-muted-foreground",
