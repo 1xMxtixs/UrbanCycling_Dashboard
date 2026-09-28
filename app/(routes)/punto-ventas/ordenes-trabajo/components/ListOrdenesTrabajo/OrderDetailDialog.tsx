@@ -41,7 +41,7 @@ import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible, TRANSICIONES_OT } from "@/lib/work-order-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
   buildWorkOrderContent,
@@ -49,19 +49,12 @@ import {
   workOrderFileName,
 } from "@/components/common/WorkOrderDocument"
 
-function getAvailableTransitions(currentStatus: string) {
-  return TRANSICIONES_OT[currentStatus as keyof typeof TRANSICIONES_OT] || []
-}
-
 interface OrderDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: WorkOrder | null
   onPayClick?: (order: WorkOrder) => void
   onGenerateReceipt?: (order: WorkOrder) => void
-  onRescheduleClick?: (order: WorkOrder) => void
-  onCancelClick?: (order: WorkOrder) => void
-  onStatusChange?: (orderId: number, nextStatus: string) => void
   onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
   onModifyServiceClick?: (order: WorkOrder) => void
@@ -79,9 +72,6 @@ export function OrderDetailDialog({
   order,
   onPayClick,
   onGenerateReceipt,
-  onRescheduleClick,
-  onCancelClick,
-  onStatusChange,
   onAssignSuppliesClick,
   onAuditClick,
   onModifyServiceClick,
@@ -123,8 +113,6 @@ export function OrderDetailDialog({
   const total = Number(order.total)
   const montoNeto = Math.round(total / 1.19)
 
-  const transitions = getAvailableTransitions(order.estadoOrden)
-  const canCancel = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
   const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
   const totalPagado = Number(order.totalPagado || 0)
   const isPaid =
