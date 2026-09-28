@@ -9,5 +9,6 @@ export type SidebarItemProps = {
         href: string,
         permission?: PermissionCode
     },
+    collapsed?: boolean,
     key: string
 }

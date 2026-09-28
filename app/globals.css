@@ -171,6 +171,11 @@
   border: 1px solid var(--border);
 }
 
+.glass-sidebar {
+  background: color-mix(in oklch, var(--sidebar) 85%, transparent);
+  backdrop-filter: blur(12px);
+}
+
 .glass-dropdown {
   background: color-mix(in oklch, var(--popover) 90%, transparent);
   backdrop-filter: blur(16px);

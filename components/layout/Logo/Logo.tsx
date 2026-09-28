@@ -3,14 +3,19 @@
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 
-export function Logo() {
+import { cn } from "@/lib/utils"
+
+export function Logo({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter()
   return (
     <div
-      className="group min-h-20 h-20 flex items-center px-6 border-b border-sidebar-border/80 cursor-pointer gap-3.5 transition-colors hover:bg-sidebar-accent/50 select-none"
+      className={cn(
+        "group min-h-20 h-20 flex items-center border-b border-sidebar-border/80 cursor-pointer transition-[padding,background-color] duration-200 hover:bg-sidebar-accent/50 select-none",
+        collapsed ? "justify-center px-0 gap-0" : "px-6 gap-3.5"
+      )}
       onClick={() => router.push("/")}
     >
-      <div className="flex items-center justify-center p-2 rounded-xl bg-primary/10 border border-primary/20 transition-transform duration-200 group-hover:scale-105 group-hover:bg-primary/15 shadow-xs">
+      <div className="flex shrink-0 items-center justify-center p-2 rounded-xl bg-primary/10 border border-primary/20 transition-transform duration-200 group-hover:scale-105 group-hover:bg-primary/15 shadow-xs">
         <Image
           src="/logo.svg"
           alt="Urban Cycling Logo"
@@ -20,7 +25,12 @@ export function Logo() {
           className="dark:brightness-125 transition-transform"
         />
       </div>
-      <div className="flex flex-col">
+      <div
+        className={cn(
+          "flex flex-col whitespace-nowrap overflow-hidden transition-[opacity,max-width] duration-150",
+          collapsed ? "max-w-0 opacity-0" : "max-w-48 opacity-100"
+        )}
+      >
         <span className="font-bold text-lg tracking-tight text-sidebar-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
           Urban Cycling
         </span>
