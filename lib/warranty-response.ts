@@ -1,8 +1,5 @@
 import { EstadoReclamoGarantia } from "@/generated/prisma"
 
-// CU75 agrupa los estados internos de trabajo bajo las tres etiquetas que ve
-// el usuario. El código original viaja junto al nombre para que el frontend no
-// pierda información necesaria para habilitar acciones de CU posteriores.
 const NOMBRE_ESTADO_GARANTIA: Record<EstadoReclamoGarantia, string> = {
   [EstadoReclamoGarantia.INGRESADO]: "Pendiente",
   [EstadoReclamoGarantia.EN_REVISION]: "Pendiente",
