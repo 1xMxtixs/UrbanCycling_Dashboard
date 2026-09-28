@@ -108,6 +108,7 @@ async function main() {
     { nombre: "Actualizar ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update", codigo: "work-orders:update", descripcion: "Permite modificar ordenes de trabajo" },
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
     { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
+    { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia registradas" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
@@ -206,14 +207,14 @@ async function main() {
   roles.push(await db.rol.create({
     data: {
       nombre: "Asesor Técnico",
-      descripcion: "Registra solicitudes de garantía para órdenes entregadas",
+      descripcion: "Registra y consulta solicitudes de garantía para órdenes entregadas",
       estado: EstadoRegistro.ACTIVO,
       permisosRol: {
         // El asesor necesita consultar la OT entregada antes de registrar
         // la solicitud, pero no recibe permisos para modificarla.
         create: permisos
           .filter((p) =>
-            ["work-orders:read", "warranties:create"].includes(p.codigo)
+            ["work-orders:read", "warranties:create", "warranties:read"].includes(p.codigo)
           )
           .map((p) => ({ idPermiso: p.idPermiso })),
       },
