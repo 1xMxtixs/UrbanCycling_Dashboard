@@ -69,6 +69,12 @@ function obtenerMotivo(body: unknown) {
  * Entrega las solicitudes que alimentan la tabla del módulo de garantías. La
  * respuesta incluye el identificador visible de la OT aunque la relación se
  * almacene mediante la Venta raíz.
+ *
+ * Contrato para el frontend:
+ * - garantias contiene las filas que puede renderizar la tabla.
+ * - estado entrega codigo para la lógica y nombre para badges o etiquetas.
+ * - count permite decidir si se muestra la tabla o su estado vacío.
+ * - una colección vacía sigue siendo una respuesta exitosa con estado 200.
  */
 export async function GET() {
   try {
@@ -115,6 +121,8 @@ export async function GET() {
       estado: presentarEstadoGarantia(solicitud.estado),
     }))
 
+    // El listado vacío no representa un error: el frontend recibe un arreglo
+    // estable y un mensaje que puede mostrar directamente en la vista vacía.
     return NextResponse.json(
       {
         code: "GARANTIAS_CARGADAS",
@@ -145,6 +153,8 @@ export async function GET() {
  * Registra una solicitud de garantía para una orden de trabajo entregada.
  * El frontend envía el identificador visible de la OT, pero el reclamo se
  * relaciona con su Venta raíz mediante ReclamoGarantia.idVentaReclamada.
+ * La garantía creada usa el mismo objeto estado que los endpoints GET, por lo
+ * que puede incorporarse a una vista sin transformar codigo ni nombre.
  */
 export async function POST(request: Request) {
   try {
@@ -268,7 +278,8 @@ export async function POST(request: Request) {
     })
 
     // Se incluyen ambos identificadores para que el frontend mantenga la OT
-    // visible mientras la base conserva la relación normalizada con Venta.
+    // visible mientras la base conserva la relación normalizada con Venta. El
+    // motivo es la observación de ingreso que debe mostrarse en el detalle.
     return NextResponse.json(
       {
         code: "GARANTIA_REGISTRADA",
