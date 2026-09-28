@@ -4,6 +4,7 @@ import {
   EstadoPagoVenta,
   EstadoVentaMostrador,
   EstadoPago,
+  EstadoReclamoGarantia,
 } from "../generated/prisma";
 
 async function main() {
@@ -780,7 +781,29 @@ async function main() {
   console.log(`  ${ordenesData.length} órdenes de trabajo creadas.`);
 
   // ──────────────────────────────────────────────
-  // 12. PAGOS (para las ventas pagadas)
+  // 12. SOLICITUD DE GARANTIA
+  // ──────────────────────────────────────────────
+  console.log("🛡️ Creando solicitud de garantía de prueba...");
+  const ordenEntregada = await db.ordenDeTrabajo.findFirst({
+    where: { estado: "ENTREGADO" },
+    select: { idVenta: true },
+  });
+
+  if (!ordenEntregada) {
+    throw new Error("El seed requiere una orden entregada para crear la garantía");
+  }
+
+  await db.reclamoGarantia.create({
+    data: {
+      idVentaReclamada: ordenEntregada.idVenta,
+      estado: EstadoReclamoGarantia.INGRESADO,
+      motivo: "La bicicleta continúa presentando ruido después de la reparación",
+    },
+  });
+  console.log("  1 solicitud de garantía creada.");
+
+  // ──────────────────────────────────────────────
+  // 13. PAGOS (para las ventas pagadas)
   // ──────────────────────────────────────────────
   console.log("💰 Creando pagos...");
   const ventasPagadas = await db.venta.findMany({
