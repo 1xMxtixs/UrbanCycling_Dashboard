@@ -1,4 +1,4 @@
-ROP PROCEDURE IF EXISTS sp_reporte_conteo_ordenes_trabajo;
+DROP PROCEDURE IF EXISTS sp_reporte_conteo_ordenes_trabajo;
 
 CREATE PROCEDURE sp_reporte_conteo_ordenes_trabajo(
     IN p_fecha_inicio DATE,
@@ -27,9 +27,9 @@ BEGIN
     SELECT COUNT(*)
     INTO v_total_ordenes
     FROM ordenes_de_trabajo ot
-    WHERE ot.estado = 'Entregado'
+    WHERE ot.estado = 'ENTREGADO'
       AND DATE(ot.fecha_entrega_real) >= p_fecha_inicio
-      AND DATE(ot.fecha_entrega_real) <= p_fecha_fin;
+      AND DATE(ot.fecha_entrega_real) <= DATE_ADD(p_fecha_fin, INTERVAL 1 DAY);
 
     -- Excepción 3: No existen órdenes de trabajo en el período ingresado
     IF v_total_ordenes = 0 THEN
@@ -44,9 +44,9 @@ BEGIN
         DATE(ot.fecha_entrega_real) AS fecha,
         COUNT(ot.id_orden_de_trabajo) AS cantidad_ordenes
     FROM ordenes_de_trabajo ot
-    WHERE ot.estado = 'Entregado'
+    WHERE ot.estado = 'ENTREGADO'
       AND DATE(ot.fecha_entrega_real) >= p_fecha_inicio
-      AND DATE(ot.fecha_entrega_real) <= p_fecha_fin
+      AND DATE(ot.fecha_entrega_real) <= DATE_ADD(p_fecha_fin, INTERVAL 1 DAY)
     GROUP BY DATE(ot.fecha_entrega_real)
     ORDER BY fecha ASC;
 
