@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   WORK_ORDERS_UPDATE: "work-orders:update",
   WORK_ORDERS_UPDATE_STATUS: "work-orders:update-status",
 
+  WARRANTIES_CREATE: "warranties:create",
+
   SALES_READ: "sales:read",
   SALES_CREATE: "sales:create",
 
