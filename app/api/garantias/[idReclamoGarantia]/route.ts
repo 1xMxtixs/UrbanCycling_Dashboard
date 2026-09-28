@@ -34,10 +34,18 @@ function obtenerIdGarantia(value: string) {
  * Entrega la ficha que utiliza la vista de detalle de una solicitud. Incluye
  * la información de ingreso y los campos de resolución, que permanecen nulos
  * hasta que un CU posterior registre el veredicto.
+ *
+ * Contrato para el frontend:
+ * - motivo corresponde a la observación ingresada al crear la solicitud.
+ * - veredicto y observacionesResolucion son opcionales mientras esté pendiente.
+ * - idVentaGenerada será nulo hasta que una resolución origine otra venta.
+ * - estado incluye codigo para decisiones y nombre para presentación visual.
  */
 export async function GET(_request: Request, context: RouteContext) {
   try {
     // Consultar una garantía requiere el mismo permiso que alimenta el listado.
+    // Si el usuario no lo posee, requirePermission responde 403 antes de que se
+    // consulte o exponga cualquier dato de la solicitud.
     const { response } = await requirePermission(PERMISSIONS.WARRANTIES_READ)
 
     if (response) {
