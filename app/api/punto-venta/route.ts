@@ -1087,7 +1087,7 @@ export async function POST(req: Request) {
           })
         : null
 
-      if (pago && venta?.ventaEnMostrador) {
+      if (pago && venta) {
         await tx.asignacionPago.create({
           data: {
             idPago: pago.idPago,
