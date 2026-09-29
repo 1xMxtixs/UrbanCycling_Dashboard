@@ -19,11 +19,15 @@ type FilaReporteRentabilidad = {
   total_costo_repuestos: number | string | null
 }
 
+function esRegistro(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === "object" && valor !== null
+}
+
 /** Identifica las filas del SELECT que devuelve la SP, sin sus metadatos. */
 function esFilaReporteRentabilidad(
   valor: unknown
 ): valor is FilaReporteRentabilidad {
-  if (!valor || typeof valor !== "object") {
+  if (!esRegistro(valor)) {
     return false
   }
 
@@ -78,7 +82,7 @@ function extraerFilasReporte(resultado: unknown): FilaReporteRentabilidad[] {
     return [resultado]
   }
 
-  if (resultado && typeof resultado === "object") {
+  if (esRegistro(resultado)) {
     const fila = normalizarFilaPosicional(resultado)
     return fila ? [fila] : []
   }
