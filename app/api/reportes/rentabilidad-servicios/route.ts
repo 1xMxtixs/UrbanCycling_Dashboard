@@ -224,7 +224,19 @@ export async function GET(request: Request) {
         ${rango.fechaFinSql}
       )
     `
+    // La SP puede incluir el día siguiente al límite superior. Filtramos sus
+    // filas antes de agregarlas, de modo que los KPI respeten el rango que el
+    // usuario solicitó sin alterar el procedimiento almacenado.
     const filas = extraerFilasReporte(resultado)
+      .map((fila) => ({
+        fecha: formatearFecha(fila.fecha),
+        ingresosOrdenesTrabajo: comoNumero(fila.total_ingresos_ot),
+        costosRepuestos: comoNumero(fila.total_costo_repuestos),
+      }))
+      .filter(
+        (fila) =>
+          fila.fecha >= rango.fechaInicioSql && fila.fecha <= rango.fechaFinSql
+      )
 
     if (filas.length === 0) {
       return NextResponse.json(
@@ -238,11 +250,11 @@ export async function GET(request: Request) {
     }
 
     const ingresosOrdenesTrabajo = filas.reduce(
-      (total, fila) => total + comoNumero(fila.total_ingresos_ot),
+      (total, fila) => total + fila.ingresosOrdenesTrabajo,
       0
     )
     const costosRepuestos = filas.reduce(
-      (total, fila) => total + comoNumero(fila.total_costo_repuestos),
+      (total, fila) => total + fila.costosRepuestos,
       0
     )
 
@@ -254,11 +266,7 @@ export async function GET(request: Request) {
       utilidadBruta: ingresosOrdenesTrabajo - costosRepuestos,
       // El frontend recibe datos ya consolidados para dibujar la evolución
       // diaria sin conocer tablas, líneas ni reglas contables internas.
-      series: filas.map((fila) => ({
-        fecha: formatearFecha(fila.fecha),
-        ingresosOrdenesTrabajo: comoNumero(fila.total_ingresos_ot),
-        costosRepuestos: comoNumero(fila.total_costo_repuestos),
-      })),
+      series: filas,
     })
   } catch (error) {
     if (esErrorSinDatos(error)) {
