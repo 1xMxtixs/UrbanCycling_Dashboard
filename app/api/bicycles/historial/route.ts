@@ -4,8 +4,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
-
-const ESTADOS_TRABAJO_FINALIZADO = ["Listo para entregar", "Entregado"]
+import { ESTADOS_OT_FINALIZADOS } from "@/lib/work-order-status"
 
 type BicycleHistoryRecord = {
   idBicicleta: number
@@ -81,14 +80,23 @@ function mapBicycleHistoryResponse(bicycle: BicycleHistoryRecord) {
     imagenUrl: imagenes[0]?.urlImagen ?? null,
     enHistorial: Boolean(
       bicycle.ordenDeTrabajo &&
-        ESTADOS_TRABAJO_FINALIZADO.includes(bicycle.ordenDeTrabajo.estado)
+        ESTADOS_OT_FINALIZADOS.some(
+          (estadoFinalizado) =>
+            estadoFinalizado === bicycle.ordenDeTrabajo?.estado
+        )
     ),
     ordenDeTrabajo,
   }
 }
 
 function isFinishedWorkOrder(estado?: string) {
-  return Boolean(estado && ESTADOS_TRABAJO_FINALIZADO.includes(estado))
+  // El historial usa el mismo conjunto de estados finales que el resto de las OT.
+  return Boolean(
+    estado &&
+      ESTADOS_OT_FINALIZADOS.some(
+        (estadoFinalizado) => estadoFinalizado === estado
+      )
+  )
 }
 
 const bicycleHistoryInclude = {
@@ -104,6 +112,11 @@ const bicycleHistoryInclude = {
   },
 }
 
+/**
+ * GET /api/bicycles/historial
+ * Entrega bicicletas que tienen órdenes finalizadas para poblar el selector
+ * del historial de mantenciones.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.BICYCLES_READ)
@@ -112,11 +125,12 @@ export async function GET() {
       return response
     }
 
+    // Solo se muestran bicicletas cuya orden alcanzó una etapa de entrega.
     const bicycles = await db.bicicleta.findMany({
       where: {
         ordenDeTrabajo: {
           estado: {
-            in: ESTADOS_TRABAJO_FINALIZADO,
+            in: [...ESTADOS_OT_FINALIZADOS],
           },
         },
       },
@@ -133,6 +147,11 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/bicycles/historial
+ * Recibe el ID de una bicicleta y devuelve sus órdenes finalizadas con sus
+ * servicios, productos y datos de entrega para la vista de historial.
+ */
 export async function POST(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.BICYCLES_READ)

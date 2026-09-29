@@ -1,10 +1,16 @@
 // Endpoint para cargar las categorías disponibles para filtrar el inventario.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+/**
+ * GET /api/inventory/categories
+ * Devuelve únicamente categorías activas, ordenadas por nombre, para filtros
+ * y selectores de creación o edición de productos.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -14,7 +20,7 @@ export async function GET() {
     }
 
     const categories = await db.categoria.findMany({
-      where: { estado: "activo" },
+      where: { estado: EstadoRegistro.ACTIVO },
       select: {
         idCategoria: true,
         nombre: true,
