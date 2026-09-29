@@ -85,6 +85,8 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
   "Asesor Técnico": [
     "work-orders:read",
     "warranties:create",
+    "warranties:read",
+    "warranties:update",
   ],
   "Sin Rol": [],
 }
