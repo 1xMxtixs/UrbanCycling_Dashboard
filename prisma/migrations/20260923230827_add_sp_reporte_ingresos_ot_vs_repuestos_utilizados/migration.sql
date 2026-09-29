@@ -27,7 +27,7 @@ BEGIN
     SELECT COUNT(*)
     INTO v_total_ordenes
     FROM ordenes_de_trabajo ot
-    WHERE ot.estado = 'Entregado'
+    WHERE ot.estado = 'ENTREGADO'
       AND DATE(ot.fecha_entrega_real) >= p_fecha_inicio
       AND DATE(ot.fecha_entrega_real) <= p_fecha_fin;
 
@@ -52,9 +52,9 @@ BEGIN
         WHERE lot.id_producto IS NOT NULL
         GROUP BY lot.id_orden_de_trabajo
     ) costos ON costos.id_orden_de_trabajo = ot.id_orden_de_trabajo
-    WHERE ot.estado = 'Entregado'
+    WHERE ot.estado = 'ENTREGADO'
       AND DATE(ot.fecha_entrega_real) >= p_fecha_inicio
-      AND DATE(ot.fecha_entrega_real) <= p_fecha_fin
+      AND DATE(ot.fecha_entrega_real) <= DATE_ADD(p_fecha_fin, INTERVAL 1 DAY)
     GROUP BY DATE(ot.fecha_entrega_real)
     ORDER BY fecha ASC;
 
