@@ -111,6 +111,7 @@ async function main() {
     { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
     { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia registradas" },
     { nombre: "Modificar garantias", modulo: "garantias", recurso: "garantias", accion: "update", codigo: "warranties:update", descripcion: "Permite modificar solicitudes de garantia pendientes" },
+    { nombre: "Resolver garantias", modulo: "garantias", recurso: "garantias", accion: "resolve", codigo: "warranties:resolve", descripcion: "Permite aprobar o rechazar solicitudes de garantia pendientes" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
