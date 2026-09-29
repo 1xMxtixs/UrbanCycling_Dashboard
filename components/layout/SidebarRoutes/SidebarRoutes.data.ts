@@ -10,7 +10,8 @@ import {
     Store,
     UserCog,
     Users,
-    Wrench
+    Wrench,
+    ShieldCheck,
 } from 'lucide-react'
 
 import { PERMISSIONS } from "@/lib/permissions"
@@ -37,6 +38,12 @@ export const dataOperationSidebar = [
         href: "/inventory",
         permission: PERMISSIONS.INVENTORY_READ
     },
+    {
+        icon: ShieldCheck,
+        label: "Garantías",
+        href: "/garantias",
+        permission: PERMISSIONS.WARRANTIES_READ
+    }
 ]
 
 export const dataManagementSidebar = [
