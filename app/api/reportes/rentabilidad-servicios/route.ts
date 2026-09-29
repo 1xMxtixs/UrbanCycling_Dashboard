@@ -7,15 +7,88 @@ import { requirePermission } from "@/lib/require-permission"
 const FORMATO_FECHA = /^(\d{2})-(\d{2})-(\d{4})$/
 
 type RangoFechas = {
-  inicio: Date
-  finExclusivo: Date
   fechaInicio: string
   fechaFin: string
+  fechaInicioSql: string
+  fechaFinSql: string
+}
+
+type FilaReporteRentabilidad = {
+  fecha: Date | string
+  total_ingresos_ot: number | string | null
+  total_costo_repuestos: number | string | null
+}
+
+/** Identifica las filas del SELECT que devuelve la SP, sin sus metadatos. */
+function esFilaReporteRentabilidad(
+  valor: unknown
+): valor is FilaReporteRentabilidad {
+  if (!valor || typeof valor !== "object") {
+    return false
+  }
+
+  return (
+    "fecha" in valor &&
+    "total_ingresos_ot" in valor &&
+    "total_costo_repuestos" in valor
+  )
 }
 
 /**
- * Convierte una fecha enviada por el formulario (DD-MM-YYYY) en límites UTC
- * inclusivo/exclusivo. Así el rango siempre incluye el día final completo.
+ * Prisma y el adaptador MariaDB entregan CALL sin etiquetas de columnas: cada
+ * fila llega como { undefined: [fecha, ingresos, costos] }. Se normaliza ese
+ * formato al mismo contrato que tendría un SELECT etiquetado.
+ */
+function normalizarFilaPosicional(
+  valor: Record<string, unknown>
+): FilaReporteRentabilidad | null {
+  const [datos] = Object.values(valor)
+
+  if (!Array.isArray(datos) || datos.length !== 3) {
+    return null
+  }
+
+  const [fecha, ingresos, costos] = datos
+
+  if (
+    !(fecha instanceof Date || typeof fecha === "string") ||
+    !(typeof ingresos === "number" || typeof ingresos === "string") ||
+    !(typeof costos === "number" || typeof costos === "string")
+  ) {
+    return null
+  }
+
+  return {
+    fecha,
+    total_ingresos_ot: ingresos,
+    total_costo_repuestos: costos,
+  }
+}
+
+/**
+ * MySQL puede devolver el conjunto de resultados de CALL junto a metadatos o
+ * anidarlo en arreglos. Se conservan únicamente las filas del SELECT esperado.
+ */
+function extraerFilasReporte(resultado: unknown): FilaReporteRentabilidad[] {
+  if (Array.isArray(resultado)) {
+    return resultado.flatMap(extraerFilasReporte)
+  }
+
+  if (esFilaReporteRentabilidad(resultado)) {
+    return [resultado]
+  }
+
+  if (resultado && typeof resultado === "object") {
+    const fila = normalizarFilaPosicional(resultado)
+    return fila ? [fila] : []
+  }
+
+  return []
+}
+
+/**
+ * Valida las fechas ingresadas por el formulario y conserva una representación
+ * DD-MM-YYYY para la respuesta y otra ISO para enviarla a la SP como DATE.
  */
 function crearRangoFechas(
   fechaInicio: string | null,
@@ -53,7 +126,10 @@ function crearRangoFechas(
       return null
     }
 
-    return fecha
+    return {
+      fecha,
+      fechaSql: `${partes[3]}-${partes[2]}-${partes[1]}`,
+    }
   }
 
   const inicio = construirFecha(inicioPartes)
@@ -66,17 +142,19 @@ function crearRangoFechas(
     }
   }
 
-  if (inicio > fin) {
+  if (inicio.fecha > fin.fecha) {
     return {
       code: "RANGO_FECHAS_INVALIDO",
       message: "La fecha de inicio no puede ser posterior a la fecha de fin",
     }
   }
 
-  const finExclusivo = new Date(fin)
-  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1)
-
-  return { inicio, finExclusivo, fechaInicio, fechaFin }
+  return {
+    fechaInicio,
+    fechaFin,
+    fechaInicioSql: inicio.fechaSql,
+    fechaFinSql: fin.fechaSql,
+  }
 }
 
 function esErrorDeRango(
@@ -85,17 +163,39 @@ function esErrorDeRango(
   return "code" in rango
 }
 
+/** Normaliza DECIMAL y otros valores numéricos recibidos desde MySQL. */
+function comoNumero(valor: number | string | null) {
+  return Number(valor ?? 0)
+}
+
+/** Conserva la fecha de cada fila en un formato estable para el gráfico. */
+function formatearFecha(fecha: Date | string) {
+  if (fecha instanceof Date) {
+    return fecha.toISOString().slice(0, 10)
+  }
+
+  return fecha.slice(0, 10)
+}
+
+function esErrorSinDatos(error: unknown) {
+  const mensaje = error instanceof Error ? error.message : String(error)
+
+  return mensaje
+    .toLowerCase()
+    .includes("no hay datos suficientes para generar el gráfico")
+}
+
 /**
  * GET /api/reportes/rentabilidad-servicios?fechaInicio=DD-MM-YYYY&fechaFin=DD-MM-YYYY
  *
- * Entrega las series que consume el gráfico de CU59. Cada valor usa el precio,
- * descuento y costo guardados en la línea de OT, evitando recalcular con el
- * catálogo actual y preservando el valor histórico de la reparación.
+ * Entrega el comparativo diario de ingresos de órdenes de trabajo y costos de
+ * repuestos. La agregación vive en la SP para no transferir ni recorrer las
+ * líneas de cada OT en el controlador.
  */
 export async function GET(request: Request) {
   try {
-    // reports:read está asignado al Administrador; el control responde 403
-    // antes de consultar información financiera para cualquier otro usuario.
+    // reports:read está asignado al Administrador y bloquea la consulta de
+    // información financiera antes de ejecutar la SP.
     const { response } = await requirePermission(PERMISSIONS.REPORTS_READ)
 
     if (response) {
@@ -112,60 +212,17 @@ export async function GET(request: Request) {
       return NextResponse.json(rango, { status: 400 })
     }
 
-    // La fecha real de entrega representa cuándo la reparación se completó y
-    // es la única referencia temporal del CU, sin depender del literal usado
-    // para el estado de la OT antes o después de su estandarización.
-    const ordenes = await db.ordenDeTrabajo.findMany({
-      where: {
-        fechaEntregaReal: {
-          gte: rango.inicio,
-          lt: rango.finExclusivo,
-        },
-        lineasDeOrdenDeTrabajo: {
-          some: {
-            idProducto: { not: null },
-          },
-        },
-      },
-      select: {
-        idOrdenDeTrabajo: true,
-        lineasDeOrdenDeTrabajo: {
-          select: {
-            idServicio: true,
-            idProducto: true,
-            cantidad: true,
-            precioUnitario: true,
-            descuentoUnitario: true,
-            costoUnitario: true,
-          },
-        },
-      },
-    })
+    // La SP filtra OTs ENTREGADAS por fecha_entrega_real y devuelve una fila
+    // agregada por día, manteniendo la misma fuente de datos para todo el KPI.
+    const resultado = await db.$queryRaw<unknown>`
+      CALL sp_reporte_ingresos_ot_vs_repuestos_utilizados(
+        ${rango.fechaInicioSql},
+        ${rango.fechaFinSql}
+      )
+    `
+    const filas = extraerFilasReporte(resultado)
 
-    let ingresosManoObra = 0
-    let ingresosRepuestos = 0
-    let costosRepuestos = 0
-
-    for (const orden of ordenes) {
-      for (const linea of orden.lineasDeOrdenDeTrabajo) {
-        const cantidad = linea.cantidad
-        const precioNetoUnitario = Math.max(
-          0,
-          Number(linea.precioUnitario) - Number(linea.descuentoUnitario)
-        )
-
-        if (linea.idServicio !== null) {
-          ingresosManoObra += cantidad * precioNetoUnitario
-        }
-
-        if (linea.idProducto !== null) {
-          ingresosRepuestos += cantidad * precioNetoUnitario
-          costosRepuestos += cantidad * Number(linea.costoUnitario)
-        }
-      }
-    }
-
-    if (ordenes.length === 0) {
+    if (filas.length === 0) {
       return NextResponse.json(
         {
           code: "SIN_DATOS_REPORTE",
@@ -176,33 +233,41 @@ export async function GET(request: Request) {
       )
     }
 
-    const utilidadBruta =
-      ingresosManoObra + ingresosRepuestos - costosRepuestos
+    const ingresosOrdenesTrabajo = filas.reduce(
+      (total, fila) => total + comoNumero(fila.total_ingresos_ot),
+      0
+    )
+    const costosRepuestos = filas.reduce(
+      (total, fila) => total + comoNumero(fila.total_costo_repuestos),
+      0
+    )
 
-    // series permite al frontend renderizar el gráfico sin transformar ni
-    // inferir métricas; utilidadBruta queda disponible para un KPI adicional.
     return NextResponse.json({
       fechaInicio: rango.fechaInicio,
       fechaFin: rango.fechaFin,
-      ordenesConsideradas: ordenes.length,
-      ingresosManoObra,
-      ingresosRepuestos,
+      ingresosOrdenesTrabajo,
       costosRepuestos,
-      utilidadBruta,
-      series: [
-        {
-          categoria: "Mano de obra",
-          ingresos: ingresosManoObra,
-          costos: 0,
-        },
-        {
-          categoria: "Repuestos",
-          ingresos: ingresosRepuestos,
-          costos: costosRepuestos,
-        },
-      ],
+      utilidadBruta: ingresosOrdenesTrabajo - costosRepuestos,
+      // El frontend recibe datos ya consolidados para dibujar la evolución
+      // diaria sin conocer tablas, líneas ni reglas contables internas.
+      series: filas.map((fila) => ({
+        fecha: formatearFecha(fila.fecha),
+        ingresosOrdenesTrabajo: comoNumero(fila.total_ingresos_ot),
+        costosRepuestos: comoNumero(fila.total_costo_repuestos),
+      })),
     })
   } catch (error) {
+    if (esErrorSinDatos(error)) {
+      return NextResponse.json(
+        {
+          code: "SIN_DATOS_REPORTE",
+          message:
+            "No hay datos suficientes para generar el gráfico en este periodo",
+        },
+        { status: 404 }
+      )
+    }
+
     console.error("[REPORTES_RENTABILIDAD_SERVICIOS_GET]", error)
 
     return NextResponse.json(
