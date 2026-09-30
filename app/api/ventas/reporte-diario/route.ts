@@ -52,7 +52,6 @@ function toNumber(value: unknown) {
 function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[number] & {
   ventaEnMostrador?: {
     estado: string
-    estadoPago: string
     montoTotal: unknown
     descuentoGlobal: unknown
     lineasDeVenta?: unknown[]
@@ -63,12 +62,17 @@ function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[numbe
     fechaCreacion: venta.fechaRegistro,
     total: venta.ventaEnMostrador?.montoTotal ?? 0,
     descuento: venta.ventaEnMostrador?.descuentoGlobal ?? 0,
-    estadoPago: venta.ventaEnMostrador?.estadoPago ?? null,
+    estadoPago: venta.estadoPago,
     estadoVenta: venta.ventaEnMostrador?.estado ?? null,
     lineasDeVenta: venta.ventaEnMostrador?.lineasDeVenta ?? [],
   }
 }
 
+/**
+ * GET /api/ventas/reporte-diario?fecha=YYYY-MM-DD
+ * Devuelve las ventas del día, el total de ingresos y la cantidad de ventas
+ * para tarjetas, tablas y exportaciones del reporte diario.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.REPORTS_READ)

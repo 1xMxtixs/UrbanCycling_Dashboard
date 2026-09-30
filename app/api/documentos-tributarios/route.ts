@@ -1,6 +1,7 @@
 // Endpoint para generar documentos tributarios desde ventas u ordenes de trabajo.
 import { NextResponse } from "next/server"
 
+import { EstadoDocumentoTributario } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -30,6 +31,11 @@ async function getNextFolio() {
   return (lastDocument?.numeroFolio ?? 0) + 1
 }
 
+/**
+ * GET /api/documentos-tributarios
+ * Lista los documentos tributarios y sus ventas de origen para la vista de
+ * boletas, facturas e historial tributario.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.RECEIPTS_CREATE)
@@ -58,6 +64,11 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/documentos-tributarios
+ * Emite un documento a partir de una venta u orden de trabajo. Valida el tipo,
+ * estado y origen antes de calcular neto e IVA y reservar el siguiente folio.
+ */
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -72,6 +83,12 @@ export async function POST(request: Request) {
     const origin = normalizeTaxDocumentOrigin(data.origen)
     const tipoDte = normalizeTaxDocumentType(data.tipoDte)
     const rutEmisor = getIssuerRut(data)
+    const estadoInput = String(data.estado ?? DEFAULT_TAX_DOCUMENT_STATUS)
+      .trim()
+      .toUpperCase()
+    const estado = Object.values(EstadoDocumentoTributario).find(
+      (valor) => valor === estadoInput,
+    )
 
     if (!origin) {
       return NextResponse.json(
@@ -80,6 +97,16 @@ export async function POST(request: Request) {
           message: "Debe indicar origen venta u orden-trabajo",
         },
         { status: 400 }
+      )
+    }
+
+    if (!estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_DOCUMENTO_INVALIDO",
+          message: `Use uno de estos estados: ${Object.values(EstadoDocumentoTributario).join(", ")}`,
+        },
+        { status: 400 },
       )
     }
 
@@ -266,7 +293,7 @@ export async function POST(request: Request) {
           montoTotal,
           montoNeto,
           montoIva,
-          estado: String(data.estado ?? DEFAULT_TAX_DOCUMENT_STATUS).trim(),
+          estado,
           origenes: {
             create: {
               idVenta: linkedVentaId,
