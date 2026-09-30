@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from "react";
@@ -156,7 +155,9 @@ const garantiasIniciales: Garantia[] = [
 ];
 
 export function ListGarantias() {
-  const [garantias] = useState<Garantia[]>(garantiasIniciales);
+  const [garantias] = useState<Garantia[]>(
+    garantiasIniciales
+  );
 
   const [isLoading] = useState(false);
 
@@ -166,16 +167,13 @@ export function ListGarantias() {
   const [openDetailsModal, setOpenDetailsModal] =
     useState(false);
 
-  // ──────────────────────────────────────────────
-  // KPIs
-  // ──────────────────────────────────────────────
-
   const totalGarantias = garantias.length;
 
   const ingresadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) => garantia.estado === "Ingresado"
+        (garantia) =>
+          garantia.estado === "Ingresado"
       ).length,
     [garantias]
   );
@@ -183,7 +181,8 @@ export function ListGarantias() {
   const enRevision = useMemo(
     () =>
       garantias.filter(
-        (garantia) => garantia.estado === "En Revisión"
+        (garantia) =>
+          garantia.estado === "En Revisión"
       ).length,
     [garantias]
   );
@@ -191,7 +190,8 @@ export function ListGarantias() {
   const aprobadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) => garantia.estado === "Aprobado"
+        (garantia) =>
+          garantia.estado === "Aprobado"
       ).length,
     [garantias]
   );
@@ -199,7 +199,8 @@ export function ListGarantias() {
   const rechazadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) => garantia.estado === "Rechazado"
+        (garantia) =>
+          garantia.estado === "Rechazado"
       ).length,
     [garantias]
   );
@@ -207,14 +208,11 @@ export function ListGarantias() {
   const finalizadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) => garantia.estado === "Finalizado"
+        (garantia) =>
+          garantia.estado === "Finalizado"
       ).length,
     [garantias]
   );
-
-  // ──────────────────────────────────────────────
-  // ACCIONES
-  // ──────────────────────────────────────────────
 
   const handleViewDetails = (id: number) => {
     const garantia = garantias.find(
@@ -253,10 +251,6 @@ export function ListGarantias() {
     );
   };
 
-  // ──────────────────────────────────────────────
-  // LOADING
-  // ──────────────────────────────────────────────
-
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -273,10 +267,6 @@ export function ListGarantias() {
       </div>
     );
   }
-
-  // ──────────────────────────────────────────────
-  // UI
-  // ──────────────────────────────────────────────
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -321,14 +311,15 @@ export function ListGarantias() {
 
       </div>
 
-      {/* Información de finalizadas */}
+      {/* Aviso de solicitudes finalizadas */}
       {finalizadas > 0 && (
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">
             {finalizadas}
           </span>{" "}
-          solicitud{finalizadas !== 1 ? "es" : ""} finalizada
-          {finalizadas !== 1 ? "s" : ""}.
+          {finalizadas === 1
+            ? "solicitud finalizada."
+            : "solicitudes finalizadas."}
         </div>
       )}
 
@@ -343,7 +334,7 @@ export function ListGarantias() {
         }}
       />
 
-      {/* Detalle */}
+      {/* Detalle de garantía */}
       <GarantiaDetailDialog
         open={openDetailsModal}
         onOpenChange={setOpenDetailsModal}
