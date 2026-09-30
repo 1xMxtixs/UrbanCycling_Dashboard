@@ -1,0 +1,139 @@
+<mxfile host="app.diagrams.net" agent="UrbanCycling" type="device">
+  <diagram id="cu47-anulando-ot" name="CU47 Anulando orden de trabajo">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="titulo" value="CU47 - Anulando orden de trabajo" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="0" width="1075" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="L1" value=":Administrador" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;participant=umlActor;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" value=":ListOrdenesTrabajo" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="210" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" value=":CancelOrderDialog" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="380" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" value=":API PATCH /estado" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="550" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" value=":BD (Prisma)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="720" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+        <mxCell id="L6" value=":Auditoría" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="890" y="40" width="150" height="770" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="1: seleccionar Anular(orden)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="115" y="150" as="sourcePoint" />
+            <mxPoint x="285" y="150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="2: abrir(orden)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="285" y="195" as="sourcePoint" />
+            <mxPoint x="455" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="3: mostrar confirmación" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="455" y="240" as="sourcePoint" />
+            <mxPoint x="115" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="4: confirmar anulación()" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="115" y="285" as="sourcePoint" />
+            <mxPoint x="455" y="285" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="5: onConfirmCancel()" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="455" y="330" as="sourcePoint" />
+            <mxPoint x="285" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="6: PATCH orden-{id}/estado {estado: Anulada}" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="285" y="375" as="sourcePoint" />
+            <mxPoint x="625" y="375" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="7: requirePermission(work_orders:update_status)" style="edgeStyle=orthogonalEdgeStyle;html=1;align=left;spacingLeft=6;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="410" as="sourcePoint" />
+            <mxPoint x="625" y="450" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="690" y="410" />
+              <mxPoint x="690" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="8: findUnique(ordenDeTrabajo)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="490" as="sourcePoint" />
+            <mxPoint x="795" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="9: orden" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="795" y="530" as="sourcePoint" />
+            <mxPoint x="625" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="10: validar estado (no Entregado ni Anulada)" style="edgeStyle=orthogonalEdgeStyle;html=1;align=left;spacingLeft=6;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="565" as="sourcePoint" />
+            <mxPoint x="625" y="605" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="690" y="565" />
+              <mxPoint x="690" y="605" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="11: update(estado = Anulada) [transacción]" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="645" as="sourcePoint" />
+            <mxPoint x="795" y="645" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="12: registrarAuditoría(anulacion_orden)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="685" as="sourcePoint" />
+            <mxPoint x="965" y="685" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="13: insert auditoría" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="725" as="sourcePoint" />
+            <mxPoint x="795" y="725" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="14: 200 OK {ordenTrabajo}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="625" y="765" as="sourcePoint" />
+            <mxPoint x="285" y="765" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="15: mensaje Orden de trabajo anulada correctamente" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="285" y="800" as="sourcePoint" />
+            <mxPoint x="115" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="nota" value="EX-1: si la orden está Entregada o Anulada, el paso 10 responde 409 con el código ANULACION_NO_PERMITIDA y la interfaz muestra &quot;No es posible anular esta orden&quot;. La orden no se modifica." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=top;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="840" width="440" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="nota2" value="EX-4: los pasos 11 a 13 ocurren dentro de una misma transacción. Si falla cualquiera, se revierte el estado y la auditoría." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=top;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="510" y="840" width="440" height="90" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
