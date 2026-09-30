@@ -1,3 +1,4 @@
+
 "use client";
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
@@ -6,7 +7,6 @@ import {
   Eye,
   MoreHorizontal,
   Pencil,
-  ShieldCheck,
   Gavel,
 } from "lucide-react";
 
@@ -42,7 +42,15 @@ function CellActions({
 
   const meta = table.options.meta as GarantiasTableMeta | undefined;
 
-  const isPending = garantia.estado === "Pendiente";
+  const estadoNormalizado = String(garantia.estado)
+    .trim()
+    .toLowerCase();
+
+  // Solo se puede modificar una solicitud que aún está ingresada.
+  const canEdit = estadoNormalizado === "ingresado";
+
+  // Solo se puede resolver una solicitud que está en revisión.
+  const canResolve = estadoNormalizado === "en revisión";
 
   return (
     <DropdownMenu>
@@ -64,6 +72,9 @@ function CellActions({
           Acciones
         </DropdownMenuLabel>
 
+        {/* ─────────────────────────────────────────
+            VER DETALLE
+        ───────────────────────────────────────── */}
         <DropdownMenuItem
           onClick={() =>
             meta?.onViewDetails?.(garantia.idGarantia)
@@ -74,28 +85,36 @@ function CellActions({
           Ver Detalle
         </DropdownMenuItem>
 
-        {isPending && (
-          <>
-            <DropdownMenuItem
-              onClick={() =>
-                meta?.onEdit?.(garantia.idGarantia)
-              }
-              className="flex cursor-pointer items-center gap-2"
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-              Modificar Solicitud
-            </DropdownMenuItem>
+        {/* ─────────────────────────────────────────
+            MODIFICAR SOLICITUD
+            Disponible solamente en "Ingresado"
+        ───────────────────────────────────────── */}
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={() =>
+              meta?.onEdit?.(garantia.idGarantia)
+            }
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+            Modificar Solicitud
+          </DropdownMenuItem>
+        )}
 
-            <DropdownMenuItem
-              onClick={() =>
-                meta?.onResolve?.(garantia.idGarantia)
-              }
-              className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
-            >
-              <Gavel className="h-4 w-4 text-primary" />
-              Resolver Garantía
-            </DropdownMenuItem>
-          </>
+        {/* ─────────────────────────────────────────
+            RESOLVER GARANTÍA
+            Disponible solamente en "En Revisión"
+        ───────────────────────────────────────── */}
+        {canResolve && (
+          <DropdownMenuItem
+            onClick={() =>
+              meta?.onResolve?.(garantia.idGarantia)
+            }
+            className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
+          >
+            <Gavel className="h-4 w-4 text-primary" />
+            Resolver Garantía
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -103,8 +122,12 @@ function CellActions({
 }
 
 export const columns: ColumnDef<Garantia>[] = [
+  // ──────────────────────────────────────────────
+  // ID GARANTÍA
+  // ──────────────────────────────────────────────
   {
     accessorKey: "idGarantia",
+
     header: ({ column }) => {
       return (
         <Button
@@ -117,20 +140,28 @@ export const columns: ColumnDef<Garantia>[] = [
           className="cursor-pointer"
         >
           ID
+
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
+
     cell: ({ row }) => (
       <span className="font-bold text-foreground">
-        GAR-{String(row.original.idGarantia).padStart(3, "0")}
+        GAR-
+        {String(row.original.idGarantia).padStart(3, "0")}
       </span>
     ),
   },
 
+  // ──────────────────────────────────────────────
+  // ORDEN DE TRABAJO
+  // ──────────────────────────────────────────────
   {
     accessorKey: "idOrdenDeTrabajo",
+
     header: "Orden de Trabajo",
+
     cell: ({ row }) => (
       <span className="font-semibold">
         #{row.original.idOrdenDeTrabajo}
@@ -138,10 +169,16 @@ export const columns: ColumnDef<Garantia>[] = [
     ),
   },
 
+  // ──────────────────────────────────────────────
+  // CLIENTE
+  // ──────────────────────────────────────────────
   {
     id: "cliente",
+
     accessorFn: (row) => row.cliente.nombre,
+
     header: "Cliente",
+
     cell: ({ row }) => (
       <div className="space-y-0.5">
         <p className="font-semibold text-foreground">
@@ -155,9 +192,14 @@ export const columns: ColumnDef<Garantia>[] = [
     ),
   },
 
+  // ──────────────────────────────────────────────
+  // FECHA DE INGRESO
+  // ──────────────────────────────────────────────
   {
     accessorKey: "fechaIngreso",
+
     header: "Fecha de Ingreso",
+
     cell: ({ row }) => (
       <span className="text-muted-foreground">
         {new Date(
@@ -171,20 +213,33 @@ export const columns: ColumnDef<Garantia>[] = [
     ),
   },
 
+  // ──────────────────────────────────────────────
+  // ESTADO
+  // ──────────────────────────────────────────────
   {
     accessorKey: "estado",
+
     header: "Estado",
+
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue) return true;
 
       return (
-        String(row.getValue(columnId)).toLowerCase() ===
-        String(filterValue).toLowerCase()
+        String(row.getValue(columnId))
+          .trim()
+          .toLowerCase() ===
+        String(filterValue)
+          .trim()
+          .toLowerCase()
       );
     },
 
     cell: ({ row }) => {
-      const estado = row.original.estado;
+      const estado = String(row.original.estado);
+
+      const estadoNormalizado = estado
+        .trim()
+        .toLowerCase();
 
       let status:
         | "success"
@@ -192,16 +247,29 @@ export const columns: ColumnDef<Garantia>[] = [
         | "danger"
         | "neutral" = "neutral";
 
-      if (estado === "Pendiente") {
+      // Ingresado
+      if (estadoNormalizado === "ingresado") {
+        status = "neutral";
+      }
+
+      // En Revisión
+      if (estadoNormalizado === "en revisión") {
         status = "warning";
       }
 
-      if (estado === "Aprobada") {
+      // Aprobado
+      if (estadoNormalizado === "aprobado") {
         status = "success";
       }
 
-      if (estado === "Rechazada") {
+      // Rechazado
+      if (estadoNormalizado === "rechazado") {
         status = "danger";
+      }
+
+      // Finalizado
+      if (estadoNormalizado === "finalizado") {
+        status = "success";
       }
 
       return (
@@ -213,9 +281,14 @@ export const columns: ColumnDef<Garantia>[] = [
     },
   },
 
+  // ──────────────────────────────────────────────
+  // ACCIONES
+  // ──────────────────────────────────────────────
   {
     id: "acciones",
+
     header: "Acciones",
+
     cell: ({ row, table }) => (
       <CellActions
         row={row}

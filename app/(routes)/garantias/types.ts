@@ -1,4 +1,10 @@
-export type EstadoGarantia = "Pendiente" | "Aprobada" | "Rechazada";
+
+export type EstadoGarantia =
+  | "Ingresado"
+  | "En Revisión"
+  | "Aprobado"
+  | "Rechazado"
+  | "Finalizado";
 
 export interface Garantia {
   idGarantia: number;
@@ -16,7 +22,7 @@ export interface Garantia {
 
   estado: EstadoGarantia;
 
-  veredicto: string | null;
+  veredicto: "Aprobado" | "Rechazado" | null;
   observacionesResolucion: string | null;
   fechaResolucion: string | null;
 }

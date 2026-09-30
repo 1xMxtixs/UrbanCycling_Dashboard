@@ -24,6 +24,11 @@ export const PERMISSIONS = {
   WORK_ORDERS_CREATE: "work-orders:create",
   WORK_ORDERS_UPDATE: "work-orders:update",
   WORK_ORDERS_UPDATE_STATUS: "work-orders:update-status",
+  
+  WARRANTIES_READ: "warranties:read",
+  WARRANTIES_CREATE: "warranties:create",
+  WARRANTIES_UPDATE: "warranties:update",
+  WARRANTIES_RESOLVE: "warranties:resolve",
 
   WARRANTIES_CREATE: "warranties:create",
   WARRANTIES_READ: "warranties:read",

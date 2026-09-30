@@ -1,9 +1,11 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
+  FileCheck2,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -36,7 +38,7 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "Cliente indica que el problema comenzó nuevamente dos días después de retirar la bicicleta.",
 
-    estado: "Pendiente",
+    estado: "Ingresado",
 
     veredicto: null,
     observacionesResolucion: null,
@@ -61,9 +63,9 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "Se solicita revisión nuevamente del trabajo efectuado.",
 
-    estado: "Aprobada",
+    estado: "Aprobado",
 
-    veredicto: "Aprobada",
+    veredicto: "Aprobado",
 
     observacionesResolucion:
       "Se determina que el reclamo corresponde a una falla relacionada con la reparación anterior.",
@@ -89,9 +91,9 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "La bicicleta fue revisada previamente antes de registrar la solicitud.",
 
-    estado: "Rechazada",
+    estado: "Rechazado",
 
-    veredicto: "Rechazada",
+    veredicto: "Rechazado",
 
     observacionesResolucion:
       "La falla corresponde a desgaste normal de componentes y no a la reparación realizada.",
@@ -117,7 +119,7 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "Cliente solicita revisión del sistema de frenos.",
 
-    estado: "Pendiente",
+    estado: "En Revisión",
 
     veredicto: null,
     observacionesResolucion: null,
@@ -142,18 +144,19 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "Se solicita evaluación técnica del trabajo anterior.",
 
-    estado: "Pendiente",
+    estado: "Finalizado",
 
-    veredicto: null,
-    observacionesResolucion: null,
-    fechaResolucion: null,
+    veredicto: "Aprobado",
+
+    observacionesResolucion:
+      "La garantía fue aprobada y el trabajo de reparación correspondiente fue realizado satisfactoriamente.",
+
+    fechaResolucion: "2026-09-21",
   },
 ];
 
 export function ListGarantias() {
-  const [garantias] = useState<Garantia[]>(
-    garantiasIniciales
-  );
+  const [garantias] = useState<Garantia[]>(garantiasIniciales);
 
   const [isLoading] = useState(false);
 
@@ -163,13 +166,24 @@ export function ListGarantias() {
   const [openDetailsModal, setOpenDetailsModal] =
     useState(false);
 
+  // ──────────────────────────────────────────────
+  // KPIs
+  // ──────────────────────────────────────────────
+
   const totalGarantias = garantias.length;
 
-  const pendientes = useMemo(
+  const ingresadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) =>
-          garantia.estado === "Pendiente"
+        (garantia) => garantia.estado === "Ingresado"
+      ).length,
+    [garantias]
+  );
+
+  const enRevision = useMemo(
+    () =>
+      garantias.filter(
+        (garantia) => garantia.estado === "En Revisión"
       ).length,
     [garantias]
   );
@@ -177,8 +191,7 @@ export function ListGarantias() {
   const aprobadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) =>
-          garantia.estado === "Aprobada"
+        (garantia) => garantia.estado === "Aprobado"
       ).length,
     [garantias]
   );
@@ -186,11 +199,22 @@ export function ListGarantias() {
   const rechazadas = useMemo(
     () =>
       garantias.filter(
-        (garantia) =>
-          garantia.estado === "Rechazada"
+        (garantia) => garantia.estado === "Rechazado"
       ).length,
     [garantias]
   );
+
+  const finalizadas = useMemo(
+    () =>
+      garantias.filter(
+        (garantia) => garantia.estado === "Finalizado"
+      ).length,
+    [garantias]
+  );
+
+  // ──────────────────────────────────────────────
+  // ACCIONES
+  // ──────────────────────────────────────────────
 
   const handleViewDetails = (id: number) => {
     const garantia = garantias.find(
@@ -229,11 +253,15 @@ export function ListGarantias() {
     );
   };
 
+  // ──────────────────────────────────────────────
+  // LOADING
+  // ──────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, index) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {[...Array(5)].map((_, index) => (
             <Skeleton
               key={index}
               className="h-24 rounded-2xl"
@@ -246,10 +274,16 @@ export function ListGarantias() {
     );
   }
 
+  // ──────────────────────────────────────────────
+  // UI
+  // ──────────────────────────────────────────────
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+
         <MetricCard
           title="Total Solicitudes"
           value={totalGarantias}
@@ -258,16 +292,23 @@ export function ListGarantias() {
         />
 
         <MetricCard
-          title="Pendientes"
-          value={pendientes}
-          description="Esperando evaluación"
+          title="Ingresadas"
+          value={ingresadas}
+          description="Solicitudes ingresadas"
+          icon={FileCheck2}
+        />
+
+        <MetricCard
+          title="En Revisión"
+          value={enRevision}
+          description="Solicitudes en evaluación"
           icon={Clock3}
         />
 
         <MetricCard
           title="Aprobadas"
           value={aprobadas}
-          description="Garantías aceptadas"
+          description="Garantías aprobadas"
           icon={CheckCircle2}
         />
 
@@ -277,7 +318,19 @@ export function ListGarantias() {
           description="Garantías rechazadas"
           icon={XCircle}
         />
+
       </div>
+
+      {/* Información de finalizadas */}
+      {finalizadas > 0 && (
+        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            {finalizadas}
+          </span>{" "}
+          solicitud{finalizadas !== 1 ? "es" : ""} finalizada
+          {finalizadas !== 1 ? "s" : ""}.
+        </div>
+      )}
 
       {/* Tabla */}
       <DataTable
@@ -296,6 +349,7 @@ export function ListGarantias() {
         onOpenChange={setOpenDetailsModal}
         garantia={selectedGarantia}
       />
+
     </div>
   );
 }
