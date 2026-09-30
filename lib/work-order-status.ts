@@ -1,6 +1,37 @@
-export const ACTIVE_WORK_ORDER_STATUSES = [
-  "Por realizar",
-  "En curso",
-  "En espera",
-  "Listo para entregar",
-] as const
+export const ESTADO_OT = {
+  POR_REALIZAR: "POR_REALIZAR",
+  EN_ESPERA: "EN_ESPERA",
+  EN_CURSO: "EN_CURSO",
+  LISTO_PARA_ENTREGAR: "LISTO_PARA_ENTREGAR",
+  ENTREGADO: "ENTREGADO",
+  ANULADA: "ANULADA",
+} as const
+
+export type EstadoOt = (typeof ESTADO_OT)[keyof typeof ESTADO_OT]
+
+// Define el flujo operativo permitido para una orden de trabajo usando los codigos persistidos en la base de datos.
+export const TRANSICIONES_OT: Record<EstadoOt, EstadoOt[]> = {
+  POR_REALIZAR: [ESTADO_OT.EN_CURSO, ESTADO_OT.EN_ESPERA],
+  EN_ESPERA: [ESTADO_OT.EN_CURSO, ESTADO_OT.LISTO_PARA_ENTREGAR],
+  EN_CURSO: [ESTADO_OT.LISTO_PARA_ENTREGAR, ESTADO_OT.EN_ESPERA],
+  LISTO_PARA_ENTREGAR: [ESTADO_OT.ENTREGADO, ESTADO_OT.EN_CURSO],
+  ENTREGADO: [],
+  ANULADA: [],
+}
+
+export const ACTIVE_WORK_ORDER_STATUSES: EstadoOt[] = [
+  ESTADO_OT.POR_REALIZAR,
+  ESTADO_OT.EN_ESPERA,
+  ESTADO_OT.EN_CURSO,
+  ESTADO_OT.LISTO_PARA_ENTREGAR,
+]
+
+export const ESTADOS_OT_FINALIZADOS: EstadoOt[] = [
+  ESTADO_OT.LISTO_PARA_ENTREGAR,
+  ESTADO_OT.ENTREGADO,
+]
+
+export const ESTADOS_OT_CERRADOS: EstadoOt[] = [
+  ESTADO_OT.ENTREGADO,
+  ESTADO_OT.ANULADA,
+]

@@ -88,9 +88,9 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     return null
   }
 
-  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
-  
-  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? [];
+  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
+
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
