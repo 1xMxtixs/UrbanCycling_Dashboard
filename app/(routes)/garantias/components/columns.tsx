@@ -267,10 +267,6 @@ export const columns: ColumnDef<Garantia>[] = [
         status = "danger";
       }
 
-      // Finalizado
-      if (estadoNormalizado === "finalizado") {
-        status = "success";
-      }
 
       return (
         <StatusBadge

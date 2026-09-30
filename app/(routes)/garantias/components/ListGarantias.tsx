@@ -143,12 +143,12 @@ const garantiasIniciales: Garantia[] = [
     observaciones:
       "Se solicita evaluación técnica del trabajo anterior.",
 
-    estado: "Finalizado",
+    estado: "Rechazado",
 
-    veredicto: "Aprobado",
+    veredicto: "Rechazado",
 
     observacionesResolucion:
-      "La garantía fue aprobada y el trabajo de reparación correspondiente fue realizado satisfactoriamente.",
+      "La garantía fue rechazada y el trabajo de reparación correspondiente fue realizado satisfactoriamente.",
 
     fechaResolucion: "2026-09-21",
   },
@@ -209,7 +209,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado === "Finalizado"
+          garantia.estado === "Rechazado"
       ).length,
     [garantias]
   );
