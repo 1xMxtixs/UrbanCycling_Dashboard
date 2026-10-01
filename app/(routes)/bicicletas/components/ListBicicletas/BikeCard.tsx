@@ -1,6 +1,6 @@
 "use client";
 
-import { Bike, CalendarDays, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
+import { Bike, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
 import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
 import { formatClientName } from "@/lib/formatters";
@@ -66,14 +66,19 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between border-t border-border/60 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-border/60 pt-3">
             <DataField
               variant="inline"
               icon={UserRound}
               value={nombreCliente}
+              className="min-w-0 flex-1"
               valueClassName="line-clamp-1 font-semibold"
             />
-            <StatusBadge status={statusType} label={estadoOrdenNombre} />
+            <StatusBadge
+              status={statusType}
+              label={estadoOrdenNombre}
+              className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
+            />
           </div>
         </div>
       </div>
@@ -105,9 +110,13 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               label="Orden"
               value={`#${bicicleta.idOrdenDeTrabajo}`}
             />
-            <div className="flex items-center justify-between text-foreground pt-0.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 text-foreground pt-0.5">
               <span className="text-xs text-muted-foreground font-medium">Estado actual:</span>
-              <StatusBadge status={statusType} label={estadoOrdenNombre} />
+              <StatusBadge
+                status={statusType}
+                label={estadoOrdenNombre}
+                className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
+              />
             </div>
           </div>
         </div>
