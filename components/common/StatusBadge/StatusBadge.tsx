@@ -38,10 +38,15 @@ const statusConfig: Record<StatusType, { badge: string; dot: string }> = {
   },
 }
 
+function formatStatusLabel(label: string) {
+  const normalized = label.trim().replace(/[_-]+/g, " ").toLocaleLowerCase("es-CL")
+  return normalized ? normalized[0].toLocaleUpperCase("es-CL") + normalized.slice(1) : normalized
+}
+
 export function StatusBadge({ status, label, className, showDot = true }: StatusBadgeProps) {
   const normalizedStatus = (statusConfig[status as StatusType] ? status : "neutral") as StatusType
   const config = statusConfig[normalizedStatus]
-  const displayLabel = label || status
+  const displayLabel = formatStatusLabel(label || status)
 
   return (
     <Badge

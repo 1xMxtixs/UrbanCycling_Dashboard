@@ -23,8 +23,9 @@ import { formatClientName } from "@/lib/formatters"
 import {
   ESTADO_OT,
   ESTADOS_OT_CERRADOS,
-  ESTADOS_OT_FINALIZADOS,
   getNombreEstadoOt,
+  getNombreEstadoOtVisible,
+  isOrdenTrabajoRetrasada,
   TRANSICIONES_OT,
 } from "@/lib/work-order-status"
 import { WorkOrder } from "../../types"
@@ -172,18 +173,10 @@ export const columns: ColumnDef<WorkOrder>[] = [
       if (!filterValue) return true
       const order = row.original
       const isCompleted = order.estadoOrden === ESTADO_OT.ENTREGADO
-      const dEstimada = new Date(order.fechaEntregaEstimada)
-      const localEndDay = new Date(
-        dEstimada.getUTCFullYear(),
-        dEstimada.getUTCMonth(),
-        dEstimada.getUTCDate(),
-        23,
-        59,
-        59,
-        999
+      const isDelayed = isOrdenTrabajoRetrasada(
+        order.estadoOrden,
+        order.fechaEntregaEstimada
       )
-      const isFullyCompleted = ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never) || order.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
-      const isDelayed = localEndDay < new Date() && !isFullyCompleted
 
       if (filterValue === "retrasada") {
         return isDelayed
@@ -204,38 +197,21 @@ export const columns: ColumnDef<WorkOrder>[] = [
     },
     cell: ({ row }) => {
       const order = row.original
-      const isCompleted = ESTADOS_OT_FINALIZADOS.includes(order.estadoOrden as never) || order.estadoOrden === ESTADO_OT.ANULADA
-      const dEstimada = new Date(order.fechaEntregaEstimada)
-      const localEndDay = new Date(
-        dEstimada.getUTCFullYear(),
-        dEstimada.getUTCMonth(),
-        dEstimada.getUTCDate(),
-        23,
-        59,
-        59,
-        999
-      )
-      const isDelayed = localEndDay < new Date() && !isCompleted
-
-      if (isDelayed) {
-        return <StatusBadge status="danger" label="Retrasada" />
-      }
-
       switch (order.estadoOrden) {
         case ESTADO_OT.POR_REALIZAR:
-          return <StatusBadge status="neutral" label="Por realizar" />
+          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         case ESTADO_OT.EN_CURSO:
-          return <StatusBadge status="info" label="Activa" />
+          return <StatusBadge status="info" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         case ESTADO_OT.EN_ESPERA:
-          return <StatusBadge status="warning" label="En Espera" />
+          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         case ESTADO_OT.LISTO_PARA_ENTREGAR:
-          return <StatusBadge status="warning" label="Por Entregar" />
+          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         case ESTADO_OT.ENTREGADO:
-          return <StatusBadge status="success" label="Completada" />
+          return <StatusBadge status="success" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         case ESTADO_OT.ANULADA:
-          return <StatusBadge status="danger" label="Anulada" />
+          return <StatusBadge status="danger" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         default:
-          return <StatusBadge status="neutral" label={getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)} />
+          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
       }
     },
   },

@@ -47,7 +47,7 @@ export function SaleDetailDialog({
         <DialogHeader className="border-b border-slate-100 dark:border-slate-800 pb-2">
           <DialogTitle className="flex items-center justify-between text-xl font-black">
             <span>Detalle de Venta #{sale.idPuntoVenta}</span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider ${
+            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-bold tracking-wider ${
               isAnulada
                 ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:text-red-400"
                 : sale.estadoPago === ESTADO_PAGO.PAGADA

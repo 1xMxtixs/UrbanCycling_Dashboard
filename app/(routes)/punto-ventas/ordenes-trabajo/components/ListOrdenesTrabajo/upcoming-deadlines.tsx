@@ -2,8 +2,7 @@
 
 import { Clock, AlertTriangle, AlertCircle, Calendar } from "lucide-react"
 import { WorkOrder } from "../../types"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status"
-import { getNombreEstadoOt } from "@/lib/work-order-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 
 interface UpcomingDeadlinesProps {
   orders: WorkOrder[]
@@ -136,7 +135,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
               <div className="mt-3 flex items-center justify-between border-t border-slate-200/50 dark:border-slate-800/50 pt-2 text-[11px] font-semibold text-slate-550 dark:text-slate-400">
                 <span className="flex items-center gap-1">
                   <span className={`h-1.5 w-1.5 rounded-full ${indicatorColor}`} />
-                  {getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}
+                  {getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}
                 </span>
                 <span>Entrega: {formattedDate}</span>
               </div>

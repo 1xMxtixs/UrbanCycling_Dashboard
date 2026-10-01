@@ -6,15 +6,16 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { Calendar, ChevronDown, ChevronUp, ExternalLink, Wrench } from "lucide-react";
 import type { DBOrdenTrabajoCliente } from "../../types";
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status";
-import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status";
+import { ESTADO_OT, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 
-export const getOrderStatusConfig = (estado: string) => {
-  if (estado === ESTADO_OT.ENTREGADO) return { status: "success" as const, label: "Entregado" };
-  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR) return { status: "warning" as const, label: "Listo para entregar" };
-  if (estado === ESTADO_OT.EN_CURSO) return { status: "info" as const, label: "En curso" };
-  if (estado === ESTADO_OT.EN_ESPERA) return { status: "warning" as const, label: "En espera" };
-  if (estado === ESTADO_OT.ANULADA) return { status: "danger" as const, label: "Anulada" };
-  return { status: "neutral" as const, label: getNombreEstadoOt(estado) };
+export const getOrderStatusConfig = (estado: string, fechaEntregaEstimada?: string | Date | null) => {
+  const label = getNombreEstadoOtVisible(estado, fechaEntregaEstimada);
+  if (estado === ESTADO_OT.ENTREGADO) return { status: "success" as const, label };
+  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR) return { status: "warning" as const, label };
+  if (estado === ESTADO_OT.EN_CURSO) return { status: "info" as const, label };
+  if (estado === ESTADO_OT.EN_ESPERA) return { status: "warning" as const, label };
+  if (estado === ESTADO_OT.ANULADA) return { status: "danger" as const, label };
+  return { status: "neutral" as const, label };
 };
 
 export const getPaymentStatusConfig = (estado?: string) => {
@@ -31,7 +32,7 @@ export function WorkOrderHistoryItem({
   onViewWorkOrder?: (id: number) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const orderStatus = getOrderStatusConfig(orden.estadoOrden);
+  const orderStatus = getOrderStatusConfig(orden.estadoOrden, orden.fechaEntregaEstimada);
   const paymentStatus = getPaymentStatusConfig(orden.estadoPago);
   const fIngreso = new Date(orden.fechaRecepcion || orden.fechaCreacion);
 

@@ -41,7 +41,7 @@ import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS, ESTADOS_OT_FINALIZADOS, getNombreEstadoOt, TRANSICIONES_OT } from "@/lib/work-order-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOt, getNombreEstadoOtVisible, TRANSICIONES_OT } from "@/lib/work-order-status"
 import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
   buildWorkOrderContent,
@@ -132,38 +132,27 @@ export function OrderDetailDialog({
     Math.max(0, total - totalPagado) === 0
 
   const renderStatusBadge = (ord: WorkOrder) => {
-    const isFullyCompleted = ESTADOS_OT_FINALIZADOS.includes(ord.estadoOrden as never) || ord.estadoOrden === ESTADO_OT.ANULADA
-    const dEstimada = new Date(ord.fechaEntregaEstimada)
-    const localEndDay = new Date(
-      dEstimada.getUTCFullYear(),
-      dEstimada.getUTCMonth(),
-      dEstimada.getUTCDate(),
-      23,
-      59,
-      59,
-      999
+    const label = getNombreEstadoOtVisible(
+      ord.estadoOrden,
+      ord.fechaEntregaEstimada,
+      ord.estadoOrdenNombre
     )
-    const isDelayed = localEndDay < new Date() && !isFullyCompleted
-
-    if (isDelayed) {
-      return <StatusBadge status="danger" label="Retrasada" />
-    }
 
     switch (ord.estadoOrden) {
       case ESTADO_OT.POR_REALIZAR:
-        return <StatusBadge status="neutral" label="Por realizar" />
+        return <StatusBadge status="neutral" label={label} />
       case ESTADO_OT.EN_CURSO:
-        return <StatusBadge status="info" label="Activa" />
+        return <StatusBadge status="info" label={label} />
       case ESTADO_OT.EN_ESPERA:
-        return <StatusBadge status="warning" label="En Espera" />
+        return <StatusBadge status="warning" label={label} />
       case ESTADO_OT.LISTO_PARA_ENTREGAR:
-        return <StatusBadge status="warning" label="Por Entregar" />
+        return <StatusBadge status="warning" label={label} />
       case ESTADO_OT.ENTREGADO:
-        return <StatusBadge status="success" label="Completada" />
+        return <StatusBadge status="success" label={label} />
       case ESTADO_OT.ANULADA:
-        return <StatusBadge status="danger" label="Anulada" />
+        return <StatusBadge status="danger" label={label} />
       default:
-        return <StatusBadge status="neutral" label={getNombreEstadoOt(ord.estadoOrden, ord.estadoOrdenNombre)} />
+        return <StatusBadge status="neutral" label={label} />
     }
   }
 
@@ -353,7 +342,7 @@ export function OrderDetailDialog({
                   Estado de Pago
                 </span>
                 <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${isPaid
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold tracking-wider ${isPaid
                     ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
                     : order.estadoPago === ESTADO_PAGO.PARCIAL
                       ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
