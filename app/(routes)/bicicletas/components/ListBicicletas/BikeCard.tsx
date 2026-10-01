@@ -4,7 +4,7 @@ import { Bike, CalendarDays, ClipboardList, UserRound, Wrench, Palette } from "l
 import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
 import { formatClientName } from "@/lib/formatters";
-import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status";
+import { ESTADO_OT, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 import type { Bicicleta } from "../../types";
 
 type BikeCardProps = {
@@ -22,7 +22,11 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
-  const estadoOrdenNombre = getNombreEstadoOt(estadoOrden);
+  const estadoOrdenNombre = getNombreEstadoOtVisible(
+    estadoOrden,
+    bicicleta.ordenDeTrabajo?.fechaEntregaEstimada,
+    bicicleta.ordenDeTrabajo?.estadoOrdenNombre
+  );
   const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
   const statusType = mapEstadoToStatusType(estadoOrden);
 

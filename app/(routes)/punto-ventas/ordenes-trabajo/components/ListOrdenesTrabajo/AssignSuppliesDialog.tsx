@@ -38,8 +38,7 @@ import {
 import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { WorkOrder, WorkOrderServiceLine } from "../../types"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status"
-import { getNombreEstadoOt } from "@/lib/work-order-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 import { isRegistroActivo } from "@/lib/registro-status"
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
@@ -671,7 +670,7 @@ export function AssignSuppliesDialog({
                   </DialogDescription>
                 </div>
               </div>
-              <StatusBadge status="neutral" label={getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)} />
+              <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
             </div>
           </DialogHeader>
 
@@ -1115,7 +1114,7 @@ export function AssignSuppliesDialog({
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Estado actual</span>
-                <span className="font-bold text-foreground">{getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}</span>
+                <span className="font-bold text-foreground">{getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}</span>
               </div>
             </div>
 

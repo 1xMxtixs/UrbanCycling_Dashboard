@@ -37,7 +37,7 @@ import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
-import { ESTADO_OT, ESTADOS_OT_FINALIZADOS } from "@/lib/work-order-status";
+import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 import { getNombreEstadoOt } from "@/lib/work-order-status";
 
 export function ListClientes() {
@@ -467,7 +467,7 @@ export function ListClientes() {
                                 </span>
                                 <StatusBadge
                                   status={isCompleted ? "success" : isWarning ? "warning" : "neutral"}
-                                  label={getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}
+                                  label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}
                                 />
                               </div>
 

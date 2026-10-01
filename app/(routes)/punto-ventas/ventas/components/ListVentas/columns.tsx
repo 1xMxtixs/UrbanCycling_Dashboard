@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
-import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
 
@@ -171,7 +171,7 @@ export const columns: ColumnDef<SaleOperation>[] = [
         case ESTADO_PAGO.PENDIENTE:
           return <StatusBadge status="warning" label="Pendiente" />
         default:
-          return <StatusBadge status="neutral" label={op.estadoPago} />
+          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} />
       }
     },
   },

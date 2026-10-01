@@ -10,7 +10,7 @@
 import type { WorkOrder } from "@/app/(routes)/punto-ventas/ordenes-trabajo/types"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
-import { getNombreEstadoOt } from "@/lib/work-order-status"
+import { getNombreEstadoOtVisible } from "@/lib/work-order-status"
 
 /** Determina si una orden está completamente pagada. */
 export function isWorkOrderPaid(order: WorkOrder): boolean {
@@ -73,7 +73,7 @@ export function buildWorkOrderContent(order: WorkOrder): string {
     ? new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")
     : "—"
 
-  const estadoOrden = escapeHtml(getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre))
+  const estadoOrden = escapeHtml(getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre))
   const estadoPago = escapeHtml(getNombreEstadoPago(order.estadoPago || (paid ? ESTADO_PAGO.PAGADA : ESTADO_PAGO.PENDIENTE)))
   const clientRut = order.cliente?.rut ? escapeHtml(order.cliente.rut) : ""
   const observacionesIngreso = order.observacionesIngreso

@@ -41,7 +41,7 @@ import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOt, getNombreEstadoOtVisible, TRANSICIONES_OT } from "@/lib/work-order-status"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible, TRANSICIONES_OT } from "@/lib/work-order-status"
 import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
   buildWorkOrderContent,
@@ -643,7 +643,7 @@ export function OrderDetailDialog({
                         ``,
                         `Le informamos el estado de su Orden de Trabajo #${order.idOrdenDeTrabajo}:`,
                         ``,
-                        `  Estado: ${getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}`,
+                        `  Estado: ${getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}`,
                         `  Entrega Estimada: ${new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")}`,
                         `  Total: $${Number(order.total).toLocaleString("es-CL")}`,
                         ``,
