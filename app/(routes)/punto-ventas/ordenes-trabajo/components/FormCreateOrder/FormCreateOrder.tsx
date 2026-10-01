@@ -77,7 +77,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [conBicicleta, setConBicicleta] = useState(true)
 
   const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PENDIENTE)
-  const [metodoPago, setMetodoPago] = useState<string>("efectivo")
+  const [metodoPago, setMetodoPago] = useState<string>("EFECTIVO")
   const [montoAbono, setMontoAbono] = useState<number>(0)
 
   const [openQuickCreateClient, setOpenQuickCreateClient] = useState(false)

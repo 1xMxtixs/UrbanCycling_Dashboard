@@ -22,7 +22,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
-  const estadoOrdenNombre = getNombreEstadoOt(estadoOrden, bicicleta.ordenDeTrabajo?.estadoOrdenNombre);
+  const estadoOrdenNombre = getNombreEstadoOt(estadoOrden);
   const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
   const statusType = mapEstadoToStatusType(estadoOrden);
 

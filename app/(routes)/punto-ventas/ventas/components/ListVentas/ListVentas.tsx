@@ -28,7 +28,7 @@ export function ListVentas() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
@@ -110,7 +110,7 @@ export function ListVentas() {
 
   const handlePayClick = (idVenta: number, total: number) => {
     setSaleToPay({ idVenta, total: Number(total) })
-    setSelectedMetodoPago("efectivo")
+    setSelectedMetodoPago("EFECTIVO")
     setPayModalOpen(true)
   }
 

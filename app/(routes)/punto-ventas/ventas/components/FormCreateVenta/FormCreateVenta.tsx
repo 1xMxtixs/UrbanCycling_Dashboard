@@ -75,7 +75,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
 
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [descuento, setDescuento] = useState<number>(0)
-  const [metodoPago, setMetodoPago] = useState<string>("efectivo")
+  const [metodoPago, setMetodoPago] = useState<string>("EFECTIVO")
   const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PAGADA)
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -515,10 +515,10 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="debito">Tarjeta de Débito</SelectItem>
-                    <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
+                    <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="DEBITO">Tarjeta de Débito</SelectItem>
+                    <SelectItem value="CREDITO">Tarjeta de Crédito</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

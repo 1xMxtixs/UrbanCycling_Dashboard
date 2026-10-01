@@ -19,7 +19,7 @@ export const getOrderStatusConfig = (estado: string) => {
 
 export const getPaymentStatusConfig = (estado?: string) => {
   if (estado === ESTADO_PAGO.PAGADA) return { status: "success" as const, label: "Pagado" };
-  if (estado === ESTADO_PAGO.ABONO) return { status: "warning" as const, label: "Abono parcial" };
+  if (estado === ESTADO_PAGO.ABONO || estado?.toUpperCase() === "PARCIAL") return { status: "warning" as const, label: "Abono parcial" };
   return { status: "danger" as const, label: "Pendiente" };
 };
 

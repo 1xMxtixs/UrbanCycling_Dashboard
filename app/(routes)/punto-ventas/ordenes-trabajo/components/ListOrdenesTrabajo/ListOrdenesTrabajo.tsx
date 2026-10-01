@@ -61,7 +61,7 @@ export function ListOrdenesTrabajo() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
@@ -240,7 +240,7 @@ export function ListOrdenesTrabajo() {
 
   const handlePayClick = (order: WorkOrder) => {
     setOrderToPay(order)
-    setSelectedMetodoPago("efectivo")
+    setSelectedMetodoPago("EFECTIVO")
     setPayModalOpen(true)
   }
 

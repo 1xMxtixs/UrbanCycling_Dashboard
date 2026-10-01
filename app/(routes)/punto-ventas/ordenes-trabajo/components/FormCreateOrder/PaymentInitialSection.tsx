@@ -78,10 +78,10 @@ export function PaymentInitialSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="efectivo">Efectivo</SelectItem>
-                <SelectItem value="transferencia">Transferencia</SelectItem>
-                <SelectItem value="debito">Tarjeta de Débito</SelectItem>
-                <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
+                <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                <SelectItem value="DEBITO">Tarjeta de Débito</SelectItem>
+                <SelectItem value="CREDITO">Tarjeta de Crédito</SelectItem>
               </SelectContent>
             </Select>
           </div>
