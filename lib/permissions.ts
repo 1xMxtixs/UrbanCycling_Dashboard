@@ -30,6 +30,7 @@ export const PERMISSIONS = {
 
   PURCHASE_ORDERS_READ: "purchase_orders:read",
   PURCHASE_ORDERS_CREATE: "purchase_orders:create",
+  PURCHASE_ORDERS_UPDATE: "purchase_orders:update",
 
   PAYMENTS_CREATE: "payments:create",
   RECEIPTS_CREATE: "receipts:create",
