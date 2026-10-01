@@ -5,14 +5,17 @@ import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
 } from "@/lib/bicycle-images"
+import { EstadoPago, EstadoPagoVenta, EstadoRegistro, EstadoVentaMostrador } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
+import { ESTADOS_OT_DISPONIBLES, estadoOrdenInclude, resolverEstadoOt, resolverEstadoPago, resolverEstadoVenta, respuestaInvalida } from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import {
   descontarStockProductos,
   InventoryStockError,
   recalcularTotalesOrdenTrabajo,
 } from "@/lib/stored-procedures"
+import { ESTADO_OT } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 const prisma = db
@@ -146,7 +149,7 @@ function adaptarVenta(venta: any) {
     montoTotal: ventaEnMostrador.montoTotal,
     descuentoGlobal: ventaEnMostrador.descuentoGlobal,
     estadoVenta: ventaEnMostrador.estado,
-    estadoPago: ventaEnMostrador.estadoPago,
+    estadoPago: ventaSegura.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
   }
 }
@@ -163,12 +166,14 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
   )
+  const estadoCatalogo = ordenTrabajoSegura.estadoOrden
 
   return {
     ...ordenTrabajoSegura,
     total: ordenTrabajoSegura.montoTotal,
     descuento: ordenTrabajoSegura.descuentoGlobal,
-    estadoOrden: ordenTrabajoSegura.estado,
+    codigoEstadoOrden: ordenTrabajoSegura.estado,
+    estadoOrden: estadoCatalogo?.nombre ?? ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
     totalPagado,
@@ -267,25 +272,7 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   return "venta"
 }
 
-const etapasOrdenTrabajo = [
-  "Por realizar",
-  "En curso",
-  "En espera",
-  "Listo para entregar",
-  "Entregado",
-  "Anulada",
-]
-
-function normalizarTextoFiltro(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-}
-
+// Lee los alias admitidos por la API y entrega un único código para el filtro Prisma.
 function obtenerEtapaFiltro(req: Request) {
   const { searchParams } = new URL(req.url)
   const etapaInput =
@@ -301,14 +288,9 @@ function obtenerEtapaFiltro(req: Request) {
     }
   }
 
-  const etapaNormalizada = normalizarTextoFiltro(etapaInput)
-
   return {
     fueSolicitada: true,
-    etapa:
-      etapasOrdenTrabajo.find(
-        (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
-      ) ?? null,
+    etapa: resolverEstadoOt(etapaInput),
   }
 }
 
@@ -438,10 +420,11 @@ function obtenerMontoPago(rawData: any): number | null {
   return monto === null || monto === undefined ? null : Number(monto)
 }
 
-function obtenerEstadoPago(rawData: any, estadoPorDefecto: string) {
-  return rawData.pago?.estado ?? rawData.estado_pago_detalle ?? estadoPorDefecto
-}
-
+/**
+ * POST /api/punto-venta
+ * Registra una venta directa o una orden de trabajo según las líneas enviadas.
+ * Valida cliente, stock, servicios, bicicletas, estados y datos de pago.
+ */
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -461,12 +444,27 @@ export async function POST(req: Request) {
         : null
 
     const descuento = Number(rawData.descuento ?? rawData.descuentoGlobal ?? 0)
-    const estadoPago = rawData.estado_pago ?? rawData.estadoPago ?? "pendiente"
+    const estadoPagoInput = rawData.estado_pago ?? rawData.estadoPago
+    const estadoPago = estadoPagoInput
+      ? resolverEstadoPago(estadoPagoInput)
+      : EstadoPagoVenta.PENDIENTE
     const productosVenta = normalizarProductos(rawData.productos).map(
       mapearProducto
     )
     const ordenInput = rawData.orden_trabajo ?? rawData.ordenTrabajo ?? null
     const tieneOrden = Boolean(ordenInput)
+    const estadoOrdenInput = tieneOrden
+      ? (ordenInput.estado_orden ?? ordenInput.estadoOrden)
+      : null
+    const estadoOrden = tieneOrden
+      ? estadoOrdenInput
+        ? resolverEstadoOt(estadoOrdenInput)
+        : ESTADO_OT.POR_REALIZAR
+      : null
+    const estadoVentaInput = rawData.estado_venta ?? rawData.estadoVenta
+    const estadoVenta = estadoVentaInput
+      ? resolverEstadoVenta(estadoVentaInput)
+      : EstadoVentaMostrador.COMPLETADA
     const productosOrden = tieneOrden
       ? normalizarProductos(ordenInput.productos).map(mapearProducto)
       : []
@@ -488,6 +486,18 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       )
+    }
+
+    if (!estadoPago) {
+      return respuestaInvalida("ESTADO_PAGO_INVALIDO", "Estado de pago inválido")
+    }
+
+    if (tieneOrden && !estadoOrden) {
+      return respuestaInvalida("ESTADO_ORDEN_INVALIDO", "Estado de orden inválido")
+    }
+
+    if (!estadoVenta) {
+      return respuestaInvalida("ESTADO_VENTA_INVALIDO", "Estado de venta inválido")
     }
 
     const productosInvalidos = [...productosVenta, ...productosOrden].find(
@@ -613,7 +623,7 @@ export async function POST(req: Request) {
         )
       }
 
-      if (cliente.estado !== "activo") {
+      if (cliente.estado !== EstadoRegistro.ACTIVO) {
         return NextResponse.json(
           {
             code: "CLIENTE_INACTIVO",
@@ -716,7 +726,7 @@ export async function POST(req: Request) {
     const servicioInactivo = serviciosOrden.find((item) => {
       const servicio = serviciosPorId.get(item.idServicio)
 
-      return servicio && servicio.estado !== "activo"
+      return servicio && servicio.estado !== EstadoRegistro.ACTIVO
     })
 
     if (servicioInactivo) {
@@ -847,9 +857,11 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
-    const metodoPago = obtenerMetodoPago(rawData)
+    const metodoPagoInput = obtenerMetodoPago(rawData)
+    const metodoPago = metodoPagoInput
+      ? String(metodoPagoInput).trim().toUpperCase()
+      : null
     const montoPagoSolicitado = obtenerMontoPago(rawData)
-    const estadoRegistroPago = obtenerEstadoPago(rawData, estadoPago)
 
     if (
       metodoPago &&
@@ -865,20 +877,33 @@ export async function POST(req: Request) {
       )
     }
 
+    if (metodoPago) {
+      // La FK de pagos exige un código activo del catálogo de métodos de pago.
+      const metodoRegistrado = await prisma.metodoPago.findUnique({
+        where: { codigo: metodoPago },
+        select: { estado: true },
+      })
+
+      if (
+        !metodoRegistrado ||
+        metodoRegistrado.estado !== EstadoRegistro.ACTIVO
+      ) {
+        return respuestaInvalida("METODO_PAGO_INVALIDO", "Método de pago inválido")
+      }
+    }
+
     const resultado = await prisma.$transaction(async (tx) => {
       const ventaBase = await tx.venta.create({
         data: {
           idUsuario,
           idCliente,
+          // Venta concentra el estado financiero de cualquier operación del POS.
+          estadoPago,
           ventaEnMostrador:
             lineasVenta.length > 0 || tieneOrden
               ? {
                   create: {
-                    estado:
-                      rawData.estado_venta ??
-                      rawData.estadoVenta ??
-                      "confirmada",
-                    estadoPago,
+                    estado: estadoVenta,
                     montoSubtotal: montosVenta.montoSubtotal,
                     descuentoProductos: 0,
                     descuentoGlobal: montosVenta.descuentoGlobal,
@@ -908,11 +933,7 @@ export async function POST(req: Request) {
                             ordenInput.idMecanicoAsignado
                         )
                       : null,
-                  estado:
-                    ordenInput.estado_orden ??
-                    ordenInput.estadoOrden ??
-                    "Por realizar",
-                  estadoPago,
+                  estado: estadoOrden!,
                   fechaEntregaEstimada: ordenInput.fecha_entrega_estimada
                     ? new Date(ordenInput.fecha_entrega_estimada)
                     : ordenInput.fechaEntregaEstimada
@@ -964,6 +985,7 @@ export async function POST(req: Request) {
           ordenDeTrabajo: {
             include: {
               mecanico: true,
+              estadoOrden: estadoOrdenInclude,
               bicicletas: {
                 include: {
                   imagenes: true,
@@ -1060,6 +1082,7 @@ export async function POST(req: Request) {
             },
             include: {
               mecanico: true,
+              estadoOrden: estadoOrdenInclude,
               bicicletas: true,
               lineasDeOrdenDeTrabajo: {
                 include: {
@@ -1080,18 +1103,20 @@ export async function POST(req: Request) {
             data: {
               idUsuario,
               fechaRegistro: new Date(),
-              estado: estadoRegistroPago,
-              metodoPago: String(metodoPago),
+              // La transacción recién registrada ya fue aceptada por el POS.
+              estado: EstadoPago.COMPLETADO,
+              metodoPago,
               monto: montoPago,
             },
           })
         : null
 
+      // La asignación siempre apunta a la Venta raíz, incluso cuando se paga una OT.
       if (pago && venta) {
         await tx.asignacionPago.create({
           data: {
             idPago: pago.idPago,
-            idVenta: venta.idVenta,
+            idVenta: ventaBase.idVenta,
             idOrdenDeCompra: null,
             montoAsociado: montoPago,
             tipoAbono:
@@ -1100,12 +1125,30 @@ export async function POST(req: Request) {
         })
       }
 
+      const estadoPagoFinal = pago
+        ? montoPago >= totalOperacionFinal
+          ? EstadoPagoVenta.PAGADA
+          : EstadoPagoVenta.PARCIAL
+        : estadoPago
+
+      if (estadoPagoFinal !== ventaBase.estadoPago) {
+        await tx.venta.update({
+          where: { idVenta: ventaBase.idVenta },
+          data: { estadoPago: estadoPagoFinal },
+        })
+      }
+
+      const ventaActualizada = {
+        ...ventaBase,
+        estadoPago: estadoPagoFinal,
+      }
+
       return {
-        venta,
+        venta: venta ? ventaActualizada : null,
         ordenTrabajo: ordenTrabajoActualizada
           ? {
               ...ordenTrabajoActualizada,
-              venta: ventaBase,
+              venta: ventaActualizada,
               usuario: ventaBase.usuario,
               cliente: ventaBase.cliente,
             }
@@ -1179,6 +1222,11 @@ export async function POST(req: Request) {
     )
   }
 }
+/**
+ * GET /api/punto-venta
+ * Entrega ventas y órdenes en una colección unificada para las tablas del POS.
+ * Admite filtros de etapa, fecha y período con códigos o nombres de estado OT.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)
@@ -1195,7 +1243,7 @@ export async function GET(req: Request) {
         {
           code: "ETAPA_INVALIDA",
           message: "La etapa seleccionada no es valida",
-          etapasDisponibles: etapasOrdenTrabajo,
+          etapasDisponibles: ESTADOS_OT_DISPONIBLES,
         },
         { status: 400 }
       )
@@ -1258,6 +1306,8 @@ export async function GET(req: Request) {
         ordenDeTrabajo: {
           include: {
             mecanico: true,
+            // El código sirve para reglas y el nombre para etiquetas del frontend.
+            estadoOrden: estadoOrdenInclude,
             bicicletas: {
               include: {
                 imagenes: true,
@@ -1293,7 +1343,7 @@ export async function GET(req: Request) {
             fechaRegistro: venta.fechaRegistro,
             total: venta.ventaEnMostrador.montoTotal,
             montoTotal: venta.ventaEnMostrador.montoTotal,
-            estadoPago: venta.ventaEnMostrador.estadoPago,
+            estadoPago: venta.estadoPago,
             estadoVenta: venta.ventaEnMostrador.estado,
             cliente: venta.cliente,
             usuario: sanitizarUsuario(venta.usuario),
@@ -1321,8 +1371,11 @@ export async function GET(req: Request) {
             fechaRegistro: venta.fechaRegistro,
             total: venta.ordenDeTrabajo.montoTotal,
             montoTotal: venta.ordenDeTrabajo.montoTotal,
-            estadoPago: venta.ordenDeTrabajo.estadoPago,
-            estadoOrden: venta.ordenDeTrabajo.estado,
+            estadoPago: venta.estadoPago,
+            codigoEstadoOrden: venta.ordenDeTrabajo.estado,
+            estadoOrden:
+              venta.ordenDeTrabajo.estadoOrden?.nombre ??
+              venta.ordenDeTrabajo.estado,
             cliente: venta.cliente,
             usuario: sanitizarUsuario(venta.usuario),
             ordenTrabajo: ordenTrabajoAdaptada,

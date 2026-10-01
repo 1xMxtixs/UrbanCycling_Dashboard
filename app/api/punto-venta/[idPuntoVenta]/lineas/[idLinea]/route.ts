@@ -8,6 +8,7 @@ import {
   WorkOrderTotalsError,
 } from "@/lib/stored-procedures";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
+import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status";
 import { NextResponse } from "next/server";
 
 class WorkOrderLineError extends Error {
@@ -77,6 +78,11 @@ function sanitizarOrdenTrabajo(orden: Record<string, unknown>) {
   };
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta/lineas/:idLinea
+ * Edita cantidad, precio o descuento de una línea de OT y recalcula los
+ * totales que la pantalla de detalle presenta al usuario.
+ */
 export async function PATCH(
   req: Request,
   {
@@ -150,14 +156,19 @@ export async function PATCH(
         );
       }
 
-      if (tieneCantidad && orden.estado !== "En curso") {
+      // Ajustar existencias modifica inventario, por eso solo se permite mientras la OT está en curso.
+      if (tieneCantidad && orden.estado !== ESTADO_OT.EN_CURSO) {
         throw new WorkOrderLineError(
           "ESTADO_ORDEN_NO_PERMITE_AJUSTE",
           'La orden debe estar en estado "En curso" para ajustar sus insumos'
         );
       }
 
-      if (!tieneCantidad && ["Entregado", "Anulada"].includes(orden.estado)) {
+      // Los cambios de precio o descuento también se bloquean cuando la OT ya está cerrada.
+      if (
+        !tieneCantidad &&
+        ESTADOS_OT_CERRADOS.some((estadoCerrado) => estadoCerrado === orden.estado)
+      ) {
         throw new WorkOrderLineError(
           "ORDEN_NO_MODIFICABLE",
           "La orden de trabajo no puede ser modificada en su estado actual"

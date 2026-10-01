@@ -4,21 +4,14 @@
 // - orden-8
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
+import { ESTADOS_OT_DISPONIBLES, estadoOrdenInclude, resolverEstadoOt, resolverEstadoPago, resolverEstadoVenta, respuestaInvalida } from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
-import { Prisma } from "@/generated/prisma"
+import { EstadoPago, EstadoPagoVenta, EstadoRegistro, Prisma } from "@/generated/prisma"
+import { ESTADO_OT, ESTADOS_OT_CERRADOS, ESTADOS_OT_FINALIZADOS, TRANSICIONES_OT, type EstadoOt } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 const prisma = db
-
-const transicionesOrdenPermitidas: Record<string, string[]> = {
-  "Por realizar": ["En curso", "En espera"],
-  "En curso": ["Listo para entregar", "En espera"],
-  "En espera": ["En curso", "Listo para entregar"],
-  "Listo para entregar": ["Entregado", "En curso"],
-  Entregado: [],
-  Anulada: [],
-}
 
 function parseIdPuntoVenta(idPuntoVenta: string) {
   const [tipo, id] = idPuntoVenta.split("-")
@@ -80,7 +73,7 @@ function adaptarVenta(venta: any) {
     montoTotal: ventaEnMostrador.montoTotal,
     descuentoGlobal: ventaEnMostrador.descuentoGlobal,
     estadoVenta: ventaEnMostrador.estado,
-    estadoPago: ventaEnMostrador.estadoPago,
+    estadoPago: ventaSegura.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
   }
 }
@@ -92,7 +85,9 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     ...ordenTrabajoSegura,
     total: ordenTrabajoSegura.montoTotal,
     descuento: ordenTrabajoSegura.descuentoGlobal,
-    estadoOrden: ordenTrabajoSegura.estado,
+    codigoEstadoOrden: ordenTrabajoSegura.estado,
+    estadoOrden:
+      ordenTrabajoSegura.estadoOrden?.nombre ?? ordenTrabajoSegura.estado,
     fechaCreacion: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRegistro: ordenTrabajoSegura.venta?.fechaRegistro,
     fechaRecepcion: ordenTrabajoSegura.venta?.fechaRegistro,
@@ -101,6 +96,11 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   }
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta/estado
+ * Ejecuta transiciones de estado de una venta u OT. Acepta IDs venta-N u
+ * orden-N, valida la transición y actualiza el estado financiero en Venta.
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }
@@ -130,12 +130,45 @@ export async function PATCH(
     }
 
     const data = await req.json()
-    const estadoPago = data.estado_pago ?? data.estadoPago
-    const metodoPago = data.metodo_pago ?? data.metodoPago
+    const estadoPagoInput = data.estado_pago ?? data.estadoPago
+    const estadoPago = estadoPagoInput
+      ? resolverEstadoPago(estadoPagoInput)
+      : null
+    const metodoPagoInput = data.metodo_pago ?? data.metodoPago
+    const metodoPago = metodoPagoInput
+      ? String(metodoPagoInput).trim().toUpperCase()
+      : null
     const montoPago = data.monto_pagado ?? data.montoPagado ?? data.monto
 
+    if (estadoPagoInput && !estadoPago) {
+      return respuestaInvalida("ESTADO_PAGO_INVALIDO", "Estado de pago inválido")
+    }
+
+    if (metodoPago) {
+      // La FK de Pago utiliza el código de un método activo del catálogo.
+      const metodoRegistrado = await prisma.metodoPago.findUnique({
+        where: { codigo: metodoPago },
+        select: { estado: true },
+      })
+
+      if (
+        !metodoRegistrado ||
+        metodoRegistrado.estado !== EstadoRegistro.ACTIVO
+      ) {
+        return respuestaInvalida("METODO_PAGO_INVALIDO", "Método de pago inválido")
+      }
+    }
+
     if (parsed.tipo === "venta") {
-      const estadoVenta = data.estado_venta ?? data.estadoVenta ?? data.estado
+      const estadoVentaInput =
+        data.estado_venta ?? data.estadoVenta ?? data.estado
+      const estadoVenta = estadoVentaInput
+        ? resolverEstadoVenta(estadoVentaInput)
+        : null
+
+      if (estadoVentaInput && !estadoVenta) {
+        return respuestaInvalida("ESTADO_VENTA_INVALIDO", "Estado de venta inválido")
+      }
 
       if (!estadoVenta && !estadoPago) {
         return NextResponse.json(
@@ -147,7 +180,7 @@ export async function PATCH(
         )
       }
 
-      if (estadoPago?.toLowerCase() === "pagada" && metodoPago) {
+      if (estadoPago === EstadoPagoVenta.PAGADA && metodoPago) {
         const resultado = await prisma.$transaction(
           async (tx: Prisma.TransactionClient) => {
             const ventaObj = await tx.venta.findUnique({
@@ -178,12 +211,13 @@ export async function PATCH(
                 data: {
                   idUsuario: ventaObj.idUsuario,
                   fechaRegistro: new Date(),
-                  estado: "pagada",
-                  metodoPago: String(metodoPago),
+                  estado: EstadoPago.COMPLETADO,
+                  metodoPago,
                   monto: saldoPendiente,
                 },
               })
 
+              // Toda asignación financiera referencia la Venta raíz.
               await tx.asignacionPago.create({
                 data: {
                   idPago: nuevoPago.idPago,
@@ -200,10 +234,10 @@ export async function PATCH(
                 idVenta: parsed.id,
               },
               data: {
+                estadoPago: EstadoPagoVenta.PAGADA,
                 ventaEnMostrador: {
                   update: {
                     estado: estadoVenta ?? undefined,
-                    estadoPago: "pagada",
                   },
                 },
               },
@@ -234,12 +268,11 @@ export async function PATCH(
               idVenta: parsed.id,
             },
             data: {
-              ventaEnMostrador: {
-                update: {
-                  estado: estadoVenta ?? undefined,
-                  estadoPago: estadoPago ?? undefined,
-                },
-              },
+              // El subtipo conserva su estado operativo; Venta conserva el financiero.
+              estadoPago: estadoPago ?? undefined,
+              ventaEnMostrador: estadoVenta
+                ? { update: { estado: estadoVenta } }
+                : undefined,
             },
             include: {
               usuario: true,
@@ -258,7 +291,17 @@ export async function PATCH(
       })
     }
 
-    const estadoOrden = data.estado_orden ?? data.estadoOrden ?? data.estado
+    const estadoOrdenInput = data.estado_orden ?? data.estadoOrden ?? data.estado
+    const estadoOrden = estadoOrdenInput
+      ? resolverEstadoOt(estadoOrdenInput)
+      : null
+
+    if (estadoOrdenInput && !estadoOrden) {
+      return respuestaInvalida(
+        "ESTADO_ORDEN_INVALIDO",
+        `Use uno de estos códigos: ${ESTADOS_OT_DISPONIBLES.join(", ")}`
+      )
+    }
 
     if (!estadoOrden && !estadoPago) {
       return NextResponse.json(
@@ -278,7 +321,6 @@ export async function PATCH(
         venta: {
           include: {
             asignacionesPago: true,
-            ventaEnMostrador: true,
           },
         },
       },
@@ -295,8 +337,13 @@ export async function PATCH(
     }
 
     if (estadoOrden) {
-      if (estadoOrden === "Anulada") {
-        if (["Entregado", "Anulada"].includes(ordenTrabajo.estado)) {
+      // La anulación se permite desde cualquier estado abierto; el resto sigue la matriz común.
+      if (estadoOrden === ESTADO_OT.ANULADA) {
+        if (
+          ESTADOS_OT_CERRADOS.some(
+            (estadoCerrado) => estadoCerrado === ordenTrabajo.estado
+          )
+        ) {
           return NextResponse.json(
             {
               code: "ANULACION_NO_PERMITIDA",
@@ -307,9 +354,9 @@ export async function PATCH(
         }
       } else {
         const estadosSiguientes =
-          transicionesOrdenPermitidas[ordenTrabajo.estado] ?? []
+          TRANSICIONES_OT[ordenTrabajo.estado as EstadoOt] ?? []
 
-        if (!estadosSiguientes.includes(estadoOrden)) {
+        if (!estadosSiguientes.some((estado) => estado === estadoOrden)) {
           return NextResponse.json(
             {
               code: "CAMBIO_ESTADO_NO_PERMITIDO",
@@ -335,32 +382,28 @@ export async function PATCH(
         ? Number(montoPago)
         : saldoPendiente
 
-    if (
-      estadoPago &&
-      metodoPago &&
-      montoAPagar > 0 &&
-      ordenTrabajo.venta?.ventaEnMostrador &&
-      totalPagadoPrev + montoAPagar >= totalOrden
-    ) {
-      finalEstadoPago = "pagada"
+    if (metodoPago && (!Number.isFinite(montoAPagar) || montoAPagar <= 0)) {
+      return respuestaInvalida("MONTO_PAGO_INVALIDO", "Monto de pago inválido")
+    }
+
+    if (metodoPago) {
+      finalEstadoPago =
+        totalPagadoPrev + montoAPagar >= totalOrden
+          ? EstadoPagoVenta.PAGADA
+          : EstadoPagoVenta.PARCIAL
     }
 
     const resultado = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
 
-        if (
-          estadoPago &&
-          metodoPago &&
-          montoAPagar > 0 &&
-          ordenTrabajo.venta?.ventaEnMostrador
-        ) {
+        if (metodoPago && montoAPagar > 0) {
           nuevoPago = await tx.pago.create({
             data: {
               idUsuario: ordenTrabajo.venta.idUsuario,
               fechaRegistro: new Date(),
-              estado: "pagada",
-              metodoPago: String(metodoPago),
+              estado: EstadoPago.COMPLETADO,
+              metodoPago,
               monto: montoAPagar,
             },
           })
@@ -378,15 +421,11 @@ export async function PATCH(
           })
         }
 
-        if (finalEstadoPago && ordenTrabajo.venta?.ventaEnMostrador) {
-          await tx.ventaEnMostrador.update({
-            where: {
-              idVentaEnMostrador:
-                ordenTrabajo.venta.ventaEnMostrador.idVentaEnMostrador,
-            },
-            data: {
-              estadoPago: finalEstadoPago,
-            },
+        if (finalEstadoPago) {
+          // Venta es la única fuente del estado financiero de la operación.
+          await tx.venta.update({
+            where: { idVenta: ordenTrabajo.venta.idVenta },
+            data: { estadoPago: finalEstadoPago },
           })
         }
 
@@ -396,10 +435,11 @@ export async function PATCH(
           },
           data: {
             estado: estadoOrden ?? undefined,
-            estadoPago: finalEstadoPago ?? undefined,
             fechaEntregaReal:
               estadoOrden &&
-              ["Listo para entregar", "Entregado"].includes(estadoOrden)
+              ESTADOS_OT_FINALIZADOS.some(
+                (estadoFinalizado) => estadoFinalizado === estadoOrden
+              )
                 ? new Date()
                 : undefined,
           },
@@ -413,10 +453,10 @@ export async function PATCH(
                     pago: true,
                   },
                 },
-                ventaEnMostrador: true,
               },
             },
             mecanico: true,
+            estadoOrden: estadoOrdenInclude,
           },
         })
 
@@ -424,20 +464,22 @@ export async function PATCH(
           await registrarAuditoriaOrdenTrabajo(tx, {
             idUsuario: session.user.idUsuario,
             tipoOperacion:
-              estadoOrden === "Anulada" ? "anulacion_orden" : "cambio_estado",
+              estadoOrden === ESTADO_OT.ANULADA
+                ? "anulacion_orden"
+                : "cambio_estado",
             idOrdenDeTrabajo: parsed.id,
             valorAnterior: {
               estado: ordenTrabajo.estado,
-              estadoPago: ordenTrabajo.estadoPago,
+              estadoPago: ordenTrabajo.venta.estadoPago,
               fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
             },
             valorNuevo: {
               estado: ordenActualizada.estado,
-              estadoPago: ordenActualizada.estadoPago,
+              estadoPago: ordenActualizada.venta.estadoPago,
               fechaEntregaReal: ordenActualizada.fechaEntregaReal,
             },
             detalleCambio:
-              estadoOrden === "Anulada"
+              estadoOrden === ESTADO_OT.ANULADA
                 ? "Anulacion de orden de trabajo"
                 : `Cambio de estado de orden a ${estadoOrden}`,
           })
