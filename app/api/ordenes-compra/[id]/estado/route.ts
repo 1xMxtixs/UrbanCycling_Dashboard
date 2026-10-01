@@ -98,6 +98,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const accion: PurchaseOrderAction = actionInput
     const purchaseOrder = await db.$transaction(async (tx) => {
+      // Serializa envío/anulación con las recepciones que bloquean esta misma fila.
+      await tx.$queryRaw<Array<{ idOrdenDeCompra: number }>>`
+        SELECT id_orden_de_compra AS idOrdenDeCompra
+        FROM ordenes_de_compra
+        WHERE id_orden_de_compra = ${idOrdenDeCompra}
+        FOR UPDATE
+      `
+
       const order = await tx.ordenDeCompra.findUnique({
         where: { idOrdenDeCompra },
         include: {
