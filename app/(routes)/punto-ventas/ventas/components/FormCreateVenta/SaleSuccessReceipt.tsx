@@ -3,6 +3,7 @@
 import React from "react"
 import { CheckCircle2, Printer } from "lucide-react"
 import { getNombreEstadoPago } from "@/lib/payment-status"
+import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { Button } from "@/components/ui/button"
 
 interface Product {
@@ -148,7 +149,7 @@ export function SaleSuccessReceipt({
 
         <div className="text-center border-t border-dashed border-slate-300 dark:border-slate-700 pt-3">
           <p className="text-[10px] font-semibold uppercase">
-            Método: <strong className="text-primary">{metodoPago}</strong> | Estado: <strong className="text-green-600">{getNombreEstadoPago(estadoPago)}</strong>
+            Método: <strong className="text-primary">{getNombreMetodoPago(metodoPago)}</strong> | Estado: <strong className="text-green-600">{getNombreEstadoPago(estadoPago)}</strong>
           </p>
           <p className="text-[9px] text-muted-foreground mt-2">¡Gracias por tu compra en Urban Cycling!</p>
         </div>

@@ -12,6 +12,7 @@ import { formatClientName } from "@/lib/formatters";
 import type { DBCliente } from "../../types";
 import { WorkOrderHistoryItem, getOrderStatusConfig } from "./WorkOrderHistoryItem";
 import { ESTADO_OT, NOMBRES_ESTADO_OT } from "@/lib/work-order-status";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 
 export function ClientHistoryContent({
   cliente,
@@ -57,7 +58,7 @@ export function ClientHistoryContent({
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">{fullName}</h2>
-                <StatusBadge status={cliente.estado.toLowerCase() === "activo" ? "success" : "danger"} label={cliente.estado} />
+                <StatusBadge status={isRegistroActivo(cliente.estado) ? "success" : "danger"} label={getNombreEstadoRegistro(cliente.estado)} />
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1.5 font-medium">

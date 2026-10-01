@@ -40,6 +40,7 @@ import {
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
+import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, ESTADOS_OT_FINALIZADOS, getNombreEstadoOt, TRANSICIONES_OT } from "@/lib/work-order-status"
 import { WorkOrder, WorkOrderPayment } from "../../types"
 import {
@@ -354,7 +355,7 @@ export function OrderDetailDialog({
                 <span
                   className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${isPaid
                     ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
-                    : order.estadoPago === ESTADO_PAGO.ABONO || order.estadoPago?.toUpperCase() === "PARCIAL"
+                    : order.estadoPago === ESTADO_PAGO.PARCIAL
                       ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
                       : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
                     }`}
@@ -395,7 +396,7 @@ export function OrderDetailDialog({
                   >
                     <div className="space-y-0.5">
                       <span className="font-semibold block capitalize font-sans text-foreground">
-                        Pago #{idx + 1} ({pago.metodoPago})
+                        Pago #{idx + 1} ({getNombreMetodoPago(pago.metodoPago)})
                       </span>
                       <span className="text-[10px] text-muted-foreground">
                         {new Date(pago.fechaRegistro).toLocaleString("es-CL")}
@@ -653,7 +654,7 @@ export function OrderDetailDialog({
                         ``,
                         `Le informamos el estado de su Orden de Trabajo #${order.idOrdenDeTrabajo}:`,
                         ``,
-                        `  Estado: ${order.estadoOrden}`,
+                        `  Estado: ${getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}`,
                         `  Entrega Estimada: ${new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")}`,
                         `  Total: $${Number(order.total).toLocaleString("es-CL")}`,
                         ``,

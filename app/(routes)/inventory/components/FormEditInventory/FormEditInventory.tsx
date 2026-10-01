@@ -28,6 +28,7 @@ import { ImageUpload } from "@/components/forms/ImageUpload"
 import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
 import type { InventoryCategory } from "../../types"
+import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 
 type FormEditInventoryProps = {
   product: ProductColumn
@@ -129,7 +130,7 @@ export function FormEditInventory({
       precioVenta: String(product.precioVenta),
       costoPromedio: String(product.costoPromedio ?? 0),
       stockMinimo: String(product.stockMinimo),
-      estado: product.estado,
+      estado: isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO,
     },
   })
 
@@ -241,8 +242,8 @@ export function FormEditInventory({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    <SelectItem value="activo">Activo</SelectItem>
-                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                    <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Activo</SelectItem>
+                    <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

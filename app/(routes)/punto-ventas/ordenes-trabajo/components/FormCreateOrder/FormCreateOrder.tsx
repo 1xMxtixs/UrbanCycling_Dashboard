@@ -33,6 +33,8 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 import { BikesSection, BikeInput } from "./BikesSection"
 import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images"
 import { ESTADO_PAGO } from "@/lib/payment-status"
+import { isRegistroActivo } from "@/lib/registro-status"
+import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 import { ESTADO_OT } from "@/lib/work-order-status"
 import {
   OrderLinesSection,
@@ -77,7 +79,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [conBicicleta, setConBicicleta] = useState(true)
 
   const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PENDIENTE)
-  const [metodoPago, setMetodoPago] = useState<string>("EFECTIVO")
+  const [metodoPago, setMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [montoAbono, setMontoAbono] = useState<number>(0)
 
   const [openQuickCreateClient, setOpenQuickCreateClient] = useState(false)
@@ -151,7 +153,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         const res = await fetch("/api/inventory")
         if (res.ok) {
           const data = (await res.json()) as Product[]
-          setProducts(data.filter((p) => p.estado === "activo"))
+          setProducts(data.filter((p) => isRegistroActivo(p.estado)))
         }
       } catch (err) {
         console.error("Error fetching products:", err)
@@ -413,7 +415,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     }
 
     if (
-      estadoPago === ESTADO_PAGO.ABONO &&
+      estadoPago === ESTADO_PAGO.PARCIAL &&
       (montoAbono <= 0 || montoAbono >= grandTotal)
     ) {
       toast.error(
@@ -474,7 +476,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           monto_pagado:
             estadoPago === ESTADO_PAGO.PAGADA
               ? grandTotal
-              : estadoPago === ESTADO_PAGO.ABONO
+              : estadoPago === ESTADO_PAGO.PARCIAL
                 ? montoAbono
                 : 0,
           descuento: 0,

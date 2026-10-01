@@ -12,6 +12,7 @@ import {
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
+import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
 
 interface SaleDetailDialogProps {
@@ -37,7 +38,7 @@ export function SaleDetailDialog({
   const total = Number(sale.total)
   const neto = Math.round(total / 1.19)
   const iva = total - neto
-  const isAnulada = sale.estadoVenta === "anulada"
+  const isAnulada = isVentaAnulada(sale.estadoVenta)
   const clientLabel = formatClientName(sale.cliente)
 
   return (
@@ -164,7 +165,7 @@ export function SaleDetailDialog({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => onUpdateStatus(sale.venta.idVenta, "anulada", "anulada")}
+                onClick={() => onUpdateStatus(sale.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
                 className="font-bold"
               >
                 <Ban className="h-4 w-4 mr-1.5" />

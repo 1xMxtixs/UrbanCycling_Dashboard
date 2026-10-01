@@ -39,6 +39,8 @@ import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { WorkOrder, WorkOrderServiceLine } from "../../types"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status"
+import { getNombreEstadoOt } from "@/lib/work-order-status"
+import { isRegistroActivo } from "@/lib/registro-status"
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -147,7 +149,7 @@ export function AssignSuppliesDialog({
           if (Array.isArray(usersData)) {
             // Filtrar usuarios con rol de mecánico o administrador/vendedor
             const mechs = (usersData as UserApiResponse[])
-              .filter((u) => u.estado === "activo")
+              .filter((u) => isRegistroActivo(u.estado))
               .map((u) => ({
                 idUsuario: u.idUsuario,
                 nombre: `${u.primerNombre ?? ""} ${u.apellidoPaterno ?? ""}`.trim() || u.correoElectronico || `Usuario #${u.idUsuario}`,
@@ -669,7 +671,7 @@ export function AssignSuppliesDialog({
                   </DialogDescription>
                 </div>
               </div>
-              <StatusBadge status="neutral" label={order.estadoOrden} />
+              <StatusBadge status="neutral" label={getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)} />
             </div>
           </DialogHeader>
 
@@ -1113,7 +1115,7 @@ export function AssignSuppliesDialog({
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Estado actual</span>
-                <span className="font-bold text-foreground">{order.estadoOrden}</span>
+                <span className="font-bold text-foreground">{getNombreEstadoOt(order.estadoOrden, order.estadoOrdenNombre)}</span>
               </div>
             </div>
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Calendar, ChevronDown, ChevronUp, ExternalLink, Wrench } from "lucide-react";
 import type { DBOrdenTrabajoCliente } from "../../types";
-import { ESTADO_PAGO } from "@/lib/payment-status";
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status";
 import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status";
 
 export const getOrderStatusConfig = (estado: string) => {
@@ -19,7 +19,7 @@ export const getOrderStatusConfig = (estado: string) => {
 
 export const getPaymentStatusConfig = (estado?: string) => {
   if (estado === ESTADO_PAGO.PAGADA) return { status: "success" as const, label: "Pagado" };
-  if (estado === ESTADO_PAGO.ABONO || estado?.toUpperCase() === "PARCIAL") return { status: "warning" as const, label: "Abono parcial" };
+  if (estado === ESTADO_PAGO.PARCIAL) return { status: "warning" as const, label: "Abono parcial" };
   return { status: "danger" as const, label: "Pendiente" };
 };
 
@@ -103,7 +103,7 @@ export function WorkOrderHistoryItem({
             </div>
             <div className="bg-card p-1.5 rounded-lg border border-border/60">
               <span className="text-muted-foreground text-[9.5px] block">Pago</span>
-              <span className="font-bold capitalize text-foreground">{orden.estadoPago || "Pendiente"}</span>
+              <span className="font-bold capitalize text-foreground">{getNombreEstadoPago(orden.estadoPago)}</span>
             </div>
             <div className="bg-card p-1.5 rounded-lg border border-border/60">
               <span className="text-muted-foreground text-[9.5px] block">Venta</span>

@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { WorkOrder } from "../../types"
+import { METODOS_PAGO } from "@/lib/payment-methods"
 
 interface OrderPayDialogProps {
   open: boolean
@@ -89,10 +90,7 @@ export function OrderPayDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                <SelectItem value="DEBITO">Tarjeta de Débito</SelectItem>
-                <SelectItem value="CREDITO">Tarjeta de Crédito</SelectItem>
+                {METODOS_PAGO.map((metodo) => <SelectItem key={metodo.codigo} value={metodo.codigo}>{metodo.nombre}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

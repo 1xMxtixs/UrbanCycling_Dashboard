@@ -132,7 +132,9 @@ export function DataTable<TData, TValue>({
                 <SelectItem value="all">Todos los estados de pago</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PAGADA}>Pagadas</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendientes</SelectItem>
-                <SelectItem value="anulada">Anuladas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PARCIAL}>Parciales</SelectItem>
+                <SelectItem value={ESTADO_PAGO.REEMBOLSADA}>Reembolsadas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.ANULADA}>Anuladas</SelectItem>
               </SelectContent>
             </Select>
           </div>

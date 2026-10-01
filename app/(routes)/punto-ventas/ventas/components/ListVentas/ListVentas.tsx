@@ -16,6 +16,7 @@ import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
+import { isVentaAnulada } from "@/lib/sale-status"
 
 export function ListVentas() {
   const router = useRouter()
@@ -273,13 +274,13 @@ export function ListVentas() {
   // Cálculos de KPIs
   const totalSalesCount = sales.length
   const totalRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago === ESTADO_PAGO.PAGADA)
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PAGADA)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const pendingRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago === ESTADO_PAGO.PENDIENTE)
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PENDIENTE)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const canceledCount = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() === "anulada")
+    .filter((s) => isVentaAnulada(s.estadoVenta))
     .length
 
   if (isLoading) {

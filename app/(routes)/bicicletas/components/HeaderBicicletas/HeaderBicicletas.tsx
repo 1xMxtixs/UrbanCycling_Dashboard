@@ -17,6 +17,7 @@ import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta"
 import { formatClientName } from "@/lib/formatters";
 import { getNombreEstadoOt } from "@/lib/work-order-status";
 import type { OrdenTrabajoResumen } from "../../types";
+import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter";
 
 export function HeaderBicicletas() {
   const [openModalCreate, setOpenModalCreate] = useState(false);
@@ -56,8 +57,8 @@ export function HeaderBicicletas() {
         const ordenesTrabajo: OrdenTrabajoResumen[] = Array.isArray(data)
           ? data
               .filter((item) => item.tipoOperacion === "orden_trabajo")
-              .map((item) => item.ordenTrabajo)
-              .filter(Boolean)
+              .map((item) => adaptarOrdenPuntoVenta(item) as OrdenTrabajoResumen | null)
+              .filter((orden): orden is OrdenTrabajoResumen => Boolean(orden))
           : [];
 
         setOrdenes(ordenesTrabajo);

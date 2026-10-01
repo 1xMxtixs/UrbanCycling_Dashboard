@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ESTADO_PAGO } from "@/lib/payment-status"
+import { METODOS_PAGO } from "@/lib/payment-methods"
 
 interface PaymentInitialSectionProps {
   estadoPago: string
@@ -56,7 +57,7 @@ export function PaymentInitialSection({
               <SelectItem value={ESTADO_PAGO.PENDIENTE}>
                 Pendiente (Sin Pago Inicial)
               </SelectItem>
-              <SelectItem value={ESTADO_PAGO.ABONO}>Abono (Pago Parcial)</SelectItem>
+              <SelectItem value={ESTADO_PAGO.PARCIAL}>Abono (Pago Parcial)</SelectItem>
               <SelectItem value={ESTADO_PAGO.PAGADA}>
                 Pago Total (${grandTotal.toLocaleString("es-CL")})
               </SelectItem>
@@ -78,17 +79,14 @@ export function PaymentInitialSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                <SelectItem value="DEBITO">Tarjeta de Débito</SelectItem>
-                <SelectItem value="CREDITO">Tarjeta de Crédito</SelectItem>
+                {METODOS_PAGO.map((metodo) => <SelectItem key={metodo.codigo} value={metodo.codigo}>{metodo.nombre}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         )}
 
         {/* Monto del Abono */}
-        {estadoPago === ESTADO_PAGO.ABONO && (
+        {estadoPago === ESTADO_PAGO.PARCIAL && (
           <div className="animate-in space-y-1.5 duration-200 fade-in">
             <Label
               htmlFor="montoAbono"

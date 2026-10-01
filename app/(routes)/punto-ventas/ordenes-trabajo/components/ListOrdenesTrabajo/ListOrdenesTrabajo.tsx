@@ -20,7 +20,9 @@ import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
-import { ESTADO_OT } from "@/lib/work-order-status"
+import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
+import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
+import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -61,7 +63,7 @@ export function ListOrdenesTrabajo() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
@@ -112,9 +114,9 @@ export function ListOrdenesTrabajo() {
       const ordenes = Array.isArray(data)
         ? data
           .filter((item) => item.tipoOperacion === "orden_trabajo")
-          .map((item) => item.ordenTrabajo)
-          .filter(Boolean)
-          .map((orden: WorkOrder) => ({
+          .map((item) => adaptarOrdenPuntoVenta(item))
+          .filter((orden): orden is WorkOrder => Boolean(orden))
+          .map((orden) => ({
             ...orden,
             bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
               ...bicicleta,
@@ -214,7 +216,7 @@ export function ListOrdenesTrabajo() {
         throw new Error(errorData.message || "Error al actualizar estado")
       }
 
-      toast.success(`Estado actualizado a "${nextStatus}" correctamente.`)
+      toast.success(`Estado actualizado a "${getNombreEstadoOt(nextStatus)}" correctamente.`)
 
       if (selectedOrder && selectedOrder.idOrdenDeTrabajo === orderId) {
         setSelectedOrder({
@@ -240,7 +242,7 @@ export function ListOrdenesTrabajo() {
 
   const handlePayClick = (order: WorkOrder) => {
     setOrderToPay(order)
-    setSelectedMetodoPago("EFECTIVO")
+    setSelectedMetodoPago(METODO_PAGO_DEFECTO)
     setPayModalOpen(true)
   }
 
