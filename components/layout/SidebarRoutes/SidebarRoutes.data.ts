@@ -64,6 +64,12 @@ export const dataManagementSidebar: SidebarRouteItem[] = [
     permission: PERMISSIONS.WARRANTIES_READ,
   },
   {
+    icon: Users,
+    label: "Proveedores",
+    href: "/proveedores",
+    permission: PERMISSIONS.SUPPLIERS_READ,
+  },
+  {
     icon: FileText,
     label: "Historial de Boletas",
     href: "/historial-boletas",
