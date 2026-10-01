@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import {
   EstadoOrdenCompra,
+  EstadoPago,
   EstadoPagoOrdenCompra,
   EstadoRecepcionOrdenCompra,
 } from "@/generated/prisma"
@@ -14,7 +15,7 @@ type RouteContext = {
   params: Promise<{ id: string }>
 }
 
-type PurchaseOrderAction = "ENVIAR" | "ANULAR"
+type PurchaseOrderAction = "ENVIAR" | "ANULAR" | "COMPLETAR"
 
 class PurchaseOrderTransitionError extends Error {
   /** Conserva el código y HTTP status que la ruta devolverá al cliente. */
@@ -42,8 +43,8 @@ function parsePurchaseOrderId(value: string) {
 
 /**
  * PATCH /api/ordenes-compra/:id/estado
- * Permite enviar borradores o anular órdenes sin recepciones ni pagos, usando
- * los enums existentes y guardando los tres estados juntos al anular.
+ * Permite enviar borradores, completar órdenes enviadas ya pagadas y recibidas,
+ * o anular órdenes sin recepciones ni pagos, usando los enums existentes.
  */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
@@ -86,11 +87,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const actionInput = (body as Record<string, unknown>).accion
-    if (actionInput !== "ENVIAR" && actionInput !== "ANULAR") {
+    if (
+      actionInput !== "ENVIAR" &&
+      actionInput !== "ANULAR" &&
+      actionInput !== "COMPLETAR"
+    ) {
       return NextResponse.json(
         {
           code: "ACCION_INVALIDA",
-          message: "La acción debe ser ENVIAR o ANULAR.",
+          message: "La acción debe ser ENVIAR, COMPLETAR o ANULAR.",
         },
         { status: 400 },
       )
@@ -98,11 +103,23 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const accion: PurchaseOrderAction = actionInput
     const purchaseOrder = await db.$transaction(async (tx) => {
+      // Serializa las transiciones con pagos y recepciones que bloquean esta fila.
+      await tx.$queryRaw<Array<{ idOrdenDeCompra: number }>>`
+        SELECT id_orden_de_compra AS idOrdenDeCompra
+        FROM ordenes_de_compra
+        WHERE id_orden_de_compra = ${idOrdenDeCompra}
+        FOR UPDATE
+      `
       const order = await tx.ordenDeCompra.findUnique({
         where: { idOrdenDeCompra },
         include: {
           lineas: { select: { cantidadRecibida: true } },
-          asignacionesPago: { select: { montoAsociado: true } },
+          asignacionesPago: {
+            where: {
+              pago: { is: { estado: EstadoPago.COMPLETADO } },
+            },
+            select: { montoAsociado: true },
+          },
         },
       })
 
@@ -126,6 +143,37 @@ export async function PATCH(request: Request, context: RouteContext) {
         return tx.ordenDeCompra.update({
           where: { idOrdenDeCompra },
           data: { estado: EstadoOrdenCompra.ENVIADA },
+        })
+      }
+
+      if (accion === "COMPLETAR") {
+        if (order.estado !== EstadoOrdenCompra.ENVIADA) {
+          throw new PurchaseOrderTransitionError(
+            "TRANSICION_ESTADO_INVALIDA",
+            409,
+            "Solo se puede completar una orden que esté en ENVIADA.",
+          )
+        }
+
+        if (order.estadoRecepcion !== EstadoRecepcionOrdenCompra.RECIBIDA) {
+          throw new PurchaseOrderTransitionError(
+            "ORDEN_NO_RECIBIDA",
+            409,
+            "La orden debe estar completamente recibida para poder completarse.",
+          )
+        }
+
+        if (order.estadoPago !== EstadoPagoOrdenCompra.PAGADA) {
+          throw new PurchaseOrderTransitionError(
+            "ORDEN_NO_PAGADA",
+            409,
+            "La orden debe estar completamente pagada para poder completarse.",
+          )
+        }
+
+        return tx.ordenDeCompra.update({
+          where: { idOrdenDeCompra },
+          data: { estado: EstadoOrdenCompra.COMPLETADA },
         })
       }
 
@@ -154,7 +202,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         throw new PurchaseOrderTransitionError(
           "ORDEN_COMPRA_CON_MOVIMIENTOS",
           409,
-          "No se puede anular una orden con mercadería recibida o pagos registrados.",
+          "No se puede anular una orden con mercadería recibida o pagos completados.",
         )
       }
 
@@ -168,17 +216,22 @@ export async function PATCH(request: Request, context: RouteContext) {
       })
     })
 
-    return NextResponse.json({
-      code:
-        accion === "ENVIAR"
-          ? "ORDEN_COMPRA_ENVIADA"
-          : "ORDEN_COMPRA_ANULADA",
-      message:
-        accion === "ENVIAR"
-          ? "La orden de compra quedó marcada como enviada."
-          : "La orden de compra fue anulada.",
-      purchaseOrder,
-    })
+    const responseByAction = {
+      ENVIAR: {
+        code: "ORDEN_COMPRA_ENVIADA",
+        message: "La orden de compra quedó marcada como enviada.",
+      },
+      COMPLETAR: {
+        code: "ORDEN_COMPRA_COMPLETADA",
+        message: "La orden de compra fue completada correctamente.",
+      },
+      ANULAR: {
+        code: "ORDEN_COMPRA_ANULADA",
+        message: "La orden de compra fue anulada.",
+      },
+    }[accion]
+
+    return NextResponse.json({ ...responseByAction, purchaseOrder })
   } catch (error) {
     if (error instanceof PurchaseOrderTransitionError) {
       return NextResponse.json(
