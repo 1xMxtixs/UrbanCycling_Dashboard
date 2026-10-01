@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
@@ -83,11 +82,6 @@ export function CreateGarantiasDialog({
    * =====================================================
    * CARGAR ÓRDENES DISPONIBLES
    * =====================================================
-   *
-   * Las órdenes vienen directamente desde el backend.
-   *
-   * El endpoint solo debe devolver órdenes que cumplan
-   * las condiciones para registrar una garantía.
    */
 
   useEffect(() => {
@@ -203,24 +197,13 @@ export function CreateGarantiasDialog({
    * =====================================================
    * ENVIAR FORMULARIO
    * =====================================================
-   *
-   * IMPORTANTE:
-   * Actualmente este bloque todavía es una simulación.
-   *
-   * El siguiente paso será reemplazarlo por:
-   *
-   * POST /api/garantias
-   *
-   * para guardar realmente la solicitud en MySQL.
    */
 
   const handleSubmit = async () => {
     setError("");
 
     /*
-     * =====================================================
-     * VALIDACIÓN DE ORDEN DE TRABAJO
-     * =====================================================
+     * VALIDACIÓN DE ORDEN
      */
 
     if (!orden) {
@@ -232,9 +215,7 @@ export function CreateGarantiasDialog({
     }
 
     /*
-     * =====================================================
      * VALIDACIÓN DEL MOTIVO
-     * =====================================================
      */
 
     if (!motivoReclamo.trim()) {
@@ -246,9 +227,7 @@ export function CreateGarantiasDialog({
     }
 
     /*
-     * =====================================================
      * MÁXIMO 500 CARACTERES
-     * =====================================================
      */
 
     if (motivoReclamo.length > 500) {
@@ -269,76 +248,122 @@ export function CreateGarantiasDialog({
 
     setIsSubmitting(true);
 
-    /*
-     * =====================================================
-     * DATOS DE PRUEBA
-     * =====================================================
-     *
-     * Esto NO guarda todavía en la base de datos.
-     */
-
-    const nuevaGarantia: Garantia = {
-      idGarantia: Date.now(),
-
-      idOrdenDeTrabajo:
-        orden.idOrdenDeTrabajo,
-
-      cliente: {
-        idCliente: orden.cliente.idCliente,
-        nombre: orden.cliente.nombre,
-        rut: orden.cliente.rut,
-      },
-
-      motivoReclamo:
-        motivoReclamo.trim(),
-
-      fechaIngreso,
-
-      observaciones:
-        observaciones.trim() || null,
-
+    try {
       /*
-       * Toda solicitud nueva comienza
-       * en estado "Ingresado".
+       * El backend espera:
+       *
+       * idOrdenDeTrabajo
+       * fechaIngreso -> DD-MM-YYYY
+       * motivo
        */
 
-      estado: "Ingresado",
+      const fechaParaBackend = new Date(
+        `${fechaIngreso}T00:00:00`
+      ).toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
 
-      veredicto: null,
+      const response = await fetch(
+        "/api/garantias",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            idOrdenDeTrabajo:
+              orden.idOrdenDeTrabajo,
 
-      observacionesResolucion: null,
+            fechaIngreso:
+              fechaParaBackend,
 
-      fechaResolucion: null,
-    };
+            motivo:
+              motivoReclamo.trim(),
+          }),
+        }
+      );
 
-    /*
-     * Simulamos una operación de guardado.
-     */
+      const data = await response.json();
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 500)
-    );
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            "No fue posible registrar la solicitud de garantía."
+        );
+      }
 
-    console.log(
-      "Nueva solicitud de garantía:",
-      nuevaGarantia
-    );
+      /*
+       * Convertimos la respuesta del backend
+       * al formato utilizado por el frontend.
+       */
 
-    /*
-     * Avisamos al componente padre
-     * que se creó una nueva garantía.
-     */
+      const nuevaGarantia: Garantia = {
+        idGarantia:
+          data.garantia.idReclamoGarantia,
 
-    onCreated?.(nuevaGarantia);
+        idOrdenDeTrabajo:
+          data.garantia.idOrdenDeTrabajo,
 
-    setIsSubmitting(false);
+        cliente: {
+          idCliente:
+            orden.cliente.idCliente,
 
-    /*
-     * Limpiamos el formulario y cerramos.
-     */
+          nombre:
+            orden.cliente.nombre,
 
-    resetForm();
-    onOpenChange(false);
+          rut:
+            orden.cliente.rut,
+        },
+
+        motivoReclamo:
+          data.garantia.motivo,
+
+        fechaIngreso:
+          data.garantia.fechaIngreso,
+
+        observaciones:
+          observaciones.trim() || null,
+
+        estado: "Ingresado",
+
+        veredicto: null,
+
+        observacionesResolucion:
+          null,
+
+        fechaResolucion:
+          null,
+      };
+
+      /*
+       * Avisamos al componente padre.
+       */
+
+      onCreated?.(nuevaGarantia);
+
+      /*
+       * Limpiamos y cerramos.
+       */
+
+      resetForm();
+
+      onOpenChange(false);
+    } catch (error) {
+      console.error(
+        "Error registrando garantía:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "No fue posible registrar la solicitud de garantía."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

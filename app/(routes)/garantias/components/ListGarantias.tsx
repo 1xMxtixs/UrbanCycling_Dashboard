@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -17,56 +17,19 @@ import { columns } from "./columns";
 import { GarantiaDetailDialog } from "./GarantiaDetailDialog";
 import { ResolveGarantiaDialog } from "./ResolveGarantiaDialog";
 
-import type { Garantia } from "../types";
-
-/* ============================================================
-   CONVERTIR ESTADO DEL BACKEND AL FORMATO DEL FRONTEND
-============================================================ */
-
-function convertirEstado(estado: string): Garantia["estado"] {
-  switch (estado) {
-    case "INGRESADO":
-      return "Ingresado";
-
-    case "EN_REVISION":
-      return "En Revisión";
-
-    case "EN_ESPERA":
-      return "En Espera";
-
-    case "APROBADO":
-      return "Aprobado";
-
-    case "RECHAZADO":
-      return "Rechazado";
-
-    default:
-      return "Ingresado";
-  }
-}
-
-/* ============================================================
-   CONVERTIR FECHA
-============================================================ */
-
-function convertirFecha(fecha: string | null) {
-  if (!fecha) return null;
-
-  return new Date(fecha).toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-/* ============================================================
-   LISTA DE GARANTÍAS
-============================================================ */
+import type {
+  Garantia,
+  EstadoGarantia,
+} from "../types";
 
 export function ListGarantias() {
   const [garantias, setGarantias] = useState<Garantia[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   const [selectedGarantia, setSelectedGarantia] =
     useState<Garantia | null>(null);
@@ -82,115 +45,182 @@ export function ListGarantias() {
   const [openResolveModal, setOpenResolveModal] =
     useState(false);
 
-  /* ============================================================
-     OBTENER GARANTÍAS DESDE EL BACKEND
-  ============================================================ */
+  /*
+   * ============================================================
+   * CONVERSIÓN DE ESTADOS
+   * ============================================================
+   *
+   * Backend:
+   * INGRESADO
+   * EN_REVISION
+   * APROBADO
+   * RECHAZADO
+   *
+   * Frontend:
+   * Ingresado
+   * En Revisión
+   * Aprobado
+   * Rechazado
+   */
 
-  const cargarGarantias = async () => {
-    try {
-      setIsLoading(true);
+  const convertirEstado = (
+    estado: string
+  ): EstadoGarantia => {
+    switch (estado) {
+      case "INGRESADO":
+        return "Ingresado";
 
-      const response = await fetch("/api/garantias", {
-        method: "GET",
-        cache: "no-store",
-      });
+      case "EN_REVISION":
+        return "En Revisión";
 
-      const data = await response.json();
+      case "APROBADO":
+        return "Aprobado";
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            "No fue posible obtener las garantías"
-        );
-      }
+      case "RECHAZADO":
+        return "Rechazado";
 
-      const garantiasBackend: Garantia[] =
-        (data.garantias ?? []).map(
-          (garantia: any) => ({
-            idGarantia:
-              garantia.idGarantia,
-
-            idOrdenDeTrabajo:
-              garantia.idOrdenDeTrabajo,
-
-            idVenta:
-              garantia.idVenta,
-
-            cliente:
-              garantia.cliente
-                ? {
-                    idCliente:
-                      garantia.cliente.idCliente,
-
-                    nombre:
-                      garantia.cliente.nombre,
-
-                    rut:
-                      garantia.cliente.rut,
-                  }
-                : null,
-
-            motivoReclamo:
-              garantia.motivoReclamo,
-
-            fechaIngreso:
-              convertirFecha(
-                garantia.fechaIngreso
-              ) ?? "",
-
-            observaciones:
-              garantia.observaciones,
-
-            estado:
-              convertirEstado(
-                garantia.estado
-              ),
-
-            veredicto:
-              garantia.veredicto,
-
-            observacionesResolucion:
-              garantia.observacionesResolucion,
-
-            fechaResolucion:
-              convertirFecha(
-                garantia.fechaResolucion
-              ),
-          })
-        );
-
-      setGarantias(garantiasBackend);
-    } catch (error) {
-      console.error(
-        "[LIST_GARANTIAS]",
-        error
-      );
-
-      setGarantias([]);
-    } finally {
-      setIsLoading(false);
+      default:
+        return "Ingresado";
     }
   };
 
-  /* ============================================================
-     CARGAR AL MONTAR EL COMPONENTE
-  ============================================================ */
+  /*
+   * ============================================================
+   * OBTENER GARANTÍAS
+   * ============================================================
+   */
+
+  const cargarGarantias = useCallback(
+    async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch(
+          "/api/garantias",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              "No fue posible obtener las garantías"
+          );
+        }
+
+        const garantiasBackend =
+          Array.isArray(data?.garantias)
+            ? data.garantias
+            : [];
+
+        const garantiasFormateadas: Garantia[] =
+          garantiasBackend.map(
+            (garantia: any) => ({
+              idGarantia:
+                garantia.idGarantia,
+
+              idOrdenDeTrabajo:
+                garantia.idOrdenDeTrabajo,
+
+              cliente: {
+                idCliente:
+                  garantia.cliente?.idCliente ?? 0,
+
+                nombre:
+                  garantia.cliente?.nombre ??
+                  "Cliente sin nombre",
+
+                rut:
+                  garantia.cliente?.rut ??
+                  "Sin RUT",
+              },
+
+              motivoReclamo:
+                garantia.motivoReclamo ?? "",
+
+              fechaIngreso:
+                garantia.fechaIngreso,
+
+              observaciones:
+                garantia.observaciones ?? null,
+
+              estado:
+                convertirEstado(
+                  garantia.estado
+                ),
+
+              veredicto:
+                garantia.veredicto ===
+                  "Aprobado" ||
+                garantia.veredicto ===
+                  "Rechazado"
+                  ? garantia.veredicto
+                  : null,
+
+              observacionesResolucion:
+                garantia.observacionesResolucion ??
+                null,
+
+              fechaResolucion:
+                garantia.fechaResolucion ??
+                null,
+            })
+          );
+
+        setGarantias(
+          garantiasFormateadas
+        );
+      } catch (error) {
+        console.error(
+          "[LIST_GARANTIAS]",
+          error
+        );
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "No fue posible cargar las garantías"
+        );
+
+        setGarantias([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  /*
+   * ============================================================
+   * CARGA INICIAL
+   * ============================================================
+   */
 
   useEffect(() => {
     cargarGarantias();
-  }, []);
+  }, [cargarGarantias]);
 
-  /* ============================================================
-     KPIs
-  ============================================================ */
+  /*
+   * ============================================================
+   * KPIs
+   * ============================================================
+   */
 
-  const totalGarantias = garantias.length;
+  const totalGarantias =
+    garantias.length;
 
   const ingresadas = useMemo(
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado === "Ingresado"
+          garantia.estado ===
+          "Ingresado"
       ).length,
     [garantias]
   );
@@ -199,7 +229,8 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado === "En Revisión"
+          garantia.estado ===
+          "En Revisión"
       ).length,
     [garantias]
   );
@@ -208,7 +239,8 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado === "Aprobado"
+          garantia.estado ===
+          "Aprobado"
       ).length,
     [garantias]
   );
@@ -217,36 +249,52 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado === "Rechazado"
+          garantia.estado ===
+          "Rechazado"
       ).length,
     [garantias]
   );
 
-  /* ============================================================
-     VER DETALLE
-  ============================================================ */
+  /*
+   * ============================================================
+   * VER DETALLE
+   * ============================================================
+   */
 
-  const handleViewDetails = (id: number) => {
-    const garantia = garantias.find(
-      (item) =>
-        item.idGarantia === id
-    );
+  const handleViewDetails = (
+    id: number
+  ) => {
+    const garantia =
+      garantias.find(
+        (item) =>
+          item.idGarantia === id
+      );
 
     if (!garantia) return;
 
-    setSelectedGarantia(garantia);
+    setSelectedGarantia(
+      garantia
+    );
+
     setOpenDetailsModal(true);
   };
 
-  /* ============================================================
-     EDITAR
-  ============================================================ */
+  /*
+   * ============================================================
+   * MODIFICAR GARANTÍA
+   * ============================================================
+   *
+   * Todavía no implementado.
+   */
 
-  const handleEdit = (id: number) => {
-    const garantia = garantias.find(
-      (item) =>
-        item.idGarantia === id
-    );
+  const handleEdit = (
+    id: number
+  ) => {
+    const garantia =
+      garantias.find(
+        (item) =>
+          item.idGarantia === id
+      );
 
     if (!garantia) return;
 
@@ -256,26 +304,33 @@ export function ListGarantias() {
     );
   };
 
-  /* ============================================================
-     RESOLVER GARANTÍA
-  ============================================================ */
+  /*
+   * ============================================================
+   * RESOLVER GARANTÍA
+   * ============================================================
+   */
 
-  const handleResolve = (id: number) => {
-    const garantia = garantias.find(
-      (item) =>
-        item.idGarantia === id
-    );
+  const handleResolve = (
+    id: number
+  ) => {
+    const garantia =
+      garantias.find(
+        (item) =>
+          item.idGarantia === id
+      );
 
     if (!garantia) return;
 
     /*
-     * Una garantía que ya fue aprobada
-     * o rechazada no puede volver a resolverse.
+     * Una garantía aprobada o rechazada
+     * ya no puede volver a resolverse.
      */
 
     if (
-      garantia.estado === "Aprobado" ||
-      garantia.estado === "Rechazado"
+      garantia.estado ===
+        "Aprobado" ||
+      garantia.estado ===
+        "Rechazado"
     ) {
       return;
     }
@@ -287,9 +342,11 @@ export function ListGarantias() {
     setOpenResolveModal(true);
   };
 
-  /* ============================================================
-     GARANTÍA RESUELTA
-  ============================================================ */
+  /*
+   * ============================================================
+   * GARANTÍA RESUELTA
+   * ============================================================
+   */
 
   const handleResolved = (
     garantiaActualizada: Garantia
@@ -312,9 +369,11 @@ export function ListGarantias() {
     setOpenResolveModal(false);
   };
 
-  /* ============================================================
-     LOADING
-  ============================================================ */
+  /*
+   * ============================================================
+   * LOADING
+   * ============================================================
+   */
 
   if (isLoading) {
     return (
@@ -335,9 +394,39 @@ export function ListGarantias() {
     );
   }
 
-  /* ============================================================
-     RENDER
-  ============================================================ */
+  /*
+   * ============================================================
+   * ERROR
+   * ============================================================
+   */
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+        <h3 className="font-semibold text-destructive">
+          No fue posible cargar las garantías
+        </h3>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          {error}
+        </p>
+
+        <button
+          type="button"
+          onClick={cargarGarantias}
+          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

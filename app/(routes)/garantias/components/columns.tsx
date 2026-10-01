@@ -1,4 +1,3 @@
-
 "use client";
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table";
@@ -40,17 +39,37 @@ function CellActions({
 }: CellActionsProps) {
   const garantia = row.original;
 
-  const meta = table.options.meta as GarantiasTableMeta | undefined;
+  const meta =
+    table.options.meta as GarantiasTableMeta | undefined;
 
   const estadoNormalizado = String(garantia.estado)
     .trim()
     .toLowerCase();
 
-  // Solo se puede modificar una solicitud que aún está ingresada.
-  const canEdit = estadoNormalizado === "ingresado";
+  /*
+   * ============================================================
+   * PERMISOS DE ACCIONES SEGÚN ESTADO
+   * ============================================================
+   *
+   * INGRESADO:
+   * - Ver detalle
+   * - Modificar solicitud
+   * - Resolver garantía
+   *
+   * EN REVISIÓN:
+   * - Ver detalle
+   * - Resolver garantía
+   *
+   * APROBADO / RECHAZADO:
+   * - Solo ver detalle
+   */
 
-  // Solo se puede resolver una solicitud que está en revisión.
-  const canResolve = estadoNormalizado === "en revisión";
+  const canEdit =
+    estadoNormalizado === "ingresado";
+
+  const canResolve =
+    estadoNormalizado === "ingresado" ||
+    estadoNormalizado === "en revisión";
 
   return (
     <DropdownMenu>
@@ -72,47 +91,59 @@ function CellActions({
           Acciones
         </DropdownMenuLabel>
 
-        {/* ─────────────────────────────────────────
+        {/* =====================================================
             VER DETALLE
-        ───────────────────────────────────────── */}
+        ===================================================== */}
+
         <DropdownMenuItem
           onClick={() =>
-            meta?.onViewDetails?.(garantia.idGarantia)
+            meta?.onViewDetails?.(
+              garantia.idGarantia
+            )
           }
           className="flex cursor-pointer items-center gap-2"
         >
           <Eye className="h-4 w-4 text-muted-foreground" />
+
           Ver Detalle
         </DropdownMenuItem>
 
-        {/* ─────────────────────────────────────────
+        {/* =====================================================
             MODIFICAR SOLICITUD
-            Disponible solamente en "Ingresado"
-        ───────────────────────────────────────── */}
+            Solo disponible en "Ingresado"
+        ===================================================== */}
+
         {canEdit && (
           <DropdownMenuItem
             onClick={() =>
-              meta?.onEdit?.(garantia.idGarantia)
+              meta?.onEdit?.(
+                garantia.idGarantia
+              )
             }
             className="flex cursor-pointer items-center gap-2"
           >
             <Pencil className="h-4 w-4 text-muted-foreground" />
+
             Modificar Solicitud
           </DropdownMenuItem>
         )}
 
-        {/* ─────────────────────────────────────────
+        {/* =====================================================
             RESOLVER GARANTÍA
-            Disponible solamente en "En Revisión"
-        ───────────────────────────────────────── */}
+            Disponible en "Ingresado" y "En Revisión"
+        ===================================================== */}
+
         {canResolve && (
           <DropdownMenuItem
             onClick={() =>
-              meta?.onResolve?.(garantia.idGarantia)
+              meta?.onResolve?.(
+                garantia.idGarantia
+              )
             }
             className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
           >
             <Gavel className="h-4 w-4 text-primary" />
+
             Resolver Garantía
           </DropdownMenuItem>
         )}
@@ -122,9 +153,10 @@ function CellActions({
 }
 
 export const columns: ColumnDef<Garantia>[] = [
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // ID GARANTÍA
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     accessorKey: "idGarantia",
 
@@ -149,14 +181,17 @@ export const columns: ColumnDef<Garantia>[] = [
     cell: ({ row }) => (
       <span className="font-bold text-foreground">
         GAR-
-        {String(row.original.idGarantia).padStart(3, "0")}
+        {String(
+          row.original.idGarantia
+        ).padStart(3, "0")}
       </span>
     ),
   },
 
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // ORDEN DE TRABAJO
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     accessorKey: "idOrdenDeTrabajo",
 
@@ -169,13 +204,15 @@ export const columns: ColumnDef<Garantia>[] = [
     ),
   },
 
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // CLIENTE
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     id: "cliente",
 
-    accessorFn: (row) => row.cliente.nombre,
+    accessorFn: (row) =>
+      row.cliente.nombre,
 
     header: "Cliente",
 
@@ -186,15 +223,17 @@ export const columns: ColumnDef<Garantia>[] = [
         </p>
 
         <p className="text-[11px] text-muted-foreground">
-          RUT: {row.original.cliente.rut}
+          RUT:{" "}
+          {row.original.cliente.rut}
         </p>
       </div>
     ),
   },
 
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // FECHA DE INGRESO
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     accessorKey: "fechaIngreso",
 
@@ -204,28 +243,40 @@ export const columns: ColumnDef<Garantia>[] = [
       <span className="text-muted-foreground">
         {new Date(
           row.original.fechaIngreso
-        ).toLocaleDateString("es-CL", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })}
+        ).toLocaleDateString(
+          "es-CL",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }
+        )}
       </span>
     ),
   },
 
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // ESTADO
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     accessorKey: "estado",
 
     header: "Estado",
 
-    filterFn: (row, columnId, filterValue) => {
-      if (!filterValue) return true;
+    filterFn: (
+      row,
+      columnId,
+      filterValue
+    ) => {
+      if (!filterValue) {
+        return true;
+      }
 
       return (
-        String(row.getValue(columnId))
+        String(
+          row.getValue(columnId)
+        )
           .trim()
           .toLowerCase() ===
         String(filterValue)
@@ -235,11 +286,14 @@ export const columns: ColumnDef<Garantia>[] = [
     },
 
     cell: ({ row }) => {
-      const estado = String(row.original.estado);
+      const estado = String(
+        row.original.estado
+      );
 
-      const estadoNormalizado = estado
-        .trim()
-        .toLowerCase();
+      const estadoNormalizado =
+        estado
+          .trim()
+          .toLowerCase();
 
       let status:
         | "success"
@@ -247,26 +301,37 @@ export const columns: ColumnDef<Garantia>[] = [
         | "danger"
         | "neutral" = "neutral";
 
-      // Ingresado
-      if (estadoNormalizado === "ingresado") {
+      // INGRESADO
+      if (
+        estadoNormalizado ===
+        "ingresado"
+      ) {
         status = "neutral";
       }
 
-      // En Revisión
-      if (estadoNormalizado === "en revisión") {
+      // EN REVISIÓN
+      if (
+        estadoNormalizado ===
+        "en revisión"
+      ) {
         status = "warning";
       }
 
-      // Aprobado
-      if (estadoNormalizado === "aprobado") {
+      // APROBADO
+      if (
+        estadoNormalizado ===
+        "aprobado"
+      ) {
         status = "success";
       }
 
-      // Rechazado
-      if (estadoNormalizado === "rechazado") {
+      // RECHAZADO
+      if (
+        estadoNormalizado ===
+        "rechazado"
+      ) {
         status = "danger";
       }
-
 
       return (
         <StatusBadge
@@ -277,15 +342,19 @@ export const columns: ColumnDef<Garantia>[] = [
     },
   },
 
-  // ──────────────────────────────────────────────
+  // ==========================================================
   // ACCIONES
-  // ──────────────────────────────────────────────
+  // ==========================================================
+
   {
     id: "acciones",
 
     header: "Acciones",
 
-    cell: ({ row, table }) => (
+    cell: ({
+      row,
+      table,
+    }) => (
       <CellActions
         row={row}
         table={table}
