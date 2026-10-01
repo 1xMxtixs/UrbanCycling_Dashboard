@@ -311,17 +311,7 @@ export function ListGarantias() {
 
       </div>
 
-      {/* Aviso de solicitudes finalizadas */}
-      {finalizadas > 0 && (
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">
-            {finalizadas}
-          </span>{" "}
-          {finalizadas === 1
-            ? "solicitud finalizada."
-            : "solicitudes finalizadas."}
-        </div>
-      )}
+
 
       {/* Tabla */}
       <DataTable

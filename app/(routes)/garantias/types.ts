@@ -3,8 +3,7 @@ export type EstadoGarantia =
   | "Ingresado"
   | "En Revisión"
   | "Aprobado"
-  | "Rechazado"
-  | "Finalizado";
+  | "Rechazado";
 
 export interface Garantia {
   idGarantia: number;

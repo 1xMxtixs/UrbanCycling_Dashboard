@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import {
   CalendarDays,
   CheckCircle2,
@@ -37,7 +38,9 @@ interface CreateGarantiasDialogProps {
 }
 
 /*
+ * =====================================================
  * DATOS DE PRUEBA
+ * =====================================================
  *
  * Estas órdenes serán reemplazadas posteriormente
  * por información proveniente del backend.
@@ -159,7 +162,9 @@ export function CreateGarantiasDialog({
     setError("");
 
     /*
+     * =====================================================
      * Validación de Orden de Trabajo
+     * =====================================================
      */
     if (!orden) {
       setError(
@@ -169,7 +174,9 @@ export function CreateGarantiasDialog({
     }
 
     /*
+     * =====================================================
      * Validación del motivo
+     * =====================================================
      */
     if (!motivoReclamo.trim()) {
       setError(
@@ -179,7 +186,9 @@ export function CreateGarantiasDialog({
     }
 
     /*
+     * =====================================================
      * Máximo 500 caracteres
+     * =====================================================
      */
     if (motivoReclamo.length > 500) {
       setError(
@@ -273,7 +282,7 @@ export function CreateGarantiasDialog({
       open={open}
       onOpenChange={handleClose}
     >
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] !max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -289,9 +298,9 @@ export function CreateGarantiasDialog({
 
         <div className="space-y-6 py-2">
 
-          {/* ================================================= */}
-          {/* ORDEN DE TRABAJO */}
-          {/* ================================================= */}
+          {/* =================================================
+              ORDEN DE TRABAJO
+          ================================================= */}
 
           <div className="space-y-2">
             <Label htmlFor="orden">
@@ -338,13 +347,12 @@ export function CreateGarantiasDialog({
             </p>
           </div>
 
-          {/* ================================================= */}
-          {/* INFORMACIÓN AUTOMÁTICA */}
-          {/* ================================================= */}
+          {/* =================================================
+              INFORMACIÓN AUTOMÁTICA
+          ================================================= */}
 
           {orden && (
             <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
-
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
 
@@ -354,7 +362,6 @@ export function CreateGarantiasDialog({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-
                 <div>
                   <p className="text-xs text-muted-foreground">
                     Cliente
@@ -382,14 +389,13 @@ export function CreateGarantiasDialog({
                     Modelo: {orden.bicicleta.modelo}
                   </p>
                 </div>
-
               </div>
             </div>
           )}
 
-          {/* ================================================= */}
-          {/* FECHA DE INGRESO */}
-          {/* ================================================= */}
+          {/* =================================================
+              FECHA DE INGRESO
+          ================================================= */}
 
           <div className="space-y-2">
             <Label>
@@ -409,9 +415,9 @@ export function CreateGarantiasDialog({
             </p>
           </div>
 
-          {/* ================================================= */}
-          {/* MOTIVO DEL RECLAMO */}
-          {/* ================================================= */}
+          {/* =================================================
+              MOTIVO DEL RECLAMO
+          ================================================= */}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -443,9 +449,9 @@ export function CreateGarantiasDialog({
             />
           </div>
 
-          {/* ================================================= */}
-          {/* OBSERVACIONES */}
-          {/* ================================================= */}
+          {/* =================================================
+              OBSERVACIONES
+          ================================================= */}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -473,9 +479,9 @@ export function CreateGarantiasDialog({
             />
           </div>
 
-          {/* ================================================= */}
-          {/* ESTADO INICIAL */}
-          {/* ================================================= */}
+          {/* =================================================
+              ESTADO INICIAL
+          ================================================= */}
 
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
             <p className="text-xs text-muted-foreground">
@@ -492,9 +498,9 @@ export function CreateGarantiasDialog({
             </p>
           </div>
 
-          {/* ================================================= */}
-          {/* ERROR */}
-          {/* ================================================= */}
+          {/* =================================================
+              ERROR
+          ================================================= */}
 
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
@@ -504,9 +510,9 @@ export function CreateGarantiasDialog({
             </div>
           )}
 
-          {/* ================================================= */}
-          {/* BOTONES */}
-          {/* ================================================= */}
+          {/* =================================================
+              BOTONES
+          ================================================= */}
 
           <div className="flex justify-end gap-3 border-t pt-4">
 
