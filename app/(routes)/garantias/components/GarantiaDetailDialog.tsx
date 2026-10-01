@@ -49,7 +49,7 @@ export function GarantiaDetailDialog({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        className="sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl"
       >
         <DialogHeader>
           <div className="flex items-center gap-3">

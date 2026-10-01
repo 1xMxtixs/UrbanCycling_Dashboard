@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -37,65 +36,23 @@ interface CreateGarantiasDialogProps {
   onCreated?: (garantia: Garantia) => void;
 }
 
-/*
- * =====================================================
- * DATOS DE PRUEBA
- * =====================================================
- *
- * Estas órdenes serán reemplazadas posteriormente
- * por información proveniente del backend.
- *
- * CU74:
- * Solo deben poder seleccionarse órdenes de trabajo
- * que estén en estado "Entregado".
- */
+interface OrdenDisponible {
+  idOrdenDeTrabajo: number;
+  idVenta: number;
+  estado: string;
 
-const ordenesDisponibles = [
-  {
-    idOrdenDeTrabajo: 130,
+  cliente: {
+    idCliente: number;
+    nombre: string;
+    rut: string;
+  };
 
-    cliente: {
-      idCliente: 6,
-      nombre: "Sebastián Rojas Pérez",
-      rut: "17.345.678-5",
-    },
-
-    bicicleta: {
-      marca: "Trek",
-      modelo: "Marlin 7",
-    },
-  },
-
-  {
-    idOrdenDeTrabajo: 131,
-
-    cliente: {
-      idCliente: 7,
-      nombre: "Camila Torres Soto",
-      rut: "19.456.789-3",
-    },
-
-    bicicleta: {
-      marca: "Giant",
-      modelo: "Talon 2",
-    },
-  },
-
-  {
-    idOrdenDeTrabajo: 132,
-
-    cliente: {
-      idCliente: 8,
-      nombre: "Diego Morales Díaz",
-      rut: "16.234.567-8",
-    },
-
-    bicicleta: {
-      marca: "Specialized",
-      modelo: "Rockhopper",
-    },
-  },
-];
+  bicicletas: {
+    idBicicleta: number;
+    marca: string;
+    modelo: string;
+  }[];
+}
 
 export function CreateGarantiasDialog({
   open,
@@ -104,6 +61,12 @@ export function CreateGarantiasDialog({
 }: CreateGarantiasDialogProps) {
   const [ordenSeleccionada, setOrdenSeleccionada] =
     useState<string>("");
+
+  const [ordenesDisponibles, setOrdenesDisponibles] =
+    useState<OrdenDisponible[]>([]);
+
+  const [isLoadingOrdenes, setIsLoadingOrdenes] =
+    useState(false);
 
   const [motivoReclamo, setMotivoReclamo] =
     useState("");
@@ -116,24 +79,90 @@ export function CreateGarantiasDialog({
 
   const [error, setError] = useState("");
 
+  /*
+   * =====================================================
+   * CARGAR ÓRDENES DISPONIBLES
+   * =====================================================
+   *
+   * Las órdenes vienen directamente desde el backend.
+   *
+   * El endpoint solo debe devolver órdenes que cumplan
+   * las condiciones para registrar una garantía.
+   */
+
+  useEffect(() => {
+    if (!open) return;
+
+    const cargarOrdenes = async () => {
+      try {
+        setIsLoadingOrdenes(true);
+        setError("");
+
+        const response = await fetch(
+          "/api/garantias/ordenes-disponibles"
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              "No fue posible obtener las órdenes disponibles."
+          );
+        }
+
+        setOrdenesDisponibles(data.ordenes ?? []);
+      } catch (error) {
+        console.error(
+          "Error cargando órdenes disponibles:",
+          error
+        );
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "No fue posible cargar las órdenes de trabajo."
+        );
+
+        setOrdenesDisponibles([]);
+      } finally {
+        setIsLoadingOrdenes(false);
+      }
+    };
+
+    cargarOrdenes();
+  }, [open]);
+
+  /*
+   * =====================================================
+   * ORDEN SELECCIONADA
+   * =====================================================
+   */
+
   const orden = useMemo(() => {
     return ordenesDisponibles.find(
       (item) =>
         String(item.idOrdenDeTrabajo) ===
         ordenSeleccionada
     );
-  }, [ordenSeleccionada]);
+  }, [ordenSeleccionada, ordenesDisponibles]);
 
   /*
-   * Fecha actual de ingreso.
+   * =====================================================
+   * FECHA ACTUAL DE INGRESO
+   * =====================================================
    */
+
   const fechaIngreso = new Date()
     .toISOString()
     .split("T")[0];
 
   /*
-   * Formatear fecha para mostrarla.
+   * =====================================================
+   * FORMATEAR FECHA PARA MOSTRAR
+   * =====================================================
    */
+
   const fechaFormateada = new Date(
     `${fechaIngreso}T00:00:00`
   ).toLocaleDateString("es-CL", {
@@ -141,6 +170,12 @@ export function CreateGarantiasDialog({
     month: "long",
     year: "numeric",
   });
+
+  /*
+   * =====================================================
+   * RESET FORMULARIO
+   * =====================================================
+   */
 
   const resetForm = () => {
     setOrdenSeleccionada("");
@@ -150,6 +185,12 @@ export function CreateGarantiasDialog({
     setIsSubmitting(false);
   };
 
+  /*
+   * =====================================================
+   * CERRAR DIALOG
+   * =====================================================
+   */
+
   const handleClose = (value: boolean) => {
     if (!value) {
       resetForm();
@@ -158,42 +199,63 @@ export function CreateGarantiasDialog({
     onOpenChange(value);
   };
 
+  /*
+   * =====================================================
+   * ENVIAR FORMULARIO
+   * =====================================================
+   *
+   * IMPORTANTE:
+   * Actualmente este bloque todavía es una simulación.
+   *
+   * El siguiente paso será reemplazarlo por:
+   *
+   * POST /api/garantias
+   *
+   * para guardar realmente la solicitud en MySQL.
+   */
+
   const handleSubmit = async () => {
     setError("");
 
     /*
      * =====================================================
-     * Validación de Orden de Trabajo
+     * VALIDACIÓN DE ORDEN DE TRABAJO
      * =====================================================
      */
+
     if (!orden) {
       setError(
         "Debes seleccionar una Orden de Trabajo."
       );
+
       return;
     }
 
     /*
      * =====================================================
-     * Validación del motivo
+     * VALIDACIÓN DEL MOTIVO
      * =====================================================
      */
+
     if (!motivoReclamo.trim()) {
       setError(
         "El motivo del reclamo es obligatorio."
       );
+
       return;
     }
 
     /*
      * =====================================================
-     * Máximo 500 caracteres
+     * MÁXIMO 500 CARACTERES
      * =====================================================
      */
+
     if (motivoReclamo.length > 500) {
       setError(
         "El motivo del reclamo no puede superar los 500 caracteres."
       );
+
       return;
     }
 
@@ -201,6 +263,7 @@ export function CreateGarantiasDialog({
       setError(
         "Las observaciones no pueden superar los 500 caracteres."
       );
+
       return;
     }
 
@@ -212,9 +275,6 @@ export function CreateGarantiasDialog({
      * =====================================================
      *
      * Esto NO guarda todavía en la base de datos.
-     *
-     * Cuando backend esté listo, este bloque será reemplazado
-     * por la llamada al endpoint correspondiente.
      */
 
     const nuevaGarantia: Garantia = {
@@ -241,6 +301,7 @@ export function CreateGarantiasDialog({
        * Toda solicitud nueva comienza
        * en estado "Ingresado".
        */
+
       estado: "Ingresado",
 
       veredicto: null,
@@ -253,6 +314,7 @@ export function CreateGarantiasDialog({
     /*
      * Simulamos una operación de guardado.
      */
+
     await new Promise((resolve) =>
       setTimeout(resolve, 500)
     );
@@ -266,6 +328,7 @@ export function CreateGarantiasDialog({
      * Avisamos al componente padre
      * que se creó una nueva garantía.
      */
+
     onCreated?.(nuevaGarantia);
 
     setIsSubmitting(false);
@@ -273,6 +336,7 @@ export function CreateGarantiasDialog({
     /*
      * Limpiamos el formulario y cerramos.
      */
+
     resetForm();
     onOpenChange(false);
   };
@@ -316,26 +380,49 @@ export function CreateGarantiasDialog({
                 setOrdenSeleccionada(value);
                 setError("");
               }}
+              disabled={isLoadingOrdenes}
             >
               <SelectTrigger
                 id="orden"
                 className="w-full"
               >
-                <SelectValue placeholder="Seleccionar orden de trabajo" />
+                <SelectValue
+                  placeholder={
+                    isLoadingOrdenes
+                      ? "Cargando órdenes..."
+                      : "Seleccionar orden de trabajo"
+                  }
+                />
               </SelectTrigger>
 
               <SelectContent>
-                {ordenesDisponibles.map(
-                  (item) => (
-                    <SelectItem
-                      key={item.idOrdenDeTrabajo}
-                      value={String(
-                        item.idOrdenDeTrabajo
-                      )}
-                    >
-                      OT #{item.idOrdenDeTrabajo} —{" "}
-                      {item.cliente.nombre}
-                    </SelectItem>
+                {isLoadingOrdenes ? (
+                  <SelectItem
+                    value="loading"
+                    disabled
+                  >
+                    Cargando órdenes...
+                  </SelectItem>
+                ) : ordenesDisponibles.length === 0 ? (
+                  <SelectItem
+                    value="empty"
+                    disabled
+                  >
+                    No hay órdenes disponibles
+                  </SelectItem>
+                ) : (
+                  ordenesDisponibles.map(
+                    (item) => (
+                      <SelectItem
+                        key={item.idOrdenDeTrabajo}
+                        value={String(
+                          item.idOrdenDeTrabajo
+                        )}
+                      >
+                        OT #{item.idOrdenDeTrabajo} —{" "}
+                        {item.cliente.nombre}
+                      </SelectItem>
+                    )
                   )
                 )}
               </SelectContent>
@@ -362,6 +449,9 @@ export function CreateGarantiasDialog({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
+
+                {/* CLIENTE */}
+
                 <div>
                   <p className="text-xs text-muted-foreground">
                     Cliente
@@ -376,19 +466,25 @@ export function CreateGarantiasDialog({
                   </p>
                 </div>
 
+                {/* BICICLETA */}
+
                 <div>
                   <p className="text-xs text-muted-foreground">
                     Bicicleta
                   </p>
 
                   <p className="text-sm font-semibold">
-                    {orden.bicicleta.marca}
+                    {orden.bicicletas?.[0]?.marca ??
+                      "Sin bicicleta"}
                   </p>
 
                   <p className="text-xs text-muted-foreground">
-                    Modelo: {orden.bicicleta.modelo}
+                    Modelo:{" "}
+                    {orden.bicicletas?.[0]?.modelo ??
+                      "Sin modelo"}
                   </p>
                 </div>
+
               </div>
             </div>
           )}
@@ -441,6 +537,7 @@ export function CreateGarantiasDialog({
                 setMotivoReclamo(
                   event.target.value
                 );
+
                 setError("");
               }}
               maxLength={500}
@@ -531,7 +628,10 @@ export function CreateGarantiasDialog({
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                isLoadingOrdenes
+              }
               className="cursor-pointer"
             >
               {isSubmitting
@@ -540,6 +640,7 @@ export function CreateGarantiasDialog({
             </Button>
 
           </div>
+
         </div>
       </DialogContent>
     </Dialog>
