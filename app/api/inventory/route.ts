@@ -9,6 +9,7 @@ import {
 } from "@/lib/inventory-search"
 import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
+import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
 
 function withImageAlias(product: {
@@ -96,6 +97,24 @@ function parseCategoryId(value: string | null) {
     : Number.NaN
 }
 
+/**
+ * Convierte los parámetros del código de proveedor al mismo formato utilizado
+ * por las operaciones de creación y actualización de productos.
+ */
+function parseSupplierCodeFilter(searchParams: URLSearchParams) {
+  const filterData: Record<string, unknown> = {}
+
+  if (searchParams.has("codigoProveedor")) {
+    filterData.codigoProveedor = searchParams.get("codigoProveedor")
+  }
+
+  if (searchParams.has("codigo_proveedor")) {
+    filterData.codigo_proveedor = searchParams.get("codigo_proveedor")
+  }
+
+  return parseProductSupplierCode(filterData)
+}
+
 function validateStockMinimum(stockMinimo: unknown) {
   if (stockMinimo === undefined || stockMinimo === null || stockMinimo === "") {
     return NextResponse.json(
@@ -127,8 +146,8 @@ function validateStockMinimum(stockMinimo: unknown) {
 
 /**
  * GET /api/inventory
- * Lista productos o consulta uno por ID. También admite categoriaId para
- * alimentar la tabla y los filtros del módulo de inventario.
+ * Lista productos o consulta uno por ID. Admite filtros combinables por
+ * categoriaId y codigoProveedor para consultar asociaciones del inventario.
  */
 export async function GET(request: Request) {
   try {
@@ -320,37 +339,82 @@ export async function GET(request: Request) {
       )
     }
 
-    if (categoryId !== null) {
-      const category = await db.categoria.findUnique({
-        where: { idCategoria: categoryId },
-        select: {
-          idCategoria: true,
-          nombre: true,
-          estado: true,
+    const supplierCodeFilter = parseSupplierCodeFilter(searchParams)
+
+    if (supplierCodeFilter.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
         },
-      })
+        { status: 400 },
+      )
+    }
 
-      if (!category) {
-        return NextResponse.json(
-          {
-            code: "CATEGORIA_NO_EXISTE",
-            message: "La categoría seleccionada no existe.",
-          },
-          { status: 404 },
-        )
-      }
+    const supplierCode =
+      supplierCodeFilter.status === "valid"
+        ? supplierCodeFilter.value
+        : null
 
+    const category =
+      categoryId !== null
+        ? await db.categoria.findUnique({
+            where: { idCategoria: categoryId },
+            select: {
+              idCategoria: true,
+              nombre: true,
+              estado: true,
+            },
+          })
+        : null
+
+    if (categoryId !== null && !category) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIA_NO_EXISTE",
+          message: "La categoría seleccionada no existe.",
+        },
+        { status: 404 },
+      )
+    }
+
+    const hasCategoryFilter = categoryId !== null
+    const hasSupplierCodeFilter = supplierCode !== null
+
+    if (hasCategoryFilter || hasSupplierCodeFilter) {
       const products = await db.producto.findMany({
         where: {
-          categoriasProducto: {
-            some: { idCategoria: categoryId },
-          },
+          ...(supplierCode !== null
+            ? { codigoProveedor: supplierCode }
+            : {}),
+          ...(categoryId !== null
+            ? {
+                categoriasProducto: {
+                  some: { idCategoria: categoryId },
+                },
+              }
+            : {}),
         },
         orderBy: { idProducto: "desc" },
         include: productCategoriesInclude,
       })
 
-      if (products.length === 0) {
+      if (supplierCode !== null) {
+        return NextResponse.json({
+          code: "PRODUCTOS_PROVEEDOR_CARGADOS",
+          message:
+            products.length > 0
+              ? `Productos asociados al código ${supplierCode}.`
+              : `No existen productos asociados al código ${supplierCode}.`,
+          codigoProveedor: supplierCode,
+          ...(category ? { category } : {}),
+          products: products.map(withImageAlias),
+          count: products.length,
+        })
+      }
+
+      if (products.length === 0 && category) {
         return NextResponse.json(
           {
             code: "PRODUCTOS_NO_ENCONTRADOS_EN_CATEGORIA",
@@ -365,7 +429,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         code: "PRODUCTOS_FILTRADOS",
-        message: `Productos de la categoría ${category.nombre}.`,
+        message: `Productos de la categoría ${category!.nombre}.`,
         category,
         products: products.map(withImageAlias),
         count: products.length,
@@ -399,7 +463,45 @@ export async function POST(request: Request) {
       return response
     }
 
-    const data = await request.json()
+    let data
+
+    try {
+      data = await request.json()
+    } catch {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener datos JSON válidos.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener un objeto JSON válido.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const supplierCodeResult = parseProductSupplierCode(
+      data as Record<string, unknown>,
+    )
+
+    if (supplierCodeResult.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
+        },
+        { status: 400 },
+      )
+    }
+
     const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
 
     if (stockMinimumValidation) {
@@ -457,6 +559,10 @@ export async function POST(request: Request) {
       const createdProduct = await tx.producto.create({
         data: {
           tipoProducto: data.tipoProducto,
+          codigoProveedor:
+            supplierCodeResult.status === "valid"
+              ? supplierCodeResult.value
+              : null,
           nombre: data.nombre,
           descripcion: data.descripcion ?? null,
           precioVenta: data.precioVenta,
