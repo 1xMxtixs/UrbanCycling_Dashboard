@@ -40,6 +40,7 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "warranties:create",
     "warranties:read",
     "warranties:update",
+    "warranties:resolve",
     "sales:read",
     "sales:create",
     "payments:create",
@@ -146,6 +147,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { code: "warranties:create", label: "Registrar solicitudes" },
       { code: "warranties:read", label: "Ver solicitudes" },
       { code: "warranties:update", label: "Modificar solicitudes" },
+      { code: "warranties:resolve", label: "Resolver solicitudes" },
     ],
   },
   {
