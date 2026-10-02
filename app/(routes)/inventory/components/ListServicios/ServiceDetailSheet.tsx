@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet"
 
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
@@ -50,7 +51,7 @@ export function ServiceDetailSheet({
             </SheetHeader>
 
             <div className="space-y-6 pt-4">
-              {/* Badge informativo de tipo — mantiene el ritmo visual del de productos */}
+              {/* Badge informativo de tipo */}
               <div className="flex items-center gap-2">
                 <StatusBadge
                   status="info"
@@ -59,36 +60,38 @@ export function ServiceDetailSheet({
                 />
               </div>
 
-              {/* Grid de 4 tarjetas de datos */}
+              {/* Grid de tarjetas de datos usando DataField */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    Código
-                  </span>
-                  <p className="font-mono text-sm font-bold text-foreground break-all">{service.codigo}</p>
+                  <DataField
+                    label="Código"
+                    value={<span className="font-mono break-all">{service.codigo}</span>}
+                  />
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    Precio Mano de Obra
-                  </span>
-                  <p className="text-base font-extrabold text-foreground">{formatCurrency(service.precioVenta)}</p>
+                  <DataField
+                    label="Precio Mano de Obra"
+                    value={
+                      <span className="text-base font-extrabold text-foreground">
+                        {formatCurrency(service.precioVenta)}
+                      </span>
+                    }
+                  />
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    ID Servicio
-                  </span>
-                  <p className="font-mono text-sm font-bold text-foreground">#{service.idServicio}</p>
+                  <DataField
+                    label="ID Servicio"
+                    value={<span className="font-mono">#{service.idServicio}</span>}
+                  />
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                    Estado
-                  </span>
-                  <p className="text-sm font-bold text-foreground">
-                    {getNombreEstadoRegistro(service.estado)}
-                  </p>
+                  <DataField
+                    label="Estado"
+                    value={getNombreEstadoRegistro(service.estado)}
+                  />
                 </div>
               </div>
 

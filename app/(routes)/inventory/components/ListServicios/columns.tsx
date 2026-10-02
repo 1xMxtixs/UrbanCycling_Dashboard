@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, Trash2, Wrench } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, PowerOff, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -139,7 +139,7 @@ export function getColumns({
                         onClick={() => onToggleStatus?.(servicio)}
                         className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <PowerOff className="h-3.5 w-3.5" />
                         Inactivar servicio
                       </DropdownMenuItem>
                     ) : (
