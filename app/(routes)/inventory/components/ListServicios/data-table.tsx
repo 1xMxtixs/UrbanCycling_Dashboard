@@ -130,7 +130,7 @@ export function DataTable<TData extends ServiceColumn, TValue>({
 
               <Select
                 value={
-                  (table.getColumn("estado")?.getFilterValue() as string) ?? "activo"
+                  (table.getColumn("estado")?.getFilterValue() as string) || "all"
                 }
                 onValueChange={(value) =>
                   table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)

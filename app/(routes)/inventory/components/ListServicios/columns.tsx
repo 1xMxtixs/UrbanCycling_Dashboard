@@ -98,7 +98,8 @@ export function getColumns({
       },
       filterFn: (row, id, value) => {
         if (!value) return true
-        return (row.getValue(id) as string).toLowerCase() === value.toLowerCase()
+        const isActivo = isRegistroActivo(String(row.getValue(id)))
+        return value.toLowerCase() === "activo" ? isActivo : !isActivo
       },
     },
     {
