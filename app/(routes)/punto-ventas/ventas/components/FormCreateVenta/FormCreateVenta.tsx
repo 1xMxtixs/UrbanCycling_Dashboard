@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+
 import {
   Plus,
   Trash2,
@@ -15,6 +16,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_VENTA } from "@/lib/sale-status"
+import { isRegistroActivo } from "@/lib/registro-status"
+import { METODO_PAGO_DEFECTO, METODOS_PAGO } from "@/lib/payment-methods"
 
 import {
   Select,
@@ -59,7 +64,7 @@ interface SelectedProduct {
   idProducto: string
   cantidad: number
   precioUnitario: number
-  descuento: number
+  descuentoUnitario: number
 }
 
 interface FormCreateVentaProps {
@@ -79,11 +84,11 @@ export function FormCreateVenta({
 
   const [selectedClientId, setSelectedClientId] = useState<string>("")
 
-  // Descuento global
+  // Descuento global en pesos chilenos
   const [descuento, setDescuento] = useState<number>(0)
 
-  const [metodoPago, setMetodoPago] = useState<string>("efectivo")
-  const [estadoPago, setEstadoPago] = useState<string>("pagada")
+  const [metodoPago, setMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
+  const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PAGADA)
 
   const [selectedProducts, setSelectedProducts] = useState<
     SelectedProduct[]
@@ -91,11 +96,10 @@ export function FormCreateVenta({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Guardará la respuesta de éxito para mostrar la confirmación
   const [saleResult, setSaleResult] = useState<any>(null)
 
-  // Controla el diálogo secundario de registro rápido
-  const [openQuickCreateClient, setOpenQuickCreateClient] = useState(false)
+  const [openQuickCreateClient, setOpenQuickCreateClient] =
+    useState(false)
 
   async function fetchClients(selectNewest = false) {
     try {
@@ -130,9 +134,7 @@ export function FormCreateVenta({
       if (res.ok) {
         const data = await res.json()
 
-        setProducts(
-          data.filter((p: Product) => p.estado === "activo")
-        )
+        setProducts(data.filter((p: Product) => isRegistroActivo(p.estado)))
       }
     } catch (err) {
       console.error("Error fetching products:", err)
@@ -147,7 +149,6 @@ export function FormCreateVenta({
     fetchProducts()
   }, [])
 
-  // Agregar nueva línea de producto
   const handleAddProduct = () => {
     setSelectedProducts([
       ...selectedProducts,
@@ -155,7 +156,7 @@ export function FormCreateVenta({
         idProducto: "",
         cantidad: 1,
         precioUnitario: 0,
-        descuento: 0,
+        descuentoUnitario: 0,
       },
     ])
   }
@@ -184,7 +185,7 @@ export function FormCreateVenta({
       idProducto,
       precioUnitario: price,
       cantidad: 1,
-      descuento: 0,
+      descuentoUnitario: 0,
     }
 
     setSelectedProducts(updated)
@@ -197,43 +198,37 @@ export function FormCreateVenta({
   ) => {
     const updated = [...selectedProducts]
 
-    const product = updated[index]
-
-    const maxDescuento =
-      Math.max(1, cantidad) * product.precioUnitario
+    const cantidadValida = Math.max(1, cantidad)
 
     updated[index] = {
-      ...product,
-      cantidad: Math.max(1, cantidad),
-      descuento: Math.min(
-        product.descuento,
-        maxDescuento
+      ...updated[index],
+      cantidad: cantidadValida,
+      descuentoUnitario: Math.min(
+        updated[index].descuentoUnitario,
+        updated[index].precioUnitario
       ),
     }
 
     setSelectedProducts(updated)
   }
 
-  // Cambiar descuento por línea
+  // Cambiar descuento unitario
   const handleProductDiscountChange = (
     index: number,
-    descuentoLinea: number
+    descuentoUnitario: number
   ) => {
     const updated = [...selectedProducts]
 
     const product = updated[index]
 
-    const subtotalLinea =
-      product.cantidad * product.precioUnitario
-
     const descuentoValido = Math.min(
-      subtotalLinea,
-      Math.max(0, descuentoLinea)
+      product.precioUnitario,
+      Math.max(0, descuentoUnitario)
     )
 
     updated[index] = {
       ...product,
-      descuento: descuentoValido,
+      descuentoUnitario: descuentoValido,
     }
 
     setSelectedProducts(updated)
@@ -246,9 +241,10 @@ export function FormCreateVenta({
     0
   )
 
-  // Total de descuentos por línea
+  // Total de descuentos por producto
   const totalLineDiscounts = selectedProducts.reduce(
-    (sum, p) => sum + p.descuento,
+    (sum, p) =>
+      sum + p.cantidad * p.descuentoUnitario,
     0
   )
 
@@ -258,26 +254,28 @@ export function FormCreateVenta({
     totalProductsCost - totalLineDiscounts
   )
 
-  // El descuento global se aplica después de los descuentos por línea
-  const descuentoGlobalValido = Math.min(
-    subtotalAfterLineDiscounts,
-    Math.max(0, descuento)
+  // El descuento global no puede superar lo que queda
+  const descuentoGlobal = Math.min(
+    descuento,
+    subtotalAfterLineDiscounts
   )
 
-  const subtotal = subtotalAfterLineDiscounts
-
+  // Total final
   const finalTotal = Math.max(
     0,
-    subtotal - descuentoGlobalValido
+    subtotalAfterLineDiscounts - descuentoGlobal
   )
 
-  const neto = Math.round(finalTotal / 1.19)
+  const subtotal = totalProductsCost
 
+  const neto = Math.round(finalTotal / 1.19)
   const iva = finalTotal - neto
 
   const handleQuickClientSuccess = () => {
     setOpenQuickCreateClient(false)
+
     toast.success("Cliente creado correctamente.")
+
     fetchClients(true)
   }
 
@@ -307,36 +305,13 @@ export function FormCreateVenta({
       return
     }
 
-    // Validación de descuentos
-    const invalidDiscountIdx =
-      selectedProducts.findIndex(
-        (p) =>
-          p.descuento < 0 ||
-          p.descuento >
-            p.cantidad * p.precioUnitario
-      )
-
-    if (invalidDiscountIdx !== -1) {
-      toast.error(
-        `Descuento inválido en la línea #${
-          invalidDiscountIdx + 1
-        }.`
-      )
-      return
-    }
-
     // Validación de stock
-    for (
-      let i = 0;
-      i < selectedProducts.length;
-      i++
-    ) {
+    for (let i = 0; i < selectedProducts.length; i++) {
       const sp = selectedProducts[i]
 
       const prod = products.find(
         (p) =>
-          p.idProducto.toString() ===
-          sp.idProducto
+          p.idProducto.toString() === sp.idProducto
       )
 
       if (
@@ -346,9 +321,38 @@ export function FormCreateVenta({
         toast.error(
           `Stock insuficiente para ${prod.nombre}. Solicitado: ${sp.cantidad}, Disponible: ${prod.stockActual}`
         )
-
         return
       }
+    }
+
+    // Validación de descuentos unitarios
+    const invalidDiscountIdx =
+      selectedProducts.findIndex(
+        (p) =>
+          p.descuentoUnitario < 0 ||
+          p.descuentoUnitario >
+            p.precioUnitario
+      )
+
+    if (invalidDiscountIdx !== -1) {
+      toast.error(
+        `Descuento inválido en la línea #${
+          invalidDiscountIdx + 1
+        }. El descuento no puede superar el precio unitario.`
+      )
+      return
+    }
+
+    // Validación del descuento global
+    if (
+      descuentoGlobal < 0 ||
+      descuentoGlobal >
+        subtotalAfterLineDiscounts
+    ) {
+      toast.error(
+        "El descuento global no puede superar el subtotal disponible."
+      )
+      return
     }
 
     setIsSubmitting(true)
@@ -361,7 +365,6 @@ export function FormCreateVenta({
           headers: {
             "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
             id_usuario: 1,
             id_cliente: selectedClientId
@@ -370,23 +373,26 @@ export function FormCreateVenta({
 
             estado_pago: estadoPago,
 
-            // Descuento global actual
-            descuento: descuentoGlobalValido,
+            // Descuento global
+            descuento: descuentoGlobal,
 
-            productos: selectedProducts.map(
-              (p) => ({
+            productos:
+              selectedProducts.map((p) => ({
                 idProducto: Number(
                   p.idProducto
                 ),
                 cantidad: p.cantidad,
                 precioUnitario:
                   p.precioUnitario,
-              })
-            ),
+
+                // Descuento monetario por unidad
+                descuentoUnitario:
+                  p.descuentoUnitario,
+              })),
 
             metodo_pago: metodoPago,
             monto_pagado: finalTotal,
-            estado_venta: "confirmada",
+            estado_venta: ESTADO_VENTA.COMPLETADA,
           }),
         }
       )
@@ -419,6 +425,7 @@ export function FormCreateVenta({
       setSaleResult(responseData)
     } catch (err) {
       console.error(err)
+
       toast.error(
         "Error de conexión al procesar la venta."
       )
@@ -433,10 +440,11 @@ export function FormCreateVenta({
     )
 
     router.refresh()
+
     setOpenModalCreate(false)
   }
 
-  // Vista de Recibo / Confirmación de Venta
+  // Vista de recibo
   if (saleResult) {
     const clientData = selectedClientId
       ? clients.find(
@@ -462,7 +470,10 @@ export function FormCreateVenta({
         selectedProducts={selectedProducts}
         products={products}
         subtotal={subtotal}
-        descuento={descuentoGlobalValido}
+        descuento={
+          totalLineDiscounts +
+          descuentoGlobal
+        }
         neto={neto}
         iva={iva}
         finalTotal={finalTotal}
@@ -480,6 +491,7 @@ export function FormCreateVenta({
         className="space-y-6 py-2"
       >
         <div className="grid gap-4 sm:grid-cols-2">
+
           {/* Selector de Cliente */}
           <div className="space-y-1.5">
             <Label
@@ -501,11 +513,14 @@ export function FormCreateVenta({
               <>
                 <Select
                   value={
-                    selectedClientId || "none"
+                    selectedClientId ||
+                    "none"
                   }
                   onValueChange={(val) =>
                     setSelectedClientId(
-                      val === "none" ? "" : val
+                      val === "none"
+                        ? ""
+                        : val
                     )
                   }
                 >
@@ -519,11 +534,13 @@ export function FormCreateVenta({
                     </SelectItem>
 
                     {clients.map((c) => {
-                      const label = c.razonSocial
-                        ? `${c.razonSocial} (${c.rut})`
-                        : `${c.primerNombre} ${
-                            c.apellidoPaterno || ""
-                          } (${c.rut})`.trim()
+                      const label =
+                        c.razonSocial
+                          ? `${c.razonSocial} (${c.rut})`
+                          : `${c.primerNombre} ${
+                              c.apellidoPaterno ||
+                              ""
+                            } (${c.rut})`.trim()
 
                       return (
                         <SelectItem
@@ -576,7 +593,7 @@ export function FormCreateVenta({
             )}
           </div>
 
-          {/* Fecha de Registro */}
+          {/* Fecha */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 dark:text-slate-400">
               Fecha de Venta
@@ -593,7 +610,7 @@ export function FormCreateVenta({
           </div>
         </div>
 
-        {/* Listado de Productos */}
+        {/* Productos */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <Label className="text-sm font-bold flex items-center gap-1">
@@ -653,15 +670,17 @@ export function FormCreateVenta({
 
                   const subtotalLinea =
                     selProd.cantidad *
+                    (
                       selProd.precioUnitario -
-                    selProd.descuento
+                      selProd.descuentoUnitario
+                    )
 
                   return (
                     <div
                       key={idx}
                       className="flex flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs animate-in slide-in-from-top-1 duration-150"
                     >
-                      {/* Selector del Producto */}
+                      {/* Producto */}
                       <div className="flex-1 min-w-52">
                         {isLoadingProducts ? (
                           <div className="flex h-9 items-center justify-center rounded-md border border-input px-3 py-1 text-xs text-muted-foreground">
@@ -686,28 +705,35 @@ export function FormCreateVenta({
                             </SelectTrigger>
 
                             <SelectContent position="popper">
-                              {products.map((p) => (
-                                <SelectItem
-                                  key={p.idProducto}
-                                  value={String(
-                                    p.idProducto
-                                  )}
-                                >
-                                  {p.nombre} (Stock:{" "}
-                                  {p.stockActual}) - $
-                                  {Number(
-                                    p.precioVenta
-                                  ).toLocaleString(
-                                    "es-CL"
-                                  )}
-                                </SelectItem>
-                              ))}
+                              {products.map(
+                                (p) => (
+                                  <SelectItem
+                                    key={
+                                      p.idProducto
+                                    }
+                                    value={String(
+                                      p.idProducto
+                                    )}
+                                  >
+                                    {p.nombre}{" "}
+                                    (Stock:{" "}
+                                    {
+                                      p.stockActual
+                                    }) - $
+                                    {Number(
+                                      p.precioVenta
+                                    ).toLocaleString(
+                                      "es-CL"
+                                    )}
+                                  </SelectItem>
+                                )
+                              )}
                             </SelectContent>
                           </Select>
                         )}
                       </div>
 
-                      {/* Entrada de Cantidad */}
+                      {/* Cantidad */}
                       <div className="w-24">
                         <div className="relative">
                           <Input
@@ -745,7 +771,7 @@ export function FormCreateVenta({
                         </div>
                       </div>
 
-                      {/* Precio Unitario */}
+                      {/* Precio unitario */}
                       <div className="text-xs font-semibold w-24">
                         Uni: $
                         {selProd.precioUnitario.toLocaleString(
@@ -753,16 +779,17 @@ export function FormCreateVenta({
                         )}
                       </div>
 
-                      {/* Descuento por línea */}
+                      {/* Descuento unitario */}
                       <div className="w-24">
                         <Input
                           type="number"
                           min={0}
                           max={
-                            selProd.cantidad *
                             selProd.precioUnitario
                           }
-                          value={selProd.descuento}
+                          value={
+                            selProd.descuentoUnitario
+                          }
                           onChange={(e) =>
                             handleProductDiscountChange(
                               idx,
@@ -779,28 +806,27 @@ export function FormCreateVenta({
                       {/* Subtotal */}
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200 w-24 text-right">
                         Sub: $
-                        {Math.max(
-                          0,
-                          subtotalLinea
-                        ).toLocaleString(
+                        {subtotalLinea.toLocaleString(
                           "es-CL"
                         )}
                       </div>
 
-                      {/* Borrar Fila */}
+                      {/* Eliminar */}
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() =>
-                          handleRemoveProduct(idx)
+                          handleRemoveProduct(
+                            idx
+                          )
                         }
                         className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 rounded-md cursor-pointer transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
 
-                      {/* Alerta de Stock */}
+                      {/* Stock */}
                       {isOut && (
                         <div className="w-full text-[10px] text-red-500 font-bold px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 animate-in fade-in slide-in-from-top-1 duration-150">
                           Advertencia de Caso de Uso: No hay suficiente stock disponible. (Stock Máximo:{" "}
@@ -815,9 +841,10 @@ export function FormCreateVenta({
           )}
         </div>
 
-        {/* Detalles Financieros y Pago */}
+        {/* Detalles financieros y pago */}
         <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-          {/* Configuración de Pago */}
+
+          {/* Pago */}
           <div className="space-y-4">
             <Label className="text-sm font-bold flex items-center gap-1">
               <DollarSign className="h-4 w-4 text-primary" />
@@ -825,7 +852,8 @@ export function FormCreateVenta({
             </Label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {/* Método de Pago */}
+
+              {/* Método */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="metodoPago"
@@ -843,26 +871,16 @@ export function FormCreateVenta({
                   </SelectTrigger>
 
                   <SelectContent position="popper">
-                    <SelectItem value="efectivo">
-                      Efectivo
-                    </SelectItem>
-
-                    <SelectItem value="transferencia">
-                      Transferencia
-                    </SelectItem>
-
-                    <SelectItem value="debito">
-                      Tarjeta de Débito
-                    </SelectItem>
-
-                    <SelectItem value="credito">
-                      Tarjeta de Crédito
-                    </SelectItem>
+                    {METODOS_PAGO.map((metodo) => (
+                      <SelectItem key={metodo.codigo} value={metodo.codigo}>
+                        {metodo.nombre}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Estado de Pago */}
+              {/* Estado */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="estadoPago"
@@ -880,11 +898,10 @@ export function FormCreateVenta({
                   </SelectTrigger>
 
                   <SelectContent position="popper">
-                    <SelectItem value="pagada">
+                    <SelectItem value={ESTADO_PAGO.PAGADA}>
                       Pagada (Cierre de Venta)
                     </SelectItem>
-
-                    <SelectItem value="pendiente">
+                    <SelectItem value={ESTADO_PAGO.PENDIENTE}>
                       Pendiente (Abono posterior)
                     </SelectItem>
                   </SelectContent>
@@ -892,13 +909,13 @@ export function FormCreateVenta({
               </div>
             </div>
 
-            {/* Descuento Global */}
+            {/* Descuento global */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="descuento"
                 className="text-xs font-semibold flex items-center gap-1"
               >
-                <Percent className="h-3 w-3" />
+                <DollarSign className="h-3 w-3" />
                 Descuento Global ($)
               </Label>
 
@@ -906,15 +923,19 @@ export function FormCreateVenta({
                 id="descuento"
                 type="number"
                 min={0}
-                max={subtotal}
+                max={
+                  subtotalAfterLineDiscounts
+                }
                 value={descuento}
                 onChange={(e) =>
                   setDescuento(
                     Math.min(
-                      subtotal,
+                      subtotalAfterLineDiscounts,
                       Math.max(
                         0,
-                        Number(e.target.value)
+                        Number(
+                          e.target.value
+                        )
                       )
                     )
                   )
@@ -925,7 +946,7 @@ export function FormCreateVenta({
             </div>
           </div>
 
-          {/* Resumen de Costos */}
+          {/* Resumen */}
           <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-3 text-xs font-semibold">
             <h4 className="text-xs uppercase font-bold text-slate-500 tracking-wider border-b border-slate-200/50 dark:border-slate-800 pb-1.5">
               Resumen de Totales
@@ -938,7 +959,7 @@ export function FormCreateVenta({
 
               <span className="font-bold text-slate-700 dark:text-slate-300">
                 $
-                {totalProductsCost.toLocaleString(
+                {subtotal.toLocaleString(
                   "es-CL"
                 )}
               </span>
@@ -947,7 +968,7 @@ export function FormCreateVenta({
             {totalLineDiscounts > 0 && (
               <div className="flex justify-between text-red-500">
                 <span className="font-bold">
-                  Descuentos por Línea:
+                  Descuentos por Productos:
                 </span>
 
                 <span>
@@ -959,7 +980,7 @@ export function FormCreateVenta({
               </div>
             )}
 
-            {descuentoGlobalValido > 0 && (
+            {descuentoGlobal > 0 && (
               <div className="flex justify-between text-red-500">
                 <span className="font-bold">
                   Descuento Global:
@@ -967,7 +988,7 @@ export function FormCreateVenta({
 
                 <span>
                   -$
-                  {descuentoGlobalValido.toLocaleString(
+                  {descuentoGlobal.toLocaleString(
                     "es-CL"
                   )}
                 </span>
@@ -980,7 +1001,10 @@ export function FormCreateVenta({
               </span>
 
               <span>
-                ${neto.toLocaleString("es-CL")}
+                $
+                {neto.toLocaleString(
+                  "es-CL"
+                )}
               </span>
             </div>
 
@@ -988,7 +1012,10 @@ export function FormCreateVenta({
               <span>IVA (19%):</span>
 
               <span>
-                ${iva.toLocaleString("es-CL")}
+                $
+                {iva.toLocaleString(
+                  "es-CL"
+                )}
               </span>
             </div>
 
@@ -996,13 +1023,16 @@ export function FormCreateVenta({
               <span>TOTAL FINAL:</span>
 
               <span className="text-base">
-                ${finalTotal.toLocaleString("es-CL")}
+                $
+                {finalTotal.toLocaleString(
+                  "es-CL"
+                )}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Botones de Envío */}
+        {/* Botones */}
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <Button
             type="button"
@@ -1019,19 +1049,22 @@ export function FormCreateVenta({
             type="submit"
             disabled={
               isSubmitting ||
-              selectedProducts.some((p) => {
-                const matched = products.find(
-                  (pr) =>
-                    pr.idProducto.toString() ===
-                    p.idProducto
-                )
+              selectedProducts.some(
+                (p) => {
+                  const matched =
+                    products.find(
+                      (pr) =>
+                        pr.idProducto.toString() ===
+                        p.idProducto
+                    )
 
-                return (
-                  matched &&
-                  p.cantidad >
-                    matched.stockActual
-                )
-              })
+                  return (
+                    matched &&
+                    p.cantidad >
+                      matched.stockActual
+                  )
+                }
+              )
             }
             className="font-bold"
           >
@@ -1047,7 +1080,7 @@ export function FormCreateVenta({
         </div>
       </form>
 
-      {/* Diálogo de Registro Rápido de Cliente */}
+      {/* Registro rápido de cliente */}
       <Dialog
         open={openQuickCreateClient}
         onOpenChange={
@@ -1061,8 +1094,7 @@ export function FormCreateVenta({
             </DialogTitle>
 
             <DialogDescription>
-              Ingresa los datos para registrar un
-              nuevo cliente en el sistema.
+              Ingresa los datos para registrar un nuevo cliente en el sistema.
             </DialogDescription>
           </DialogHeader>
 
@@ -1073,4 +1105,4 @@ export function FormCreateVenta({
       </Dialog>
     </>
   )
-} 
+}
