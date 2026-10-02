@@ -115,7 +115,7 @@ async function main() {
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
     { nombre: "Crear ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "create", codigo: "purchase_orders:create", descripcion: "Permite registrar ordenes de compra" },
-    { nombre: "Actualizar ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "update", codigo: "purchase_orders:update", descripcion: "Permite cambiar el estado administrativo de las ordenes de compra" },
+    { nombre: "Actualizar ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "update", codigo: "purchase_orders:update", descripcion: "Permite cambiar el estado, registrar pagos e ingresar productos al inventario al completar ordenes de compra" },
     { nombre: "Crear pagos", modulo: "pagos", recurso: "pagos", accion: "create", codigo: "payments:create", descripcion: "Permite registrar pagos" },
     { nombre: "Crear DTE", modulo: "dte", recurso: "dte", accion: "create", codigo: "receipts:create", descripcion: "Permite emitir documentos tributarios" },
     { nombre: "Ver usuarios", modulo: "usuarios", recurso: "usuarios", accion: "read", codigo: "users:read", descripcion: "Permite ver usuarios" },
