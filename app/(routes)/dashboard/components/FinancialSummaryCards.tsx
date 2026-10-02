@@ -1,5 +1,5 @@
 import React from "react"
-import { DollarSign, Calendar, Wrench } from "lucide-react"
+import { Calendar, DollarSign, Wrench } from "lucide-react"
 import { MetricCard } from "@/components/common/MetricCard"
 import { formatCLP } from "@/lib/formatters"
 import type { FinancialSummaryData } from "../types"
@@ -10,27 +10,10 @@ interface FinancialSummaryCardsProps {
 
 export function FinancialSummaryCards({ data }: FinancialSummaryCardsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <MetricCard
-        title="Ingresos del Período"
-        value={formatCLP(data.totalRevenue)}
-        description="Ventas mostrador + servicios de taller"
-        icon={DollarSign}
-      />
-
-      <MetricCard
-        title="Ingresos de Hoy"
-        value={formatCLP(data.todayRevenue)}
-        description="Cierre de caja en curso (día actual)"
-        icon={Calendar}
-      />
-
-      <MetricCard
-        title="Órdenes de Trabajo"
-        value={data.totalWorkOrders}
-        description={`${data.workOrdersFinished} finalizadas • ${data.workOrdersInProgress} en reparación`}
-        icon={Wrench}
-      />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricCard title="Ingresos del período" value={formatCLP(data.totalRevenue)} description="Ventas de mostrador y órdenes de trabajo entregadas" icon={DollarSign} />
+      <MetricCard title="Ingresos de hoy" value={formatCLP(data.todayRevenue)} description="Ventas y órdenes registradas en la jornada actual" icon={Calendar} />
+      <MetricCard title="Órdenes de trabajo" value={data.totalWorkOrders} description={`${data.workOrdersFinished} entregadas en el período`} icon={Wrench} />
     </div>
   )
 }

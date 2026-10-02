@@ -1,260 +1,123 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { AlertCircle } from "lucide-react"
 import { PageHeader } from "@/components/common/PageHeader"
-
+import { Button } from "@/components/ui/button"
 import { DateRangeFilter } from "./components/DateRangeFilter"
 import { FinancialSummaryCards } from "./components/FinancialSummaryCards"
 import { TodaySalesDetail } from "./components/TodaySalesDetail"
-import { ChartManoObraVsRepuestos, type ManoObraVsRepuestosPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
+import { ChartRentabilidadOrdenesTrabajo, type RentabilidadOrdenTrabajoPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
 import { ChartVentasPorMetodoPago, type MetodoPagoDatum } from "@/components/reportes/chart-ventas-por-metodo-pago"
 import { DetalleOperacionesInventario } from "@/components/reportes/detalle-operaciones-inventario"
 import type { ProductoDestacado } from "@/components/reportes/productos-destacados-columns"
 import type { ConsumoInsumo } from "@/components/reportes/consumo-insumos-columns"
 import { AccessDeniedState } from "./components/AccessDeniedState"
-import {
-  FinancialSummarySkeleton,
-  ChartsSkeleton,
-  TableSkeleton,
-} from "./components/ReportsSkeletons"
-
-import { getMockReportsData } from "./mockData"
+import { FinancialSummarySkeleton, ChartsSkeleton, TableSkeleton } from "./components/ReportsSkeletons"
+import { getDashboardData } from "./data"
 import type { DateRange, ReportsData } from "./types"
+
+function formatDateISO(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function getInitialRange(): DateRange {
+  const now = new Date()
+  return { from: formatDateISO(new Date(now.getFullYear(), now.getMonth(), 1)), to: formatDateISO(now) }
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
-
-  // Fechas iniciales: primer día del mes actual a hoy
-  const getInitialRange = (): DateRange => {
-    const now = new Date()
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    const format = (d: Date) => {
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, "0")
-      const day = String(d.getDate()).padStart(2, "0")
-      return `${year}-${month}-${day}`
-    }
-    return {
-      from: format(firstDay),
-      to: format(now),
-    }
-  }
-
   const [dateRange, setDateRange] = useState<DateRange>(getInitialRange)
   const [reportsData, setReportsData] = useState<ReportsData | null>(null)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const hasAccess = session?.user?.permisos?.includes("reports:read") ?? false
 
-  // Comprobar rol exclusivamente Administrador
-  const userRole = session?.user?.rol?.toLowerCase() || ""
-  const hasAccess = userRole === "administrador" || userRole === "admin"
+  const loadReports = useCallback(async (range: DateRange) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      setReportsData(await getDashboardData(range))
+    } catch (loadError) {
+      setReportsData(null)
+      setError(loadError instanceof Error ? loadError.message : "No fue posible cargar los datos del dashboard.")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
-  const formatDateISO = (d: Date): string => {
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, "0")
-    const day = String(d.getDate()).padStart(2, "0")
-    return `${year}-${month}-${day}`
-  }
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (status === "authenticated" && hasAccess) void loadReports(dateRange)
+      if (status !== "loading" && !hasAccess) setIsLoading(false)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [dateRange, hasAccess, loadReports, status])
 
   const handleApplyDateRange = async (newRange: import("react-day-picker").DateRange) => {
     if (!newRange.from || !newRange.to) return
-    setIsLoading(true)
-    const formattedRange: DateRange = {
-      from: formatDateISO(newRange.from),
-      to: formatDateISO(newRange.to),
-    }
-    setDateRange(formattedRange)
-
-    // Simula la duración real del fetch de datos para el período
-    await new Promise((resolve) => setTimeout(resolve, 350))
-    const data = getMockReportsData(formattedRange)
-    setReportsData(data)
-    setIsLoading(false)
+    setDateRange({ from: formatDateISO(newRange.from), to: formatDateISO(newRange.to) })
   }
 
-  // Carga de datos coordinada según el rango de fecha
-  useEffect(() => {
-    if (!hasAccess && status !== "loading") return
+  if (status === "loading") return <DashboardLoading />
 
-    let isMounted = true
-
-    // Simulamos una llamada asíncrona fluida coordinada (300ms)
-    const timer = setTimeout(() => {
-      if (isMounted) {
-        const data = getMockReportsData(dateRange)
-        setReportsData(data)
-        setIsLoading(false)
-      }
-    }, 300)
-
-    return () => {
-      isMounted = false
-      clearTimeout(timer)
-    }
-  }, [dateRange, hasAccess, status])
-
-  // Verificación de carga de sesión
-  if (status === "loading") {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Reportes y Analítica"
-          description="Cargando panel de gestión ejecutiva..."
-        />
-        <FinancialSummarySkeleton />
-        <ChartsSkeleton />
-        <TableSkeleton />
-      </div>
-    )
-  }
-
-  // Guard de acceso: solo Administrador o permisos válidos
   if (!hasAccess) {
+    return <div className="space-y-6"><PageHeader title="Reportes y Analítica" description="Análisis financiero y operativo del taller por período." /><AccessDeniedState /></div>
+  }
+
+  if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Reportes y Analítica"
-          description="Análisis financiero y operativo del taller por período."
-        />
-        <AccessDeniedState />
+        <PageHeader title="Reportes y Analítica" description="Análisis financiero y operativo del taller por período." />
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={() => void loadReports(dateRange)}>Reintentar</Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* 1. Header Estándar */}
-      <PageHeader
-        title="Reportes y Analítica"
-        description="Análisis financiero y operativo del taller por período. Consulta de ingresos, mano de obra, métodos de pago e inventario."
-      />
-
-      {/* 2. Filtro de Fechas */}
+      <PageHeader title="Reportes y Analítica" description="Ingresos, órdenes de trabajo, pagos e inventario con datos registrados." />
       <DateRangeFilter onApply={handleApplyDateRange} />
-
-      {/* 3. Grupo A: Resumen Financiero */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Resumen Financiero &amp; Operativo
-          </h2>
-          <span className="text-[11px] text-muted-foreground">
-            Período: {dateRange.from} al {dateRange.to}
-          </span>
-        </div>
-
-        {isLoading || !reportsData ? (
-          <FinancialSummarySkeleton />
-        ) : (
-          <div className="transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-            <FinancialSummaryCards data={reportsData.financialSummary} />
-          </div>
-        )}
+        <div className="flex items-center justify-between"><h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resumen financiero y operativo</h2><span className="text-[11px] text-muted-foreground">Período: {dateRange.from} al {dateRange.to}</span></div>
+        {isLoading || !reportsData ? <FinancialSummarySkeleton /> : <FinancialSummaryCards data={reportsData.financialSummary} />}
       </div>
-
-      {/* Detalle de Ventas de Hoy (Colapsable) */}
-      {!isLoading && reportsData && (
-        <div className="transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-          <TodaySalesDetail sales={reportsData.todaySales} />
-        </div>
-      )}
-
-      {/* 4. Grupo B: Gráficos Comparativos */}
+      {!isLoading && reportsData && <TodaySalesDetail sales={reportsData.todaySales} />}
       <div className="space-y-2">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Análisis Comparativo
-        </h2>
-
-        {isLoading || !reportsData ? (
-          <ChartsSkeleton />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-            <ChartManoObraVsRepuestos
-              data={
-                reportsData.laborVsParts.series.map((s) => ({
-                  date: s.date,
-                  manoObra: s.laborAmount,
-                  repuestos: s.partsAmount,
-                })) satisfies ManoObraVsRepuestosPoint[]
-              }
-            />
-            <ChartVentasPorMetodoPago
-              data={
-                reportsData.paymentMethods.map((pm) => ({
-                  metodo: pm.method,
-                  label: pm.label,
-                  monto: pm.amount,
-                  pagos: pm.count,
-                })) satisfies MetodoPagoDatum[]
-              }
-            />
-          </div>
-        )}
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Análisis comparativo</h2>
+        {isLoading || !reportsData ? <ChartsSkeleton /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><ChartRentabilidadOrdenesTrabajo data={reportsData.workOrderProfitability.series.map((item) => ({ date: item.date, ingresosOrdenesTrabajo: item.workOrderRevenue, costosRepuestos: item.partsCost })) satisfies RentabilidadOrdenTrabajoPoint[]} /><ChartVentasPorMetodoPago data={reportsData.paymentMethods.map((item) => ({ metodo: item.method, label: item.label, monto: item.amount, pagos: item.count })) satisfies MetodoPagoDatum[]} /></div>}
       </div>
-
-      {/* 5. Grupo C: Detalle Operativo en Pestañas Conmutables */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Detalle de Operaciones e Inventario
-            </h2>
-          </div>
-        </div>
-
-        {isLoading || !reportsData ? (
-          <TableSkeleton />
-        ) : (
-          <div className="transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-1">
-            <DetalleOperacionesInventario
-              productosDestacados={
-                reportsData.topProducts.map((p) => ({
-                  ranking: p.ranking,
-                  nombre: p.name,
-                  sku: p.sku || "",
-                  categoria: p.category || "General",
-                  unidades: p.quantitySold,
-                  totalRecaudado: p.totalRevenue,
-                })) satisfies ProductoDestacado[]
-              }
-              consumoInsumos={
-                reportsData.supplyConsumption.map((c) => ({
-                  codigo: c.code,
-                  nombre: c.name,
-                  categoria: c.category,
-                  cantidadUsada: `${c.quantityUsed} ${c.unit}`,
-                  ordenesAsociadas: c.associatedOrdersCount,
-                  costoTotalEst: c.estimatedCost,
-                })) satisfies ConsumoInsumo[]
-              }
-              onExportCSV={() => {
-                if (!reportsData.supplyConsumption.length) return
-                const headers = "Codigo,Insumo,Categoria,Cantidad Utilizada,Unidad,Ordenes Asociadas,Costo Estimado CLP\n"
-                const rows = reportsData.supplyConsumption
-                  .map(
-                    (item) =>
-                      `"${item.code}","${item.name}","${item.category}",${item.quantityUsed},"${item.unit}",${item.associatedOrdersCount},${item.estimatedCost}`
-                  )
-                  .join("\n")
-
-                const blob = new Blob([headers + rows], {
-                  type: "text/csv;charset=utf-8;",
-                })
-                const link = document.createElement("a")
-                const url = URL.createObjectURL(blob)
-                link.setAttribute("href", url)
-                link.setAttribute(
-                  "download",
-                  `consumo_insumos_${dateRange.from}_a_${dateRange.to}.csv`
-                )
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-              }}
-            />
-          </div>
-        )}
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Detalle de operaciones e inventario</h2>
+        {isLoading || !reportsData ? <TableSkeleton /> : <DetalleOperacionesInventario productosDestacados={reportsData.topProducts.map((item) => ({ ranking: item.ranking, nombre: item.name, tipo: item.type, unidades: item.quantityDispatched, totalRecaudado: item.totalRevenue })) satisfies ProductoDestacado[]} consumoInsumos={reportsData.supplyConsumption.map((item) => ({ nombre: item.name, tipo: item.type, cantidadUsada: item.quantityUsed, ordenesAsociadas: item.associatedOrdersCount, costoTotal: item.totalCost })) satisfies ConsumoInsumo[]} onExportCSV={() => exportSupplyConsumption(reportsData, dateRange)} />}
       </div>
     </div>
   )
+}
+
+function exportSupplyConsumption(data: ReportsData, dateRange: DateRange) {
+  if (!data.supplyConsumption.length) return
+  const headers = "Insumo,Tipo,Cantidad usada,Ordenes asociadas,Costo total CLP\n"
+  const rows = data.supplyConsumption.map((item) => `"${item.name.replaceAll('"', '""')}","${item.type.replaceAll('"', '""')}",${item.quantityUsed},${item.associatedOrdersCount},${item.totalCost}`).join("\n")
+  const link = document.createElement("a")
+  link.href = URL.createObjectURL(new Blob([headers + rows], { type: "text/csv;charset=utf-8;" }))
+  link.download = `consumo_insumos_${dateRange.from}_a_${dateRange.to}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(link.href)
+}
+
+function DashboardLoading() {
+  return <div className="space-y-6"><PageHeader title="Reportes y Analítica" description="Cargando panel de gestión ejecutiva..." /><FinancialSummarySkeleton /><ChartsSkeleton /><TableSkeleton /></div>
 }
