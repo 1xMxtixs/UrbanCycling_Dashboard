@@ -40,17 +40,23 @@ import { type ServiceColumn } from "../../types"
 interface DataTableProps<TData extends ServiceColumn, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  initialSearch?: string
 }
 
 export function DataTable<TData extends ServiceColumn, TValue>({
   columns,
   data,
+  initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
     { id: "estado", value: "activo" },
   ])
-  const [serviceSearch, setServiceSearch] = React.useState("")
+  const [serviceSearch, setServiceSearch] = React.useState(initialSearch)
+
+  React.useEffect(() => {
+    setServiceSearch(initialSearch)
+  }, [initialSearch])
 
   // Filtrado de búsqueda exactamente como en productos
   const filteredData = React.useMemo(() => {

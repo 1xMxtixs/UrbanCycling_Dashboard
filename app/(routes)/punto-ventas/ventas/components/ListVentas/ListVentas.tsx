@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { formatClientName } from "@/lib/formatters"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
@@ -17,15 +17,23 @@ import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
 import { isVentaAnulada } from "@/lib/sale-status"
+import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 export function ListVentas() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const saleIdParam = searchParams.get("ventaId")
   const [sales, setSales] = useState<SaleOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
 
-  const [selectedSale, setSelectedSale] = useState<SaleOperation | null>(null)
-  const [openDetailsModal, setOpenDetailsModal] = useState(false)
+  const {
+    activeItem: selectedSale,
+    isOpen: openDetailsModal,
+    openLocal: openSaleDetail,
+    close: closeSaleDetail,
+    setLocalItem: setSelectedSale,
+  } = useSearchDetailNavigation(saleIdParam, sales, (sale) => Number(sale.venta.idVenta))
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
@@ -137,7 +145,7 @@ export function ListVentas() {
 
       toast.success("Pago registrado correctamente.")
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      closeSaleDetail()
       getSales()
       router.refresh()
     } catch (err: any) {
@@ -149,8 +157,7 @@ export function ListVentas() {
   }
 
   const handleViewDetails = (op: SaleOperation) => {
-    setSelectedSale(op)
-    setOpenDetailsModal(true)
+    openSaleDetail(op)
   }
 
   const handleGenerateReceipt = async (op: SaleOperation) => {
@@ -337,7 +344,14 @@ export function ListVentas() {
 
       <SaleDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeSaleDetail()
+          }
+          if (!open && saleIdParam) {
+            router.replace("/punto-ventas/ventas", { scroll: false })
+          }
+        }}
         sale={selectedSale}
         onPayClick={handlePayClick}
         onUpdateStatus={handleUpdateStatus}

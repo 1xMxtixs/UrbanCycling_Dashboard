@@ -6,6 +6,7 @@ import type {
   SearchService,
   SearchCliente,
   SearchWorkOrder,
+  SearchSale,
   SearchResults,
   SearchStatus,
 } from "@/types/search"
@@ -19,7 +20,10 @@ let cachedProducts: SearchProduct[] | null = null
 let cachedServices: SearchService[] | null = null
 let cachedClientes: SearchCliente[] | null = null
 let cachedOrdenes: SearchWorkOrder[] | null = null
+let cachedVentas: SearchSale[] | null = null
+let cacheTimestamp = 0
 let isFetching = false
+const CACHE_TTL_MS = 30_000
 
 interface RawCliente {
   idCliente: number
@@ -38,6 +42,20 @@ interface RawCliente {
 
 interface RawWorkOrderItem {
   tipoOperacion?: string
+  cliente?: {
+    primerNombre?: string | null
+    segundoNombre?: string | null
+    apellidoPaterno?: string | null
+    apellidoMaterno?: string | null
+    razonSocial?: string | null
+    rut?: string
+  } | null
+  venta?: { idVenta: number }
+  total?: number | string
+  montoTotal?: number | string
+  estadoPago?: string
+  fechaRegistro?: string
+  fechaCreacion?: string
   ordenTrabajo?: {
     idOrdenDeTrabajo: number
     estadoOrden?: string
@@ -65,13 +83,15 @@ async function fetchCatalog(): Promise<{
   services: SearchService[]
   clientes: SearchCliente[]
   ordenes: SearchWorkOrder[]
+  ventas: SearchSale[]
 }> {
-  if (cachedProducts && cachedServices && cachedClientes && cachedOrdenes) {
+  if (cachedProducts && cachedServices && cachedClientes && cachedOrdenes && cachedVentas && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
     return {
       products: cachedProducts,
       services: cachedServices,
       clientes: cachedClientes,
       ordenes: cachedOrdenes,
+      ventas: cachedVentas,
     }
   }
 
@@ -90,6 +110,7 @@ async function fetchCatalog(): Promise<{
       services: cachedServices ?? [],
       clientes: cachedClientes ?? [],
       ordenes: cachedOrdenes ?? [],
+      ventas: cachedVentas ?? [],
     }
   }
 
@@ -173,16 +194,37 @@ async function fetchCatalog(): Promise<{
               }
             })
         : []
+      cachedVentas = Array.isArray(rawPv)
+        ? rawPv
+            .filter((item) => item.tipoOperacion === "venta" && item.venta)
+            .map((item) => {
+              const cli = item.cliente
+              const clienteNombre = cli
+                ? cli.razonSocial || [cli.primerNombre, cli.segundoNombre, cli.apellidoPaterno, cli.apellidoMaterno].filter(Boolean).join(" ") || "Cliente general"
+                : "Cliente general"
+              return {
+                idVenta: Number(item.venta!.idVenta),
+                clienteNombre,
+                rutCliente: cli?.rut,
+                total: item.total ?? item.montoTotal ?? 0,
+                estadoPago: item.estadoPago ?? "pendiente",
+                fechaRegistro: item.fechaRegistro ?? item.fechaCreacion,
+              }
+            })
+        : []
     } else {
       cachedOrdenes = []
+      cachedVentas = []
     }
   } catch {
     cachedProducts = cachedProducts ?? []
     cachedServices = cachedServices ?? []
     cachedClientes = cachedClientes ?? []
     cachedOrdenes = cachedOrdenes ?? []
+    cachedVentas = cachedVentas ?? []
   } finally {
     isFetching = false
+    cacheTimestamp = Date.now()
   }
 
   return {
@@ -190,6 +232,7 @@ async function fetchCatalog(): Promise<{
     services: cachedServices ?? [],
     clientes: cachedClientes ?? [],
     ordenes: cachedOrdenes ?? [],
+    ventas: cachedVentas ?? [],
   }
 }
 
@@ -199,6 +242,7 @@ function filterResults(
   services: SearchService[],
   clientes: SearchCliente[],
   ordenes: SearchWorkOrder[],
+  ventas: SearchSale[],
 ): SearchResults {
   const q = normalizeSearchText(query)
   const qClean = q.replace(/^#/, "").trim()
@@ -235,11 +279,20 @@ function filterResults(
     })
     .slice(0, 4)
 
+  const filteredVentas = ventas
+    .filter((v) => {
+      const idMatch = String(v.idVenta) === qClean || String(v.idVenta).includes(qClean)
+      const rutMatch = normalizeSearchText(v.rutCliente).replace(/[\.\-]/g, "").includes(q.replace(/[\.\-]/g, ""))
+      return idMatch || includesNormalizedText(v.clienteNombre, q) || (q.length >= 3 && rutMatch)
+    })
+    .slice(0, 4)
+
   return {
     productos: filteredProducts,
     servicios: filteredServices,
     clientes: filteredClientes,
     ordenes: filteredOrdenes,
+    ventas: filteredVentas,
   }
 }
 
@@ -250,6 +303,7 @@ export function useTransversalSearch() {
     servicios: [],
     clientes: [],
     ordenes: [],
+    ventas: [],
   })
   const [status, setStatus] = useState<SearchStatus>("idle")
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -258,7 +312,7 @@ export function useTransversalSearch() {
     const trimmed = rawQuery.trim()
 
     if (trimmed.length < MIN_QUERY_LENGTH) {
-      setResults({ productos: [], servicios: [], clientes: [], ordenes: [] })
+      setResults({ productos: [], servicios: [], clientes: [], ordenes: [], ventas: [] })
       setStatus("idle")
       return
     }
@@ -266,12 +320,12 @@ export function useTransversalSearch() {
     setStatus("loading")
 
     try {
-      const { products, services, clientes, ordenes } = await fetchCatalog()
-      const filtered = filterResults(trimmed, products, services, clientes, ordenes)
+      const { products, services, clientes, ordenes, ventas } = await fetchCatalog()
+      const filtered = filterResults(trimmed, products, services, clientes, ordenes, ventas)
       setResults(filtered)
       setStatus("success")
     } catch {
-      setResults({ productos: [], servicios: [], clientes: [], ordenes: [] })
+      setResults({ productos: [], servicios: [], clientes: [], ordenes: [], ventas: [] })
       setStatus("error")
     }
   }, [])
@@ -290,7 +344,7 @@ export function useTransversalSearch() {
 
   const clearSearch = useCallback(() => {
     setQuery("")
-    setResults({ productos: [], servicios: [], clientes: [], ordenes: [] })
+    setResults({ productos: [], servicios: [], clientes: [], ordenes: [], ventas: [] })
     setStatus("idle")
   }, [])
 
@@ -300,17 +354,29 @@ export function useTransversalSearch() {
     cachedServices = null
     cachedClientes = null
     cachedOrdenes = null
+    cachedVentas = null
+    cacheTimestamp = 0
   }, [])
+
+  useEffect(() => {
+    const handleInvalidate = () => invalidateCache()
+    const events = ["transversal-search:invalidate", "clientes:refresh", "inventory:refresh", "work-orders:refresh", "sales:refresh", "focus"]
+    events.forEach((event) => window.addEventListener(event, handleInvalidate))
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, handleInvalidate))
+    }
+  }, [invalidateCache])
 
   const hasResults =
     results.productos.length > 0 ||
     results.servicios.length > 0 ||
     results.clientes.length > 0 ||
     results.ordenes.length > 0
+    || results.ventas.length > 0
 
   const isOpen =
-    query.trim().length >= MIN_QUERY_LENGTH &&
-    (status === "loading" || status === "success" || status === "error")
+    query.trim().length > 0 &&
+    (status === "idle" || status === "loading" || status === "success" || status === "error")
 
   return {
     query,

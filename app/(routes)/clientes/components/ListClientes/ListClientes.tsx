@@ -44,6 +44,7 @@ import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/l
 export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
   const searchParams = useSearchParams();
   const clienteIdParam = searchParams.get("clienteId");
+  const searchParam = searchParams.get("search") ?? "";
   const [activeMainTab, setActiveMainTab] = useState<"directorio" | "historial">(initialTab);
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
@@ -264,6 +265,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
           </div>
 
           <ClientesTabsView
+            initialSearch={searchParam}
             clientesNaturales={clientesNaturales}
             clientesJuridicas={clientesJuridicas}
             onViewDetails={handleViewDetails}

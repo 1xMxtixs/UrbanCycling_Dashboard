@@ -37,11 +37,21 @@ export type SearchWorkOrder = {
   total: number | string
 }
 
+export type SearchSale = {
+  idVenta: number
+  clienteNombre: string
+  rutCliente?: string
+  total: number | string
+  estadoPago: string
+  fechaRegistro?: string
+}
+
 export type SearchResults = {
   productos: SearchProduct[]
   servicios: SearchService[]
   clientes: SearchCliente[]
   ordenes: SearchWorkOrder[]
+  ventas: SearchSale[]
 }
 
 export type SearchStatus = "idle" | "loading" | "success" | "error"

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -18,6 +19,9 @@ import { type ServiceColumn } from "../../types"
 
 export function ListServicios() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
+  const serviceIdParam = searchParams.get("serviceId")
+  const searchParam = searchParams.get("search") ?? ""
   const canUpdate = Boolean(
     session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
@@ -63,6 +67,23 @@ export function ListServicios() {
 
     loadServices()
   }, [])
+
+  // Abre el servicio indicado por el buscador transversal sin sustituir la tabla
+  // completa ni sus acciones de administración.
+  useEffect(() => {
+    if (!serviceIdParam || services.length === 0) return
+
+    const targetId = Number(serviceIdParam)
+    if (Number.isNaN(targetId)) return
+
+    const targetService = services.find(
+      (service) => service.idServicio === targetId
+    )
+    if (targetService) {
+      setSelectedService(targetService)
+      setOpenDetail(true)
+    }
+  }, [serviceIdParam, services])
 
   // Acciones
   const handleViewDetails = (service: ServiceColumn) => {
@@ -158,7 +179,7 @@ export function ListServicios() {
           </div>
         </div>
       ) : (
-        <DataTable columns={columns} data={services} />
+        <DataTable columns={columns} data={services} initialSearch={searchParam} />
       )}
 
       {/* Sheet de Detalle */}

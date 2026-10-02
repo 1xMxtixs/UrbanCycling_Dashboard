@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
-
 import { KpiCards } from "./kpi-cards"
 import { UpcomingDeadlines } from "./upcoming-deadlines"
 import { DataTable } from "./data-table"
@@ -24,6 +23,7 @@ import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
 import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
+import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -45,8 +45,7 @@ function toDateInputValue(dateInput: string | Date | null | undefined) {
 export function ListOrdenesTrabajo() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const ordenIdParam = searchParams.get("ordenId")
-
+  const orderIdParam = searchParams.get("ordenId")
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -59,9 +58,13 @@ export function ListOrdenesTrabajo() {
   const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
   const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
 
-  const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
-  const [openDetailsModal, setOpenDetailsModal] = useState(false)
-
+  const {
+    activeItem: selectedOrder,
+    isOpen: openDetailsModal,
+    openLocal: openOrderDetail,
+    close: closeOrderDetail,
+    setLocalItem: setSelectedOrder,
+  } = useSearchDetailNavigation(orderIdParam, orders, (order) => order.idOrdenDeTrabajo)
 
   const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
   const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
@@ -162,21 +165,6 @@ export function ListOrdenesTrabajo() {
       window.removeEventListener("work-orders:refresh", refreshOrders)
     }
   }, [refreshOrders])
-
-  // Auto-apertura de modal de detalle si viene ?ordenId=...
-  useEffect(() => {
-    if (!ordenIdParam || orders.length === 0) return
-
-    const targetId = Number(ordenIdParam)
-    if (!isNaN(targetId)) {
-      const found = orders.find((o) => o.idOrdenDeTrabajo === targetId)
-      if (found) {
-        setSelectedOrder(found)
-        setOpenDetailsModal(true)
-      }
-    }
-  }, [ordenIdParam, orders])
-
 
   const updatePeriodField = (field: keyof PeriodFilter, value: string) => {
     setPeriodDraft((current) => ({ ...current, [field]: value }))
@@ -405,7 +393,7 @@ export function ListOrdenesTrabajo() {
 
       toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      closeOrderDetail()
       refreshOrders()
       router.refresh()
     } catch (err: any) {
@@ -417,8 +405,7 @@ export function ListOrdenesTrabajo() {
   }
 
   const handleViewDetails = (order: WorkOrder) => {
-    setSelectedOrder(order)
-    setOpenDetailsModal(true)
+    openOrderDetail(order)
   }
 
   const handleGenerateReceipt = async (order: WorkOrder) => {
@@ -598,7 +585,14 @@ export function ListOrdenesTrabajo() {
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeOrderDetail()
+          }
+          if (!open && orderIdParam) {
+            router.replace("/punto-ventas/ordenes-trabajo", { scroll: false })
+          }
+        }}
         order={selectedOrder}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
