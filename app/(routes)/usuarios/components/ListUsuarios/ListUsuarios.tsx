@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isRegistroActivo } from "@/lib/registro-status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -244,7 +245,7 @@ export function ListUsuarios() {
 
   const metrics = useMemo(() => ({
     total: users.length,
-    active: users.filter((u) => u.estado?.toLowerCase() === "activo").length,
+    active: users.filter((u) => isRegistroActivo(u.estado)).length,
     pending: users.filter((u) => u.rol.nombre === PENDING_ROLE_NAME).length,
     admins: users.filter((u) => u.rol.nombre === "Administrador").length,
   }), [users]);

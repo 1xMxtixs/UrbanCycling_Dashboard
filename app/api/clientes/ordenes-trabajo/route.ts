@@ -72,6 +72,11 @@ function obtenerNombreCliente(cliente: {
     .join(" ")
 }
 
+/**
+ * GET /api/clientes/ordenes-trabajo?rut=...
+ * Busca un cliente por RUT y devuelve sus órdenes con el estado operativo de
+ * la OT y el estado financiero almacenado en la venta raíz.
+ */
 export async function GET(request: NextRequest) {
   try {
     const { response } = await requirePermission(
@@ -124,11 +129,11 @@ export async function GET(request: NextRequest) {
             idUsuario: true,
             idCliente: true,
             fechaRegistro: true,
+            estadoPago: true,
             ordenDeTrabajo: {
               select: {
                 idOrdenDeTrabajo: true,
                 estado: true,
-                estadoPago: true,
                 fechaEntregaEstimada: true,
                 fechaEntregaReal: true,
                 observacionesIngreso: true,
@@ -167,7 +172,7 @@ export async function GET(request: NextRequest) {
           observacionesIngreso: orden.observacionesIngreso,
           total: orden.montoTotal,
           descuento: orden.descuentoGlobal,
-          estadoPago: orden.estadoPago,
+          estadoPago: venta.estadoPago,
           estadoOrden: orden.estado,
           fechaCreacion: venta.fechaRegistro,
         }

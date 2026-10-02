@@ -11,6 +11,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { DataField } from "@/components/common/DataField"
 import type { InventoryCategory } from "../../types"
 
@@ -162,11 +163,11 @@ export function getColumns(
       header: "Estado",
       cell: ({ row }) => {
         const estado = row.original.estado
-        const isActive = estado?.toLowerCase() === "activo"
+        const isActive = isRegistroActivo(estado)
         return (
           <StatusBadge
             status={isActive ? "success" : "neutral"}
-            label={isActive ? "Activo" : "Inactivo"}
+            label={getNombreEstadoRegistro(estado)}
             showDot={false}
           />
         )

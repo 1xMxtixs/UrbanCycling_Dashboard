@@ -1,58 +1,59 @@
-import { db } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma";
-import { PERMISSIONS } from "@/lib/permissions";
-import { requirePermission } from "@/lib/require-permission";
-import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
-import { NextResponse } from "next/server";
+import { db } from "@/lib/db"
+import type { Prisma } from "@/generated/prisma"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
+import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
+import { ESTADO_OT } from "@/lib/work-order-status"
+import { NextResponse } from "next/server"
 
 function parseIdOrden(idVenta: string) {
-  const idOrdenDeTrabajo = Number(idVenta);
+  const idOrdenDeTrabajo = Number(idVenta)
 
   if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
-    return Number.NaN;
+    return Number.NaN
   }
 
-  return idOrdenDeTrabajo;
+  return idOrdenDeTrabajo
 }
 
 function toNumber(value: unknown) {
-  return Number(value ?? 0);
+  return Number(value ?? 0)
 }
 
 function calcularMontos(montoSubtotal: number) {
-  const montoNeto = Math.round(montoSubtotal / 1.19);
-  const montoIva = montoSubtotal - montoNeto;
+  const montoNeto = Math.round(montoSubtotal / 1.19)
+  const montoIva = montoSubtotal - montoNeto
 
   return {
     montoSubtotal,
     montoTotal: montoSubtotal,
     montoNeto,
     montoIva,
-  };
+  }
 }
 
 function parsePositiveInteger(value: unknown) {
-  const parsedValue = Number(value);
+  const parsedValue = Number(value)
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return Number.NaN;
+    return Number.NaN
   }
 
-  return parsedValue;
+  return parsedValue
 }
 
 function getText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === "string" ? value.trim() : ""
 }
 
 function getFirstDefined(data: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     if (Object.prototype.hasOwnProperty.call(data, key)) {
-      return data[key];
+      return data[key]
     }
   }
 
-  return undefined;
+  return undefined
 }
 
 async function recalcularMontosOrden(
@@ -63,14 +64,13 @@ async function recalcularMontosOrden(
     where: {
       idOrdenDeTrabajo,
     },
-  });
+  })
 
   const totalServicios = lineas.reduce(
-    (total, linea) =>
-      total + linea.cantidad * toNumber(linea.precioUnitario),
+    (total, linea) => total + linea.cantidad * toNumber(linea.precioUnitario),
     0
-  );
-  const montos = calcularMontos(totalServicios);
+  )
+  const montos = calcularMontos(totalServicios)
 
   const ordenActualizada = await tx.ordenDeTrabajo.update({
     where: {
@@ -82,14 +82,15 @@ async function recalcularMontosOrden(
       montoNeto: montos.montoNeto,
       montoIva: montos.montoIva,
     },
-  });
+  })
 
   return {
     orden: ordenActualizada,
     totalServicios,
-  };
+  }
 }
 
+// Agrega un servicio a una orden y recalcula sus montos dentro de una transaccion auditada.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ idVenta: string }> }
@@ -101,17 +102,17 @@ export async function POST(
       return response
     }
 
-    const { idVenta } = await params;
-    const { id_servicio, idServicio, cantidad } = await req.json();
-    const idOrdenDeTrabajo = parseIdOrden(idVenta);
-    const servicioId = Number(id_servicio ?? idServicio);
-    const cantidadServicio = Number(cantidad);
+    const { idVenta } = await params
+    const { id_servicio, idServicio, cantidad } = await req.json()
+    const idOrdenDeTrabajo = parseIdOrden(idVenta)
+    const servicioId = Number(id_servicio ?? idServicio)
+    const cantidadServicio = Number(cantidad)
 
     if (Number.isNaN(idOrdenDeTrabajo)) {
       return NextResponse.json(
         { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
         { status: 400 }
-      );
+      )
     }
 
     if (
@@ -126,14 +127,14 @@ export async function POST(
           message: "Servicio y cantidad son obligatorios",
         },
         { status: 400 }
-      );
+      )
     }
 
     const orden = await db.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo,
       },
-    });
+    })
 
     if (!orden) {
       return NextResponse.json(
@@ -142,14 +143,14 @@ export async function POST(
           message: "La orden de trabajo no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     const servicio = await db.servicio.findUnique({
       where: {
         idServicio: servicioId,
       },
-    });
+    })
 
     if (!servicio) {
       return NextResponse.json(
@@ -158,7 +159,7 @@ export async function POST(
           message: "El servicio no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     const productosServicio = await db.productoServicio.findMany({
@@ -168,7 +169,7 @@ export async function POST(
       include: {
         producto: true,
       },
-    });
+    })
 
     if (productosServicio.length === 0) {
       return NextResponse.json(
@@ -177,21 +178,21 @@ export async function POST(
           message: "El servicio no tiene insumos asociados",
         },
         { status: 409 }
-      );
+      )
     }
 
     const productosAUtilizar = productosServicio.map((item) => {
-      const cantidadNecesaria = item.cantidad * cantidadServicio;
+      const cantidadNecesaria = item.cantidad * cantidadServicio
 
       return {
         producto: item.producto,
         cantidadNecesaria,
-      };
-    });
+      }
+    })
 
     const productoSinStock = productosAUtilizar.find(
       (item) => item.producto.stockActual < item.cantidadNecesaria
-    );
+    )
 
     if (productoSinStock) {
       return NextResponse.json(
@@ -209,7 +210,7 @@ export async function POST(
           cantidad_disponible: productoSinStock.producto.stockActual,
         },
         { status: 409 }
-      );
+      )
     }
 
     const resultado = await db.$transaction(async (tx) => {
@@ -222,7 +223,7 @@ export async function POST(
           descuentoUnitario: 0,
           costoUnitario: 0,
         },
-      });
+      })
 
       for (const item of productosAUtilizar) {
         await tx.producto.update({
@@ -232,21 +233,21 @@ export async function POST(
           data: {
             stockActual: item.producto.stockActual - item.cantidadNecesaria,
           },
-        });
+        })
       }
 
       const lineas = await tx.lineaDeOrdenDeTrabajo.findMany({
         where: {
           idOrdenDeTrabajo,
         },
-      });
+      })
 
       const totalServicios = lineas.reduce(
         (total, linea) =>
           total + linea.cantidad * toNumber(linea.precioUnitario),
         0
-      );
-      const montos = calcularMontos(totalServicios);
+      )
+      const montos = calcularMontos(totalServicios)
 
       const ordenActualizada = await tx.ordenDeTrabajo.update({
         where: {
@@ -258,14 +259,14 @@ export async function POST(
           montoNeto: montos.montoNeto,
           montoIva: montos.montoIva,
         },
-      });
+      })
 
       return {
         linea,
         orden: ordenActualizada,
         totalServicios,
-      };
-    });
+      }
+    })
 
     return NextResponse.json(
       {
@@ -283,17 +284,18 @@ export async function POST(
         })),
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.log("[AGREGAR_SERVICIO_ORDEN]", error);
+    console.log("[AGREGAR_SERVICIO_ORDEN]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
 
+// Obtiene los servicios asociados a una orden de trabajo para su consulta y posterior modificacion.
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ idVenta: string }> }
@@ -305,21 +307,21 @@ export async function GET(
       return response
     }
 
-    const { idVenta } = await params;
-    const idOrdenDeTrabajo = parseIdOrden(idVenta);
+    const { idVenta } = await params
+    const idOrdenDeTrabajo = parseIdOrden(idVenta)
 
     if (Number.isNaN(idOrdenDeTrabajo)) {
       return NextResponse.json(
         { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
         { status: 400 }
-      );
+      )
     }
 
     const orden = await db.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo,
       },
-    });
+    })
 
     if (!orden) {
       return NextResponse.json(
@@ -328,7 +330,7 @@ export async function GET(
           message: "La orden de trabajo no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     const lineas = await db.lineaDeOrdenDeTrabajo.findMany({
@@ -339,50 +341,53 @@ export async function GET(
         servicio: true,
         producto: true,
       },
-    });
+    })
 
     const total = lineas.reduce(
       (acumulado, linea) =>
         acumulado + linea.cantidad * toNumber(linea.precioUnitario),
       0
-    );
+    )
 
     return NextResponse.json({
       id_orden_de_trabajo: idOrdenDeTrabajo,
       idOrdenDeTrabajo,
       lineas,
       total,
-    });
+    })
   } catch (error) {
-    console.log("[LISTAR_SERVICIOS_ORDEN]", error);
+    console.log("[LISTAR_SERVICIOS_ORDEN]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
 
+// Sustituye o ajusta un servicio existente solo cuando la orden se encuentra en curso.
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
-    const { session, response } = await requirePermission(PERMISSIONS.WORK_ORDERS_UPDATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.WORK_ORDERS_UPDATE
+    )
 
     if (response || !session) {
       return response
     }
 
-    const { idVenta } = await params;
-    const idOrdenDeTrabajo = parseIdOrden(idVenta);
-    const data = (await req.json()) as Record<string, unknown>;
+    const { idVenta } = await params
+    const idOrdenDeTrabajo = parseIdOrden(idVenta)
+    const data = (await req.json()) as Record<string, unknown>
 
     if (Number.isNaN(idOrdenDeTrabajo)) {
       return NextResponse.json(
         { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
         { status: 400 }
-      );
+      )
     }
 
     const idLineaDeOrdenDeTrabajoInput = getFirstDefined(data, [
@@ -390,7 +395,7 @@ export async function PATCH(
       "idLineaDeOrdenDeTrabajo",
       "id_linea",
       "idLinea",
-    ]);
+    ])
     const idServicioInput = getFirstDefined(data, [
       "id_servicio",
       "idServicio",
@@ -398,7 +403,7 @@ export async function PATCH(
       "nuevoServicio",
       "id_nuevo_servicio",
       "idNuevoServicio",
-    ]);
+    ])
     const diagnostico = getText(
       getFirstDefined(data, [
         "observaciones_ingreso",
@@ -407,14 +412,14 @@ export async function PATCH(
         "nuevoDiagnostico",
         "descripcion",
       ])
-    );
+    )
     const idLineaDeOrdenDeTrabajo =
       idLineaDeOrdenDeTrabajoInput === undefined ||
       idLineaDeOrdenDeTrabajoInput === null ||
       idLineaDeOrdenDeTrabajoInput === ""
         ? undefined
-        : parsePositiveInteger(idLineaDeOrdenDeTrabajoInput);
-    const idServicio = parsePositiveInteger(idServicioInput);
+        : parsePositiveInteger(idLineaDeOrdenDeTrabajoInput)
+    const idServicio = parsePositiveInteger(idServicioInput)
 
     if (!diagnostico || Number.isNaN(idServicio)) {
       return NextResponse.json(
@@ -423,24 +428,27 @@ export async function PATCH(
           message: "Debe agregar una descripción para el cambio",
         },
         { status: 400 }
-      );
+      )
     }
 
-    if (idLineaDeOrdenDeTrabajo !== undefined && Number.isNaN(idLineaDeOrdenDeTrabajo)) {
+    if (
+      idLineaDeOrdenDeTrabajo !== undefined &&
+      Number.isNaN(idLineaDeOrdenDeTrabajo)
+    ) {
       return NextResponse.json(
         {
           code: "LINEA_INVALIDA",
           message: "La linea de servicio no es válida",
         },
         { status: 400 }
-      );
+      )
     }
 
     const orden = await db.ordenDeTrabajo.findUnique({
       where: {
         idOrdenDeTrabajo,
       },
-    });
+    })
 
     if (!orden) {
       return NextResponse.json(
@@ -449,24 +457,24 @@ export async function PATCH(
           message: "La orden de trabajo no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
-    if (orden.estado !== "En curso") {
+    if (orden.estado !== ESTADO_OT.EN_CURSO) {
       return NextResponse.json(
         {
           code: "ESTADO_ORDEN_NO_PERMITE_MODIFICACION",
           message: "La orden debe estar en estado En curso",
         },
         { status: 409 }
-      );
+      )
     }
 
     const servicio = await db.servicio.findUnique({
       where: {
         idServicio,
       },
-    });
+    })
 
     if (!servicio) {
       return NextResponse.json(
@@ -475,7 +483,7 @@ export async function PATCH(
           message: "El servicio no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
     const lineasServicio = await db.lineaDeOrdenDeTrabajo.findMany({
@@ -485,16 +493,15 @@ export async function PATCH(
           not: null,
         },
       },
-    });
+    })
 
     const lineaServicio = idLineaDeOrdenDeTrabajo
       ? lineasServicio.find(
-          (linea) =>
-            linea.idLineaDeOrdenDeTrabajo === idLineaDeOrdenDeTrabajo
+          (linea) => linea.idLineaDeOrdenDeTrabajo === idLineaDeOrdenDeTrabajo
         )
       : lineasServicio.length === 1
         ? lineasServicio[0]
-        : null;
+        : null
 
     if (!lineaServicio) {
       return NextResponse.json(
@@ -507,7 +514,7 @@ export async function PATCH(
             : "Debe indicar la linea de servicio a modificar",
         },
         { status: idLineaDeOrdenDeTrabajo ? 404 : 400 }
-      );
+      )
     }
 
     const resultado = await db.$transaction(async (tx) => {
@@ -523,7 +530,7 @@ export async function PATCH(
           servicio: true,
           producto: true,
         },
-      });
+      })
 
       const ordenConDiagnostico = await tx.ordenDeTrabajo.update({
         where: {
@@ -532,9 +539,9 @@ export async function PATCH(
         data: {
           observacionesIngreso: diagnostico,
         },
-      });
+      })
 
-      const montos = await recalcularMontosOrden(tx, idOrdenDeTrabajo);
+      const montos = await recalcularMontosOrden(tx, idOrdenDeTrabajo)
 
       await registrarAuditoriaOrdenTrabajo(tx, {
         idUsuario: session.user.idUsuario,
@@ -553,7 +560,7 @@ export async function PATCH(
           observacionesIngreso: diagnostico,
         },
         detalleCambio: "Modificacion de servicio tecnico de la orden",
-      });
+      })
 
       return {
         linea: lineaActualizada,
@@ -564,8 +571,8 @@ export async function PATCH(
           observacionesIngreso: diagnostico,
         },
         totalServicios: montos.totalServicios,
-      };
-    });
+      }
+    })
 
     return NextResponse.json({
       code: "SERVICIO_ORDEN_MODIFICADO",
@@ -574,13 +581,13 @@ export async function PATCH(
       servicio: resultado.servicio,
       orden: resultado.orden,
       total_servicios: resultado.totalServicios,
-    });
+    })
   } catch (error) {
-    console.log("[MODIFICAR_SERVICIO_ORDEN]", error);
+    console.log("[MODIFICAR_SERVICIO_ORDEN]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }

@@ -14,16 +14,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
+import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
 
 const CellActions = ({ row, table }: { row: any; table: any }) => {
   const op = row.original as SaleOperation
   const meta = table.options.meta as any
-  const isPending = op.estadoPago?.toLowerCase() === "pendiente"
-  const isAnulada = op.estadoVenta?.toLowerCase() === "anulada"
+  const isPending = op.estadoPago === ESTADO_PAGO.PENDIENTE
+  const isAnulada = isVentaAnulada(op.estadoVenta)
   const isPaid =
-    op.estadoPago?.toLowerCase() === "pagada" ||
-    op.estadoPago?.toLowerCase() === "pagado"
+    op.estadoPago === ESTADO_PAGO.PAGADA
 
   return (
     <DropdownMenu>
@@ -69,7 +70,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
                 onClick={() =>
                   meta?.onPayClick
                     ? meta.onPayClick(op.venta.idVenta, op.total)
-                    : meta?.onUpdateStatus(op.venta.idVenta, "pagada", op.estadoVenta)
+                    : meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta)
                 }
                 className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
               >
@@ -79,7 +80,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
             )}
 
             <DropdownMenuItem
-              onClick={() => meta?.onUpdateStatus(op.venta.idVenta, "anulada", "anulada")}
+              onClick={() => meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
               className="flex cursor-pointer items-center gap-2 text-destructive font-semibold"
             >
               <XCircle className="h-4 w-4" />
@@ -158,20 +159,19 @@ export const columns: ColumnDef<SaleOperation>[] = [
     header: "Estado Pago",
     cell: ({ row }) => {
       const op = row.original
-      const isAnulada = op.estadoVenta?.toLowerCase() === "anulada"
+      const isAnulada = isVentaAnulada(op.estadoVenta)
 
       if (isAnulada) {
         return <StatusBadge status="danger" label="Anulada" />
       }
 
-      switch (op.estadoPago?.toLowerCase()) {
-        case "pagada":
-        case "pagado":
+      switch (op.estadoPago) {
+        case ESTADO_PAGO.PAGADA:
           return <StatusBadge status="success" label="Pagada" />
-        case "pendiente":
+        case ESTADO_PAGO.PENDIENTE:
           return <StatusBadge status="warning" label="Pendiente" />
         default:
-          return <StatusBadge status="neutral" label={op.estadoPago} />
+          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} />
       }
     },
   },
