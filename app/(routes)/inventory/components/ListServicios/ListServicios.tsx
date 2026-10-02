@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { PERMISSIONS } from "@/lib/permissions"
+import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
@@ -18,7 +19,7 @@ import { type ServiceColumn } from "../../types"
 export function ListServicios() {
   const { data: session } = useSession()
   const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE) || true
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
 
   const [services, setServices] = useState<ServiceColumn[]>([])
@@ -39,17 +40,22 @@ export function ListServicios() {
       try {
         setIsLoading(true)
         const response = await fetch("/api/servicios", { cache: "no-store" })
+        const data = await response.json().catch(() => null)
 
-        if (response.ok) {
-          const data = await response.json()
-          if (Array.isArray(data)) {
-            setServices(data)
-            return
-          }
+        if (!response.ok || !Array.isArray(data)) {
+          throw new Error(
+            data?.message || "No se pudieron cargar los servicios. Intenta nuevamente."
+          )
         }
+
+        setServices(data)
+      } catch (error) {
         setServices([])
-      } catch {
-        setServices([])
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los servicios. Intenta nuevamente."
+        )
       } finally {
         setIsLoading(false)
       }
@@ -77,7 +83,9 @@ export function ListServicios() {
   const handleConfirmToggle = async () => {
     if (!serviceToToggle) return
 
-    const nuevoEstado = serviceToToggle.estado.toLowerCase() === "activo" ? "inactivo" : "activo"
+    const nuevoEstado = isRegistroActivo(serviceToToggle.estado)
+      ? ESTADO_REGISTRO.INACTIVO
+      : ESTADO_REGISTRO.ACTIVO
 
     try {
       setIsSubmittingToggle(true)
@@ -86,48 +94,32 @@ export function ListServicios() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado: nuevoEstado }),
       })
+      const data = await res.json().catch(() => null)
 
-      if (res.ok) {
-        setServices((prev) =>
-          prev.map((s) =>
-            s.idServicio === serviceToToggle.idServicio
-              ? { ...s, estado: nuevoEstado }
-              : s
-          )
-        )
-        toast.success(
-          nuevoEstado === "activo"
-            ? "Servicio reactivado exitosamente"
-            : "Servicio inactivado exitosamente"
-        )
-      } else {
-        // Fallback local
-        setServices((prev) =>
-          prev.map((s) =>
-            s.idServicio === serviceToToggle.idServicio
-              ? { ...s, estado: nuevoEstado }
-              : s
-          )
-        )
-        toast.success(
-          nuevoEstado === "activo"
-            ? "Servicio reactivado"
-            : "Servicio inactivado"
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "No se pudo actualizar el estado del servicio. Intenta nuevamente."
         )
       }
-    } catch {
+
       setServices((prev) =>
-        prev.map((s) =>
-          s.idServicio === serviceToToggle.idServicio
-            ? { ...s, estado: nuevoEstado }
-            : s
-        )
+        prev.map((s) => (s.idServicio === data.idServicio ? data : s))
       )
-      toast.success("Estado de servicio actualizado")
+      toast.success(
+        nuevoEstado === ESTADO_REGISTRO.ACTIVO
+          ? "Servicio reactivado correctamente"
+          : "Servicio inactivado correctamente"
+      )
+      setOpenToggleDialog(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el estado del servicio. Intenta nuevamente."
+      )
+      setOpenToggleDialog(false)
     } finally {
       setIsSubmittingToggle(false)
-      setOpenToggleDialog(false)
-      setServiceToToggle(null)
     }
   }
 
@@ -187,7 +179,7 @@ export function ListServicios() {
         service={selectedService}
       />
 
-      {/* Modal de Edición */}
+      {/* Modal de EdiciÃ³n */}
       {serviceToEdit && (
         <Dialog open={openEdit} onOpenChange={setOpenEdit}>
           <FormDialog
@@ -204,7 +196,7 @@ export function ListServicios() {
         </Dialog>
       )}
 
-      {/* Diálogo de Confirmación para Inactivar/Reactivar */}
+      {/* DiÃ¡logo de ConfirmaciÃ³n para Inactivar/Reactivar */}
       <InactivateServiceDialog
         open={openToggleDialog}
         onOpenChange={setOpenToggleDialog}

@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, Wrench } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, Trash2, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataField } from "@/components/common/DataField"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
 interface GetColumnsOptions {
@@ -85,13 +86,13 @@ export function getColumns({
       accessorKey: "estado",
       header: "Estado",
       cell: ({ row }) => {
-        const estado = (row.getValue("estado") as string) || "activo"
-        const isActivo = estado.toLowerCase() === "activo"
+        const estado = String(row.getValue("estado"))
+        const isActivo = isRegistroActivo(estado)
 
         return (
           <StatusBadge
-            status={isActivo ? "success" : "neutral"}
-            label={isActivo ? "Activo" : "Inactivo"}
+            status={isActivo ? "success" : "danger"}
+            label={getNombreEstadoRegistro(estado)}
           />
         )
       },
@@ -105,13 +106,13 @@ export function getColumns({
       header: () => <span className="text-right block pr-2 text-xs font-semibold">Acciones</span>,
       cell: ({ row }) => {
         const servicio = row.original
-        const isActivo = servicio.estado.toLowerCase() === "activo"
+        const isActivo = isRegistroActivo(servicio.estado)
 
         return (
           <div className="text-right pr-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
                   <span className="sr-only">Abrir menú</span>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
@@ -134,17 +135,23 @@ export function getColumns({
                       <Pencil className="mr-2 h-3.5 w-3.5" /> Editar servicio
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus?.(servicio)}
-                      className={`cursor-pointer text-xs ${
-                        isActivo
-                          ? "text-destructive focus:text-destructive"
-                          : "text-emerald-600 focus:text-emerald-600"
-                      }`}
-                    >
-                      <Power className="mr-2 h-3.5 w-3.5" />
-                      {isActivo ? "Inactivar servicio" : "Reactivar servicio"}
-                    </DropdownMenuItem>
+                    {isActivo ? (
+                      <DropdownMenuItem
+                        onClick={() => onToggleStatus?.(servicio)}
+                        className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Inactivar servicio
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={() => onToggleStatus?.(servicio)}
+                        className="flex cursor-pointer items-center gap-2 text-xs font-medium text-primary focus:text-primary"
+                      >
+                        <Power className="h-3.5 w-3.5" />
+                        Reactivar servicio
+                      </DropdownMenuItem>
+                    )}
                   </>
                 )}
               </DropdownMenuContent>

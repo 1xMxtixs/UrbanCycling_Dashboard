@@ -8,6 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { Wrench, Tag, DollarSign, Calendar, FileText } from "lucide-react"
 import { type ServiceColumn } from "../../types"
 
@@ -24,7 +25,7 @@ export function ServiceDetailSheet({
 }: ServiceDetailSheetProps) {
   if (!service) return null
 
-  const isActivo = service.estado.toLowerCase() === "activo"
+  const isActivo = isRegistroActivo(service.estado)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -54,8 +55,8 @@ export function ServiceDetailSheet({
               </span>
               <div className="pt-1">
                 <StatusBadge
-                  status={isActivo ? "success" : "neutral"}
-                  label={isActivo ? "Activo" : "Inactivo"}
+                  status={isActivo ? "success" : "danger"}
+                  label={getNombreEstadoRegistro(service.estado)}
                 />
               </div>
             </div>

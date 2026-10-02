@@ -1,5 +1,7 @@
 "use client"
 
+import { Power, Trash2 } from "lucide-react"
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,8 +10,11 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Spinner } from "@/components/ui/spinner"
+import { isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
 interface InactivateServiceDialogProps {
@@ -29,56 +34,54 @@ export function InactivateServiceDialog({
 }: InactivateServiceDialogProps) {
   if (!service) return null
 
-  const isActivo = service.estado.toLowerCase() === "activo"
+  const isActivo = isRegistroActivo(service.estado)
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-lg font-semibold tracking-tight">
-            {isActivo ? "¿Inactivar servicio?" : "¿Reactivar servicio?"}
+          {isActivo ? (
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 />
+            </AlertDialogMedia>
+          ) : (
+            <AlertDialogMedia className="bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary">
+              <Power />
+            </AlertDialogMedia>
+          )}
+          <AlertDialogTitle>
+            {isActivo
+              ? `¿Inactivar ${service.nombre}?`
+              : `¿Reactivar ${service.nombre}?`}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed pt-1">
-            {isActivo ? (
-              <>
-                ¿Estás seguro de que deseas desactivar el servicio{" "}
-                <span className="font-semibold text-foreground">
-                  {service.nombre}
-                </span>{" "}
-                (<span className="font-mono">{service.codigo}</span>)? Ya no estará disponible para nuevas órdenes de trabajo o ventas.
-              </>
-            ) : (
-              <>
-                ¿Deseas reactivar el servicio{" "}
-                <span className="font-semibold text-foreground">
-                  {service.nombre}
-                </span>
-                ? Volverá a estar visible y operativo en el catálogo del taller.
-              </>
-            )}
+          <AlertDialogDescription>
+            {isActivo
+              ? "El servicio pasará a estado inactivo y no aparecerá en el listado principal. Esta acción se puede revertir más adelante reactivándolo desde el filtro Solo Inactivos."
+              : "El servicio volverá a estado activo y aparecerá nuevamente en el listado principal."}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="mt-4 gap-2">
-          <AlertDialogCancel disabled={isSubmitting} className="rounded-lg">
+        <AlertDialogFooter>
+          <AlertDialogCancel variant="outline" disabled={isSubmitting}>
             Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
+            variant={isActivo ? "destructive" : "default"}
+            disabled={isSubmitting}
             onClick={(e) => {
               e.preventDefault()
-              onConfirm()
+              void onConfirm()
             }}
-            disabled={isSubmitting}
-            className={`rounded-lg font-medium transition-colors ${
-              isActivo
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
-            }`}
           >
-            {isSubmitting
-              ? "Procesando..."
-              : isActivo
-              ? "Inactivar servicio"
-              : "Reactivar servicio"}
+            {isSubmitting ? (
+              <>
+                <Spinner data-icon="inline-start" />
+                {isActivo ? "Inactivando..." : "Reactivando..."}
+              </>
+            ) : isActivo ? (
+              "Inactivar"
+            ) : (
+              "Reactivar"
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
