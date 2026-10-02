@@ -1,3 +1,4 @@
+import { EstadoReclamoGarantia } from "../generated/prisma";
 import { db } from "../lib/db";
 import {
   EstadoRegistro,
@@ -18,7 +19,8 @@ async function main() {
   await db.documentoTributario.deleteMany();
   await db.asignacionPago.deleteMany();
   await db.pago.deleteMany();
-  await db.metodoPago.deleteMany(); // <-- Limpieza catálogo metodos_pago
+  await db.metodoPago.deleteMany(); // Limpieza del catálogo referenciado por pagos.
+  await db.reclamoGarantia.deleteMany(); // Debe eliminarse antes de las ventas reclamadas.
   await db.movimientoInventario.deleteMany();
   await db.lineaDeAjuste.deleteMany();
   await db.ajusteInventario.deleteMany();
@@ -32,7 +34,6 @@ async function main() {
   await db.lineaDeVenta.deleteMany();
   await db.ventaEnMostrador.deleteMany();
   await db.venta.deleteMany();
-  await db.reclamoGarantia.deleteMany();
   await db.productoServicio.deleteMany();
   await db.servicio.deleteMany();
   await db.categoriaProducto.deleteMany();
@@ -47,9 +48,8 @@ async function main() {
   await db.proveedor.deleteMany();
   await db.auditoria.deleteMany();
   await db.usuario.deleteMany();
-  await db.rolPermiso.deleteMany();
-  await db.rol.deleteMany();
-  await db.permiso.deleteMany();
+  // Roles y permisos son un catálogo de autorización. Se sincronizan más
+  // abajo, pero no se eliminan al recrear los datos de prueba.
 
   // ──────────────────────────────────────────────
   // 0. CATÁLOGOS BASE (ESTADOS OT & MÉTODOS DE PAGO)
@@ -107,10 +107,15 @@ async function main() {
     { nombre: "Crear ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "create", codigo: "work-orders:create", descripcion: "Permite crear ordenes de trabajo" },
     { nombre: "Actualizar ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update", codigo: "work-orders:update", descripcion: "Permite modificar ordenes de trabajo" },
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
+    { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
+    { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia registradas" },
+    { nombre: "Modificar garantias", modulo: "garantias", recurso: "garantias", accion: "update", codigo: "warranties:update", descripcion: "Permite modificar solicitudes de garantia pendientes" },
+    { nombre: "Resolver garantias", modulo: "garantias", recurso: "garantias", accion: "resolve", codigo: "warranties:resolve", descripcion: "Permite aprobar o rechazar solicitudes de garantia pendientes" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
     { nombre: "Crear ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "create", codigo: "purchase_orders:create", descripcion: "Permite registrar ordenes de compra" },
+    { nombre: "Actualizar ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "update", codigo: "purchase_orders:update", descripcion: "Permite cambiar el estado, registrar pagos e ingresar productos al inventario al completar ordenes de compra" },
     { nombre: "Crear pagos", modulo: "pagos", recurso: "pagos", accion: "create", codigo: "payments:create", descripcion: "Permite registrar pagos" },
     { nombre: "Crear DTE", modulo: "dte", recurso: "dte", accion: "create", codigo: "receipts:create", descripcion: "Permite emitir documentos tributarios" },
     { nombre: "Ver usuarios", modulo: "usuarios", recurso: "usuarios", accion: "read", codigo: "users:read", descripcion: "Permite ver usuarios" },
@@ -122,87 +127,67 @@ async function main() {
     { nombre: "Ver reportes", modulo: "reportes", recurso: "reportes", accion: "read", codigo: "reports:read", descripcion: "Permite ver reportes" },
   ];
 
-  const permisos: Awaited<ReturnType<typeof db.permiso.create>>[] = [];
+  const permisos: Awaited<ReturnType<typeof db.permiso.upsert>>[] = [];
   for (const p of permisosData) {
-    permisos.push(await db.permiso.create({ data: p }));
+    permisos.push(await db.permiso.upsert({
+      where: { codigo: p.codigo },
+      create: p,
+      update: {
+        nombre: p.nombre,
+        modulo: p.modulo,
+        recurso: p.recurso,
+        accion: p.accion,
+        descripcion: p.descripcion,
+      },
+    }));
   }
-  console.log(`  ${permisos.length} permisos creados.`);
+  console.log(`  ${permisos.length} permisos sincronizados.`);
 
   // ──────────────────────────────────────────────
   // 2. ROLES
   // ──────────────────────────────────────────────
-  console.log("👥 Creando roles...");
-  const adminPermisos = permisos.map((p) => p.idPermiso);
+  console.log("👥 Sincronizando roles...");
+  const permisosPorCodigo = new Map(permisos.map((p) => [p.codigo, p.idPermiso]));
 
-  const roles = [];
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Administrador",
-      descripcion: "Acceso completo al sistema",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: { create: adminPermisos.map((id) => ({ idPermiso: id })) },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Mecánico",
-      descripcion: "Acceso a módulos de bicicletas y ordenes de trabajo",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "bicycles:read", "bicycles:create", "bicycles:update",
-              "work-orders:read", "work-orders:create", "work-orders:update",
-              "work-orders:update-status",
-              "inventory:read",
-              "clients:read",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
+  const sincronizarRol = async (
+    nombre: string,
+    descripcion: string,
+    codigosPermiso: string[]
+  ) => {
+    const permisosRol = codigosPermiso.map((codigo) => {
+      const idPermiso = permisosPorCodigo.get(codigo);
+
+      if (!idPermiso) {
+        throw new Error(`No existe el permiso ${codigo} para el rol ${nombre}`);
+      }
+
+      return { idPermiso };
+    });
+
+    return db.rol.upsert({
+      where: { nombre },
+      create: {
+        nombre,
+        descripcion,
+        estado: EstadoRegistro.ACTIVO,
+        permisosRol: { create: permisosRol },
       },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Vendedor",
-      descripcion: "Acceso a ventas en mostrador y clientes",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "sales:read", "sales:create",
-              "clients:read", "clients:create", "clients:update",
-              "inventory:read",
-              "payments:create",
-              "receipts:create",
-              "bicycles:read", "bicycles:create",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
+      update: {
+        descripcion,
+        estado: EstadoRegistro.ACTIVO,
+        permisosRol: { deleteMany: {}, create: permisosRol },
       },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Bodeguero",
-      descripcion: "Acceso a inventario y compras",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "inventory:read", "inventory:create", "inventory:update",
-              "inventory:delete",
-              "purchase_orders:read", "purchase_orders:create",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
-      },
-    },
-  }));
-  console.log(`  ${roles.length} roles creados.`);
+    });
+  };
+
+  const roles = [
+    await sincronizarRol("Administrador", "Acceso completo al sistema", permisos.map((p) => p.codigo)),
+    await sincronizarRol("Mecánico", "Acceso a módulos de bicicletas y ordenes de trabajo", ["bicycles:read", "bicycles:create", "bicycles:update", "work-orders:read", "work-orders:create", "work-orders:update", "work-orders:update-status", "inventory:read", "clients:read"]),
+    await sincronizarRol("Vendedor", "Acceso a ventas en mostrador y clientes", ["sales:read", "sales:create", "clients:read", "clients:create", "clients:update", "inventory:read", "payments:create", "receipts:create", "bicycles:read", "bicycles:create"]),
+    await sincronizarRol("Bodeguero", "Acceso a inventario y compras", ["inventory:read", "inventory:create", "inventory:update", "inventory:delete", "purchase_orders:read", "purchase_orders:create", "purchase_orders:update"]),
+    await sincronizarRol("Asesor Técnico", "Registra, consulta y modifica solicitudes de garantía para órdenes entregadas", ["work-orders:read", "warranties:create", "warranties:read", "warranties:update"]),
+  ];
+  console.log(`  ${roles.length} roles sincronizados.`);
 
   // ──────────────────────────────────────────────
   // 3. USUARIOS
@@ -762,7 +747,29 @@ async function main() {
   console.log(`  ${ordenesData.length} órdenes de trabajo creadas.`);
 
   // ──────────────────────────────────────────────
-  // 12. PAGOS (para las ventas pagadas)
+  // 12. SOLICITUD DE GARANTIA
+  // ──────────────────────────────────────────────
+  console.log("🛡️ Creando solicitud de garantía de prueba...");
+  const ordenEntregada = await db.ordenDeTrabajo.findFirst({
+    where: { estado: "ENTREGADO" },
+    select: { idVenta: true },
+  });
+
+  if (!ordenEntregada) {
+    throw new Error("El seed requiere una orden entregada para crear la garantía");
+  }
+
+  await db.reclamoGarantia.create({
+    data: {
+      idVentaReclamada: ordenEntregada.idVenta,
+      estado: EstadoReclamoGarantia.INGRESADO,
+      motivo: "La bicicleta continúa presentando ruido después de la reparación",
+    },
+  });
+  console.log("  1 solicitud de garantía creada.");
+
+  // ──────────────────────────────────────────────
+  // 13. PAGOS (para las ventas pagadas)
   // ──────────────────────────────────────────────
   console.log("💰 Creando pagos...");
   const ventasPagadas = await db.venta.findMany({
