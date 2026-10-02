@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 
 import type { ProductColumn } from "./columns"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 
 type ProductDetailSheetProps = {
   product: ProductColumn | null
@@ -50,8 +51,8 @@ export function ProductDetailSheet({
                   Ficha de Producto #{product.idProducto}
                 </span>
                 <StatusBadge
-                  status={product.estado === "activo" ? "success" : "neutral"}
-                  label={product.estado}
+                  status={isRegistroActivo(product.estado) ? "success" : "neutral"}
+                  label={getNombreEstadoRegistro(product.estado)}
                   showDot={false}
                 />
               </div>

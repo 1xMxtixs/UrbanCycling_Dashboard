@@ -28,6 +28,7 @@ import {
 import { ImageUpload } from "@/components/forms/ImageUpload";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
+import { ESTADO_REGISTRO } from "@/lib/registro-status";
 
 const numericField = (fieldName: string) =>
   z
@@ -76,7 +77,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       precioVenta: "0",
       stockActual: "0",
       stockMinimo: "0",
-      estado: "activo",
+      estado: ESTADO_REGISTRO.ACTIVO,
     },
   });
 
@@ -298,8 +299,8 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent position="popper">
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Activo</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

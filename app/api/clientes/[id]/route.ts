@@ -1,5 +1,5 @@
 // Endpoint para actualizar parcialmente la ficha de un cliente por ID.
-import type { Prisma } from "@/generated/prisma"
+import { EstadoRegistro, type Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
 import {
@@ -39,6 +39,11 @@ function parseClienteId(id: string): number {
   return idCliente
 }
 
+/**
+ * PATCH /api/clientes/:id
+ * Actualiza la ficha de un cliente activo. El frontend puede enviar datos
+ * personales, comerciales y de contacto en una actualización parcial.
+ */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_UPDATE)
@@ -86,6 +91,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (!clienteActual) {
       return new NextResponse("El cliente no existe", { status: 404 })
+    }
+
+    if (clienteActual.estado !== EstadoRegistro.ACTIVO) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_INACTIVO",
+          message: "No se puede actualizar un cliente inactivo",
+        },
+        { status: 409 }
+      )
     }
 
     const esPersonaNatural = clienteActual.tipoCliente === "natural"

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table"
 
 import { Input } from "@/components/ui/input"
+import { ESTADO_REGISTRO } from "@/lib/registro-status"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -120,8 +121,8 @@ export function DataTable<TData, Tvalue>({
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="activo">Solo Activos</SelectItem>
-                <SelectItem value="inactivo">Solo Inactivos</SelectItem>
+                <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Solo Activos</SelectItem>
+                <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Solo Inactivos</SelectItem>
               </SelectContent>
             </Select>
           </div>

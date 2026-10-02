@@ -1,6 +1,12 @@
 // Controlador para registrar pedidos a proveedores.
 import { NextResponse } from "next/server"
 
+import {
+  EstadoOrdenCompra,
+  EstadoPagoOrdenCompra,
+  EstadoRecepcionOrdenCompra,
+  EstadoRegistro,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -90,6 +96,11 @@ function parseLines(value: unknown): PurchaseLine[] | null {
   return lines
 }
 
+/**
+ * POST /api/ordenes-compra
+ * Crea una orden en BORRADOR con sus líneas, importes y fechas. Los estados de
+ * pago y recepción comienzan en PENDIENTE y se guardan en campos separados.
+ */
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -101,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     const providers = await db.proveedor.findMany({
-      where: { estado: "activo" },
+      where: { estado: EstadoRegistro.ACTIVO },
       select: { idProveedor: true },
       take: 1,
     })
@@ -231,7 +242,7 @@ export async function POST(request: Request) {
       }),
     ])
 
-    if (!provider || provider.estado !== "activo") {
+    if (!provider || provider.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "PROVEEDOR_NO_DISPONIBLE",
@@ -276,9 +287,9 @@ export async function POST(request: Request) {
         idProveedor,
         fechaRegistro: fechaEmision,
         fechaEntregaEstimada,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        estadoRecepcion: "PENDIENTE",
+        estado: EstadoOrdenCompra.BORRADOR,
+        estadoPago: EstadoPagoOrdenCompra.PENDIENTE,
+        estadoRecepcion: EstadoRecepcionOrdenCompra.PENDIENTE,
         montoSubtotal,
         descuentoProductos,
         descuentoGlobal,

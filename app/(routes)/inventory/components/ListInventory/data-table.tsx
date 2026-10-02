@@ -37,6 +37,7 @@ import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
 import { KpiCards } from "./kpi-cards"
+import { ESTADO_REGISTRO } from "@/lib/registro-status"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
@@ -194,8 +195,8 @@ export function DataTable({
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="activo">Solo Activos</SelectItem>
-                  <SelectItem value="inactivo">Solo Inactivos</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Solo Activos</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Solo Inactivos</SelectItem>
                 </SelectContent>
               </Select>
 

@@ -1,9 +1,11 @@
 //endpoints generales del inventario para registrar nuevos clientes.
 import { db } from "@/lib/db"
 import { separarApellidos, separarNombres } from "@/lib/client-helpers"
-import type { Prisma } from "@/generated/prisma"
+import { validarYFormatearRut } from "@/lib/client-rut"
+import { EstadoRegistro, Prisma } from "@/generated/prisma"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import { ACTIVE_WORK_ORDER_STATUSES } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
 function formatearRut(rut: string) {
@@ -53,6 +55,11 @@ function crearCorreoRespaldo(rut: string) {
   return `cliente.${rutLimpio}@urbancycling.local`
 }
 
+/**
+ * POST /api/clientes
+ * Registra una persona o empresa y devuelve la ficha creada para refrescar
+ * formularios y selectores de clientes sin una segunda consulta.
+ */
 export async function POST(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_CREATE)
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
       correo: correo
         ? String(correo).trim().toLowerCase()
         : crearCorreoRespaldo(rutFormateado),
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
       telefonos: {
         create: {
           telefono: String(telefono).trim(),
@@ -172,6 +179,11 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * GET /api/clientes
+ * Lista clientes activos con sus datos de contacto y un indicador de órdenes
+ * de trabajo activas para la tabla principal de clientes.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.CLIENTS_READ)
@@ -181,6 +193,9 @@ export async function GET() {
     }
 
     const clientes = await db.cliente.findMany({
+      where: {
+        estado: EstadoRegistro.ACTIVO,
+      },
       orderBy: {
         fechaRegistro: "desc",
       },
@@ -214,7 +229,8 @@ export async function GET() {
             observacionesIngreso: orden.observacionesIngreso,
             total: orden.montoTotal,
             descuento: orden.descuentoGlobal,
-            estadoPago: orden.estadoPago,
+            // El estado financiero pertenece a la venta y es compartido por todos sus subtipos.
+            estadoPago: venta.estadoPago,
             estadoOrden: orden.estado,
             fechaCreacion: venta.fechaRegistro,
           }
@@ -257,5 +273,183 @@ export async function GET() {
     return new NextResponse("Internal Server Error", {
       status: 500,
     })
+  }
+}
+
+class ClienteNoExisteError extends Error {
+  constructor() {
+    super("No existe un cliente registrado con el RUT indicado")
+    this.name = "ClienteNoExisteError"
+  }
+}
+
+class ClienteConOrdenActivaError extends Error {
+  ordenDeTrabajo: {
+    idOrdenDeTrabajo: number
+    estado: string
+  }
+
+  constructor(ordenDeTrabajo: {
+    idOrdenDeTrabajo: number
+    estado: string
+  }) {
+    super(
+      "No se puede eliminar el cliente porque tiene órdenes de trabajo activas"
+    )
+    this.name = "ClienteConOrdenActivaError"
+    this.ordenDeTrabajo = ordenDeTrabajo
+  }
+}
+
+class ClienteYaInactivoError extends Error {
+  constructor() {
+    super("El cliente ya se encuentra eliminado")
+    this.name = "ClienteYaInactivoError"
+  }
+}
+
+/**
+ * DELETE /api/clientes?idCliente=...
+ * Desactiva lógicamente un cliente cuando no tiene órdenes activas. La vista
+ * debe retirarlo de los listados de clientes disponibles al recibir 200.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.CLIENTS_DELETE)
+
+    if (response) {
+      return response
+    }
+
+    const { searchParams } = new URL(request.url)
+    const rutParametro = searchParams.get("rut")
+    const resultadoRut = validarYFormatearRut(rutParametro ?? "")
+
+    if (!resultadoRut.valid) {
+      return NextResponse.json(
+        {
+          code: "RUT_INVALIDO",
+          message: resultadoRut.error,
+        },
+        { status: 400 }
+      )
+    }
+
+    await db.$transaction(async (tx) => {
+      const cliente = await tx.cliente.findFirst({
+        where: {
+          rut: {
+            in: [resultadoRut.formatted, resultadoRut.compact],
+          },
+        },
+        select: {
+          idCliente: true,
+          estado: true,
+        },
+      })
+
+      if (!cliente) {
+        throw new ClienteNoExisteError()
+      }
+
+      if (cliente.estado !== EstadoRegistro.ACTIVO) {
+        throw new ClienteYaInactivoError()
+      }
+
+      // Bloquea el cliente durante toda la transacción para evitar que una
+      // operación concurrente cree una venta/OT mientras se valida y elimina.
+      await tx.$queryRaw<{ id_cliente: number }[]>(
+        Prisma.sql`
+          SELECT id_cliente
+          FROM clientes
+          WHERE id_cliente = ${cliente.idCliente}
+          FOR UPDATE
+        `
+      )
+
+      // Los códigos compartidos mantienen esta regla alineada con el flujo de las OT.
+      const ordenActiva = await tx.venta.findFirst({
+        where: {
+          idCliente: cliente.idCliente,
+          ordenDeTrabajo: {
+            is: {
+              estado: {
+                in: [...ACTIVE_WORK_ORDER_STATUSES],
+              },
+            },
+          },
+        },
+        select: {
+          ordenDeTrabajo: {
+            select: {
+              idOrdenDeTrabajo: true,
+              estado: true,
+            },
+          },
+        },
+      })
+
+      if (ordenActiva?.ordenDeTrabajo) {
+        throw new ClienteConOrdenActivaError(ordenActiva.ordenDeTrabajo)
+      }
+
+      await tx.cliente.update({
+        where: {
+          idCliente: cliente.idCliente,
+        },
+        data: {
+          estado: EstadoRegistro.INACTIVO,
+        },
+      })
+    })
+
+    return NextResponse.json(
+      {
+        code: "CLIENTE_ELIMINADO",
+        message: "El cliente fue eliminado correctamente",
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    if (error instanceof ClienteNoExisteError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_NO_EXISTE",
+          message: error.message,
+        },
+        { status: 404 }
+      )
+    }
+
+    if (error instanceof ClienteConOrdenActivaError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_CON_OT_ACTIVA",
+          message: error.message,
+          ordenDeTrabajo: error.ordenDeTrabajo,
+        },
+        { status: 409 }
+      )
+    }
+
+    if (error instanceof ClienteYaInactivoError) {
+      return NextResponse.json(
+        {
+          code: "CLIENTE_YA_INACTIVO",
+          message: error.message,
+        },
+        { status: 409 }
+      )
+    }
+
+    console.error("[CLIENTES_DELETE]", error)
+
+    return NextResponse.json(
+      {
+        code: "ERROR_INTERNO",
+        message: "No fue posible eliminar el cliente",
+      },
+      { status: 500 }
+    )
   }
 }

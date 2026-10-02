@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import type { InventoryCategory } from "../../types"
+import { isRegistroActivo } from "@/lib/registro-status"
 
 export function ListInventory() {
   const { data: session } = useSession()
@@ -90,7 +91,7 @@ export function ListInventory() {
   }
 
   const activeProducts = inventory.filter(
-    (product) => product.estado?.toLowerCase() === "activo",
+    (product) => isRegistroActivo(product.estado),
   )
 
   const lowStockProducts = activeProducts.filter(

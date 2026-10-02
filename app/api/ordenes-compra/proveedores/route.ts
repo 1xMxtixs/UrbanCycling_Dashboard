@@ -1,10 +1,16 @@
 // Controlador para obtener proveedores disponibles al crear una orden de compra.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
+/**
+ * GET /api/ordenes-compra/proveedores
+ * Entrega proveedores activos y sus condiciones de pago para el selector del
+ * formulario de creación de órdenes de compra.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ)
@@ -14,7 +20,7 @@ export async function GET() {
     }
 
     const providers = await db.proveedor.findMany({
-      where: { estado: "activo" },
+      where: { estado: EstadoRegistro.ACTIVO },
       select: {
         idProveedor: true,
         razonSocial: true,
