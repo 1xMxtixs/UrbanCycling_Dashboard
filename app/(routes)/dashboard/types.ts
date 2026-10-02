@@ -1,66 +1,57 @@
+import type { TodaySale } from "@/components/reportes/today-sales-columns"
+
 export interface DateRange {
-  from: string // YYYY-MM-DD
-  to: string   // YYYY-MM-DD
+  from: string
+  to: string
 }
 
-export type DatePreset = "today" | "last7days" | "thisMonth" | "custom"
-
 export interface FinancialSummaryData {
-  totalRevenue: number       // Ingresos totales del periodo
-  todayRevenue: number       // Ingresos del dia actual (fijo)
-  totalWorkOrders: number    // Ordenes de trabajo procesadas
+  totalRevenue: number
+  todayRevenue: number
+  totalWorkOrders: number
   workOrdersFinished: number
-  workOrdersInProgress: number
 }
 
 export interface TimeSeriesPoint {
-  date: string          // formato ISO "YYYY-MM-DD"
-  label: string         // ej: "Lun 16", "Sem 1", "Ene 2026"
-  laborAmount: number   // Mano de obra
-  partsAmount: number   // Repuestos e insumos
+  date: string
+  workOrderRevenue: number
+  partsCost: number
 }
 
-export interface LaborVsPartsData {
-  laborRevenue: number  // Mano de obra total
-  partsRevenue: number  // Repuestos e insumos total
-  series: TimeSeriesPoint[] // Serie temporal para gráfico de barras agrupadas
+export interface WorkOrderProfitabilityData {
+  workOrderRevenue: number
+  partsCost: number
+  series: TimeSeriesPoint[]
 }
 
 export interface PaymentMethodItem {
   method: string
   label: string
   amount: number
-  percentage: number
   count: number
-  color: string
 }
 
 export interface TopProductItem {
-  id: number | string
+  id: number
   ranking: number
   name: string
-  sku?: string
-  category?: string
-  quantitySold: number
+  type: string
+  quantityDispatched: number
   totalRevenue: number
 }
 
 export interface SupplyConsumptionItem {
-  id: number | string
-  code: string
+  id: number
   name: string
-  category: string
+  type: string
   quantityUsed: number
-  unit: string
   associatedOrdersCount: number
-  estimatedCost: number
+  totalCost: number
 }
-
-import type { TodaySale } from "@/components/reportes/today-sales-columns"
 
 export interface ReportsData {
   financialSummary: FinancialSummaryData
-  laborVsParts: LaborVsPartsData
+  workOrderProfitability: WorkOrderProfitabilityData
   paymentMethods: PaymentMethodItem[]
   topProducts: TopProductItem[]
   supplyConsumption: SupplyConsumptionItem[]
