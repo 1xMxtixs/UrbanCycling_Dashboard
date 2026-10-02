@@ -14,33 +14,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
-import { isRegistroActivo } from "@/lib/registro-status"
-import { type ServiceColumn } from "../../types"
 
-interface InactivateServiceDialogProps {
+interface StatusToggleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  service: ServiceColumn | null
+  entityLabel: string
+  entityName: string
+  isActive: boolean
   onConfirm: () => Promise<void>
   isSubmitting?: boolean
 }
 
-export function InactivateServiceDialog({
+export function StatusToggleDialog({
   open,
   onOpenChange,
-  service,
+  entityLabel,
+  entityName,
+  isActive,
   onConfirm,
   isSubmitting = false,
-}: InactivateServiceDialogProps) {
-  if (!service) return null
-
-  const isActivo = isRegistroActivo(service.estado)
-
+}: StatusToggleDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          {isActivo ? (
+          {isActive ? (
             <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
               <Trash2 />
             </AlertDialogMedia>
@@ -50,14 +48,12 @@ export function InactivateServiceDialog({
             </AlertDialogMedia>
           )}
           <AlertDialogTitle>
-            {isActivo
-              ? `¿Inactivar ${service.nombre}?`
-              : `¿Reactivar ${service.nombre}?`}
+            {isActive ? `¿Inactivar ${entityName}?` : `¿Reactivar ${entityName}?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {isActivo
-              ? "El servicio pasará a estado inactivo y no aparecerá en el listado principal. Esta acción se puede revertir más adelante reactivándolo desde el filtro Solo Inactivos."
-              : "El servicio volverá a estado activo y aparecerá nuevamente en el listado principal."}
+            {isActive
+              ? `El ${entityLabel} pasará a estado inactivo. Esta acción se puede revertir más adelante reactivándolo desde el menú de acciones.`
+              : `El ${entityLabel} volverá a estado activo.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -65,7 +61,7 @@ export function InactivateServiceDialog({
             Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
-            variant={isActivo ? "destructive" : "default"}
+            variant={isActive ? "destructive" : "default"}
             disabled={isSubmitting}
             onClick={(e) => {
               e.preventDefault()
@@ -75,9 +71,9 @@ export function InactivateServiceDialog({
             {isSubmitting ? (
               <>
                 <Spinner data-icon="inline-start" />
-                {isActivo ? "Inactivando..." : "Reactivando..."}
+                {isActive ? "Inactivando..." : "Reactivando..."}
               </>
-            ) : isActivo ? (
+            ) : isActive ? (
               "Inactivar"
             ) : (
               "Reactivar"

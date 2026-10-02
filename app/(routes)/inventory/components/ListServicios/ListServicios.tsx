@@ -9,10 +9,10 @@ import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import { DataTable } from "./data-table"
 import { getColumns } from "./columns"
 import { ServiceDetailSheet } from "./ServiceDetailSheet"
-import { InactivateServiceDialog } from "./InactivateServiceDialog"
 import { FormEditServicio } from "../FormEditServicio"
 import { type ServiceColumn } from "../../types"
 
@@ -158,18 +158,7 @@ export function ListServicios() {
           </div>
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={services}
-          onViewDetails={(id) => {
-            const item = services.find((s) => s.idServicio === id)
-            if (item) handleViewDetails(item)
-          }}
-          onEdit={(id) => {
-            const item = services.find((s) => s.idServicio === id)
-            if (item) handleEdit(item)
-          }}
-        />
+        <DataTable columns={columns} data={services} />
       )}
 
       {/* Sheet de Detalle */}
@@ -177,6 +166,11 @@ export function ListServicios() {
         open={openDetail}
         onOpenChange={setOpenDetail}
         service={selectedService}
+        canUpdate={canUpdate}
+        onEdit={(service) => {
+          setOpenDetail(false)
+          handleEdit(service)
+        }}
       />
 
       {/* Modal de EdiciÃ³n */}
@@ -197,13 +191,17 @@ export function ListServicios() {
       )}
 
       {/* DiÃ¡logo de ConfirmaciÃ³n para Inactivar/Reactivar */}
-      <InactivateServiceDialog
-        open={openToggleDialog}
-        onOpenChange={setOpenToggleDialog}
-        service={serviceToToggle}
-        onConfirm={handleConfirmToggle}
-        isSubmitting={isSubmittingToggle}
-      />
+      {serviceToToggle && (
+        <StatusToggleDialog
+          open={openToggleDialog}
+          onOpenChange={setOpenToggleDialog}
+          entityLabel="servicio"
+          entityName={serviceToToggle.nombre}
+          isActive={isRegistroActivo(serviceToToggle.estado)}
+          onConfirm={handleConfirmToggle}
+          isSubmitting={isSubmittingToggle}
+        />
+      )}
     </div>
   )
 }
