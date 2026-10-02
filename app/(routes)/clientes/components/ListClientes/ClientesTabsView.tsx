@@ -12,7 +12,7 @@ interface ClientesTabsViewProps {
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
-  onInactivate?: (id: number) => Promise<void>;
+  onInactivate?: (id: number) => Promise<string>;
 }
 
 export function ClientesTabsView({

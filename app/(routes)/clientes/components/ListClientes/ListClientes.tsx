@@ -38,7 +38,6 @@ import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
-import { getNombreEstadoOt } from "@/lib/work-order-status";
 
 export function ListClientes() {
   const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
@@ -114,11 +113,14 @@ export function ListClientes() {
   };
 
   useEffect(() => {
-    fetchClientes();
+    const initialFetch = window.setTimeout(() => {
+      void fetchClientes();
+    }, 0);
 
     window.addEventListener("clientes:refresh", fetchClientes);
 
     return () => {
+      window.clearTimeout(initialFetch);
       window.removeEventListener("clientes:refresh", fetchClientes);
     };
   }, []);
@@ -149,23 +151,17 @@ export function ListClientes() {
       method: "DELETE",
     });
 
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const data = await res.json().catch(() => null);
       throw new Error(
         data?.message || "No se pudo inactivar el cliente. Intenta nuevamente."
       );
     }
 
-    // Actualizar estado local inmediatamente sin recargar toda la página
-    setRawClientes((prev) =>
-      prev.map((c) => (c.idCliente === id ? { ...c, estado: "inactivo" } : c))
-    );
-    setClientesNaturales((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, estado: "inactivo" } : c))
-    );
-    setClientesJuridicas((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, estado: "inactivo" } : c))
-    );
+    await fetchClientes();
+
+    return data?.message || "Cliente inactivado correctamente";
   };
 
   if (isLoading) {

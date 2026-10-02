@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InactivateClientDialog } from "./InactivateClientDialog";
 import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
-import { isRegistroActivo } from "@/lib/registro-status";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 
 export type { ClienteNatural, ClienteJuridica };
 
@@ -106,8 +106,12 @@ const CellActions = <TData extends { id: number }>({
           onOpenChange={setDialogOpen}
           clientId={client.id}
           clientName={client.nombre ?? "este cliente"}
-          onConfirm={async (id) => {
-            await meta?.onInactivate?.(id);
+          onConfirm={(id) => {
+            if (!meta?.onInactivate) {
+              return Promise.reject(new Error("No se pudo inactivar el cliente."));
+            }
+
+            return meta.onInactivate(id);
           }}
         />
       )}
@@ -160,7 +164,7 @@ export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
       return (
         <StatusBadge
           status={isActivo ? "success" : "danger"}
-          label={estado}
+          label={getNombreEstadoRegistro(estado)}
         />
       );
     },
@@ -235,7 +239,7 @@ export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
       return (
         <StatusBadge
           status={isActivo ? "success" : "danger"}
-          label={estado}
+          label={getNombreEstadoRegistro(estado)}
         />
       );
     },

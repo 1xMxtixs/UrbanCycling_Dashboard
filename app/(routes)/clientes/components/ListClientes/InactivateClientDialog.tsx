@@ -22,7 +22,7 @@ interface InactivateClientDialogProps {
   onOpenChange: (open: boolean) => void
   clientName: string
   clientId: number
-  onConfirm: (clientId: number) => Promise<void>
+  onConfirm: (clientId: number) => Promise<string>
 }
 
 export function InactivateClientDialog({
@@ -37,8 +37,8 @@ export function InactivateClientDialog({
   async function handleConfirm() {
     setIsSubmitting(true)
     try {
-      await onConfirm(clientId)
-      toast.success("Cliente inactivado correctamente")
+      const message = await onConfirm(clientId)
+      toast.success(message)
       onOpenChange(false)
     } catch (error) {
       const message =

@@ -42,7 +42,7 @@ interface DataTableProps<TData, Tvalue> {
   onViewDetails?: (id: number) => void
   onViewHistory?: (id: number) => void
   onEdit?: (id: number) => void
-  onInactivate?: (id: number) => Promise<void>
+  onInactivate?: (id: number) => Promise<string>
 }
 
 export function DataTable<TData, Tvalue>({
@@ -55,7 +55,7 @@ export function DataTable<TData, Tvalue>({
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
-    { id: "estado", value: "activo" },
+    { id: "estado", value: ESTADO_REGISTRO.ACTIVO },
   ])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [isMounted, setIsMounted] = React.useState(false)
@@ -116,7 +116,7 @@ export function DataTable<TData, Tvalue>({
             </div>
 
             <Select
-              value={(table.getColumn("estado")?.getFilterValue() as string) ?? "activo"}
+              value={(table.getColumn("estado")?.getFilterValue() as string) ?? ESTADO_REGISTRO.ACTIVO}
               onValueChange={(value) =>
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
               }
