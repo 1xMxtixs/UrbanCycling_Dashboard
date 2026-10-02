@@ -7,6 +7,10 @@ import {
 } from "@/lib/bicycle-images"
 import { EstadoPago, EstadoPagoVenta, EstadoRegistro, EstadoVentaMostrador } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import {
+  calcularTotalesConDescuentos,
+  type DiscountCalculation,
+} from "@/lib/discounts"
 import { PERMISSIONS } from "@/lib/permissions"
 import { ESTADOS_OT_DISPONIBLES, estadoOrdenInclude, resolverEstadoOt, resolverEstadoPago, resolverEstadoVenta, respuestaInvalida } from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
@@ -80,27 +84,6 @@ function normalizarServicios(input: unknown): ServicioInput[] {
 
 function normalizarBicicletas(input: unknown): BicicletaInput[] {
   return Array.isArray(input) ? input : []
-}
-
-function calcularMontos(
-  montoSubtotal: number,
-  descuentoGlobal: number,
-  descuentoLineas = 0
-) {
-  const montoTotal = Math.max(
-    0,
-    montoSubtotal - descuentoLineas - descuentoGlobal
-  )
-  const montoNeto = Math.round(montoTotal / 1.19)
-  const montoIva = montoTotal - montoNeto
-
-  return {
-    montoSubtotal,
-    descuentoGlobal,
-    montoTotal,
-    montoNeto,
-    montoIva,
-  }
 }
 
 function sanitizarUsuario(usuario: any) {
@@ -218,19 +201,6 @@ function mapearServicio(item: ServicioInput) {
   }
 }
 
-function validarValoresLinea(
-  precioUnitario: number,
-  descuentoUnitario: number
-) {
-  return (
-    Number.isFinite(precioUnitario) &&
-    precioUnitario >= 0 &&
-    Number.isFinite(descuentoUnitario) &&
-    descuentoUnitario >= 0 &&
-    descuentoUnitario <= precioUnitario
-  )
-}
-
 function mapearBicicleta(item: BicicletaInput) {
   return {
     tipo: String(item.tipo ?? "bicicleta").trim(),
@@ -270,6 +240,35 @@ function calcularTipoOperacion(tieneVenta: boolean, tieneOrden: boolean) {
   }
 
   return "venta"
+}
+
+/** Traduce los errores del cálculo compartido a la respuesta HTTP esperada por POS. */
+function responderCalculoDescuentoInvalido(
+  resultado: Extract<DiscountCalculation, { ok: false }>,
+  tieneOrden: boolean
+) {
+  if (resultado.code === "VALORES_LINEA_INVALIDOS") {
+    return NextResponse.json(
+      {
+        code: resultado.code,
+        message:
+          "El precio unitario debe ser mayor o igual a cero y el descuento no puede superar el precio",
+      },
+      { status: 400 }
+    )
+  }
+
+  return NextResponse.json(
+    {
+      code: tieneOrden
+        ? "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL_OT"
+        : "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL",
+      message: tieneOrden
+        ? "El descuento global no puede superar el subtotal descontado de la orden de trabajo"
+        : "El descuento global no puede superar el subtotal descontado",
+    },
+    { status: 400 }
+  )
 }
 
 // Lee los alias admitidos por la API y entrega un único código para el filtro Prisma.
@@ -423,7 +422,7 @@ function obtenerMontoPago(rawData: any): number | null {
 /**
  * POST /api/punto-venta
  * Registra una venta directa o una orden de trabajo según las líneas enviadas.
- * Valida cliente, stock, servicios, bicicletas, estados y datos de pago.
+ * Valida cliente, stock, servicios, bicicletas, estados, pagos y descuentos monetarios.
  */
 export async function POST(req: Request) {
   try {
@@ -782,81 +781,26 @@ export async function POST(req: Request) {
         costoUnitario: item.costoUnitario,
       }
     })
-    const lineaConValoresInvalidos = [
-      ...lineasVenta,
-      ...lineasOrdenProductos,
-      ...lineasOrdenServicios,
-    ].find(
-      (linea) =>
-        !validarValoresLinea(linea.precioUnitario, linea.descuentoUnitario)
-    )
-
-    if (lineaConValoresInvalidos) {
-      return NextResponse.json(
-        {
-          code: "VALORES_LINEA_INVALIDOS",
-          message:
-            "El precio unitario debe ser mayor o igual a cero y el descuento no puede superar el precio",
-        },
-        { status: 400 }
-      )
-    }
-    const descuentoVentaLineas = lineasVenta.reduce(
-      (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
-      0
-    )
-    const descuentoOrdenLineas = [
-      ...lineasOrdenProductos,
-      ...lineasOrdenServicios,
-    ].reduce(
-      (total, linea) => total + linea.cantidad * linea.descuentoUnitario,
-      0
-    )
-    const totalVenta = lineasVenta.reduce(
-      (total, linea) => total + linea.cantidad * linea.precioUnitario,
-      0
-    )
-    const totalOrden = [
-      ...lineasOrdenProductos,
-      ...lineasOrdenServicios,
-    ].reduce((total, linea) => total + linea.cantidad * linea.precioUnitario, 0)
-    const totalBruto = totalVenta + totalOrden
     const ventaDescuentoGlobal = tieneOrden ? 0 : descuento
     const ordenDescuentoGlobal = tieneOrden ? descuento : 0
-    const montosVenta = calcularMontos(
-      totalVenta,
-      ventaDescuentoGlobal,
-      descuentoVentaLineas
+    const montosVenta = calcularTotalesConDescuentos(
+      lineasVenta,
+      ventaDescuentoGlobal
     )
-    const montosOrden = calcularMontos(
-      totalOrden,
-      ordenDescuentoGlobal,
-      descuentoOrdenLineas
+    const montosOrden = calcularTotalesConDescuentos(
+      [...lineasOrdenProductos, ...lineasOrdenServicios],
+      ordenDescuentoGlobal
     )
-    const subtotalOrdenDescontado = totalOrden - descuentoOrdenLineas
-    const subtotalOperacionDescontado =
-      totalBruto - descuentoVentaLineas - descuentoOrdenLineas
 
-    if (descuento > subtotalOperacionDescontado) {
-      return NextResponse.json(
-        {
-          code: "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL",
-          message:
-            "El descuento global no puede superar el subtotal descontado",
-        },
-        { status: 400 }
-      )
+    if (!montosVenta.ok) {
+      return responderCalculoDescuentoInvalido(montosVenta, tieneOrden)
     }
-    if (tieneOrden && descuento > subtotalOrdenDescontado) {
-      return NextResponse.json(
-        {
-          code: "DESCUENTO_GLOBAL_EXCEDE_SUBTOTAL_OT",
-          message:
-            "El descuento global no puede superar el subtotal de la orden de trabajo",
-        },
-        { status: 400 }
-      )
+
+    if (!montosOrden.ok) {
+      return responderCalculoDescuentoInvalido(montosOrden, tieneOrden)
     }
+    const totalBruto =
+      montosVenta.totals.montoSubtotal + montosOrden.totals.montoSubtotal
     const metodoPagoInput = obtenerMetodoPago(rawData)
     const metodoPago = metodoPagoInput
       ? String(metodoPagoInput).trim().toUpperCase()
@@ -904,12 +848,13 @@ export async function POST(req: Request) {
               ? {
                   create: {
                     estado: estadoVenta,
-                    montoSubtotal: montosVenta.montoSubtotal,
-                    descuentoProductos: 0,
-                    descuentoGlobal: montosVenta.descuentoGlobal,
-                    montoTotal: montosVenta.montoTotal,
-                    montoNeto: montosVenta.montoNeto,
-                    montoIva: montosVenta.montoIva,
+                    montoSubtotal: montosVenta.totals.montoSubtotal,
+                    descuentoProductos:
+                      montosVenta.totals.descuentoProductos,
+                    descuentoGlobal: montosVenta.totals.descuentoGlobal,
+                    montoTotal: montosVenta.totals.montoTotal,
+                    montoNeto: montosVenta.totals.montoNeto,
+                    montoIva: montosVenta.totals.montoIva,
                     lineasDeVenta: {
                       create: lineasVenta.map((linea) => ({
                         idProducto: linea.idProducto,
@@ -944,12 +889,13 @@ export async function POST(req: Request) {
                     ordenInput.observaciones_ingreso ??
                     ordenInput.observacionesIngreso ??
                     null,
-                  montoSubtotal: montosOrden.montoSubtotal,
-                  descuentoProductosServicios: descuentoOrdenLineas,
-                  descuentoGlobal: montosOrden.descuentoGlobal,
-                  montoTotal: montosOrden.montoTotal,
-                  montoNeto: montosOrden.montoNeto,
-                  montoIva: montosOrden.montoIva,
+                  montoSubtotal: montosOrden.totals.montoSubtotal,
+                  descuentoProductosServicios:
+                    montosOrden.totals.descuentoProductos,
+                  descuentoGlobal: montosOrden.totals.descuentoGlobal,
+                  montoTotal: montosOrden.totals.montoTotal,
+                  montoNeto: montosOrden.totals.montoNeto,
+                  montoIva: montosOrden.totals.montoIva,
                   bicicletas: bicicletas.length
                     ? {
                         create: bicicletas.map(

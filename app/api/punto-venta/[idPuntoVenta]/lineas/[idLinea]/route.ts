@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { esDescuentoUnitarioValido } from "@/lib/discounts";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import {
@@ -80,8 +81,8 @@ function sanitizarOrdenTrabajo(orden: Record<string, unknown>) {
 
 /**
  * PATCH /api/punto-venta/:idPuntoVenta/lineas/:idLinea
- * Edita cantidad, precio o descuento de una línea de OT y recalcula los
- * totales que la pantalla de detalle presenta al usuario.
+ * Edita una línea de venta u OT y recalcula los totales presentados.
+ * Valida que el descuento unitario no supere el precio de la línea.
  */
 export async function PATCH(
   req: Request,
@@ -228,11 +229,7 @@ export async function PATCH(
         : Number(linea.descuentoUnitario);
 
       if (
-        !Number.isFinite(precioUnitario) ||
-        precioUnitario < 0 ||
-        !Number.isFinite(descuentoUnitario) ||
-        descuentoUnitario < 0 ||
-        descuentoUnitario > precioUnitario
+        !esDescuentoUnitarioValido(precioUnitario, descuentoUnitario)
       ) {
         throw new WorkOrderLineError(
           "VALORES_LINEA_INVALIDOS",

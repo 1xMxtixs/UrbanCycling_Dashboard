@@ -3,6 +3,7 @@
 // - venta-12
 // - orden-8
 import { db } from "@/lib/db"
+import { esDescuentoGlobalValido } from "@/lib/discounts"
 import { PERMISSIONS } from "@/lib/permissions"
 import {
   resolverEstadoPago,
@@ -351,8 +352,8 @@ export async function GET(
 
 /**
  * PATCH /api/punto-venta/:idPuntoVenta
- * Actualiza campos generales de una venta u OT. Los aliases snake_case y
- * camelCase son aceptados; los pagos siempre se persisten en la venta raíz.
+ * Actualiza campos generales de una venta u OT y valida el descuento global.
+ * Acepta aliases snake_case y camelCase; los pagos se persisten en la venta raíz.
  */
 export async function PATCH(
   req: Request,
@@ -587,6 +588,24 @@ export async function PATCH(
           message: "La orden de trabajo indicada no existe",
         },
         { status: 404 }
+      )
+    }
+
+    if (
+      tieneDescuento &&
+      !esDescuentoGlobalValido(
+        Number(ordenTrabajoActual.montoSubtotal),
+        Number(ordenTrabajoActual.descuentoProductosServicios),
+        Number(descuento)
+      )
+    ) {
+      return NextResponse.json(
+        {
+          code: "DESCUENTO_EXCEDE_SUBTOTAL",
+          message:
+            "El descuento total aplicado supera el subtotal de la orden de trabajo",
+        },
+        { status: 400 }
       )
     }
 
