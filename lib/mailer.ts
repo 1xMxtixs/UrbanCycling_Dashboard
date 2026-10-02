@@ -6,6 +6,15 @@ type PasswordResetEmailParams = {
   expiresInMinutes?: number
 }
 
+type WorkOrderPdfEmailParams = {
+  /** Correo registrado para el cliente propietario de la orden. */
+  to: string
+  /** Identificador visible en el asunto, contenido y nombre del adjunto. */
+  workOrderId: number
+  /** PDF generado en memoria por lib/work-order-pdf.ts. */
+  pdf: Buffer
+}
+
 let resendClient: Resend | null = null
 
 function getResendClient() {
@@ -66,5 +75,58 @@ export async function sendPasswordResetEmail({
 
   if (error) {
     throw new Error("No se pudo enviar el correo de recuperación")
+  }
+}
+
+/**
+ * Envía al cliente el PDF ya generado de una orden de trabajo.
+ *
+ * La generación del documento permanece fuera de este módulo para que el
+ * correo solo se ocupe de la entrega y pueda reutilizarse desde rutas API.
+ */
+export async function sendWorkOrderPdfEmail({
+  to,
+  workOrderId,
+  pdf,
+}: WorkOrderPdfEmailParams) {
+  const { error } = await getResendClient().emails.send({
+    from: getRequiredEnv("MAIL_FROM"),
+    to: [to],
+    subject: `Orden de trabajo #${workOrderId} - Urban Cycling`,
+    text: [
+      "Estimado/a cliente,",
+      "",
+      `Adjuntamos el documento PDF de su orden de trabajo #${workOrderId}.`,
+      "",
+      "Ante cualquier consulta, puede comunicarse con Urban Cycling.",
+      "",
+      "Saludos,",
+      "Urban Cycling",
+    ].join("\n"),
+    html: `
+      <main>
+        <h1>Orden de trabajo #${workOrderId}</h1>
+        <p>Estimado/a cliente,</p>
+        <p>
+          Adjuntamos el documento PDF de su orden de trabajo
+          <strong>#${workOrderId}</strong>.
+        </p>
+        <p>Ante cualquier consulta, puede comunicarse con Urban Cycling.</p>
+      </main>
+    `,
+    attachments: [
+      {
+        filename: `orden-trabajo-${workOrderId}.pdf`,
+        content: pdf,
+      },
+    ],
+  })
+
+  if (error) {
+    // El detalle queda únicamente en los logs del servidor. La ruta API
+    // mantiene una respuesta genérica para no filtrar información del proveedor
+    // de correo hacia el navegador.
+    console.error("[RESEND_WORK_ORDER_EMAIL]", error)
+    throw new Error("No se pudo enviar el correo con la orden de trabajo")
   }
 }
