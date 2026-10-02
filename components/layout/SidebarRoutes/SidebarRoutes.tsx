@@ -22,9 +22,9 @@ function RouteSection({ title, routes, collapsed, onNavigate }: RouteSectionProp
   if (routes.length === 0) return null
 
   return (
-    <div className={cn(collapsed && title !== "Principal" && "pt-3")}>
+    <div className={cn(collapsed && title !== "Principal" && "pt-2")}>
       {collapsed && title !== "Principal" && (
-        <div className="mx-2 mb-3 h-px bg-sidebar-border/70" aria-hidden="true" />
+        <div className="mx-2 mb-2 h-px bg-sidebar-border/70" aria-hidden="true" />
       )}
       <p className={cn("px-3 text-[11px] font-bold tracking-wider text-muted-foreground/70 uppercase whitespace-nowrap overflow-hidden transition-[opacity,max-height,padding] duration-150", collapsed ? "max-h-0 pb-0 opacity-0" : "max-h-6 pb-1.5 opacity-100")}>
         {title}
@@ -61,12 +61,12 @@ export function SidebarRoutes({ collapsed = false, permissions, isAdmin, onNavig
 
   return (
     <div
-      className="flex flex-col justify-between h-full py-4 px-3.5 space-y-6"
+      className="flex flex-col justify-between h-full py-4 px-3.5"
       onClick={(event) => {
         if ((event.target as HTMLElement).closest("a")) onNavigate?.()
       }}
     >
-      <div className="space-y-6">
+      <div className={cn(collapsed ? "space-y-0" : "space-y-6")}>
         <RouteSection title="Principal" routes={filterRoutes(dataGeneralSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
         <RouteSection title="Operaciones" routes={filterRoutes(dataOperationSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
         <RouteSection title="Gestión & Taller" routes={filterRoutes(dataManagementSidebar)} collapsed={collapsed} onNavigate={onNavigate} />

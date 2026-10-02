@@ -10,9 +10,10 @@ import type { PermissionCode } from "@/lib/permissions"
 
 type NavbarProps = {
   permissions: PermissionCode[]
+  isAdmin: boolean
 }
 
-export function Navbar({ permissions }: NavbarProps) {
+export function Navbar({ permissions, isAdmin }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   return (
     <header className="sticky top-0 z-30 flex items-center px-4 md:px-8 justify-between w-full bg-background/80 backdrop-blur-md border-b border-border/80 h-20 transition-all">
@@ -29,7 +30,7 @@ export function Navbar({ permissions }: NavbarProps) {
             </div>
             <div className="flex h-full min-h-0 flex-col">
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <SidebarRoutes permissions={permissions} onNavigate={() => setMobileMenuOpen(false)} />
+                <SidebarRoutes permissions={permissions} isAdmin={isAdmin} onNavigate={() => setMobileMenuOpen(false)} />
               </div>
               <div className="border-t border-sidebar-border/60 p-3">
                 <UserButton />

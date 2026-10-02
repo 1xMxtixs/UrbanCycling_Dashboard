@@ -51,21 +51,21 @@ export function SidebarItem({ item, collapsed = false, onNavigate }: SidebarItem
   const [isOpen, setIsOpen] = useState(hasActiveChild)
   const hasChildren = Boolean(children?.length)
   const isCurrentItem = !hasChildren && isActive
+  const isHighlighted = isCurrentItem || (collapsed && hasChildren && hasActiveChild)
 
   const itemClassName = cn(
-    "group relative flex min-h-11 w-full items-center rounded-xl py-2.5 text-sm font-medium transition-all duration-200 motion-reduce:transition-none cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring",
+    "group relative flex min-h-11 w-full items-center rounded-xl py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring",
     collapsed ? "justify-center gap-x-0 px-0" : "gap-x-3 px-3.5",
-    isCurrentItem
+    isHighlighted
       ? "bg-primary/10 text-primary font-semibold shadow-sm shadow-primary/10"
-      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/70",
-    !collapsed && (isCurrentItem ? "translate-x-0.5" : "hover:translate-x-0.5")
+      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/70"
   )
 
   const icon = (
     <Icon
       className={cn(
-        "h-4.5 w-4.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none group-hover:scale-110 motion-reduce:group-hover:scale-100",
-        isCurrentItem ? "text-primary stroke-[2.2]" : "text-muted-foreground group-hover:text-foreground stroke-[1.8]"
+        "h-4.5 w-4.5 shrink-0",
+        isHighlighted ? "text-primary stroke-[2.2]" : "text-muted-foreground group-hover:text-foreground stroke-[1.8]"
       )}
     />
   )
@@ -148,7 +148,6 @@ export function SidebarItem({ item, collapsed = false, onNavigate }: SidebarItem
           <span className={cn("truncate whitespace-nowrap transition-[opacity,max-width] duration-150", collapsed ? "max-w-0 opacity-0" : "max-w-48 opacity-100")}>
             {label}
           </span>
-          {isCurrentItem && !collapsed && <span className="absolute right-2.5 h-1.5 w-1.5 rounded-full bg-primary" />}
         </Link>
       </TooltipTrigger>
       {collapsed && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
