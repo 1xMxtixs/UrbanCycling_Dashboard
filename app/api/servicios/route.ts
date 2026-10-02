@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -11,7 +13,7 @@ type ServicioRow = {
   nombre: string
   descripcion: string | null
   precioVenta: unknown
-  estado: string
+  estado: EstadoRegistro
 }
 
 const servicioSchema = z.object({
@@ -19,7 +21,10 @@ const servicioSchema = z.object({
   nombre: z.string().trim().min(1).max(100),
   descripcion: z.string().trim().max(500).optional().nullable(),
   precioVenta: z.coerce.number().min(0),
-  estado: z.string().trim().min(1).max(20).default("activo"),
+  estado: z.preprocess(
+    resolverEstadoRegistro,
+    z.enum(EstadoRegistro),
+  ).default(EstadoRegistro.ACTIVO),
 })
 
 function normalizarServicio(servicio: ServicioRow) {
@@ -34,9 +39,14 @@ function obtenerEstadoFiltro(req: Request) {
   const { searchParams } = new URL(req.url)
   const estado = searchParams.get("estado")
 
-  return estado?.trim() || null
+  return estado ? resolverEstadoRegistro(estado) : null
 }
 
+/**
+ * GET /api/servicios?estado=...
+ * Lista servicios ordenados por nombre. El filtro acepta ACTIVO/INACTIVO en
+ * mayúsculas o minúsculas para poblar catálogos y selectores.
+ */
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -45,7 +55,19 @@ export async function GET(req: Request) {
       return response
     }
 
+    const { searchParams } = new URL(req.url)
+    const estadoInput = searchParams.get("estado")
     const estado = obtenerEstadoFiltro(req)
+
+    if (estadoInput && !estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_REGISTRO_INVALIDO",
+          message: "El estado del servicio debe ser ACTIVO o INACTIVO",
+        },
+        { status: 400 },
+      )
+    }
     const servicios = await db.servicio.findMany({
       where: estado
         ? {
@@ -64,6 +86,11 @@ export async function GET(req: Request) {
   }
 }
 
+/**
+ * POST /api/servicios
+ * Crea un servicio después de validar duplicados, precio y EstadoRegistro, y
+ * devuelve el registro normalizado para actualizar la interfaz.
+ */
 export async function POST(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)
