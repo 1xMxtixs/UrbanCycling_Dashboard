@@ -25,6 +25,8 @@ export function ServiceDetailSheet({
   open,
   onOpenChange,
 }: ServiceDetailSheetProps) {
+  const isActivo = service ? isRegistroActivo(service.estado) : false
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-md p-6 bg-card border-l border-border/80">
@@ -36,7 +38,7 @@ export function ServiceDetailSheet({
                   Ficha de Servicio #{service.idServicio}
                 </span>
                 <StatusBadge
-                  status={isRegistroActivo(service.estado) ? "success" : "danger"}
+                  status={isActivo ? "success" : "danger"}
                   label={getNombreEstadoRegistro(service.estado)}
                   showDot={false}
                 />
@@ -48,6 +50,16 @@ export function ServiceDetailSheet({
             </SheetHeader>
 
             <div className="space-y-6 pt-4">
+              {/* Badge informativo de tipo — mantiene el ritmo visual del de productos */}
+              <div className="flex items-center gap-2">
+                <StatusBadge
+                  status="info"
+                  label="Servicio de taller"
+                  showDot={false}
+                />
+              </div>
+
+              {/* Grid de 4 tarjetas de datos */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
@@ -62,8 +74,25 @@ export function ServiceDetailSheet({
                   </span>
                   <p className="text-base font-extrabold text-foreground">{formatCurrency(service.precioVenta)}</p>
                 </div>
+
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                    ID Servicio
+                  </span>
+                  <p className="font-mono text-sm font-bold text-foreground">#{service.idServicio}</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                    Estado
+                  </span>
+                  <p className="text-sm font-bold text-foreground">
+                    {getNombreEstadoRegistro(service.estado)}
+                  </p>
+                </div>
               </div>
 
+              {/* Sección descripción */}
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
                 <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción del Servicio</p>
                 <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">
