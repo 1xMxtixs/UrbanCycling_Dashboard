@@ -48,9 +48,8 @@ async function main() {
   await db.proveedor.deleteMany();
   await db.auditoria.deleteMany();
   await db.usuario.deleteMany();
-  await db.rolPermiso.deleteMany();
-  await db.rol.deleteMany();
-  await db.permiso.deleteMany();
+  // Roles y permisos son un catálogo de autorización. Se sincronizan más
+  // abajo, pero no se eliminan al recrear los datos de prueba.
 
   // ──────────────────────────────────────────────
   // 0. CATÁLOGOS BASE (ESTADOS OT & MÉTODOS DE PAGO)
@@ -127,103 +126,67 @@ async function main() {
     { nombre: "Ver reportes", modulo: "reportes", recurso: "reportes", accion: "read", codigo: "reports:read", descripcion: "Permite ver reportes" },
   ];
 
-  const permisos: Awaited<ReturnType<typeof db.permiso.create>>[] = [];
+  const permisos: Awaited<ReturnType<typeof db.permiso.upsert>>[] = [];
   for (const p of permisosData) {
-    permisos.push(await db.permiso.create({ data: p }));
+    permisos.push(await db.permiso.upsert({
+      where: { codigo: p.codigo },
+      create: p,
+      update: {
+        nombre: p.nombre,
+        modulo: p.modulo,
+        recurso: p.recurso,
+        accion: p.accion,
+        descripcion: p.descripcion,
+      },
+    }));
   }
-  console.log(`  ${permisos.length} permisos creados.`);
+  console.log(`  ${permisos.length} permisos sincronizados.`);
 
   // ──────────────────────────────────────────────
   // 2. ROLES
   // ──────────────────────────────────────────────
-  console.log("👥 Creando roles...");
-  const adminPermisos = permisos.map((p) => p.idPermiso);
+  console.log("👥 Sincronizando roles...");
+  const permisosPorCodigo = new Map(permisos.map((p) => [p.codigo, p.idPermiso]));
 
-  const roles = [];
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Administrador",
-      descripcion: "Acceso completo al sistema",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: { create: adminPermisos.map((id) => ({ idPermiso: id })) },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Mecánico",
-      descripcion: "Acceso a módulos de bicicletas y ordenes de trabajo",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "bicycles:read", "bicycles:create", "bicycles:update",
-              "work-orders:read", "work-orders:create", "work-orders:update",
-              "work-orders:update-status",
-              "inventory:read",
-              "clients:read",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
+  const sincronizarRol = async (
+    nombre: string,
+    descripcion: string,
+    codigosPermiso: string[]
+  ) => {
+    const permisosRol = codigosPermiso.map((codigo) => {
+      const idPermiso = permisosPorCodigo.get(codigo);
+
+      if (!idPermiso) {
+        throw new Error(`No existe el permiso ${codigo} para el rol ${nombre}`);
+      }
+
+      return { idPermiso };
+    });
+
+    return db.rol.upsert({
+      where: { nombre },
+      create: {
+        nombre,
+        descripcion,
+        estado: EstadoRegistro.ACTIVO,
+        permisosRol: { create: permisosRol },
       },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Vendedor",
-      descripcion: "Acceso a ventas en mostrador y clientes",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "sales:read", "sales:create",
-              "clients:read", "clients:create", "clients:update",
-              "inventory:read",
-              "payments:create",
-              "receipts:create",
-              "bicycles:read", "bicycles:create",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
+      update: {
+        descripcion,
+        estado: EstadoRegistro.ACTIVO,
+        permisosRol: { deleteMany: {}, create: permisosRol },
       },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Bodeguero",
-      descripcion: "Acceso a inventario y compras",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        create: permisos
-          .filter((p) =>
-            [
-              "inventory:read", "inventory:create", "inventory:update",
-              "inventory:delete",
-              "purchase_orders:read", "purchase_orders:create",
-            ].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
-      },
-    },
-  }));
-  roles.push(await db.rol.create({
-    data: {
-      nombre: "Asesor Técnico",
-      descripcion: "Registra solicitudes de garantía para órdenes entregadas",
-      estado: EstadoRegistro.ACTIVO,
-      permisosRol: {
-        // El asesor necesita consultar la OT entregada antes de registrar
-        // la solicitud, pero no recibe permisos para modificarla.
-        create: permisos
-          .filter((p) =>
-            ["work-orders:read", "warranties:create"].includes(p.codigo)
-          )
-          .map((p) => ({ idPermiso: p.idPermiso })),
-      },
-    },
-  }));
-  console.log(`  ${roles.length} roles creados.`);
+    });
+  };
+
+  const roles = [
+    await sincronizarRol("Administrador", "Acceso completo al sistema", permisos.map((p) => p.codigo)),
+    await sincronizarRol("Mecánico", "Acceso a módulos de bicicletas y ordenes de trabajo", ["bicycles:read", "bicycles:create", "bicycles:update", "work-orders:read", "work-orders:create", "work-orders:update", "work-orders:update-status", "inventory:read", "clients:read"]),
+    await sincronizarRol("Vendedor", "Acceso a ventas en mostrador y clientes", ["sales:read", "sales:create", "clients:read", "clients:create", "clients:update", "inventory:read", "payments:create", "receipts:create", "bicycles:read", "bicycles:create"]),
+    await sincronizarRol("Bodeguero", "Acceso a inventario y compras", ["inventory:read", "inventory:create", "inventory:update", "inventory:delete", "purchase_orders:read", "purchase_orders:create"]),
+    await sincronizarRol("Asesor Técnico", "Registra, consulta y modifica solicitudes de garantía para órdenes entregadas", ["work-orders:read", "warranties:create", "warranties:read", "warranties:update"]),
+  ];
+  console.log(`  ${roles.length} roles sincronizados.`);
 
   // ──────────────────────────────────────────────
   // 3. USUARIOS
