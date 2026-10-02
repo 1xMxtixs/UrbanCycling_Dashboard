@@ -5,6 +5,10 @@ import { EstadoReclamoGarantia, type Prisma } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import {
+  formatearFechaGarantia,
+  presentarEstadoGarantia,
+} from "@/lib/warranty-response"
 
 type RouteContext = {
   params: Promise<{
@@ -30,9 +34,8 @@ const RESOLUCION_POR_VEREDICTO = {
   },
 } as const
 
-// CU77 es autónomo respecto del detalle de CU75/CU76: conserva aquí el
-// selector y el formato que necesita su respuesta para no arrastrar esos
-// controladores cuando esta PR se revise directamente contra main.
+// Los estados pendientes son los únicos que CU77 puede formalizar como
+// aprobados o rechazados.
 const ESTADOS_GARANTIA_PENDIENTES: EstadoReclamoGarantia[] = [
   EstadoReclamoGarantia.INGRESADO,
   EstadoReclamoGarantia.EN_REVISION,
@@ -76,25 +79,15 @@ function obtenerIdGarantia(value: string) {
 }
 
 function presentarGarantiaResuelta(solicitud: GarantiaResuelta) {
-  const fecha = solicitud.fechaRegistro
-  const fechaIngreso = `${String(fecha.getUTCDate()).padStart(2, "0")}-${String(
-    fecha.getUTCMonth() + 1
-  ).padStart(2, "0")}-${fecha.getUTCFullYear()}`
-  const estados: Record<EstadoReclamoGarantia, string> = {
-    [EstadoReclamoGarantia.INGRESADO]: "Pendiente",
-    [EstadoReclamoGarantia.EN_REVISION]: "Pendiente",
-    [EstadoReclamoGarantia.EN_ESPERA]: "Pendiente",
-    [EstadoReclamoGarantia.APROBADO]: "Aprobada",
-    [EstadoReclamoGarantia.RECHAZADO]: "Rechazada",
-  }
-
   return {
     idReclamoGarantia: solicitud.idReclamoGarantia,
     idOrdenDeTrabajo:
       solicitud.ventaReclamada.ordenDeTrabajo?.idOrdenDeTrabajo ?? null,
     idVenta: solicitud.ventaReclamada.idVenta,
-    fechaIngreso,
-    estado: { codigo: solicitud.estado, nombre: estados[solicitud.estado] },
+    // Mantiene el mismo formato DD-MM-YYYY y la misma etiqueta de estado que
+    // las respuestas GET y PATCH del detalle de garantía.
+    fechaIngreso: formatearFechaGarantia(solicitud.fechaRegistro),
+    estado: presentarEstadoGarantia(solicitud.estado),
     motivo: solicitud.motivo,
     veredicto: solicitud.tipoResolucion,
     observacionesResolucion: solicitud.justificacionResolucion,
