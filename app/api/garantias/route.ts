@@ -6,6 +6,10 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 import { ESTADO_OT } from "@/lib/work-order-status"
+import {
+  formatearFechaGarantia,
+  presentarEstadoGarantia,
+} from "@/lib/warranty-response"
 
 const FORMATO_FECHA_INGRESO = /^(\d{2})-(\d{2})-(\d{4})$/
 
@@ -211,6 +215,82 @@ export async function POST(request: Request) {
       {
         code: "ERROR_INTERNO",
         message: "No fue posible registrar la solicitud de garantía",
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * GET /api/garantias
+ * Entrega las solicitudes que alimentan la tabla del módulo de garantías. La
+ * respuesta incluye el identificador visible de la OT aunque la relación se
+ * almacene mediante la Venta raíz.
+ */
+export async function GET() {
+  try {
+    // CU75 autoriza la consulta al Administrador y al Asesor Técnico mediante
+    // un permiso independiente del que permite registrar nuevas solicitudes.
+    const { response } = await requirePermission(PERMISSIONS.WARRANTIES_READ)
+
+    if (response) {
+      return response
+    }
+
+    // Solo se seleccionan los campos que requiere la tabla. La relación anidada
+    // permite traducir idVentaReclamada al ID de la orden que reconoce el usuario.
+    const solicitudes = await db.reclamoGarantia.findMany({
+      select: {
+        idReclamoGarantia: true,
+        fechaRegistro: true,
+        estado: true,
+        ventaReclamada: {
+          select: {
+            idVenta: true,
+            ordenDeTrabajo: {
+              select: {
+                idOrdenDeTrabajo: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { fechaRegistro: "desc" },
+        { idReclamoGarantia: "desc" },
+      ],
+    })
+
+    // La API entrega datos listos para la tabla: fecha DD-MM-YYYY y una etiqueta
+    // de estado, manteniendo además el código Prisma para acciones posteriores.
+    const garantias = solicitudes.map((solicitud) => ({
+      idReclamoGarantia: solicitud.idReclamoGarantia,
+      idOrdenDeTrabajo:
+        solicitud.ventaReclamada.ordenDeTrabajo?.idOrdenDeTrabajo ?? null,
+      idVenta: solicitud.ventaReclamada.idVenta,
+      fechaIngreso: formatearFechaGarantia(solicitud.fechaRegistro),
+      estado: presentarEstadoGarantia(solicitud.estado),
+    }))
+
+    return NextResponse.json(
+      {
+        code: "GARANTIAS_CARGADAS",
+        message:
+          garantias.length === 0
+            ? "No hay solicitudes de garantía registradas"
+            : "Las solicitudes de garantía fueron cargadas correctamente",
+        garantias,
+        count: garantias.length,
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error("[GARANTIAS_GET]", error)
+
+    return NextResponse.json(
+      {
+        code: "ERROR_CARGAR_GARANTIAS",
+        message: "No fue posible cargar las solicitudes de garantía",
       },
       { status: 500 }
     )

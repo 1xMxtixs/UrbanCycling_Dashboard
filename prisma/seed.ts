@@ -1,3 +1,4 @@
+import { EstadoReclamoGarantia } from "../generated/prisma";
 import { db } from "../lib/db";
 import {
   EstadoRegistro,
@@ -108,6 +109,7 @@ async function main() {
     { nombre: "Actualizar ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update", codigo: "work-orders:update", descripcion: "Permite modificar ordenes de trabajo" },
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
     { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
+    { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia registradas" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
@@ -779,7 +781,29 @@ async function main() {
   console.log(`  ${ordenesData.length} órdenes de trabajo creadas.`);
 
   // ──────────────────────────────────────────────
-  // 12. PAGOS (para las ventas pagadas)
+  // 12. SOLICITUD DE GARANTIA
+  // ──────────────────────────────────────────────
+  console.log("🛡️ Creando solicitud de garantía de prueba...");
+  const ordenEntregada = await db.ordenDeTrabajo.findFirst({
+    where: { estado: "ENTREGADO" },
+    select: { idVenta: true },
+  });
+
+  if (!ordenEntregada) {
+    throw new Error("El seed requiere una orden entregada para crear la garantía");
+  }
+
+  await db.reclamoGarantia.create({
+    data: {
+      idVentaReclamada: ordenEntregada.idVenta,
+      estado: EstadoReclamoGarantia.INGRESADO,
+      motivo: "La bicicleta continúa presentando ruido después de la reparación",
+    },
+  });
+  console.log("  1 solicitud de garantía creada.");
+
+  // ──────────────────────────────────────────────
+  // 13. PAGOS (para las ventas pagadas)
   // ──────────────────────────────────────────────
   console.log("💰 Creando pagos...");
   const ventasPagadas = await db.venta.findMany({
