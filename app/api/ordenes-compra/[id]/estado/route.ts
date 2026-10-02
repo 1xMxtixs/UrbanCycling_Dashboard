@@ -43,8 +43,8 @@ function parsePurchaseOrderId(value: string) {
 
 /**
  * PATCH /api/ordenes-compra/:id/estado
- * Permite enviar borradores, completar órdenes enviadas ya pagadas y recibidas,
- * o anular órdenes sin recepciones ni pagos, usando los enums existentes.
+ * Permite enviar borradores, completar órdenes enviadas y pagadas ingresando
+ * sus productos al inventario, o anular órdenes sin movimientos asociados.
  */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
@@ -102,8 +102,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const accion: PurchaseOrderAction = actionInput
-    const purchaseOrder = await db.$transaction(async (tx) => {
-      // Serializa las transiciones con pagos y recepciones que bloquean esta fila.
+    const result = await db.$transaction(async (tx) => {
+      // Serializa pagos, cierres y anulaciones asociados a esta orden.
       await tx.$queryRaw<Array<{ idOrdenDeCompra: number }>>`
         SELECT id_orden_de_compra AS idOrdenDeCompra
         FROM ordenes_de_compra
@@ -113,7 +113,15 @@ export async function PATCH(request: Request, context: RouteContext) {
       const order = await tx.ordenDeCompra.findUnique({
         where: { idOrdenDeCompra },
         include: {
-          lineas: { select: { cantidadRecibida: true } },
+          lineas: {
+            select: {
+              idLineaDeOrdenDeCompra: true,
+              idProducto: true,
+              cantidadOrdenada: true,
+              cantidadRecibida: true,
+              precioCostoUnitario: true,
+            },
+          },
           asignacionesPago: {
             where: {
               pago: { is: { estado: EstadoPago.COMPLETADO } },
@@ -140,10 +148,13 @@ export async function PATCH(request: Request, context: RouteContext) {
           )
         }
 
-        return tx.ordenDeCompra.update({
-          where: { idOrdenDeCompra },
-          data: { estado: EstadoOrdenCompra.ENVIADA },
-        })
+        return {
+          purchaseOrder: await tx.ordenDeCompra.update({
+            where: { idOrdenDeCompra },
+            data: { estado: EstadoOrdenCompra.ENVIADA },
+          }),
+          movements: [],
+        }
       }
 
       if (accion === "COMPLETAR") {
@@ -155,14 +166,6 @@ export async function PATCH(request: Request, context: RouteContext) {
           )
         }
 
-        if (order.estadoRecepcion !== EstadoRecepcionOrdenCompra.RECIBIDA) {
-          throw new PurchaseOrderTransitionError(
-            "ORDEN_NO_RECIBIDA",
-            409,
-            "La orden debe estar completamente recibida para poder completarse.",
-          )
-        }
-
         if (order.estadoPago !== EstadoPagoOrdenCompra.PAGADA) {
           throw new PurchaseOrderTransitionError(
             "ORDEN_NO_PAGADA",
@@ -171,10 +174,80 @@ export async function PATCH(request: Request, context: RouteContext) {
           )
         }
 
-        return tx.ordenDeCompra.update({
+        if (order.lineas.length === 0) {
+          throw new PurchaseOrderTransitionError(
+            "ORDEN_COMPRA_SIN_LINEAS",
+            409,
+            "No se puede completar una orden sin productos.",
+          )
+        }
+
+        const movements: Array<{
+          idMovimientoInventario: number
+          idLineaDeOrdenDeCompra: number
+          cantidad: number
+        }> = []
+
+        for (const line of order.lineas) {
+          if (
+            line.cantidadOrdenada <= 0 ||
+            line.cantidadRecibida < 0 ||
+            line.cantidadRecibida > line.cantidadOrdenada
+          ) {
+            throw new PurchaseOrderTransitionError(
+              "CANTIDADES_ORDEN_INVALIDAS",
+              409,
+              "Las cantidades de los productos de la orden no son coherentes.",
+            )
+          }
+
+          const quantityToAdd =
+            line.cantidadOrdenada - line.cantidadRecibida
+
+          // Solo se incorpora la diferencia para evitar duplicar stock histórico.
+          if (quantityToAdd > 0) {
+            await tx.producto.update({
+              where: { idProducto: line.idProducto },
+              data: {
+                stockActual: { increment: quantityToAdd },
+              },
+            })
+
+            const movement = await tx.movimientoInventario.create({
+              data: {
+                idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
+                tipoMovimiento: "ENTRADA",
+                cantidad: quantityToAdd,
+                costoUnitario: line.precioCostoUnitario,
+              },
+              select: { idMovimientoInventario: true },
+            })
+
+            movements.push({
+              idMovimientoInventario: movement.idMovimientoInventario,
+              idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
+              cantidad: quantityToAdd,
+            })
+          }
+
+          await tx.lineaDeOrdenDeCompra.update({
+            where: {
+              idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
+            },
+            data: { cantidadRecibida: line.cantidadOrdenada },
+          })
+        }
+
+        const purchaseOrder = await tx.ordenDeCompra.update({
           where: { idOrdenDeCompra },
-          data: { estado: EstadoOrdenCompra.COMPLETADA },
+          data: {
+            estado: EstadoOrdenCompra.COMPLETADA,
+            estadoRecepcion: EstadoRecepcionOrdenCompra.RECIBIDA,
+            fechaEntregaReal: order.fechaEntregaReal ?? new Date(),
+          },
         })
+
+        return { purchaseOrder, movements }
       }
 
       if (
@@ -194,11 +267,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       const hasRecordedPayments = order.asignacionesPago.some(
         (assignment) => assignment.montoAsociado.greaterThan(0),
       )
-      const hasNonPendingSubstate =
-        order.estadoRecepcion !== EstadoRecepcionOrdenCompra.PENDIENTE ||
+      const hasNonPendingPayment =
         order.estadoPago !== EstadoPagoOrdenCompra.PENDIENTE
 
-      if (hasReceivedProducts || hasRecordedPayments || hasNonPendingSubstate) {
+      if (hasReceivedProducts || hasRecordedPayments || hasNonPendingPayment) {
         throw new PurchaseOrderTransitionError(
           "ORDEN_COMPRA_CON_MOVIMIENTOS",
           409,
@@ -206,14 +278,17 @@ export async function PATCH(request: Request, context: RouteContext) {
         )
       }
 
-      return tx.ordenDeCompra.update({
-        where: { idOrdenDeCompra },
-        data: {
-          estado: EstadoOrdenCompra.ANULADA,
-          estadoPago: EstadoPagoOrdenCompra.ANULADA,
-          estadoRecepcion: EstadoRecepcionOrdenCompra.ANULADA,
-        },
-      })
+      return {
+        purchaseOrder: await tx.ordenDeCompra.update({
+          where: { idOrdenDeCompra },
+          data: {
+            estado: EstadoOrdenCompra.ANULADA,
+            estadoPago: EstadoPagoOrdenCompra.ANULADA,
+            estadoRecepcion: EstadoRecepcionOrdenCompra.ANULADA,
+          },
+        }),
+        movements: [],
+      }
     })
 
     const responseByAction = {
@@ -223,7 +298,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
       COMPLETAR: {
         code: "ORDEN_COMPRA_COMPLETADA",
-        message: "La orden de compra fue completada correctamente.",
+        message:
+          "La orden fue completada y sus productos ingresaron al inventario.",
       },
       ANULAR: {
         code: "ORDEN_COMPRA_ANULADA",
@@ -231,7 +307,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     }[accion]
 
-    return NextResponse.json({ ...responseByAction, purchaseOrder })
+    return NextResponse.json({
+      ...responseByAction,
+      purchaseOrder: result.purchaseOrder,
+      ...(accion === "COMPLETAR" ? { movements: result.movements } : {}),
+    })
   } catch (error) {
     if (error instanceof PurchaseOrderTransitionError) {
       return NextResponse.json(

@@ -145,7 +145,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const result = await db.$transaction(async (tx) => {
-      // Serializa pagos y evita carreras con recepción o anulación de la orden.
+      // Serializa pagos y evita carreras con el cierre o la anulación de la orden.
       const lockedOrders = await tx.$queryRaw<
         Array<{ idOrdenDeCompra: number }>
       >`
