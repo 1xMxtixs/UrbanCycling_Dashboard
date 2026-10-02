@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
+import {
+  ESTADO_OT,
+  ESTADOS_OT_CERRADOS,
+  getNombreEstadoOt,
+  getNombreEstadoOtVisible,
+  isOrdenTrabajoRetrasada,
+  TRANSICIONES_OT,
+} from "@/lib/work-order-status"
 import { WorkOrder } from "../../types"
 
 interface WorkOrderTableMeta {
@@ -36,15 +44,7 @@ interface WorkOrderTableMeta {
 }
 
 function getAvailableTransitions(currentStatus: string) {
-  const map: Record<string, string[]> = {
-    "Por realizar": ["En curso", "En espera"],
-    "En curso": ["Listo para entregar", "En espera"],
-    "En espera": ["En curso", "Listo para entregar"],
-    "Listo para entregar": ["Entregado", "En curso"],
-    Entregado: [],
-    Anulada: [],
-  }
-  return map[currentStatus] || []
+  return TRANSICIONES_OT[currentStatus as keyof typeof TRANSICIONES_OT] || []
 }
 
 const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrder> }) => {
@@ -74,7 +74,7 @@ const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrd
           Ver Detalle
         </DropdownMenuItem>
 
-        {order.estadoOrden === "Entregado" && (
+        {order.estadoOrden === ESTADO_OT.ENTREGADO && (
           <DropdownMenuItem
             onClick={() => meta?.onGenerateReceipt?.(order)}
             className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
@@ -98,7 +98,7 @@ const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrd
                 className="flex cursor-pointer items-center gap-1.5 pl-6 text-xs"
               >
                 <span>→ Mover a:</span>
-                <span className="font-semibold text-primary">{nextState}</span>
+                <span className="font-semibold text-primary">{getNombreEstadoOt(nextState)}</span>
               </DropdownMenuItem>
             ))}
           </>
@@ -172,73 +172,46 @@ export const columns: ColumnDef<WorkOrder>[] = [
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue) return true
       const order = row.original
-      const isCompleted = ["Entregado"].includes(order.estadoOrden)
-      const dEstimada = new Date(order.fechaEntregaEstimada)
-      const localEndDay = new Date(
-        dEstimada.getUTCFullYear(),
-        dEstimada.getUTCMonth(),
-        dEstimada.getUTCDate(),
-        23,
-        59,
-        59,
-        999
+      const isCompleted = order.estadoOrden === ESTADO_OT.ENTREGADO
+      const isDelayed = isOrdenTrabajoRetrasada(
+        order.estadoOrden,
+        order.fechaEntregaEstimada
       )
-      const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(order.estadoOrden)
-      const isDelayed = localEndDay < new Date() && !isFullyCompleted
 
       if (filterValue === "retrasada") {
         return isDelayed
       } else if (filterValue === "activa") {
-        return order.estadoOrden === "En curso"
+        return order.estadoOrden === ESTADO_OT.EN_CURSO
       } else if (filterValue === "espera") {
-        return order.estadoOrden === "En espera"
+        return order.estadoOrden === ESTADO_OT.EN_ESPERA
       } else if (filterValue === "completada") {
         return isCompleted
       } else if (filterValue === "anulada") {
-        return order.estadoOrden === "Anulada"
+        return order.estadoOrden === ESTADO_OT.ANULADA
       } else if (filterValue === "por-entregar") {
-        return order.estadoOrden === "Listo para entregar"
+        return order.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
       } else if (filterValue === "por-realizar") {
-        return order.estadoOrden === "Por realizar"
+        return order.estadoOrden === ESTADO_OT.POR_REALIZAR
       }
       return true
     },
     cell: ({ row }) => {
       const order = row.original
-      const isCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(
-        order.estadoOrden
-      )
-      const dEstimada = new Date(order.fechaEntregaEstimada)
-      const localEndDay = new Date(
-        dEstimada.getUTCFullYear(),
-        dEstimada.getUTCMonth(),
-        dEstimada.getUTCDate(),
-        23,
-        59,
-        59,
-        999
-      )
-      const isDelayed = localEndDay < new Date() && !isCompleted
-
-      if (isDelayed) {
-        return <StatusBadge status="danger" label="Retrasada" />
-      }
-
       switch (order.estadoOrden) {
-        case "Por realizar":
-          return <StatusBadge status="neutral" label="Por realizar" />
-        case "En curso":
-          return <StatusBadge status="info" label="Activa" />
-        case "En espera":
-          return <StatusBadge status="warning" label="En Espera" />
-        case "Listo para entregar":
-          return <StatusBadge status="warning" label="Por Entregar" />
-        case "Entregado":
-          return <StatusBadge status="success" label="Completada" />
-        case "Anulada":
-          return <StatusBadge status="danger" label="Anulada" />
+        case ESTADO_OT.POR_REALIZAR:
+          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+        case ESTADO_OT.EN_CURSO:
+          return <StatusBadge status="info" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+        case ESTADO_OT.EN_ESPERA:
+          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+        case ESTADO_OT.LISTO_PARA_ENTREGAR:
+          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+        case ESTADO_OT.ENTREGADO:
+          return <StatusBadge status="success" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+        case ESTADO_OT.ANULADA:
+          return <StatusBadge status="danger" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
         default:
-          return <StatusBadge status="neutral" label={order.estadoOrden} />
+          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
       }
     },
   },

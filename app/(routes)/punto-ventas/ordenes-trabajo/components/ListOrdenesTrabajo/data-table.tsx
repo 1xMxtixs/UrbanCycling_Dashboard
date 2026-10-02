@@ -173,8 +173,8 @@ export function DataTable<TData, TValue>({
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="por-realizar">Por realizar</SelectItem>
-                <SelectItem value="activa">Activas (En curso)</SelectItem>
-                <SelectItem value="espera">En Espera</SelectItem>
+                <SelectItem value="activa">En curso</SelectItem>
+                <SelectItem value="espera">En espera</SelectItem>
                 <SelectItem value="por-entregar">Por entregar</SelectItem>
                 <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
                 <SelectItem value="anulada">Anuladas</SelectItem>

@@ -8,14 +8,16 @@
  */
 
 import type { WorkOrder } from "@/app/(routes)/punto-ventas/ordenes-trabajo/types"
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
+import { getNombreMetodoPago } from "@/lib/payment-methods"
+import { getNombreEstadoOtVisible } from "@/lib/work-order-status"
 
 /** Determina si una orden está completamente pagada. */
 export function isWorkOrderPaid(order: WorkOrder): boolean {
   const total = Number(order.total || 0)
   const totalPagado = Number(order.totalPagado || 0)
   return (
-    order.estadoPago?.toLowerCase() === "pagada" ||
-    order.estadoPago?.toLowerCase() === "pagado" ||
+    order.estadoPago === ESTADO_PAGO.PAGADA ||
     Math.max(0, total - totalPagado) === 0
   )
 }
@@ -71,8 +73,8 @@ export function buildWorkOrderContent(order: WorkOrder): string {
     ? new Date(order.fechaEntregaEstimada).toLocaleDateString("es-CL")
     : "—"
 
-  const estadoOrden = escapeHtml(order.estadoOrden)
-  const estadoPago = escapeHtml(order.estadoPago || (paid ? "Pagada" : "Pendiente"))
+  const estadoOrden = escapeHtml(getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre))
+  const estadoPago = escapeHtml(getNombreEstadoPago(order.estadoPago || (paid ? ESTADO_PAGO.PAGADA : ESTADO_PAGO.PENDIENTE)))
   const clientRut = order.cliente?.rut ? escapeHtml(order.cliente.rut) : ""
   const observacionesIngreso = order.observacionesIngreso
     ? escapeHtml(order.observacionesIngreso)
@@ -183,7 +185,7 @@ export function buildWorkOrderContent(order: WorkOrder): string {
         <tbody>
           ${payments.map((p) => `
             <tr>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${escapeHtml(p.metodoPago || "—")}</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;">${escapeHtml(getNombreMetodoPago(p.metodoPago))}</td>
               <td style="padding:6px 8px;border:1px solid #e2e8f0;">${p.fechaRegistro ? new Date(p.fechaRegistro).toLocaleDateString("es-CL") : "—"}</td>
               <td style="text-align:right;padding:6px 8px;border:1px solid #e2e8f0;">$${Number(p.monto).toLocaleString("es-CL")}</td>
             </tr>`).join("")}

@@ -15,6 +15,8 @@ import { SaleDetailDialog } from "./SaleDetailDialog"
 import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { isVentaAnulada } from "@/lib/sale-status"
 
 export function ListVentas() {
   const router = useRouter()
@@ -27,7 +29,7 @@ export function ListVentas() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
@@ -109,7 +111,7 @@ export function ListVentas() {
 
   const handlePayClick = (idVenta: number, total: number) => {
     setSaleToPay({ idVenta, total: Number(total) })
-    setSelectedMetodoPago("efectivo")
+    setSelectedMetodoPago("EFECTIVO")
     setPayModalOpen(true)
   }
 
@@ -123,7 +125,7 @@ export function ListVentas() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: "pagada",
+          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
         }),
       })
@@ -272,13 +274,13 @@ export function ListVentas() {
   // Cálculos de KPIs
   const totalSalesCount = sales.length
   const totalRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && (s.estadoPago?.toLowerCase() === "pagada" || s.estadoPago?.toLowerCase() === "pagado"))
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PAGADA)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const pendingRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago?.toLowerCase() === "pendiente")
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PENDIENTE)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const canceledCount = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() === "anulada")
+    .filter((s) => isVentaAnulada(s.estadoVenta))
     .length
 
   if (isLoading) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ClientesTabsView } from "./ClientesTabsView";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 import { MetricCard } from "@/components/common/MetricCard";
 import {
   Dialog,
@@ -36,6 +37,8 @@ import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
+import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
+import { getNombreEstadoOt } from "@/lib/work-order-status";
 
 export function ListClientes() {
   const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
@@ -285,8 +288,8 @@ export function ListClientes() {
                             {fullName}
                           </h3>
                           <StatusBadge
-                            status={selectedCliente.estado.toLowerCase() === "activo" ? "success" : "danger"}
-                            label={selectedCliente.estado}
+                            status={isRegistroActivo(selectedCliente.estado) ? "success" : "danger"}
+                            label={getNombreEstadoRegistro(selectedCliente.estado)}
                           />
                         </div>
 
@@ -450,8 +453,8 @@ export function ListClientes() {
                     {selectedCliente.ordenesDeTrabajo && selectedCliente.ordenesDeTrabajo.length > 0 ? (
                       <div className="space-y-2.5 overflow-y-auto max-h-[35vh] pr-1">
                         {selectedCliente.ordenesDeTrabajo.map((order) => {
-                          const isCompleted = ["listo para entregar", "entregado"].includes(order.estadoOrden.toLowerCase());
-                          const isWarning = ["en espera", "en curso"].includes(order.estadoOrden.toLowerCase());
+                          const isCompleted = ESTADOS_OT_FINALIZADOS.includes(order.estadoOrden as never);
+                          const isWarning = order.estadoOrden === ESTADO_OT.EN_ESPERA || order.estadoOrden === ESTADO_OT.EN_CURSO;
 
                           return (
                             <div
@@ -464,7 +467,7 @@ export function ListClientes() {
                                 </span>
                                 <StatusBadge
                                   status={isCompleted ? "success" : isWarning ? "warning" : "neutral"}
-                                  label={order.estadoOrden}
+                                  label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}
                                 />
                               </div>
 
