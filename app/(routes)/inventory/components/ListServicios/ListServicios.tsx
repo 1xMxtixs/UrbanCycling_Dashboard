@@ -166,11 +166,6 @@ export function ListServicios() {
         open={openDetail}
         onOpenChange={setOpenDetail}
         service={selectedService}
-        canUpdate={canUpdate}
-        onEdit={(service) => {
-          setOpenDetail(false)
-          handleEdit(service)
-        }}
       />
 
       {/* Modal de EdiciÃ³n */}
