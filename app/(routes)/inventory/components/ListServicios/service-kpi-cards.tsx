@@ -2,6 +2,8 @@
 
 import { Wrench, CheckCircle2, DollarSign, PowerOff } from "lucide-react"
 import { MetricCard } from "@/components/common/MetricCard"
+import { formatCurrency } from "@/lib/formatters"
+import { isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
 interface ServiceKpiCardsProps {
@@ -10,12 +12,15 @@ interface ServiceKpiCardsProps {
 
 export function ServiceKpiCards({ data }: ServiceKpiCardsProps) {
   const totalServices = data.length
-  const activeCount = data.filter((s) => s.estado.toLowerCase() === "activo").length
-  const inactiveCount = data.filter((s) => s.estado.toLowerCase() === "inactivo").length
+  const activeServices = data.filter((s) => isRegistroActivo(s.estado))
+  const activeCount = activeServices.length
+  const inactiveCount = totalServices - activeCount
 
   const avgPrice =
-    totalServices > 0
-      ? Math.round(data.reduce((acc, s) => acc + Number(s.precioVenta), 0) / totalServices)
+    activeCount > 0
+      ? Math.round(
+          activeServices.reduce((acc, s) => acc + Number(s.precioVenta), 0) / activeCount
+        )
       : 0
 
   return (
@@ -34,8 +39,8 @@ export function ServiceKpiCards({ data }: ServiceKpiCardsProps) {
       />
       <MetricCard
         title="Tarifa Promedio"
-        value={`$${avgPrice.toLocaleString("es-CL")}`}
-        description="Mano de obra promedio por labor"
+        value={formatCurrency(avgPrice)}
+        description="Mano de obra promedio de servicios activos"
         icon={DollarSign}
       />
       <MetricCard

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataField } from "@/components/common/DataField"
+import { formatCurrency } from "@/lib/formatters"
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
@@ -73,14 +74,11 @@ export function getColumns({
           </Button>
         )
       },
-      cell: ({ row }) => {
-        const amount = parseFloat(row.getValue("precioVenta"))
-        const formatted = new Intl.NumberFormat("es-CL", {
-          style: "currency",
-          currency: "CLP",
-        }).format(amount)
-        return <span className="font-semibold text-sm text-foreground">{formatted}</span>
-      },
+      cell: ({ row }) => (
+        <span className="font-semibold text-sm text-foreground">
+          {formatCurrency(row.original.precioVenta)}
+        </span>
+      ),
     },
     {
       accessorKey: "estado",

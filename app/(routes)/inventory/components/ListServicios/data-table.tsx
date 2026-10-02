@@ -40,28 +40,17 @@ import { type ServiceColumn } from "../../types"
 interface DataTableProps<TData extends ServiceColumn, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  onViewDetails?: (id: number) => void
-  onEdit?: (id: number) => void
-  onToggleStatus?: (id: number) => Promise<void>
 }
 
 export function DataTable<TData extends ServiceColumn, TValue>({
   columns,
   data,
-  onViewDetails,
-  onEdit,
-  onToggleStatus,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
     { id: "estado", value: "activo" },
   ])
   const [serviceSearch, setServiceSearch] = React.useState("")
-  const [isMounted, setIsMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
 
   // Filtrado de búsqueda exactamente como en productos
   const filteredData = React.useMemo(() => {
@@ -84,11 +73,6 @@ export function DataTable<TData extends ServiceColumn, TValue>({
         pageSize: 10,
       },
     },
-    meta: {
-      onViewDetails,
-      onEdit,
-      onToggleStatus,
-    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
@@ -100,10 +84,6 @@ export function DataTable<TData extends ServiceColumn, TValue>({
       columnFilters,
     },
   })
-
-  if (!isMounted) {
-    return null
-  }
 
   const filteredRowCount = table.getFilteredRowModel().rows.length
 
@@ -147,9 +127,6 @@ export function DataTable<TData extends ServiceColumn, TValue>({
               </Select>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              {filteredRowCount} {filteredRowCount === 1 ? "servicio encontrado" : "servicios encontrados"}
-            </p>
           </div>
         }
         footer={
@@ -182,8 +159,7 @@ export function DataTable<TData extends ServiceColumn, TValue>({
           ) : null
         }
       >
-        <div className="overflow-x-auto">
-          <Table>
+        <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -233,8 +209,7 @@ export function DataTable<TData extends ServiceColumn, TValue>({
                 </TableRow>
               )}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       </DataTableContainer>
     </div>
   )
