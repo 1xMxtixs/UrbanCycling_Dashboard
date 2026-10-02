@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { Menu } from "lucide-react"
 import { SidebarRoutes } from "../SidebarRoutes"
 import { ToggleTheme } from "../ToggleTheme"
+import { GlobalSearch } from "../GlobalSearch"
 import { UserButton } from "./UserButton"
 import { useState } from "react"
 import type { PermissionCode } from "@/lib/permissions"
@@ -41,7 +42,9 @@ export function Navbar({ permissions, isAdmin }: NavbarProps) {
         <span className="font-bold text-sm text-foreground md:hidden">Urban Cycling</span>
       </div>
 
-      <div className="flex-1" aria-hidden="true" />
+      <div className="flex flex-1 items-center px-2 md:px-4 lg:px-0">
+        <GlobalSearch />
+      </div>
 
       <div className="flex items-center">
         <ToggleTheme />
