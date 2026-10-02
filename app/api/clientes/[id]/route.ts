@@ -335,7 +335,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     await db.cliente.update({
       where: { idCliente },
-      data: { estado: "inactivo" },
+      data: { estado: EstadoRegistro.INACTIVO },
     })
 
     return NextResponse.json({
