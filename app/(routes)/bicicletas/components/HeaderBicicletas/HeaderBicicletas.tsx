@@ -15,7 +15,9 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Plus } from "lucide-react";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
 import { formatClientName } from "@/lib/formatters";
+import { getNombreEstadoOtVisible } from "@/lib/work-order-status";
 import type { OrdenTrabajoResumen } from "../../types";
+import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter";
 
 export function HeaderBicicletas() {
   const [openModalCreate, setOpenModalCreate] = useState(false);
@@ -55,8 +57,8 @@ export function HeaderBicicletas() {
         const ordenesTrabajo: OrdenTrabajoResumen[] = Array.isArray(data)
           ? data
               .filter((item) => item.tipoOperacion === "orden_trabajo")
-              .map((item) => item.ordenTrabajo)
-              .filter(Boolean)
+              .map((item) => adaptarOrdenPuntoVenta(item) as OrdenTrabajoResumen | null)
+              .filter((orden): orden is OrdenTrabajoResumen => Boolean(orden))
           : [];
 
         setOrdenes(ordenesTrabajo);
@@ -135,7 +137,7 @@ export function HeaderBicicletas() {
                       Orden #{orden.idOrdenDeTrabajo} -{" "}
                       {formatClientName(orden.cliente)}
                       {orden.cliente.rut ? ` (${orden.cliente.rut})` : ""} -{" "}
-                      {orden.estadoOrden}
+                      {getNombreEstadoOtVisible(orden.estadoOrden, orden.fechaEntregaEstimada, orden.estadoOrdenNombre)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -158,7 +160,7 @@ export function HeaderBicicletas() {
                     </p>
                   </div>
                   <div className="space-y-0.5 text-left sm:text-right text-muted-foreground">
-                    <p>Estado: <span className="font-semibold text-foreground">{selectedOrden.estadoOrden}</span></p>
+                    <p>Estado: <span className="font-semibold text-foreground">{getNombreEstadoOtVisible(selectedOrden.estadoOrden, selectedOrden.fechaEntregaEstimada, selectedOrden.estadoOrdenNombre)}</span></p>
                     <p>Total: <span className="font-bold text-foreground">${Number(selectedOrden.total ?? 0).toLocaleString("es-CL")}</span></p>
                   </div>
                 </div>

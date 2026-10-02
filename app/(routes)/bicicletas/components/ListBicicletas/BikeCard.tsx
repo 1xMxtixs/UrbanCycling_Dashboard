@@ -1,9 +1,10 @@
 "use client";
 
-import { Bike, CalendarDays, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
+import { Bike, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
 import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
 import { formatClientName } from "@/lib/formatters";
+import { ESTADO_OT, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 import type { Bicicleta } from "../../types";
 
 type BikeCardProps = {
@@ -11,10 +12,9 @@ type BikeCardProps = {
 };
 
 function mapEstadoToStatusType(estado: string): StatusType {
-  const normalized = estado.toLowerCase();
-  if (normalized === "entregado") return "success";
-  if (normalized === "en curso") return "info";
-  if (normalized === "listo para entregar" || normalized === "en espera") return "warning";
+  if (estado === ESTADO_OT.ENTREGADO) return "success";
+  if (estado === ESTADO_OT.EN_CURSO) return "info";
+  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR || estado === ESTADO_OT.EN_ESPERA) return "warning";
   return "neutral";
 }
 
@@ -22,6 +22,11 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
+  const estadoOrdenNombre = getNombreEstadoOtVisible(
+    estadoOrden,
+    bicicleta.ordenDeTrabajo?.fechaEntregaEstimada,
+    bicicleta.ordenDeTrabajo?.estadoOrdenNombre
+  );
   const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
   const statusType = mapEstadoToStatusType(estadoOrden);
 
@@ -61,14 +66,19 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between border-t border-border/60 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-border/60 pt-3">
             <DataField
               variant="inline"
               icon={UserRound}
               value={nombreCliente}
+              className="min-w-0 flex-1"
               valueClassName="line-clamp-1 font-semibold"
             />
-            <StatusBadge status={statusType} label={estadoOrden} />
+            <StatusBadge
+              status={statusType}
+              label={estadoOrdenNombre}
+              className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
+            />
           </div>
         </div>
       </div>
@@ -100,9 +110,13 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               label="Orden"
               value={`#${bicicleta.idOrdenDeTrabajo}`}
             />
-            <div className="flex items-center justify-between text-foreground pt-0.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 text-foreground pt-0.5">
               <span className="text-xs text-muted-foreground font-medium">Estado actual:</span>
-              <StatusBadge status={statusType} label={estadoOrden} />
+              <StatusBadge
+                status={statusType}
+                label={estadoOrdenNombre}
+                className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
+              />
             </div>
           </div>
         </div>

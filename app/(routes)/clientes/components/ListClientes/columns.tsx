@@ -14,6 +14,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
+import { isRegistroActivo } from "@/lib/registro-status";
 
 export type { ClienteNatural, ClienteJuridica };
 
@@ -109,7 +110,7 @@ export const columnsNaturales: ColumnDef<ClienteNatural>[] = [
     },
     cell: ({ row }) => {
       const estado = String(row.getValue("estado"));
-      const isActivo = estado.toLowerCase() === "activo";
+      const isActivo = isRegistroActivo(estado);
       return (
         <StatusBadge
           status={isActivo ? "success" : "danger"}
@@ -184,7 +185,7 @@ export const columnsJuridicas: ColumnDef<ClienteJuridica>[] = [
     },
     cell: ({ row }) => {
       const estado = String(row.getValue("estado"));
-      const isActivo = estado.toLowerCase() === "activo";
+      const isActivo = isRegistroActivo(estado);
       return (
         <StatusBadge
           status={isActivo ? "success" : "danger"}

@@ -5,6 +5,7 @@ import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
+import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
 
 type RouteContext = {
@@ -257,6 +258,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const data = body as Record<string, unknown>
+    const supplierCodeResult = parseProductSupplierCode(data)
+
+    if (supplierCodeResult.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
+        },
+        { status: 400 },
+      )
+    }
+
     const productExists = await db.producto.findUnique({
       where: { idProducto: productId },
     })
@@ -292,6 +306,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const updateData: {
       tipoProducto?: string
+      codigoProveedor?: string | null
       nombre?: string
       descripcion?: string | null
       precioVenta?: number
@@ -302,6 +317,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       urlImagen?: string
     } = {}
     const invalidFields: string[] = []
+
+    if (supplierCodeResult.status === "valid") {
+      updateData.codigoProveedor = supplierCodeResult.value
+    }
 
     if ("tipoProducto" in data) {
       const value = parseRequiredText(data.tipoProducto, 20)

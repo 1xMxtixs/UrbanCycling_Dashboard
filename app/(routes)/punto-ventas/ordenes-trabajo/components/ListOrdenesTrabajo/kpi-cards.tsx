@@ -3,6 +3,7 @@
 import { Play, Pause, CheckCircle2, AlertTriangle, PackageCheck } from "lucide-react"
 import { MetricCard } from "@/components/common/MetricCard"
 import { WorkOrder } from "../../types"
+import { ESTADO_OT, isOrdenTrabajoRetrasada } from "@/lib/work-order-status"
 
 interface KpiCardsProps {
   orders: WorkOrder[]
@@ -11,14 +12,14 @@ interface KpiCardsProps {
 export function KpiCards({ orders }: KpiCardsProps) {
   const now = new Date()
 
-  // 1. Activas (En curso)
+  // 1. En curso
   const activeOrdersCount = orders.filter(
-    (o) => o.estadoOrden === "En curso"
+    (o) => o.estadoOrden === ESTADO_OT.EN_CURSO
   ).length
 
   // 2. En Espera
   const pendingOrdersCount = orders.filter(
-    (o) => o.estadoOrden === "En espera"
+    (o) => o.estadoOrden === ESTADO_OT.EN_ESPERA
   ).length
 
   // 3. Completadas Hoy (solo Entregado)
@@ -26,7 +27,7 @@ export function KpiCards({ orders }: KpiCardsProps) {
     if (!o.fechaEntregaReal) return false
     const dReal = new Date(o.fechaEntregaReal)
     return (
-      o.estadoOrden === "Entregado" &&
+      o.estadoOrden === ESTADO_OT.ENTREGADO &&
       dReal.getDate() === now.getDate() &&
       dReal.getMonth() === now.getMonth() &&
       dReal.getFullYear() === now.getFullYear()
@@ -35,19 +36,17 @@ export function KpiCards({ orders }: KpiCardsProps) {
 
   // 4. Por Entregar (Listo para entregar)
   const readyToDeliverCount = orders.filter(
-    (o) => o.estadoOrden === "Listo para entregar"
+    (o) => o.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
   ).length
 
   // 5. Retrasadas (Estimado pasado y no completado)
-  const delayedOrdersCount = orders.filter((o) => {
-    const isFullyCompleted = ["Listo para entregar", "Entregado", "Anulada"].includes(o.estadoOrden)
-    const dEstimada = new Date(o.fechaEntregaEstimada)
-    return dEstimada < now && !isFullyCompleted
-  }).length
+  const delayedOrdersCount = orders.filter((o) =>
+    isOrdenTrabajoRetrasada(o.estadoOrden, o.fechaEntregaEstimada, now)
+  ).length
 
   const kpis = [
     {
-      title: "Activas",
+      title: "En curso",
       value: activeOrdersCount,
       description: "Órdenes en proceso de reparación",
       icon: Play,

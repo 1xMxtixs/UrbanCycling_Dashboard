@@ -17,6 +17,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_VENTA } from "@/lib/sale-status"
+import { isRegistroActivo } from "@/lib/registro-status"
+import { METODO_PAGO_DEFECTO, METODOS_PAGO } from "@/lib/payment-methods"
 import {
   Select,
   SelectContent,
@@ -74,8 +78,8 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
 
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [descuento, setDescuento] = useState<number>(0)
-  const [metodoPago, setMetodoPago] = useState<string>("efectivo")
-  const [estadoPago, setEstadoPago] = useState<string>("pagada")
+  const [metodoPago, setMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
+  const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PAGADA)
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -112,7 +116,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
       const res = await fetch("/api/inventory")
       if (res.ok) {
         const data = await res.json()
-        setProducts(data.filter((p: any) => p.estado === "activo"))
+        setProducts(data.filter((p: any) => isRegistroActivo(p.estado)))
       }
     } catch (err) {
       console.error("Error fetching products:", err)
@@ -224,7 +228,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
           })),
           metodo_pago: metodoPago,
           monto_pagado: finalTotal,
-          estado_venta: "confirmada"
+          estado_venta: ESTADO_VENTA.COMPLETADA
         }),
       })
 
@@ -514,10 +518,7 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="debito">Tarjeta de Débito</SelectItem>
-                    <SelectItem value="credito">Tarjeta de Crédito</SelectItem>
+                    {METODOS_PAGO.map((metodo) => <SelectItem key={metodo.codigo} value={metodo.codigo}>{metodo.nombre}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -535,8 +536,8 @@ export function FormCreateVenta({ setOpenModalCreate }: FormCreateVentaProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    <SelectItem value="pagada">Pagada (Cierre de Venta)</SelectItem>
-                    <SelectItem value="pendiente">Pendiente (Abono posterior)</SelectItem>
+                    <SelectItem value={ESTADO_PAGO.PAGADA}>Pagada (Cierre de Venta)</SelectItem>
+                    <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendiente (Abono posterior)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
