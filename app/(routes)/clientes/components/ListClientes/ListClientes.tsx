@@ -39,8 +39,7 @@ import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
 
-export function ListClientes() {
-  const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
+export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
@@ -189,11 +188,10 @@ export function ListClientes() {
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Selector de Vista Principal: Directorio vs Historial de Clientes */}
       <Tabs
-        value={activeMainTab}
-        onValueChange={setActiveMainTab}
+        value={initialTab}
         className="w-full space-y-6"
       >
-        <div className="flex items-center justify-between flex-wrap gap-4 border-b border-border/80 pb-4">
+        <div className="hidden" aria-hidden="true">
           <SegmentedTabs
             items={[
               {
