@@ -30,10 +30,6 @@ export const PERMISSIONS = {
   WARRANTIES_UPDATE: "warranties:update",
   WARRANTIES_RESOLVE: "warranties:resolve",
 
-  WARRANTIES_CREATE: "warranties:create",
-  WARRANTIES_READ: "warranties:read",
-  WARRANTIES_UPDATE: "warranties:update",
-  WARRANTIES_RESOLVE: "warranties:resolve",
   SALES_READ: "sales:read",
   SALES_CREATE: "sales:create",
 
