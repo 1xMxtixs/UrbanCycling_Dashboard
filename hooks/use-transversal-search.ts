@@ -77,7 +77,6 @@ interface RawWorkOrderItem {
     }>
   }
 }
-
 async function fetchCatalog(): Promise<{
   products: SearchProduct[]
   services: SearchService[]

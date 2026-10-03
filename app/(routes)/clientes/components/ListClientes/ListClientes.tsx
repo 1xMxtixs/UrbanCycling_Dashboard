@@ -139,9 +139,15 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     if (!isNaN(targetId)) {
       const found = rawClientes.find((c) => c.idCliente === targetId);
       if (found) {
-        setActiveMainTab("directorio");
-        setSelectedClienteId(targetId);
-        setOpenDetailsModal(true);
+        // Se difiere la apertura hasta después de sincronizar los datos recibidos
+        // desde la API, evitando una actualización de estado durante el efecto.
+        const openDetailTimer = window.setTimeout(() => {
+          setActiveMainTab("directorio");
+          setSelectedClienteId(targetId);
+          setOpenDetailsModal(true);
+        }, 0);
+
+        return () => window.clearTimeout(openDetailTimer);
       }
     }
   }, [clienteIdParam, rawClientes]);

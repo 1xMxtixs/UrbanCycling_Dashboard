@@ -55,4 +55,3 @@ export type SearchResults = {
 }
 
 export type SearchStatus = "idle" | "loading" | "success" | "error"
-

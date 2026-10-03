@@ -80,8 +80,12 @@ export function ListServicios() {
       (service) => service.idServicio === targetId
     )
     if (targetService) {
-      setSelectedService(targetService)
-      setOpenDetail(true)
+      const openDetailTimer = window.setTimeout(() => {
+        setSelectedService(targetService)
+        setOpenDetail(true)
+      }, 0)
+
+      return () => window.clearTimeout(openDetailTimer)
     }
   }, [serviceIdParam, services])
 

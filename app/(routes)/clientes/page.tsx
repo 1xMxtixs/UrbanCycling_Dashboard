@@ -5,4 +5,3 @@ export const dynamic = "force-dynamic";
 export default function ClientesPage() {
   redirect("/clientes/directorio");
 }
-
