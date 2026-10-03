@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
@@ -23,6 +23,11 @@ const chartConfig = {
 
 function formatCLP(value: number) {
   return `$${value.toLocaleString("es-CL")}`
+}
+
+function formatDateLabel(value: string) {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString("es-CL", { month: "short", day: "numeric" })
 }
 
 export function ChartRentabilidadOrdenesTrabajo({ data }: ChartRentabilidadOrdenesTrabajoProps) {
@@ -51,34 +56,62 @@ export function ChartRentabilidadOrdenesTrabajo({ data }: ChartRentabilidadOrden
           </div>
         ) : (
           <div className="min-h-[220px] flex-1">
-            <ChartContainer config={chartConfig} className="aspect-auto h-full w-full">
-              <AreaChart data={data}>
-                <defs>
-                  <linearGradient id="fillIngresosOrdenesTrabajo" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-ingresosOrdenesTrabajo)" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="var(--color-ingresosOrdenesTrabajo)" stopOpacity={0.1} />
-                  </linearGradient>
-                  <linearGradient id="fillCostosRepuestos" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-costosRepuestos)" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="var(--color-costosRepuestos)" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
+            <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
+              <BarChart accessibilityLayer data={data} barGap={4}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString("es-CL", { month: "short", day: "numeric" })} />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent
-                  labelFormatter={(value) => new Date(value).toLocaleDateString("es-CL", { month: "short", day: "numeric" })}
-                  formatter={(value, name) => <div className="flex w-full items-center gap-2"><span className="text-muted-foreground">{chartConfig[name as keyof typeof chartConfig]?.label ?? name}</span><span className="ml-auto font-medium tabular-nums text-foreground">{formatCLP(Number(value))}</span></div>}
-                />} />
-                <Area dataKey="ingresosOrdenesTrabajo" type="natural" fill="url(#fillIngresosOrdenesTrabajo)" stroke="var(--color-ingresosOrdenesTrabajo)" />
-                <Area dataKey="costosRepuestos" type="natural" fill="url(#fillCostosRepuestos)" stroke="var(--color-costosRepuestos)" />
-              </AreaChart>
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
+                  minTickGap={32}
+                  tickFormatter={(value) => formatDateLabel(String(value))}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dashed"
+                      labelFormatter={(value) => formatDateLabel(String(value))}
+                      formatter={(value, name) => {
+                        const config = chartConfig[name as keyof typeof chartConfig]
+                        return (
+                          <>
+                            <div
+                              className="my-0.5 w-0 shrink-0 border-[1.5px] border-dashed"
+                              style={{ borderColor: config?.color }}
+                            />
+                            <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                              <span className="text-muted-foreground">{config?.label ?? name}</span>
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCLP(Number(value))}
+                              </span>
+                            </div>
+                          </>
+                        )
+                      }}
+                    />
+                  }
+                />
+                <Bar dataKey="ingresosOrdenesTrabajo" fill="var(--color-ingresosOrdenesTrabajo)" radius={4} maxBarSize={48} />
+                <Bar dataKey="costosRepuestos" fill="var(--color-costosRepuestos)" radius={4} maxBarSize={48} />
+              </BarChart>
             </ChartContainer>
           </div>
         )}
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4 text-sm">
-          <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-1)" }} /><span className="text-muted-foreground">Ingresos de OT</span><span className="font-medium tabular-nums">{formatCLP(totals.ingresosTotal)}</span><span className="text-muted-foreground">({totals.ingresosPct}%)</span></div>
-          <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-2)" }} /><span className="text-muted-foreground">Costo de Repuestos</span><span className="font-medium tabular-nums">{formatCLP(totals.costosTotal)}</span><span className="text-muted-foreground">({totals.costosPct}%)</span></div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-1)" }} />
+            <span className="text-muted-foreground">Ingresos de OT</span>
+            <span className="font-medium tabular-nums">{formatCLP(totals.ingresosTotal)}</span>
+            <span className="text-muted-foreground">({totals.ingresosPct}%)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-2)" }} />
+            <span className="text-muted-foreground">Costo de Repuestos</span>
+            <span className="font-medium tabular-nums">{formatCLP(totals.costosTotal)}</span>
+            <span className="text-muted-foreground">({totals.costosPct}%)</span>
+          </div>
         </div>
       </CardContent>
     </Card>

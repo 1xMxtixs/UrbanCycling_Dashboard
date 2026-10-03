@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
+import * as mariadb from "mariadb"
 
-import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -17,6 +17,32 @@ type FilaReporteRentabilidad = {
   fecha: Date | string
   total_ingresos_ot: number | string | null
   total_costo_repuestos: number | string | null
+}
+
+/**
+ * Abre una conexión puntual para procedimientos que devuelven varias filas.
+ * El adaptador Prisma/MariaDB no entrega el conjunto completo de un CALL, mientras
+ * que el cliente MariaDB sí entrega todas las filas que necesita el gráfico.
+ */
+function crearConexionReportes() {
+  const rawUrl = process.env.DATABASE_URL
+
+  if (!rawUrl) {
+    throw new Error("DATABASE_URL no está configurada")
+  }
+
+  const url = new URL(rawUrl)
+  const caCert = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n")
+  const requiereSsl = /[?&]ssl-mode=required/i.test(rawUrl)
+
+  return mariadb.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.slice(1),
+    ssl: caCert ? { ca: caCert } : requiereSsl || undefined,
+  })
 }
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
@@ -218,12 +244,17 @@ export async function GET(request: Request) {
 
     // La SP filtra OTs ENTREGADAS por fecha_entrega_real y devuelve una fila
     // agregada por día, manteniendo la misma fuente de datos para todo el KPI.
-    const resultado = await db.$queryRaw<unknown>`
-      CALL sp_reporte_ingresos_ot_vs_repuestos_utilizados(
-        ${rango.fechaInicioSql},
-        ${rango.fechaFinSql}
+    const conexion = await crearConexionReportes()
+    let resultado: unknown
+
+    try {
+      resultado = await conexion.query(
+        "CALL sp_reporte_ingresos_ot_vs_repuestos_utilizados(?, ?)",
+        [rango.fechaInicioSql, rango.fechaFinSql]
       )
-    `
+    } finally {
+      await conexion.end()
+    }
     // La SP puede incluir el día siguiente al límite superior. Filtramos sus
     // filas antes de agregarlas, de modo que los KPI respeten el rango que el
     // usuario solicitó sin alterar el procedimiento almacenado.

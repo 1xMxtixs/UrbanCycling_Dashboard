@@ -114,7 +114,11 @@ export async function PATCH(
     }
 
     const fechaEntregaReal = ESTADOS_OT_FINALIZADOS.includes(estado)
-      ? new Date()
+      ? (() => {
+          const now = new Date()
+          const localStr = now.toLocaleDateString("sv-SE", { timeZone: "America/Santiago" })
+          return new Date(`${localStr}T00:00:00.000Z`)
+        })()
       : undefined
 
     // UR 5.15: service time is computed and stored when the bike is effectively delivered.
