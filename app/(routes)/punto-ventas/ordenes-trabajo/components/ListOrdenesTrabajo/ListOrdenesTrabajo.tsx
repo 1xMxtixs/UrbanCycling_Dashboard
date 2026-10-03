@@ -582,9 +582,6 @@ export function ListOrdenesTrabajo() {
         order={selectedOrder}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
-        onRescheduleClick={handleRescheduleClick}
-        onCancelClick={handleCancelClick}
-        onStatusChange={handleStatusChange}
         onAssignSuppliesClick={handleAssignSuppliesClick}
         onAuditClick={handleAuditClick}
         onModifyServiceClick={handleModifyServiceClick}
