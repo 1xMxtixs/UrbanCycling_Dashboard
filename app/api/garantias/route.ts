@@ -244,6 +244,9 @@ export async function GET() {
         idReclamoGarantia: true,
         fechaRegistro: true,
         estado: true,
+        // La tabla también alimenta el detalle; se mantiene el único campo
+        // persistido para el reclamo en vez de inventar motivoReclamo.
+        motivo: true,
         ventaReclamada: {
           select: {
             idVenta: true,
@@ -270,6 +273,7 @@ export async function GET() {
       idVenta: solicitud.ventaReclamada.idVenta,
       fechaIngreso: formatearFechaGarantia(solicitud.fechaRegistro),
       estado: presentarEstadoGarantia(solicitud.estado),
+      motivo: solicitud.motivo,
     }))
 
     return NextResponse.json(
