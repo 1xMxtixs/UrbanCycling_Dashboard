@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   CheckCircle2,
   Clock3,
   FileCheck2,
+  PauseCircle,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
 
 import { MetricCard } from "@/components/common/MetricCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { PERMISSIONS } from "@/lib/permissions";
+import { toast } from "sonner";
 
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
@@ -18,7 +32,18 @@ import { GarantiaDetailDialog } from "./GarantiaDetailDialog";
 import { ResolveGarantiaDialog } from "./ResolveGarantiaDialog";
 import { EditGarantiaDialog } from "./EditGarantiaDialog";
 
-import type { Garantia } from "../types";
+import type {
+  EstadoGarantiaCodigo,
+  Garantia,
+} from "../types";
+
+const nombresEstado: Record<EstadoGarantiaCodigo, Garantia["estado"]> = {
+  INGRESADO: "Ingresado",
+  EN_REVISION: "En Revisión",
+  EN_ESPERA: "En espera",
+  APROBADO: "Aprobado",
+  RECHAZADO: "Rechazado",
+};
 
 /*
  * ============================================================
@@ -26,9 +51,9 @@ import type { Garantia } from "../types";
  * ============================================================
  */
 
-function convertirEstado(
+function normalizarCodigoEstado(
   estado: unknown
-): Garantia["estado"] {
+): EstadoGarantiaCodigo | null {
   /*
    * El backend puede devolver:
    *
@@ -69,63 +94,33 @@ function convertirEstado(
         : "";
   }
 
-  switch (
-    codigo
-      .trim()
-      .toUpperCase()
-      .replaceAll(" ", "_")
-      .replace("É", "E")
-  ) {
+  const estadoNormalizado = codigo
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replaceAll(" ", "_");
+
+  switch (estadoNormalizado) {
     case "INGRESADO":
-      return "Ingresado";
+      return "INGRESADO";
 
     case "EN_REVISION":
-    case "EN REVISIÓN":
-    case "EN REVISION":
-      return "En Revisión";
+      return "EN_REVISION";
 
+    case "EN_ESPERA":
+      return "EN_ESPERA";
 
     case "APROBADO":
     case "APROBADA":
-      return "Aprobado";
+      return "APROBADO";
 
     case "RECHAZADO":
     case "RECHAZADA":
-      return "Rechazado";
+      return "RECHAZADO";
 
     default:
-      /*
-       * Si ya viene como texto de presentación.
-       */
-      if (
-        codigo.toLowerCase() ===
-        "ingresado"
-      ) {
-        return "Ingresado";
-      }
-
-      if (
-        codigo.toLowerCase() ===
-        "en revisión"
-      ) {
-        return "En Revisión";
-      }
-
-      if (
-        codigo.toLowerCase() ===
-        "aprobado"
-      ) {
-        return "Aprobado";
-      }
-
-      if (
-        codigo.toLowerCase() ===
-        "rechazado"
-      ) {
-        return "Rechazado";
-      }
-
-      return "Ingresado";
+      return null;
   }
 }
 
@@ -184,6 +179,7 @@ function convertirFecha(
  */
 
 export function ListGarantias() {
+  const { data: session } = useSession();
   const [garantias, setGarantias] =
     useState<Garantia[]>([]);
 
@@ -231,14 +227,30 @@ export function ListGarantias() {
     useState(false);
 
   /*
+   * El cambio de estado se confirma antes de llamar al controlador.
+   * El usuario solo puede ver las opciones autorizadas por su sesión.
+   */
+  const [cambioEstadoPendiente, setCambioEstadoPendiente] = useState<{
+    garantia: Garantia;
+    estadoDestino: EstadoGarantiaCodigo;
+  } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  const permisos = session?.user?.permisos ?? [];
+  const canUpdate = permisos.includes(PERMISSIONS.WARRANTIES_UPDATE);
+  const canResolve = permisos.includes(PERMISSIONS.WARRANTIES_RESOLVE);
+
+  /*
    * ==========================================================
    * CARGAR GARANTÍAS
    * ==========================================================
    */
 
-  const cargarGarantias = async () => {
+  const cargarGarantias = async (mostrarCarga = true) => {
     try {
-      setIsLoading(true);
+      if (mostrarCarga) {
+        setIsLoading(true);
+      }
 
       const response = await fetch(
         "/api/garantias",
@@ -286,18 +298,17 @@ export function ListGarantias() {
              * Cliente
              */
 
-            const cliente =
-              garantia.cliente ??
-              null;
+            const cliente = garantia.cliente ?? {
+              idCliente: 0,
+              nombre: "Cliente sin nombre",
+              rut: "Sin RUT",
+            };
 
             /*
              * Estado
              */
 
-            const estado =
-              convertirEstado(
-                garantia.estado
-              );
+            const estadoCodigo = normalizarCodigoEstado(garantia.estado);
 
             /*
              * Motivo
@@ -365,10 +376,11 @@ export function ListGarantias() {
               !Number.isInteger(
                 idGarantia
               ) ||
-              idGarantia <= 0
+              idGarantia <= 0 ||
+              !estadoCodigo
             ) {
               console.error(
-                "[GARANTIAS] Garantía sin ID válido:",
+                "[GARANTIAS] Garantía con ID o estado inválido:",
                 garantia
               );
 
@@ -400,7 +412,10 @@ export function ListGarantias() {
 
               observaciones,
 
-              estado,
+              estado: nombresEstado[estadoCodigo],
+
+              // El código gobierna las reglas de la interfaz y las llamadas al API.
+              estadoCodigo,
 
               veredicto,
 
@@ -436,7 +451,9 @@ export function ListGarantias() {
 
       setGarantias([]);
     } finally {
-      setIsLoading(false);
+      if (mostrarCarga) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -463,8 +480,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Ingresado"
+          garantia.estadoCodigo === "INGRESADO"
       ).length,
     [garantias]
   );
@@ -473,8 +489,15 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "En Revisión"
+          garantia.estadoCodigo === "EN_REVISION"
+      ).length,
+    [garantias]
+  );
+
+  const enEspera = useMemo(
+    () =>
+      garantias.filter(
+        (garantia) => garantia.estadoCodigo === "EN_ESPERA"
       ).length,
     [garantias]
   );
@@ -483,8 +506,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Aprobado"
+          garantia.estadoCodigo === "APROBADO"
       ).length,
     [garantias]
   );
@@ -493,8 +515,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Rechazado"
+          garantia.estadoCodigo === "RECHAZADO"
       ).length,
     [garantias]
   );
@@ -558,8 +579,9 @@ export function ListGarantias() {
      */
 
     if (
-      garantia.estado !==
-      "Ingresado"
+      !["INGRESADO", "EN_REVISION", "EN_ESPERA"].includes(
+        garantia.estadoCodigo
+      )
     ) {
       console.warn(
         "[GARANTIAS] No se puede editar. Estado:",
@@ -631,10 +653,8 @@ export function ListGarantias() {
      */
 
     if (
-      garantia.estado ===
-        "Aprobado" ||
-      garantia.estado ===
-        "Rechazado"
+      garantia.estadoCodigo === "APROBADO" ||
+      garantia.estadoCodigo === "RECHAZADO"
     ) {
       return;
     }
@@ -644,6 +664,79 @@ export function ListGarantias() {
     );
 
     setOpenResolveModal(true);
+  };
+
+  /*
+   * Solicita la confirmación visual. La transición válida la decide el backend;
+   * esta capa solo presenta las alternativas que ese contrato permite.
+   */
+  const handleRequestStatusChange = (
+    id: number,
+    estadoDestino: EstadoGarantiaCodigo
+  ) => {
+    const garantia = garantias.find((item) => item.idGarantia === id);
+
+    if (!garantia) {
+      toast.error("No se encontró la solicitud de garantía");
+      return;
+    }
+
+    setCambioEstadoPendiente({ garantia, estadoDestino });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!cambioEstadoPendiente) return;
+
+    const { garantia, estadoDestino } = cambioEstadoPendiente;
+    setIsChangingStatus(true);
+
+    try {
+      const response = await fetch(
+        `/api/garantias/${garantia.idGarantia}/estado`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ estado: estadoDestino }),
+        }
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ?? "No fue posible cambiar el estado de la garantía"
+        );
+      }
+
+      const estadoRespuesta = normalizarCodigoEstado(data?.garantia?.estado);
+      const estadoCodigo = estadoRespuesta ?? estadoDestino;
+      const garantiaActualizada = {
+        ...garantia,
+        estadoCodigo,
+        estado: nombresEstado[estadoCodigo],
+      };
+
+      setGarantias((actuales) =>
+        actuales.map((item) =>
+          item.idGarantia === garantia.idGarantia ? garantiaActualizada : item
+        )
+      );
+      setSelectedGarantia((actual) =>
+        actual?.idGarantia === garantia.idGarantia ? garantiaActualizada : actual
+      );
+      setCambioEstadoPendiente(null);
+      toast.success(data?.message ?? "Estado de garantía actualizado");
+
+      // Recarga para conservar en pantalla cualquier dato adicional del backend.
+      await cargarGarantias(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cambiar el estado de la garantía"
+      );
+    } finally {
+      setIsChangingStatus(false);
+    }
   };
 
   /*
@@ -714,9 +807,9 @@ export function ListGarantias() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           {[
-            ...Array(5),
+            ...Array(6),
           ].map(
             (_, index) => (
               <Skeleton
@@ -745,7 +838,7 @@ export function ListGarantias() {
           KPIs
       ====================================================== */}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
 
         <MetricCard
           title="Total Solicitudes"
@@ -766,6 +859,13 @@ export function ListGarantias() {
           value={enRevision}
           description="Solicitudes en evaluación"
           icon={Clock3}
+        />
+
+        <MetricCard
+          title="En espera"
+          value={enEspera}
+          description="Solicitudes pausadas"
+          icon={PauseCircle}
         />
 
         <MetricCard
@@ -800,8 +900,49 @@ export function ListGarantias() {
 
           onResolve:
             handleResolve,
+
+          onRequestStatusChange: handleRequestStatusChange,
+
+          canUpdate,
+
+          canResolve,
         }}
       />
+
+      {/* Confirma la transición antes de enviar el PATCH al controlador. */}
+      <AlertDialog
+        open={Boolean(cambioEstadoPendiente)}
+        onOpenChange={(open) => {
+          if (!open && !isChangingStatus) {
+            setCambioEstadoPendiente(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar cambio de estado</AlertDialogTitle>
+            <AlertDialogDescription>
+              La solicitud #{cambioEstadoPendiente?.garantia.idGarantia} pasará de{" "}
+              {cambioEstadoPendiente?.garantia.estado} a{" "}
+              {cambioEstadoPendiente
+                ? nombresEstado[cambioEstadoPendiente.estadoDestino]
+                : ""}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChangingStatus}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isChangingStatus}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmStatusChange();
+              }}
+            >
+              {isChangingStatus ? "Actualizando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ======================================================
           DETALLE

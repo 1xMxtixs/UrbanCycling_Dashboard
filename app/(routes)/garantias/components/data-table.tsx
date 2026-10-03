@@ -22,23 +22,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import type { GarantiasTableMeta } from "./columns";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
 
-  meta?: {
-    onViewDetails?: (
-      id: number
-    ) => void;
-
-    onEdit?: (
-      id: number
-    ) => void;
-
-    onResolve?: (
-      id: number
-    ) => void;
-  };
+  meta?: GarantiasTableMeta;
 }
 
 export function DataTable<

@@ -156,10 +156,10 @@ export function EditGarantiaDialog({
             observacion ??
             null,
 
-          estado:
-            data?.garantia
-              ?.estado ??
-            garantia.estado,
+          estado: garantia.estado,
+
+          // Editar el motivo u observaciones no modifica el flujo de estados.
+          estadoCodigo: garantia.estadoCodigo,
         };
 
       onUpdated(

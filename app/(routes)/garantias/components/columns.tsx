@@ -7,7 +7,11 @@ import {
   MoreHorizontal,
   Pencil,
   Gavel,
+  Clock3,
+  PauseCircle,
+  PlayCircle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -17,15 +21,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import type { Garantia } from "../types";
+import type { EstadoGarantiaCodigo, Garantia } from "../types";
 
 export interface GarantiasTableMeta {
   onViewDetails?: (id: number) => void;
   onEdit?: (id: number) => void;
   onResolve?: (id: number) => void;
+  onRequestStatusChange?: (id: number, estado: EstadoGarantiaCodigo) => void;
+  canUpdate?: boolean;
+  canResolve?: boolean;
 }
 
 interface CellActionsProps {
@@ -42,9 +53,7 @@ function CellActions({
   const meta =
     table.options.meta as GarantiasTableMeta | undefined;
 
-  const estadoNormalizado = String(garantia.estado)
-    .trim()
-    .toLowerCase();
+  const estado = garantia.estadoCodigo;
 
   /*
    * ============================================================
@@ -64,12 +73,21 @@ function CellActions({
    * - Solo ver detalle
    */
 
-  const canEdit =
-    estadoNormalizado === "ingresado";
+  const isPending = ["INGRESADO", "EN_REVISION", "EN_ESPERA"].includes(estado);
+  const canEdit = Boolean(meta?.canUpdate) && isPending;
 
-  const canResolve =
-    estadoNormalizado === "ingresado" ||
-    estadoNormalizado === "en revisión";
+  const canResolve = Boolean(meta?.canResolve) && isPending;
+  const statusOptions: Array<{ estado: EstadoGarantiaCodigo; label: string; icon: LucideIcon }> =
+    estado === "INGRESADO"
+      ? [
+          { estado: "EN_REVISION", label: "Enviar a revisión", icon: Clock3 },
+          { estado: "EN_ESPERA", label: "Poner en espera", icon: PauseCircle },
+        ]
+      : estado === "EN_REVISION"
+        ? [{ estado: "EN_ESPERA", label: "Poner en espera", icon: PauseCircle }]
+        : estado === "EN_ESPERA"
+          ? [{ estado: "EN_REVISION", label: "Reanudar revisión", icon: PlayCircle }]
+          : [];
 
   return (
     <DropdownMenu>
@@ -107,6 +125,30 @@ function CellActions({
 
           Ver Detalle
         </DropdownMenuItem>
+
+        {meta?.canUpdate && statusOptions.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Cambiar estado</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {statusOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={option.estado}
+                      onClick={() => meta.onRequestStatusChange?.(garantia.idGarantia, option.estado)}
+                      className="flex cursor-pointer items-center gap-2"
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      {option.label}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        )}
 
         {/* =====================================================
             MODIFICAR SOLICITUD
@@ -241,16 +283,7 @@ export const columns: ColumnDef<Garantia>[] = [
 
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {new Date(
-          row.original.fechaIngreso
-        ).toLocaleDateString(
-          "es-CL",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }
-        )}
+        {row.original.fechaIngreso}
       </span>
     ),
   },
@@ -286,14 +319,8 @@ export const columns: ColumnDef<Garantia>[] = [
     },
 
     cell: ({ row }) => {
-      const estado = String(
-        row.original.estado
-      );
-
-      const estadoNormalizado =
-        estado
-          .trim()
-          .toLowerCase();
+      const estado = row.original.estado;
+      const codigo = row.original.estadoCodigo;
 
       let status:
         | "success"
@@ -302,34 +329,22 @@ export const columns: ColumnDef<Garantia>[] = [
         | "neutral" = "neutral";
 
       // INGRESADO
-      if (
-        estadoNormalizado ===
-        "ingresado"
-      ) {
+      if (codigo === "INGRESADO" || codigo === "EN_ESPERA") {
         status = "neutral";
       }
 
       // EN REVISIÓN
-      if (
-        estadoNormalizado ===
-        "en revisión"
-      ) {
+      if (codigo === "EN_REVISION") {
         status = "warning";
       }
 
       // APROBADO
-      if (
-        estadoNormalizado ===
-        "aprobado"
-      ) {
+      if (codigo === "APROBADO") {
         status = "success";
       }
 
       // RECHAZADO
-      if (
-        estadoNormalizado ===
-        "rechazado"
-      ) {
+      if (codigo === "RECHAZADO") {
         status = "danger";
       }
 

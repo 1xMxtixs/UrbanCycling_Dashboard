@@ -328,6 +328,8 @@ export function CreateGarantiasDialog({
 
         estado: "Ingresado",
 
+        estadoCodigo: "INGRESADO",
+
         veredicto: null,
 
         observacionesResolucion:

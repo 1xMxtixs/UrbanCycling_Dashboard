@@ -413,6 +413,11 @@ export function ResolveGarantiaDialog({
             estado:
               estadoFinal,
 
+            estadoCodigo:
+              veredicto === "APROBADA"
+                ? "APROBADO"
+                : "RECHAZADO",
+
             /*
              * MOTIVO
              */

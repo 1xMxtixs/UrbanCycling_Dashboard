@@ -29,6 +29,19 @@ interface GarantiaDetailDialogProps {
   garantia: Garantia | null;
 }
 
+function formatearFechaVisual(fecha: string) {
+  // El API usa DD-MM-YYYY; ese formato no debe pasar por Date porque algunos
+  // navegadores lo interpretan como MM-DD-YYYY.
+  if (/^\d{2}-\d{2}-\d{4}$/.test(fecha)) {
+    return fecha;
+  }
+
+  const fechaConvertida = new Date(fecha);
+  return Number.isNaN(fechaConvertida.getTime())
+    ? fecha
+    : fechaConvertida.toLocaleDateString("es-CL");
+}
+
 export function GarantiaDetailDialog({
   open,
   onOpenChange,
@@ -37,11 +50,16 @@ export function GarantiaDetailDialog({
   if (!garantia) return null;
 
   const status =
-    garantia.estado === "Aprobado"
+    garantia.estadoCodigo === "APROBADO"
       ? "success"
-      : garantia.estado === "Rechazado"
+      : garantia.estadoCodigo === "RECHAZADO"
         ? "danger"
         : "warning";
+
+  // Solo las garantías con veredicto tienen información de resolución.
+  const estaResuelta =
+    garantia.estadoCodigo === "APROBADO" ||
+    garantia.estadoCodigo === "RECHAZADO";
 
   return (
     <Dialog
@@ -102,9 +120,7 @@ export function GarantiaDetailDialog({
 
               <DataField
                 label="Fecha de Ingreso"
-                value={new Date(
-                  garantia.fechaIngreso
-                ).toLocaleDateString("es-CL")}
+                value={formatearFechaVisual(garantia.fechaIngreso)}
               />
             </div>
           </div>
@@ -157,7 +173,7 @@ export function GarantiaDetailDialog({
             </div>
           </div>
 
-          {garantia.estado !== "En Revisión" && (
+          {estaResuelta && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
               <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <Gavel className="h-4 w-4 text-primary" />
@@ -174,9 +190,7 @@ export function GarantiaDetailDialog({
                   label="Fecha de Resolución"
                   value={
                     garantia.fechaResolucion
-                      ? new Date(
-                          garantia.fechaResolucion
-                        ).toLocaleDateString("es-CL")
+                      ? formatearFechaVisual(garantia.fechaResolucion)
                       : "-"
                   }
                 />
@@ -200,13 +214,7 @@ export function GarantiaDetailDialog({
 
             <span>
               Solicitud registrada el{" "}
-              {new Date(
-                garantia.fechaIngreso
-              ).toLocaleDateString("es-CL", {
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-              })}
+              {formatearFechaVisual(garantia.fechaIngreso)}
             </span>
           </div>
 
