@@ -12,14 +12,22 @@ type FechaReporte = {
   fechaSql: string
 }
 
-type FilaVentaDiariaSql = {
+/**
+ * Contrato de salida de sp_reporte_diario_ventas. Cada fila representa una
+ * asignación de pago aplicada a una venta directa o a una orden de trabajo.
+ */
+type FilaIngresoDiarioSql = {
+  id_pago: number | bigint
+  id_asignacion_pago: number | bigint
   id_venta: number | bigint
-  hora_registro: string
+  hora_pago: string
+  metodo_pago: string
+  monto_ingresado: number | string | bigint
   tipo_operacion: string
   identificador_operacion: number | bigint
   cliente: string
-  estado_pago: string
-  monto_total_venta: number | string | bigint
+  estado_pago_venta: string
+  monto_total_operacion: number | string | bigint
 }
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
@@ -108,46 +116,60 @@ function crearConexionReportes() {
   })
 }
 
-function esFilaVentaDiaria(valor: unknown): valor is FilaVentaDiariaSql {
+function esFilaIngresoDiario(valor: unknown): valor is FilaIngresoDiarioSql {
   return (
     esRegistro(valor) &&
+    "id_pago" in valor &&
+    "id_asignacion_pago" in valor &&
     "id_venta" in valor &&
-    "hora_registro" in valor &&
+    "hora_pago" in valor &&
+    "metodo_pago" in valor &&
+    "monto_ingresado" in valor &&
     "tipo_operacion" in valor &&
     "identificador_operacion" in valor &&
     "cliente" in valor &&
-    "estado_pago" in valor &&
-    "monto_total_venta" in valor &&
+    "estado_pago_venta" in valor &&
+    "monto_total_operacion" in valor &&
+    esValorNumerico(valor.id_pago) &&
+    esValorNumerico(valor.id_asignacion_pago) &&
     esValorNumerico(valor.id_venta) &&
-    typeof valor.hora_registro === "string" &&
+    typeof valor.hora_pago === "string" &&
+    typeof valor.metodo_pago === "string" &&
+    esValorNumerico(valor.monto_ingresado) &&
     typeof valor.tipo_operacion === "string" &&
     esValorNumerico(valor.identificador_operacion) &&
     typeof valor.cliente === "string" &&
-    typeof valor.estado_pago === "string" &&
-    esValorNumerico(valor.monto_total_venta)
+    typeof valor.estado_pago_venta === "string" &&
+    esValorNumerico(valor.monto_total_operacion)
   )
 }
 
-/** El driver adjunta metadatos a CALL; solo se retienen filas de ventas. */
-function extraerVentas(resultado: unknown): FilaVentaDiariaSql[] {
+/** El driver adjunta metadatos a CALL; solo se retienen las filas de ingresos. */
+function extraerIngresos(resultado: unknown): FilaIngresoDiarioSql[] {
   if (Array.isArray(resultado)) {
-    return resultado.flatMap(extraerVentas)
+    return resultado.flatMap(extraerIngresos)
   }
 
-  return esFilaVentaDiaria(resultado) ? [resultado] : []
+  return esFilaIngresoDiario(resultado) ? [resultado] : []
 }
 
-function esErrorSinVentas(error: unknown) {
+function esErrorSinIngresos(error: unknown) {
   const mensaje = error instanceof Error ? error.message : String(error)
+  const mensajeNormalizado = mensaje.toLowerCase()
 
-  return mensaje.toLowerCase().includes("no se registraron ventas")
+  // Se mantiene el literal histórico mientras la base local termine de migrar.
+  return (
+    mensajeNormalizado.includes("no se registraron ingresos") ||
+    mensajeNormalizado.includes("no se registraron ventas")
+  )
 }
 
 /**
  * GET /api/ventas/reporte-diario?fecha=DD-MM-YYYY
  *
- * Devuelve el detalle auditable de las ventas y OTs entregadas del día. ventas
- * alimenta la tabla; totalIngresos y cantidadVentas alimentan los indicadores.
+ * Devuelve el detalle auditable de cada pago aplicado a ventas directas y OTs.
+ * El total se calcula con montoIngresado para no repetir el total de una misma
+ * operación cuando recibe abonos o pagos en cuotas.
  */
 export async function GET(request: Request) {
   try {
@@ -179,22 +201,29 @@ export async function GET(request: Request) {
       await conexion.end()
     }
 
-    const ventas = extraerVentas(resultado).map((venta) => ({
-      idVenta: Number(venta.id_venta),
-      horaRegistro: venta.hora_registro,
-      // Permite que la vista diferencie una venta directa de una OT entregada.
-      tipoOperacion: venta.tipo_operacion,
-      identificadorOperacion: Number(venta.identificador_operacion),
-      cliente: venta.cliente,
-      estadoPago: venta.estado_pago,
-      montoTotalVenta: Number(venta.monto_total_venta),
+    const ingresos = extraerIngresos(resultado).map((ingreso) => ({
+      idPago: Number(ingreso.id_pago),
+      idAsignacionPago: Number(ingreso.id_asignacion_pago),
+      idVenta: Number(ingreso.id_venta),
+      horaPago: ingreso.hora_pago,
+      metodoPago: ingreso.metodo_pago,
+      montoIngresado: Number(ingreso.monto_ingresado),
+      tipoOperacion: ingreso.tipo_operacion,
+      identificadorOperacion: Number(ingreso.identificador_operacion),
+      cliente: ingreso.cliente,
+      estadoPago: ingreso.estado_pago_venta,
+      montoTotalOperacion: Number(ingreso.monto_total_operacion),
+      // Aliases de transición para el dashboard existente: el monto mostrado
+      // ahora es el ingreso registrado durante la jornada, no el total histórico.
+      horaRegistro: ingreso.hora_pago,
+      montoTotalVenta: Number(ingreso.monto_ingresado),
     }))
 
-    if (ventas.length === 0) {
+    if (ingresos.length === 0) {
       return NextResponse.json(
         {
           code: "SIN_DATOS_REPORTE",
-          message: "No se registraron ventas en la jornada seleccionada",
+          message: "No se registraron ingresos en la jornada seleccionada",
         },
         { status: 404 }
       )
@@ -202,19 +231,21 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       fecha: fecha.fecha,
-      totalIngresos: ventas.reduce(
-        (total, venta) => total + venta.montoTotalVenta,
+      totalIngresos: ingresos.reduce(
+        (total, ingreso) => total + ingreso.montoIngresado,
         0
       ),
-      cantidadVentas: ventas.length,
-      ventas,
+      cantidadIngresos: ingresos.length,
+      // Conservado para clientes que ya consumen este indicador.
+      cantidadVentas: new Set(ingresos.map((ingreso) => ingreso.idVenta)).size,
+      ventas: ingresos,
     })
   } catch (error) {
-    if (esErrorSinVentas(error)) {
+    if (esErrorSinIngresos(error)) {
       return NextResponse.json(
         {
           code: "SIN_DATOS_REPORTE",
-          message: "No se registraron ventas en la jornada seleccionada",
+          message: "No se registraron ingresos en la jornada seleccionada",
         },
         { status: 404 }
       )
