@@ -66,7 +66,7 @@ export async function getDashboardData(range: DateRange): Promise<ReportsData> {
   const now = new Date()
   const today = `${String(now.getDate()).padStart(2, "0")}-${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`
 
-  const [ingresos, ordenes, rentabilidad, metodosPago, productos, consumo, ventasDiarias] = await Promise.all([
+  const [, ordenes, rentabilidad, metodosPago, productos, consumo, ventasDiarias] = await Promise.all([
     getReport<IngresosResponse>(`/api/reportes/ingresos-totales?${query}`),
     getReport<OrdenesResponse>(`/api/reportes/ordenes-trabajo?${query}`),
     getReport<RentabilidadResponse>(`/api/reportes/rentabilidad-servicios?${query}`),
