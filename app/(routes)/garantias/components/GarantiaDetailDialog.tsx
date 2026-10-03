@@ -37,9 +37,9 @@ export function GarantiaDetailDialog({
   if (!garantia) return null;
 
   const status =
-    garantia.estado === "Aprobada"
+    garantia.estado === "Aprobado"
       ? "success"
-      : garantia.estado === "Rechazada"
+      : garantia.estado === "Rechazado"
         ? "danger"
         : "warning";
 
@@ -157,7 +157,7 @@ export function GarantiaDetailDialog({
             </div>
           </div>
 
-          {garantia.estado !== "Pendiente" && (
+          {garantia.estado !== "En Revisión" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
               <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <Gavel className="h-4 w-4 text-primary" />

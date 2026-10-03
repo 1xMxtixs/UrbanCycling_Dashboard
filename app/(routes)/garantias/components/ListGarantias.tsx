@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -16,27 +16,39 @@ import { DataTable } from "./data-table";
 import { columns } from "./columns";
 import { GarantiaDetailDialog } from "./GarantiaDetailDialog";
 import { ResolveGarantiaDialog } from "./ResolveGarantiaDialog";
+import { ModifyGarantiaDialog } from "./EditGarantiaDialog";
 
-import type {
-  Garantia,
-  EstadoGarantia,
-} from "../types";
+import type { Garantia } from "../types";
+
+const garantiasIniciales: Garantia[] = [];
 
 export function ListGarantias() {
-  const [garantias, setGarantias] = useState<Garantia[]>([]);
+  const [garantias, setGarantias] =
+    useState<Garantia[]>(garantiasIniciales);
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [isLoading] = useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
-
+  /*
+   * DETALLE
+   */
   const [selectedGarantia, setSelectedGarantia] =
     useState<Garantia | null>(null);
 
   const [openDetailsModal, setOpenDetailsModal] =
     useState(false);
 
+  /*
+   * MODIFICAR
+   */
+  const [selectedGarantiaEdit, setSelectedGarantiaEdit] =
+    useState<Garantia | null>(null);
+
+  const [openEditModal, setOpenEditModal] =
+    useState(false);
+
+  /*
+   * RESOLVER
+   */
   const [
     selectedGarantiaResolve,
     setSelectedGarantiaResolve,
@@ -46,181 +58,15 @@ export function ListGarantias() {
     useState(false);
 
   /*
-   * ============================================================
-   * CONVERSIÓN DE ESTADOS
-   * ============================================================
-   *
-   * Backend:
-   * INGRESADO
-   * EN_REVISION
-   * APROBADO
-   * RECHAZADO
-   *
-   * Frontend:
-   * Ingresado
-   * En Revisión
-   * Aprobado
-   * Rechazado
-   */
-
-  const convertirEstado = (
-    estado: string
-  ): EstadoGarantia => {
-    switch (estado) {
-      case "INGRESADO":
-        return "Ingresado";
-
-      case "EN_REVISION":
-        return "En Revisión";
-
-      case "APROBADO":
-        return "Aprobado";
-
-      case "RECHAZADO":
-        return "Rechazado";
-
-      default:
-        return "Ingresado";
-    }
-  };
-
-  /*
-   * ============================================================
-   * OBTENER GARANTÍAS
-   * ============================================================
-   */
-
-  const cargarGarantias = useCallback(
-    async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const response = await fetch(
-          "/api/garantias",
-          {
-            method: "GET",
-            cache: "no-store",
-          }
-        );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              "No fue posible obtener las garantías"
-          );
-        }
-
-        const garantiasBackend =
-          Array.isArray(data?.garantias)
-            ? data.garantias
-            : [];
-
-        const garantiasFormateadas: Garantia[] =
-          garantiasBackend.map(
-            (garantia: any) => ({
-              idGarantia:
-                garantia.idGarantia,
-
-              idOrdenDeTrabajo:
-                garantia.idOrdenDeTrabajo,
-
-              cliente: {
-                idCliente:
-                  garantia.cliente?.idCliente ?? 0,
-
-                nombre:
-                  garantia.cliente?.nombre ??
-                  "Cliente sin nombre",
-
-                rut:
-                  garantia.cliente?.rut ??
-                  "Sin RUT",
-              },
-
-              motivoReclamo:
-                garantia.motivoReclamo ?? "",
-
-              fechaIngreso:
-                garantia.fechaIngreso,
-
-              observaciones:
-                garantia.observaciones ?? null,
-
-              estado:
-                convertirEstado(
-                  garantia.estado
-                ),
-
-              veredicto:
-                garantia.veredicto ===
-                  "Aprobado" ||
-                garantia.veredicto ===
-                  "Rechazado"
-                  ? garantia.veredicto
-                  : null,
-
-              observacionesResolucion:
-                garantia.observacionesResolucion ??
-                null,
-
-              fechaResolucion:
-                garantia.fechaResolucion ??
-                null,
-            })
-          );
-
-        setGarantias(
-          garantiasFormateadas
-        );
-      } catch (error) {
-        console.error(
-          "[LIST_GARANTIAS]",
-          error
-        );
-
-        setError(
-          error instanceof Error
-            ? error.message
-            : "No fue posible cargar las garantías"
-        );
-
-        setGarantias([]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
-  );
-
-  /*
-   * ============================================================
-   * CARGA INICIAL
-   * ============================================================
-   */
-
-  useEffect(() => {
-    cargarGarantias();
-  }, [cargarGarantias]);
-
-  /*
-   * ============================================================
    * KPIs
-   * ============================================================
    */
-
-  const totalGarantias =
-    garantias.length;
+  const totalGarantias = garantias.length;
 
   const ingresadas = useMemo(
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Ingresado"
+          garantia.estado === "Ingresado"
       ).length,
     [garantias]
   );
@@ -229,8 +75,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "En Revisión"
+          garantia.estado === "En Revisión"
       ).length,
     [garantias]
   );
@@ -239,8 +84,7 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Aprobado"
+          garantia.estado === "Aprobado"
       ).length,
     [garantias]
   );
@@ -249,144 +93,112 @@ export function ListGarantias() {
     () =>
       garantias.filter(
         (garantia) =>
-          garantia.estado ===
-          "Rechazado"
+          garantia.estado === "Rechazado"
       ).length,
     [garantias]
   );
 
   /*
-   * ============================================================
    * VER DETALLE
-   * ============================================================
    */
-
-  const handleViewDetails = (
-    id: number
-  ) => {
-    const garantia =
-      garantias.find(
-        (item) =>
-          item.idGarantia === id
-      );
+  const handleViewDetails = (id: number) => {
+    const garantia = garantias.find(
+      (item) => item.idGarantia === id
+    );
 
     if (!garantia) return;
 
-    setSelectedGarantia(
-      garantia
-    );
-
+    setSelectedGarantia(garantia);
     setOpenDetailsModal(true);
   };
 
   /*
-   * ============================================================
-   * MODIFICAR GARANTÍA
-   * ============================================================
-   *
-   * Todavía no implementado.
+   * MODIFICAR
    */
-
-  const handleEdit = (
-    id: number
-  ) => {
-    const garantia =
-      garantias.find(
-        (item) =>
-          item.idGarantia === id
-      );
+  const handleEdit = (id: number) => {
+    const garantia = garantias.find(
+      (item) => item.idGarantia === id
+    );
 
     if (!garantia) return;
 
-    console.log(
-      "Modificar solicitud de garantía:",
-      garantia
-    );
+    if (garantia.estado !== "Ingresado") {
+      return;
+    }
+
+    setSelectedGarantiaEdit(garantia);
+    setOpenEditModal(true);
   };
 
   /*
-   * ============================================================
-   * RESOLVER GARANTÍA
-   * ============================================================
+   * GARANTÍA ACTUALIZADA
    */
-
-  const handleResolve = (
-    id: number
+  const handleUpdated = (
+    garantiaActualizada: Garantia
   ) => {
-    const garantia =
-      garantias.find(
-        (item) =>
-          item.idGarantia === id
-      );
+    setGarantias((actuales) =>
+      actuales.map((garantia) =>
+        garantia.idGarantia ===
+        garantiaActualizada.idGarantia
+          ? garantiaActualizada
+          : garantia
+      )
+    );
+
+    setSelectedGarantiaEdit(null);
+    setOpenEditModal(false);
+  };
+
+  /*
+   * RESOLVER
+   */
+  const handleResolve = (id: number) => {
+    const garantia = garantias.find(
+      (item) => item.idGarantia === id
+    );
 
     if (!garantia) return;
 
-    /*
-     * Una garantía aprobada o rechazada
-     * ya no puede volver a resolverse.
-     */
-
     if (
-      garantia.estado ===
-        "Aprobado" ||
-      garantia.estado ===
-        "Rechazado"
+      garantia.estado === "Aprobado" ||
+      garantia.estado === "Rechazado"
     ) {
       return;
     }
 
-    setSelectedGarantiaResolve(
-      garantia
-    );
-
+    setSelectedGarantiaResolve(garantia);
     setOpenResolveModal(true);
   };
 
   /*
-   * ============================================================
    * GARANTÍA RESUELTA
-   * ============================================================
    */
-
   const handleResolved = (
     garantiaActualizada: Garantia
   ) => {
-    setGarantias(
-      (actuales) =>
-        actuales.map(
-          (garantia) =>
-            garantia.idGarantia ===
-            garantiaActualizada.idGarantia
-              ? garantiaActualizada
-              : garantia
-        )
+    setGarantias((actuales) =>
+      actuales.map((garantia) =>
+        garantia.idGarantia ===
+        garantiaActualizada.idGarantia
+          ? garantiaActualizada
+          : garantia
+      )
     );
 
-    setSelectedGarantiaResolve(
-      null
-    );
-
+    setSelectedGarantiaResolve(null);
     setOpenResolveModal(false);
   };
-
-  /*
-   * ============================================================
-   * LOADING
-   * ============================================================
-   */
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {[...Array(5)].map(
-            (_, index) => (
-              <Skeleton
-                key={index}
-                className="h-24 rounded-2xl"
-              />
-            )
-          )}
+          {[...Array(5)].map((_, index) => (
+            <Skeleton
+              key={index}
+              className="h-24 rounded-2xl"
+            />
+          ))}
         </div>
 
         <Skeleton className="h-96 rounded-2xl" />
@@ -394,49 +206,10 @@ export function ListGarantias() {
     );
   }
 
-  /*
-   * ============================================================
-   * ERROR
-   * ============================================================
-   */
-
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
-        <h3 className="font-semibold text-destructive">
-          No fue posible cargar las garantías
-        </h3>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          {error}
-        </p>
-
-        <button
-          type="button"
-          onClick={cargarGarantias}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
-  /*
-   * ============================================================
-   * RENDER
-   * ============================================================
-   */
-
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-
-      {/* ======================================================
-          KPIs
-      ====================================================== */}
-
+      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-
         <MetricCard
           title="Total Solicitudes"
           value={totalGarantias}
@@ -471,59 +244,47 @@ export function ListGarantias() {
           description="Garantías rechazadas"
           icon={XCircle}
         />
-
       </div>
 
-      {/* ======================================================
-          TABLA
-      ====================================================== */}
-
+      {/* TABLA */}
       <DataTable
         columns={columns}
         data={garantias}
         meta={{
-          onViewDetails:
-            handleViewDetails,
-
-          onEdit:
-            handleEdit,
-
-          onResolve:
-            handleResolve,
+          onViewDetails: handleViewDetails,
+          onEdit: handleEdit,
+          onResolve: handleResolve,
         }}
       />
 
-      {/* ======================================================
-          DETALLE
-      ====================================================== */}
-
+      {/* DETALLE */}
       <GarantiaDetailDialog
         open={openDetailsModal}
-        onOpenChange={
-          setOpenDetailsModal
-        }
-        garantia={
-          selectedGarantia
-        }
+        onOpenChange={setOpenDetailsModal}
+        garantia={selectedGarantia}
       />
 
-      {/* ======================================================
-          RESOLVER
-      ====================================================== */}
+      {/* MODIFICAR */}
+      <ModifyGarantiaDialog
+        open={openEditModal}
+        onOpenChange={(open: boolean) => {
+          setOpenEditModal(open);
 
+          if (!open) {
+            setSelectedGarantiaEdit(null);
+          }
+        }}
+        garantia={selectedGarantiaEdit}
+        onUpdated={handleUpdated}
+      />
+
+      {/* RESOLVER */}
       <ResolveGarantiaDialog
         open={openResolveModal}
-        onOpenChange={
-          setOpenResolveModal
-        }
-        garantia={
-          selectedGarantiaResolve
-        }
-        onResolved={
-          handleResolved
-        }
+        onOpenChange={setOpenResolveModal}
+        garantia={selectedGarantiaResolve}
+        onResolved={handleResolved}
       />
-
     </div>
   );
 }

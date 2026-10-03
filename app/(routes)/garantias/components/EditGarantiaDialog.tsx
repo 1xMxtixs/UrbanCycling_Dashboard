@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  CalendarDays,
-  FileText,
-  Save,
-  ShieldCheck,
-} from "lucide-react";
+import { toast } from "sonner";
+import { Pencil } from "lucide-react";
 
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,308 +19,198 @@ import { Label } from "@/components/ui/label";
 
 import type { Garantia } from "../types";
 
-interface EditGarantiaDialogProps {
+interface ModifyGarantiaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   garantia: Garantia | null;
-  onUpdated?: () => void;
+  onUpdated: (garantia: Garantia) => void;
 }
 
-export function EditGarantiaDialog({
+export function ModifyGarantiaDialog({
   open,
   onOpenChange,
   garantia,
   onUpdated,
-}: EditGarantiaDialogProps) {
+}: ModifyGarantiaDialogProps) {
   const [motivoReclamo, setMotivoReclamo] = useState("");
   const [observaciones, setObservaciones] = useState("");
-  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  /*
-   * Cargar los datos de la garantía seleccionada
-   * cada vez que se abre el diálogo.
-   */
   useEffect(() => {
     if (!garantia) {
       setMotivoReclamo("");
       setObservaciones("");
-      setError("");
       return;
     }
 
     setMotivoReclamo(garantia.motivoReclamo);
     setObservaciones(garantia.observaciones ?? "");
-    setError("");
   }, [garantia, open]);
 
-  const handleSubmit = () => {
-    setError("");
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
 
-    if (!garantia) {
-      setError("No se encontró la solicitud de garantía.");
-      return;
-    }
+    if (!garantia) return;
 
     if (!motivoReclamo.trim()) {
-      setError("El motivo del reclamo es obligatorio.");
+      toast.error("El motivo del reclamo es obligatorio");
       return;
     }
 
-    /*
-     * --------------------------------------------------
-     * DATOS DE PRUEBA
-     * --------------------------------------------------
-     * Por ahora no existe conexión con backend.
-     *
-     * Cuando exista el endpoint correspondiente,
-     * este objeto será enviado mediante PATCH/PUT.
-     */
-    const garantiaActualizada = {
-      idGarantia: garantia.idGarantia,
+    setIsSaving(true);
 
-      motivoReclamo: motivoReclamo.trim(),
+    try {
+      const response = await fetch(
+        `/api/garantias/${garantia.idGarantia}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            motivoReclamo: motivoReclamo.trim(),
+            observaciones: observaciones.trim() || null,
+          }),
+        }
+      );
 
-      observaciones:
-        observaciones.trim() || null,
-    };
+      const data = await response.json();
 
-    console.log(
-      "Solicitud de garantía modificada:",
-      garantiaActualizada
-    );
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            "No fue posible modificar la solicitud"
+        );
+      }
 
-    /*
-     * TEMPORAL:
-     * Cuando exista el endpoint del backend,
-     * este console.log será reemplazado por la petición.
-     */
+      const garantiaActualizada: Garantia = {
+        ...garantia,
+        motivoReclamo:
+          data.garantia?.motivoReclamo ??
+          motivoReclamo.trim(),
+        observaciones:
+          data.garantia?.observaciones ??
+          (observaciones.trim() || null),
+        estado:
+          data.garantia?.estado ??
+          garantia.estado,
+      };
 
-    onUpdated?.();
+      onUpdated(garantiaActualizada);
 
-    onOpenChange(false);
-  };
+      toast.success(
+        "Solicitud de garantía modificada correctamente"
+      );
 
-  const handleCancel = () => {
-    setError("");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("[MODIFICAR_GARANTIA]", error);
 
-    if (garantia) {
-      setMotivoReclamo(garantia.motivoReclamo);
-      setObservaciones(garantia.observaciones ?? "");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No fue posible modificar la solicitud"
+      );
+    } finally {
+      setIsSaving(false);
     }
-
-    onOpenChange(false);
   };
-
-  if (!garantia) {
-    return null;
-  }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(value) => {
+        if (!isSaving) {
+          onOpenChange(value);
+        }
+      }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-            </div>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5" />
+            Modificar solicitud de garantía
+          </DialogTitle>
 
-            <div>
-              <DialogTitle className="text-xl">
-                Modificar Solicitud de Garantía
-              </DialogTitle>
-
-              <DialogDescription className="mt-1">
-                Modifica los antecedentes de la solicitud de
-                garantía.
-              </DialogDescription>
-            </div>
-          </div>
+          <DialogDescription>
+            Modifica el motivo del reclamo y las observaciones de
+            la solicitud.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 pt-4">
-          {/* INFORMACIÓN DE LA SOLICITUD */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-
-              <h3 className="font-semibold">
-                Información de la Solicitud
-              </h3>
-            </div>
-
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* ID GARANTÍA */}
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Solicitud
-                  </p>
-
-                  <p className="mt-1 font-semibold">
-                    GAR-
-                    {String(
-                      garantia.idGarantia
-                    ).padStart(3, "0")}
-                  </p>
-                </div>
-
-                {/* ORDEN DE TRABAJO */}
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Orden de Trabajo
-                  </p>
-
-                  <p className="mt-1 font-semibold">
-                    OT #{garantia.idOrdenDeTrabajo}
-                  </p>
-                </div>
-
-                {/* CLIENTE */}
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Cliente
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    {garantia.cliente.nombre}
-                  </p>
-
-                  <p className="text-[11px] text-muted-foreground">
-                    RUT: {garantia.cliente.rut}
-                  </p>
-                </div>
-
-                {/* ESTADO */}
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Estado
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    {garantia.estado}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* FECHA DE INGRESO */}
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+        >
           <div className="space-y-2">
-            <Label htmlFor="edit-fechaIngreso">
-              Fecha de Ingreso
-            </Label>
-
-            <div className="relative">
-              <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-              <Input
-                id="edit-fechaIngreso"
-                type="date"
-                value={garantia.fechaIngreso}
-                disabled
-                className="cursor-not-allowed pl-9 bg-muted/50"
-              />
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              La fecha de ingreso no puede modificarse.
-            </p>
-          </div>
-
-          {/* MOTIVO DEL RECLAMO */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-motivoReclamo">
-              Motivo del Reclamo{" "}
-              <span className="text-destructive">
-                *
-              </span>
+            <Label htmlFor="motivoReclamo">
+              Motivo del reclamo
             </Label>
 
             <Textarea
-              id="edit-motivoReclamo"
+              id="motivoReclamo"
               value={motivoReclamo}
               onChange={(event) =>
                 setMotivoReclamo(event.target.value)
               }
-              placeholder="Describe el problema o motivo por el cual se solicita la garantía..."
+              placeholder="Ingrese el motivo del reclamo"
+              maxLength={500}
+              disabled={isSaving}
               className="min-h-[120px] resize-none"
             />
 
-            <p className="text-xs text-muted-foreground">
-              Describe claramente el problema informado
-              por el cliente.
+            <p className="text-right text-xs text-muted-foreground">
+              {motivoReclamo.length}/500
             </p>
           </div>
 
-          {/* OBSERVACIONES */}
           <div className="space-y-2">
-            <Label htmlFor="edit-observaciones">
+            <Label htmlFor="observaciones">
               Observaciones
             </Label>
 
             <Textarea
-              id="edit-observaciones"
+              id="observaciones"
               value={observaciones}
               onChange={(event) =>
                 setObservaciones(event.target.value)
               }
-              placeholder="Agrega información adicional relevante para la solicitud..."
+              placeholder="Ingrese observaciones adicionales"
+              maxLength={500}
+              disabled={isSaving}
               className="min-h-[100px] resize-none"
             />
+
+            <p className="text-right text-xs text-muted-foreground">
+              {observaciones.length}/500
+            </p>
           </div>
 
-          {/* INFORMACIÓN */}
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
-
-              <div>
-                <p className="text-sm font-semibold">
-                  Datos protegidos
-                </p>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  La orden de trabajo, cliente, fecha de
-                  ingreso y estado de la solicitud no pueden
-                  modificarse desde esta pantalla.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* ERROR */}
-          {error && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
-              <p className="text-sm text-destructive">
-                {error}
-              </p>
-            </div>
-          )}
-
-          {/* BOTONES */}
-          <div className="flex justify-end gap-3 border-t pt-5">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={handleCancel}
-              className="cursor-pointer"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
             >
               Cancelar
             </Button>
 
             <Button
-              type="button"
-              onClick={handleSubmit}
-              className="cursor-pointer"
+              type="submit"
+              disabled={
+                isSaving ||
+                !motivoReclamo.trim()
+              }
             >
-              <Save className="mr-2 h-4 w-4" />
-              Guardar Cambios
+              {isSaving
+                ? "Guardando..."
+                : "Guardar cambios"}
             </Button>
-          </div>
-        </div>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
