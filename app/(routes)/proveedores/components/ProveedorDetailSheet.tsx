@@ -14,12 +14,12 @@ import {
 } from "lucide-react"
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -92,17 +92,17 @@ export function ProveedorDetailSheet({
   const direccion = detalle?.direcciones?.[0]
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
             Detalle del proveedor
-          </SheetTitle>
+          </DialogTitle>
 
-          <SheetDescription>
+          <DialogDescription>
             Información registrada del proveedor.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         {isLoading ? (
           <div className="flex min-h-80 items-center justify-center">
@@ -113,7 +113,7 @@ export function ProveedorDetailSheet({
             {error}
           </div>
         ) : detalle ? (
-          <div className="mt-6 space-y-6">
+          <div className="space-y-6">
             <div className="rounded-xl border bg-card p-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -176,7 +176,8 @@ export function ProveedorDetailSheet({
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
 
                     <p className="text-sm font-medium">
-                      {detalle.condicionesDePago}
+                      {detalle.condicionesDePago ||
+                        "No registradas"}
                     </p>
                   </div>
                 </div>
@@ -299,7 +300,7 @@ export function ProveedorDetailSheet({
             </div>
           </div>
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
