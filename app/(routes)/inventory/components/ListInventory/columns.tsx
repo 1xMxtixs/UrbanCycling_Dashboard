@@ -2,16 +2,19 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowLeftRight, ArrowUpDown, Eye, MoreHorizontal, Package } from "lucide-react"
+import { ArrowLeftRight, ArrowUpDown, Eye, MoreHorizontal, Package, Power, Trash2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { DataField } from "@/components/common/DataField"
+import { formatCurrency } from "@/lib/formatters"
 import type { InventoryCategory } from "../../types"
 
 export type { InventoryCategory } from "../../types"
@@ -39,6 +42,7 @@ export type ProductColumn = {
 export function getColumns(
   onViewDetail: (product: ProductColumn) => void,
   onRegisterMovement: (product: ProductColumn) => void,
+  onToggleStatus: (product: ProductColumn) => void,
   canUpdate: boolean = false,
 ): ColumnDef<ProductColumn>[] {
   return [
@@ -148,10 +152,9 @@ export function getColumns(
         </Button>
       ),
       cell: ({ row }) => {
-        const value = Number(row.original.precioVenta)
         return (
           <span className="font-bold text-sm text-foreground">
-            ${value.toLocaleString("es-CL")}
+            {formatCurrency(row.original.precioVenta)}
           </span>
         )
       },
@@ -162,11 +165,11 @@ export function getColumns(
       header: "Estado",
       cell: ({ row }) => {
         const estado = row.original.estado
-        const isActive = estado?.toLowerCase() === "activo"
+        const isActive = isRegistroActivo(estado)
         return (
           <StatusBadge
-            status={isActive ? "success" : "neutral"}
-            label={isActive ? "Activo" : "Inactivo"}
+            status={isActive ? "success" : "danger"}
+            label={getNombreEstadoRegistro(estado)}
             showDot={false}
           />
         )
@@ -175,34 +178,58 @@ export function getColumns(
     {
       id: "actions",
       header: "Acciones",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 rounded-xl border-border/80">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => onViewDetail(row.original)}
-              className="flex cursor-pointer items-center gap-2 text-xs font-medium"
-            >
-              <Eye className="h-4 w-4" />
-              Ver detalle
-            </DropdownMenuItem>
-            {canUpdate && (
+      cell: ({ row }) => {
+        const isActive = isRegistroActivo(row.original.estado)
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border-border/80">
+              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem
-                onClick={() => onRegisterMovement(row.original)}
+                onClick={() => onViewDetail(row.original)}
                 className="flex cursor-pointer items-center gap-2 text-xs font-medium"
               >
-                <ArrowLeftRight className="h-4 w-4" />
-                Registrar movimiento
+                <Eye className="h-4 w-4" />
+                Ver detalle
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+              {canUpdate && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => onRegisterMovement(row.original)}
+                    className="flex cursor-pointer items-center gap-2 text-xs font-medium"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Registrar movimiento
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {isActive ? (
+                    <DropdownMenuItem
+                      onClick={() => onToggleStatus(row.original)}
+                      className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Inactivar producto
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => onToggleStatus(row.original)}
+                      className="flex cursor-pointer items-center gap-2 text-xs font-medium text-primary focus:text-primary"
+                    >
+                      <Power className="h-4 w-4" />
+                      Reactivar producto
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
     },
   ]
 }

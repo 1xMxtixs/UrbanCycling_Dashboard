@@ -54,6 +54,7 @@ export interface DBOrdenTrabajoCliente {
   descuento: number;
   estadoPago: string;
   estadoOrden: string;
+  estadoOrdenNombre?: string | null;
   fechaCreacion: string;
 }
 
@@ -81,4 +82,5 @@ export interface ClientesTableMeta {
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
+  onInactivate?: (clientId: number) => Promise<string>;
 }

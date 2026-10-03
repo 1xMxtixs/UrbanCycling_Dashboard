@@ -5,7 +5,6 @@ import { AuthProvider } from "@/components/providers/AuthProvider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
-
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {

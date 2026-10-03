@@ -9,17 +9,21 @@ import { SegmentedTabs } from "@/components/forms/SegmentedTabs";
 interface ClientesTabsViewProps {
   clientesNaturales: ClienteNatural[];
   clientesJuridicas: ClienteJuridica[];
+  initialSearch?: string;
   onViewDetails?: (id: number) => void;
   onViewHistory?: (id: number) => void;
   onEdit?: (id: number) => void;
+  onInactivate?: (id: number) => Promise<string>;
 }
 
 export function ClientesTabsView({
   clientesNaturales,
   clientesJuridicas,
+  initialSearch = "",
   onViewDetails,
   onViewHistory,
   onEdit,
+  onInactivate,
 }: ClientesTabsViewProps) {
   return (
     <div className="w-full space-y-6">
@@ -47,9 +51,11 @@ export function ClientesTabsView({
           <DataTable
             columns={columnsNaturales}
             data={clientesNaturales}
+            initialSearch={initialSearch}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}
+            onInactivate={onInactivate}
           />
         </TabsContent>
 
@@ -57,9 +63,11 @@ export function ClientesTabsView({
           <DataTable
             columns={columnsJuridicas}
             data={clientesJuridicas}
+            initialSearch={initialSearch}
             onViewDetails={onViewDetails}
             onViewHistory={onViewHistory}
             onEdit={onEdit}
+            onInactivate={onInactivate}
           />
         </TabsContent>
       </Tabs>

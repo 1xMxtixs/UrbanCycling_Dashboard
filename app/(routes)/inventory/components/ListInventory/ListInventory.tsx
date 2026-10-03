@@ -1,8 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+
 import { useSession } from "next-auth/react"
 import { AlertTriangle, PackageX } from "lucide-react"
+import { toast } from "sonner"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,10 +21,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { InventoryCategory } from "../../types"
+import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 
 export function ListInventory() {
   const { data: session } = useSession()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const productIdParam = searchParams.get("productId")
+  const searchParam = searchParams.get("search") ?? ""
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(productIdParam)
+
   const canUpdate = Boolean(
     session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
   )
@@ -40,6 +54,9 @@ export function ListInventory() {
   const [openEdit, setOpenEdit] = useState(false)
   const [openLowStock, setOpenLowStock] = useState(false)
   const [openOutOfStock, setOpenOutOfStock] = useState(false)
+  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(null)
+  const [openToggleDialog, setOpenToggleDialog] = useState(false)
+  const [isSubmittingToggle, setIsSubmittingToggle] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -76,6 +93,41 @@ export function ListInventory() {
     }
   }, [])
 
+  // Auto-apertura de ficha de producto si viene ?productId=...
+  useEffect(() => {
+    if (
+      !productIdParam ||
+      isCurrentParameterDismissed() ||
+      inventory.length === 0
+    ) return
+
+    const targetId = Number(productIdParam)
+    if (!isNaN(targetId)) {
+      const found = inventory.find((p) => p.idProducto === targetId)
+      if (found) {
+        const openDetailTimer = window.setTimeout(() => {
+          setSelectedProduct(found)
+          setOpenDetail(true)
+        }, 0)
+
+        return () => window.clearTimeout(openDetailTimer)
+      }
+    }
+  }, [inventory, isCurrentParameterDismissed, productIdParam])
+
+  const handleDetailOpenChange = (open: boolean) => {
+    setOpenDetail(open)
+
+    if (open || !productIdParam) return
+
+    dismissCurrentParameter()
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("productId")
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -90,7 +142,7 @@ export function ListInventory() {
   }
 
   const activeProducts = inventory.filter(
-    (product) => product.estado?.toLowerCase() === "activo",
+    (product) => isRegistroActivo(product.estado),
   )
 
   const lowStockProducts = activeProducts.filter(
@@ -118,9 +170,56 @@ export function ListInventory() {
     setOpenMovement(true)
   }
 
+  const handleToggleProductStatus = (product: ProductColumn) => {
+    setProductToToggle(product)
+    setOpenToggleDialog(true)
+  }
+
+  const handleConfirmToggle = async () => {
+    if (!productToToggle) return
+
+    const nuevoEstado = isRegistroActivo(productToToggle.estado)
+      ? ESTADO_REGISTRO.INACTIVO
+      : ESTADO_REGISTRO.ACTIVO
+
+    try {
+      setIsSubmittingToggle(true)
+      const res = await fetch(`/api/inventory/${productToToggle.idProducto}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      })
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "No se pudo actualizar el estado del producto. Intenta nuevamente."
+        )
+      }
+
+      window.dispatchEvent(new Event("inventory:refresh"))
+      toast.success(
+        nuevoEstado === ESTADO_REGISTRO.ACTIVO
+          ? "Producto reactivado correctamente"
+          : "Producto inactivado correctamente"
+      )
+      setOpenToggleDialog(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el estado del producto. Intenta nuevamente."
+      )
+      setOpenToggleDialog(false)
+    } finally {
+      setIsSubmittingToggle(false)
+    }
+  }
+
   const columns = getColumns(
     handleViewDetail,
     handleRegisterMovement,
+    handleToggleProductStatus,
     canUpdate,
   )
 
@@ -184,7 +283,12 @@ export function ListInventory() {
         </div>
       )}
 
-      <DataTable columns={columns} data={inventory} categories={categories} />
+      <DataTable
+        columns={columns}
+        data={inventory}
+        categories={categories}
+        initialSearch={searchParam}
+      />
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
         <DialogContent className="max-w-2xl rounded-xl">
@@ -253,7 +357,7 @@ export function ListInventory() {
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}
-        onOpenChange={setOpenDetail}
+        onOpenChange={handleDetailOpenChange}
         onEdit={handleEditProduct}
       />
       <InventoryMovementDialog
@@ -261,6 +365,17 @@ export function ListInventory() {
         open={openMovement}
         onOpenChange={setOpenMovement}
       />
+      {productToToggle && (
+        <StatusToggleDialog
+          open={openToggleDialog}
+          onOpenChange={setOpenToggleDialog}
+          entityLabel="producto"
+          entityName={productToToggle.nombre}
+          isActive={isRegistroActivo(productToToggle.estado)}
+          onConfirm={handleConfirmToggle}
+          isSubmitting={isSubmittingToggle}
+        />
+      )}
       <Dialog
         open={openEdit}
         onOpenChange={(open) => {

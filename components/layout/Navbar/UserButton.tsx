@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { LogOut, User, ShieldCheck } from "lucide-react"
+import { LogOut, User, ShieldCheck, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 import {
   DropdownMenu,
@@ -27,12 +28,16 @@ function getInitials(name?: string | null, email?: string | null) {
   return "UC"
 }
 
-export function UserButton() {
+type UserButtonProps = {
+  collapsed?: boolean
+}
+
+export function UserButton({ collapsed = false }: UserButtonProps) {
   const { data: session, status } = useSession()
 
   if (status === "loading") {
     return (
-      <div className="h-10 w-10 animate-pulse rounded-xl bg-muted border border-border" />
+      <div className={cn("h-11 animate-pulse rounded-xl bg-muted", collapsed ? "w-11" : "w-full")} />
     )
   }
 
@@ -47,24 +52,30 @@ export function UserButton() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Abrir menú de usuario"
-          className="group flex items-center gap-2.5 p-1.5 pr-3 rounded-xl hover:bg-muted/80 border border-border/60 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none shadow-xs"
+          title={collapsed ? "Abrir menú de usuario" : undefined}
+          className={cn(
+            "group flex items-center rounded-xl transition-colors duration-200 motion-reduce:transition-none hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none",
+            collapsed ? "h-11 w-11 justify-center" : "h-12 w-full gap-3 px-2"
+          )}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs transition-transform group-hover:scale-105">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
             {initials}
           </div>
-          <div className="hidden md:flex flex-col text-left leading-none">
-            <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">
+          <div className={cn("flex min-w-0 flex-1 flex-col text-left leading-tight", collapsed && "hidden")}>
+            <span className="truncate text-sm font-semibold text-foreground">
               {session.user.name || "Usuario"}
             </span>
-            <span className="text-[10px] text-muted-foreground uppercase font-medium mt-0.5">
+            <span className="mt-0.5 truncate text-[10px] font-medium uppercase text-muted-foreground">
               {session.user.rol || "Acceso"}
             </span>
           </div>
+          {!collapsed && <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        align="end"
+        align={collapsed ? "start" : "center"}
+        side="top"
         sideOffset={8}
         className="w-72 p-1.5 overflow-hidden bg-popover/95 backdrop-blur-md rounded-2xl border border-border shadow-xl animate-in fade-in-0 zoom-in-95"
       >

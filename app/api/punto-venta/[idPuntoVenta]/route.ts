@@ -3,7 +3,13 @@
 // - venta-12
 // - orden-8
 import { db } from "@/lib/db"
+import { esDescuentoGlobalValido } from "@/lib/discounts"
 import { PERMISSIONS } from "@/lib/permissions"
+import {
+  resolverEstadoPago,
+  resolverEstadoVenta,
+  respuestaInvalida,
+} from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import {
   recalcularTotalesOrdenTrabajo,
@@ -78,7 +84,7 @@ function adaptarVenta(venta: any) {
     montoTotal: ventaEnMostrador.montoTotal,
     descuentoGlobal: ventaEnMostrador.descuentoGlobal,
     estadoVenta: ventaEnMostrador.estado,
-    estadoPago: ventaEnMostrador.estadoPago,
+    estadoPago: ventaSegura.estadoPago,
     fechaRegistro: ventaSegura.fechaRegistro,
   }
 }
@@ -88,9 +94,9 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
     return null
   }
 
-  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
-  
-  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? [];
+  const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
+
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
@@ -212,6 +218,11 @@ function compactObject(data: Record<string, unknown>) {
   )
 }
 
+/**
+ * GET /api/punto-venta/:idPuntoVenta
+ * Devuelve el detalle unificado de una venta u orden usando IDs venta-N u
+ * orden-N, listo para diálogos de detalle sin exponer credenciales de usuarios.
+ */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }
@@ -339,6 +350,11 @@ export async function GET(
   }
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta
+ * Actualiza campos generales de una venta u OT y valida el descuento global.
+ * Acepta aliases snake_case y camelCase; los pagos se persisten en la venta raíz.
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ idPuntoVenta: string }> }
@@ -370,11 +386,39 @@ export async function PATCH(
     const data = (await req.json()) as Record<string, unknown>
 
     if (parsed.tipo === "venta") {
+      const estadoPagoInput = data.estado_pago ?? data.estadoPago
+      const estadoPago =
+        estadoPagoInput === undefined
+          ? undefined
+          : resolverEstadoPago(estadoPagoInput)
+      const estadoVentaInput =
+        data.estado_venta ?? data.estadoVenta ?? data.estado
+      const estadoVenta =
+        estadoVentaInput === undefined
+          ? undefined
+          : resolverEstadoVenta(estadoVentaInput)
+
+      if (estadoPagoInput !== undefined && !estadoPago) {
+        return respuestaInvalida(
+          "ESTADO_PAGO_INVALIDO",
+          "Estado de pago inválido",
+        )
+      }
+
+      if (estadoVentaInput !== undefined && !estadoVenta) {
+        return respuestaInvalida(
+          "ESTADO_VENTA_INVALIDO",
+          "Estado de venta inválido",
+        )
+      }
+
       const ventaActualizada = await prisma.venta.update({
         where: {
           idVenta: parsed.id,
         },
         data: {
+          // Venta concentra el estado financiero de cualquier tipo de operación.
+          estadoPago: estadoPago ?? undefined,
           ventaEnMostrador: {
             update: {
               descuentoGlobal:
@@ -382,12 +426,7 @@ export async function PATCH(
                 data.descuentoGlobal !== undefined
                   ? Number(data.descuento ?? data.descuentoGlobal)
                   : undefined,
-              estadoPago: data.estado_pago ?? data.estadoPago ?? undefined,
-              estado:
-                data.estado_venta ??
-                data.estadoVenta ??
-                data.estado ??
-                undefined,
+              estado: estadoVenta ?? undefined,
             },
           },
         },
@@ -424,7 +463,7 @@ export async function PATCH(
       "fechaEntregaEstimada"
     )
     const tieneEstadoPago = hasAnyAlias(data, "estado_pago", "estadoPago")
-    const estadoPago = getAliasedValue(data, "estado_pago", "estadoPago")
+    const estadoPagoInput = getAliasedValue(data, "estado_pago", "estadoPago")
     const tieneEstadoOrden = hasAnyAlias(
       data,
       "estado_orden",
@@ -470,6 +509,17 @@ export async function PATCH(
           message: "Debe llenar los campos requeridos",
         },
         { status: 400 }
+      )
+    }
+
+    const estadoPago = tieneEstadoPago
+      ? resolverEstadoPago(estadoPagoInput)
+      : undefined
+
+    if (tieneEstadoPago && !estadoPago) {
+      return respuestaInvalida(
+        "ESTADO_PAGO_INVALIDO",
+        "Estado de pago inválido",
       )
     }
 
@@ -542,6 +592,24 @@ export async function PATCH(
     }
 
     if (
+      tieneDescuento &&
+      !esDescuentoGlobalValido(
+        Number(ordenTrabajoActual.montoSubtotal),
+        Number(ordenTrabajoActual.descuentoProductosServicios),
+        Number(descuento)
+      )
+    ) {
+      return NextResponse.json(
+        {
+          code: "DESCUENTO_EXCEDE_SUBTOTAL",
+          message:
+            "El descuento total aplicado supera el subtotal de la orden de trabajo",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (
       fechaEntregaEstimada &&
       ordenTrabajoActual?.venta?.fechaRegistro &&
       fechaEntregaEstimada <
@@ -577,7 +645,6 @@ export async function PATCH(
     const updateData = {
       descuentoGlobal: tieneDescuento ? Number(descuento) : undefined,
       estado: tieneEstadoOrden ? String(estadoOrden).trim() : undefined,
-      estadoPago: tieneEstadoPago ? String(estadoPago).trim() : undefined,
       idMecanicoAsignado: tieneMecanicoAsignado
         ? idMecanicoAsignado
         : undefined,
@@ -588,14 +655,14 @@ export async function PATCH(
     const cambiosAuditoria = compactObject({
       descuentoGlobal: updateData.descuentoGlobal,
       estado: updateData.estado,
-      estadoPago: updateData.estadoPago,
+      estadoPago,
       idMecanicoAsignado: updateData.idMecanicoAsignado,
       fechaEntregaEstimada: updateData.fechaEntregaEstimada,
       observacionesIngreso: updateData.observacionesIngreso,
     })
 
     const ordenActualizada = await prisma.$transaction(async (tx) => {
-      const orden = await tx.ordenDeTrabajo.update({
+      await tx.ordenDeTrabajo.update({
         where: {
           idOrdenDeTrabajo: parsed.id,
         },
@@ -626,6 +693,14 @@ export async function PATCH(
         await recalcularTotalesOrdenTrabajo(tx, parsed.id)
       }
 
+      if (estadoPago) {
+        // La orden comparte el estado financiero almacenado en su venta raíz.
+        await tx.venta.update({
+          where: { idVenta: ordenTrabajoActual.idVenta },
+          data: { estadoPago },
+        })
+      }
+
       if (Object.keys(cambiosAuditoria).length > 0) {
         await registrarAuditoriaOrdenTrabajo(tx, {
           idUsuario: session.user.idUsuario,
@@ -639,7 +714,7 @@ export async function PATCH(
               : undefined,
             estado: tieneEstadoOrden ? ordenTrabajoActual.estado : undefined,
             estadoPago: tieneEstadoPago
-              ? ordenTrabajoActual.estadoPago
+              ? ordenTrabajoActual.venta.estadoPago
               : undefined,
             idMecanicoAsignado: tieneMecanicoAsignado
               ? ordenTrabajoActual.idMecanicoAsignado

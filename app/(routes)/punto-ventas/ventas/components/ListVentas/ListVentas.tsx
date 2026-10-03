@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { formatClientName } from "@/lib/formatters"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
@@ -15,19 +15,30 @@ import { SaleDetailDialog } from "./SaleDetailDialog"
 import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { isVentaAnulada } from "@/lib/sale-status"
+import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 export function ListVentas() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const saleIdParam = searchParams.get("ventaId")
+  const searchParam = searchParams.get("search") ?? ""
   const [sales, setSales] = useState<SaleOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
 
-  const [selectedSale, setSelectedSale] = useState<SaleOperation | null>(null)
-  const [openDetailsModal, setOpenDetailsModal] = useState(false)
+  const {
+    activeItem: selectedSale,
+    isOpen: openDetailsModal,
+    openLocal: openSaleDetail,
+    close: closeSaleDetail,
+    setLocalItem: setSelectedSale,
+  } = useSearchDetailNavigation(saleIdParam, sales, (sale) => Number(sale.venta.idVenta))
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
@@ -60,7 +71,9 @@ export function ListVentas() {
   }
 
   useEffect(() => {
-    getSales()
+    // Difiere la carga inicial para evitar una actualización de estado durante
+    // el efecto y mantiene la suscripción para actualizaciones de ventas.
+    void Promise.resolve().then(() => getSales())
     window.addEventListener("sales:refresh", getSales)
 
     return () => {
@@ -109,7 +122,7 @@ export function ListVentas() {
 
   const handlePayClick = (idVenta: number, total: number) => {
     setSaleToPay({ idVenta, total: Number(total) })
-    setSelectedMetodoPago("efectivo")
+    setSelectedMetodoPago("EFECTIVO")
     setPayModalOpen(true)
   }
 
@@ -123,7 +136,7 @@ export function ListVentas() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: "pagada",
+          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
         }),
       })
@@ -135,7 +148,7 @@ export function ListVentas() {
 
       toast.success("Pago registrado correctamente.")
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      closeSaleDetail()
       getSales()
       router.refresh()
     } catch (err: any) {
@@ -147,8 +160,7 @@ export function ListVentas() {
   }
 
   const handleViewDetails = (op: SaleOperation) => {
-    setSelectedSale(op)
-    setOpenDetailsModal(true)
+    openSaleDetail(op)
   }
 
   const handleGenerateReceipt = async (op: SaleOperation) => {
@@ -160,7 +172,7 @@ export function ListVentas() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          origen: "venta-directa",
+          origen: "venta",
           idVenta: op.venta.idVenta,
           tipoDte: 39,
         }),
@@ -272,13 +284,13 @@ export function ListVentas() {
   // Cálculos de KPIs
   const totalSalesCount = sales.length
   const totalRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && (s.estadoPago?.toLowerCase() === "pagada" || s.estadoPago?.toLowerCase() === "pagado"))
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PAGADA)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const pendingRevenue = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() !== "anulada" && s.estadoPago?.toLowerCase() === "pendiente")
+    .filter((s) => !isVentaAnulada(s.estadoVenta) && s.estadoPago === ESTADO_PAGO.PENDIENTE)
     .reduce((sum, s) => sum + Number(s.total), 0)
   const canceledCount = sales
-    .filter((s) => s.estadoVenta?.toLowerCase() === "anulada")
+    .filter((s) => isVentaAnulada(s.estadoVenta))
     .length
 
   if (isLoading) {
@@ -326,6 +338,7 @@ export function ListVentas() {
       <DataTable
         columns={columns}
         data={sales}
+        initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onUpdateStatus={handleUpdateStatus}
         updatingId={updatingId}
@@ -335,7 +348,14 @@ export function ListVentas() {
 
       <SaleDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeSaleDetail()
+          }
+          if (!open && saleIdParam) {
+            router.replace("/punto-ventas/ventas", { scroll: false })
+          }
+        }}
         sale={selectedSale}
         onPayClick={handlePayClick}
         onUpdateStatus={handleUpdateStatus}

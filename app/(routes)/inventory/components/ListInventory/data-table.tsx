@@ -37,11 +37,13 @@ import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
 import { KpiCards } from "./kpi-cards"
+import { ESTADO_REGISTRO } from "@/lib/registro-status"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
   data: ProductColumn[]
   categories: InventoryCategory[]
+  initialSearch?: string
 }
 
 type ProductSearch =
@@ -82,17 +84,26 @@ export function DataTable({
   columns,
   data,
   categories,
+  initialSearch = "",
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
-  const [productSearch, setProductSearch] = React.useState("")
+  const [productSearch, setProductSearch] = React.useState(initialSearch)
+
+  React.useEffect(() => {
+    if (initialSearch) {
+      setProductSearch(initialSearch)
+    }
+  }, [initialSearch])
+
   const productSearchState = React.useMemo(
     () => parseProductSearch(productSearch),
     [productSearch],
   )
+
 
   const categoryFilteredData = React.useMemo(() => {
     const productsByCategory =
@@ -194,8 +205,8 @@ export function DataTable({
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="activo">Solo Activos</SelectItem>
-                  <SelectItem value="inactivo">Solo Inactivos</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Solo Activos</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Solo Inactivos</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -214,9 +225,6 @@ export function DataTable({
               </Select>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              {filteredRowCount} {filteredRowCount === 1 ? "producto encontrado" : "productos encontrados"}
-            </p>
           </div>
         }
         footer={

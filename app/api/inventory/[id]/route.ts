@@ -1,8 +1,11 @@
 // Endpoints del inventario para consultar, actualizar o eliminar un producto por ID.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
+import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
 
 type RouteContext = {
@@ -85,7 +88,7 @@ async function validateCategoryIds(categoryIds: number[]) {
   const categories = await db.categoria.findMany({
     where: {
       idCategoria: { in: categoryIds },
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
     },
     select: { idCategoria: true },
   })
@@ -150,6 +153,11 @@ function parseNonNegativeNumber(value: unknown, integer = false) {
   return numberValue
 }
 
+/**
+ * GET /api/inventory/:id
+ * Devuelve un producto con categorías e imágenes adaptadas al modelo que usa
+ * el formulario de detalle y edición de inventario.
+ */
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -205,6 +213,11 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * PATCH /api/inventory/:id
+ * Aplica una edición parcial del producto, valida categorías, stock, importes
+ * y EstadoRegistro, y luego devuelve el producto actualizado.
+ */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_UPDATE)
@@ -245,6 +258,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const data = body as Record<string, unknown>
+    const supplierCodeResult = parseProductSupplierCode(data)
+
+    if (supplierCodeResult.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
+        },
+        { status: 400 },
+      )
+    }
+
     const productExists = await db.producto.findUnique({
       where: { idProducto: productId },
     })
@@ -280,16 +306,21 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const updateData: {
       tipoProducto?: string
+      codigoProveedor?: string | null
       nombre?: string
       descripcion?: string | null
       precioVenta?: number
       costoPromedio?: number
       stockActual?: number
       stockMinimo?: number
-      estado?: string
+      estado?: EstadoRegistro
       urlImagen?: string
     } = {}
     const invalidFields: string[] = []
+
+    if (supplierCodeResult.status === "valid") {
+      updateData.codigoProveedor = supplierCodeResult.value
+    }
 
     if ("tipoProducto" in data) {
       const value = parseRequiredText(data.tipoProducto, 20)
@@ -339,7 +370,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if ("estado" in data) {
-      const value = parseRequiredText(data.estado, 20)
+      const value = resolverEstadoRegistro(data.estado)
       if (value) updateData.estado = value
       else invalidFields.push("estado")
     }
@@ -432,6 +463,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * DELETE /api/inventory/:id
+ * Elimina un producto sin referencias; si ya participa en operaciones, el
+ * controlador conserva la integridad y responde el conflicto correspondiente.
+ */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_DELETE)

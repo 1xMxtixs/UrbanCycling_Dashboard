@@ -1,6 +1,12 @@
-// Controlador para registrar pedidos a proveedores.
+// Controlador para consultar y registrar órdenes de compra.
 import { NextResponse } from "next/server"
 
+import {
+  EstadoOrdenCompra,
+  EstadoPagoOrdenCompra,
+  EstadoRecepcionOrdenCompra,
+  EstadoRegistro,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -90,6 +96,87 @@ function parseLines(value: unknown): PurchaseLine[] | null {
   return lines
 }
 
+/**
+ * GET /api/ordenes-compra
+ * Lista órdenes de compra paginadas, con filtro opcional por estado administrativo.
+ */
+export async function GET(request: Request) {
+  try {
+    const { response } = await requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ)
+
+    if (response) {
+      return response
+    }
+
+    const searchParams = new URL(request.url).searchParams
+    const requestedPage =
+      parsePositiveInteger(searchParams.get("page") ?? "1") ?? 1
+    const page = Number.isSafeInteger(requestedPage) ? requestedPage : 1
+    const requestedPageSize =
+      parsePositiveInteger(searchParams.get("pageSize") ?? "20") ?? 20
+    const pageSize = Math.min(requestedPageSize, 100)
+    const estadoInput = searchParams.get("estado")
+    const estadosValidos = Object.values(EstadoOrdenCompra)
+
+    if (
+      estadoInput &&
+      !estadosValidos.includes(estadoInput as EstadoOrdenCompra)
+    ) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_INVALIDO",
+          message: "El estado administrativo indicado no es válido.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const where = estadoInput
+      ? { estado: estadoInput as EstadoOrdenCompra }
+      : {}
+    const [orders, total] = await Promise.all([
+      db.ordenDeCompra.findMany({
+        where,
+        orderBy: { fechaRegistro: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          proveedor: {
+            select: { idProveedor: true, razonSocial: true },
+          },
+          _count: { select: { lineas: true } },
+        },
+      }),
+      db.ordenDeCompra.count({ where }),
+    ])
+
+    return NextResponse.json({
+      code: "ORDENES_COMPRA_CARGADAS",
+      orders,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    })
+  } catch (error) {
+    console.error("[PURCHASE_ORDERS_GET]", error)
+    return NextResponse.json(
+      {
+        code: "ERROR_CARGA_ORDENES_COMPRA",
+        message: "No fue posible cargar las órdenes de compra.",
+      },
+      { status: 500 },
+    )
+  }
+}
+
+/**
+ * POST /api/ordenes-compra
+ * Crea una orden en BORRADOR con sus líneas, importes y fechas. Los estados de
+ * pago y recepción comienzan en PENDIENTE y se guardan en campos separados.
+ */
 export async function POST(request: Request) {
   try {
     const { session, response } = await requirePermission(
@@ -101,7 +188,7 @@ export async function POST(request: Request) {
     }
 
     const providers = await db.proveedor.findMany({
-      where: { estado: "activo" },
+      where: { estado: EstadoRegistro.ACTIVO },
       select: { idProveedor: true },
       take: 1,
     })
@@ -231,7 +318,7 @@ export async function POST(request: Request) {
       }),
     ])
 
-    if (!provider || provider.estado !== "activo") {
+    if (!provider || provider.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "PROVEEDOR_NO_DISPONIBLE",
@@ -276,9 +363,9 @@ export async function POST(request: Request) {
         idProveedor,
         fechaRegistro: fechaEmision,
         fechaEntregaEstimada,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        estadoRecepcion: "PENDIENTE",
+        estado: EstadoOrdenCompra.BORRADOR,
+        estadoPago: EstadoPagoOrdenCompra.PENDIENTE,
+        estadoRecepcion: EstadoRecepcionOrdenCompra.PENDIENTE,
         montoSubtotal,
         descuentoProductos,
         descuentoGlobal,

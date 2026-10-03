@@ -8,6 +8,8 @@ export type Bicicleta = {
   imagenUrl: string | null;
   ordenDeTrabajo: {
     estadoOrden: string;
+    estadoOrdenNombre?: string | null;
+    fechaEntregaEstimada?: string | Date | null;
     estadoPago?: string;
     total?: number;
     cliente: {
@@ -23,6 +25,8 @@ export type Bicicleta = {
 export type OrdenTrabajoResumen = {
   idOrdenDeTrabajo: number;
   estadoOrden: string;
+  estadoOrdenNombre?: string | null;
+  fechaEntregaEstimada?: string | Date | null;
   estadoPago: string;
   total: number;
   cliente: {

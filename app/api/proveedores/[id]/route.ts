@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { actualizarProveedorSchema } from "@/lib/provider-validation"
@@ -31,6 +32,11 @@ class ProveedorInactivoError extends Error {
   }
 }
 
+/**
+ * DELETE /api/proveedores/:id
+ * Desactiva lógicamente al proveedor. Si ya está inactivo, devuelve un estado
+ * idempotente para que la tabla pueda sincronizarse sin eliminar relaciones.
+ */
 export async function DELETE(
   _request: Request,
   context: RouteContext,
@@ -58,10 +64,10 @@ export async function DELETE(
     const resultado = await db.proveedor.updateMany({
       where: {
         idProveedor,
-        estado: "activo",
+        estado: EstadoRegistro.ACTIVO,
       },
       data: {
-        estado: "inactivo",
+        estado: EstadoRegistro.INACTIVO,
       },
     })
 
@@ -115,6 +121,11 @@ export async function DELETE(
   }
 }
 
+/**
+ * PATCH /api/proveedores/:id
+ * Actualiza datos comerciales, contacto y teléfonos de un proveedor activo y
+ * devuelve la ficha completa que consume el diálogo de edición.
+ */
 export async function PATCH(
   request: Request,
   context: RouteContext,
@@ -184,7 +195,7 @@ export async function PATCH(
         return null
       }
 
-      if (existente.estado !== "activo") {
+      if (existente.estado !== EstadoRegistro.ACTIVO) {
         throw new ProveedorInactivoError()
       }
 
@@ -304,6 +315,11 @@ export async function PATCH(
   }
 }
 
+/**
+ * GET /api/proveedores/:id
+ * Obtiene la ficha detallada del proveedor, incluidos sus teléfonos, para
+ * precargar la vista de detalle o el formulario de edición.
+ */
 export async function GET(
   _request: Request,
   context: RouteContext,

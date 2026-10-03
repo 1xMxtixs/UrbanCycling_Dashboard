@@ -17,16 +17,14 @@ import { Button } from "@/components/ui/button"
 
 import type { ProductColumn } from "./columns"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { formatCurrency } from "@/lib/formatters"
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 
 type ProductDetailSheetProps = {
   product: ProductColumn | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit: (product: ProductColumn) => void
-}
-
-function formatPrice(value: number | string) {
-  return `$${Number(value).toLocaleString("es-CL")}`
 }
 
 export function ProductDetailSheet({
@@ -50,8 +48,8 @@ export function ProductDetailSheet({
                   Ficha de Producto #{product.idProducto}
                 </span>
                 <StatusBadge
-                  status={product.estado === "activo" ? "success" : "neutral"}
-                  label={product.estado}
+                  status={isRegistroActivo(product.estado) ? "success" : "danger"}
+                  label={getNombreEstadoRegistro(product.estado)}
                   showDot={false}
                 />
               </div>
@@ -123,7 +121,7 @@ export function ProductDetailSheet({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
                     Precio Venta
                   </span>
-                  <p className="text-base font-extrabold text-foreground">{formatPrice(product.precioVenta)}</p>
+                  <p className="text-base font-extrabold text-foreground">{formatCurrency(product.precioVenta)}</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">

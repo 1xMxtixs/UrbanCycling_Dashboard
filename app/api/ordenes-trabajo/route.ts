@@ -1,12 +1,14 @@
 // Endpoints generales para registrar y listar ordenes de trabajo.
+import { EstadoPagoVenta, EstadoRegistro } from "@/generated/prisma"
 import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
-} from "@/lib/bicycle-images";
-import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/permissions";
-import { requirePermission } from "@/lib/require-permission";
-import { NextResponse } from "next/server";
+} from "@/lib/bicycle-images"
+import { db } from "@/lib/db"
+import { PERMISSIONS } from "@/lib/permissions"
+import { requirePermission } from "@/lib/require-permission"
+import { ESTADO_OT } from "@/lib/work-order-status"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const imagenBicicletaSchema = z.union([
@@ -15,7 +17,7 @@ const imagenBicicletaSchema = z.union([
     url: z.string().optional().nullable(),
     urlImagen: z.string().optional().nullable(),
   }),
-]);
+])
 
 const bicicletaSchema = z.object({
   marca: z.string().min(1),
@@ -40,54 +42,50 @@ const servicioSchema = z.object({
   precioUnitario: z.number().min(0).nullable().optional(),
 })
 
-const ordenTrabajoSchema = z.object({
-  idUsuario: z.number().int().positive(),
+const ordenTrabajoSchema = z
+  .object({
+    idUsuario: z.number().int().positive(),
 
-  idCliente: z.number().int().positive().optional(),
+    idCliente: z.number().int().positive().optional(),
 
-  nombreCompletoCliente: z.string().optional(),
+    nombreCompletoCliente: z.string().optional(),
 
-  fechaEntregaEstimada: z.string().optional(),
+    fechaEntregaEstimada: z.string().optional(),
 
-  observacionesIngreso: z.string().optional(),
+    observacionesIngreso: z.string().optional(),
 
-  estadoPago: z.string().default("pendiente"),
+    estadoPago: z.enum(EstadoPagoVenta).default(EstadoPagoVenta.PENDIENTE),
 
-  estadoOrden: z.string().default("Por realizar"),
+    estadoOrden: z.enum(ESTADO_OT).default(ESTADO_OT.POR_REALIZAR),
 
-  descuento: z.number().min(0).default(0),
+    descuento: z.number().min(0).default(0),
 
-  bicicletas: z.array(bicicletaSchema).default([]),
+    bicicletas: z.array(bicicletaSchema).default([]),
 
-  productos: z.array(productoSchema).default([]),
+    productos: z.array(productoSchema).default([]),
 
-  servicios: z.array(servicioSchema).default([]),
+    servicios: z.array(servicioSchema).default([]),
 
-  idComprobante: z.number().int().positive().optional(),
-})
-.refine(
-  (data) =>
-    data.idCliente ||
-    data.nombreCompletoCliente,
-  {
+    idComprobante: z.number().int().positive().optional(),
+  })
+  .refine((data) => data.idCliente || data.nombreCompletoCliente, {
     message:
       "Debe indicar un cliente mediante idCliente o nombreCompletoCliente",
-  }
-)
+  })
 
 function normalizarTexto(texto: string) {
-  return texto.trim().replace(/\s+/g, " ").toLowerCase();
+  return texto.trim().replace(/\s+/g, " ").toLowerCase()
 }
 
 function nombreCompletoCliente(cliente: {
-  primerNombre: string | null;
-  segundoNombre: string | null;
-  apellidoPaterno: string | null;
-  apellidoMaterno: string | null;
-  razonSocial: string | null;
+  primerNombre: string | null
+  segundoNombre: string | null
+  apellidoPaterno: string | null
+  apellidoMaterno: string | null
+  razonSocial: string | null
 }) {
   if (cliente.razonSocial) {
-    return cliente.razonSocial;
+    return cliente.razonSocial
   }
 
   return [
@@ -97,84 +95,83 @@ function nombreCompletoCliente(cliente: {
     cliente.apellidoMaterno,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(" ")
 }
 
 function toNumber(value: unknown) {
-  return Number(value ?? 0);
+  return Number(value ?? 0)
 }
 
 function toOptionalNumber(value: unknown) {
-  return value === null || value === undefined ? null : Number(value);
+  return value === null || value === undefined ? null : Number(value)
 }
 
 type BicicletaInput = {
-  marca?: unknown;
-  modelo?: unknown;
-  color?: unknown;
-  descripcion?: unknown;
-  imagenUrl?: unknown;
-  imagenes?: unknown;
-  imagenesUrl?: unknown;
-  imagenesUrls?: unknown;
-};
+  marca?: unknown
+  modelo?: unknown
+  color?: unknown
+  descripcion?: unknown
+  imagenUrl?: unknown
+  imagenes?: unknown
+  imagenesUrl?: unknown
+  imagenesUrls?: unknown
+}
 
 type ProductoOrdenInput = {
-  id_producto?: unknown;
-  idProducto?: unknown;
-  cantidad?: unknown;
-  precio_unitario?: unknown;
-  precioUnitario?: unknown;
-};
+  id_producto?: unknown
+  idProducto?: unknown
+  cantidad?: unknown
+  precio_unitario?: unknown
+  precioUnitario?: unknown
+}
 
 type ServicioOrdenInput = {
-  id_servicio?: unknown;
-  idServicio?: unknown;
-  cantidad?: unknown;
-  precio_unitario?: unknown;
-  precioUnitario?: unknown;
-};
+  id_servicio?: unknown
+  idServicio?: unknown
+  cantidad?: unknown
+  precio_unitario?: unknown
+  precioUnitario?: unknown
+}
 
 type ProductoSolicitado = {
-  idProducto: number;
-  cantidad: number;
-  precioUnitario: number;
-};
+  idProducto: number
+  cantidad: number
+  precioUnitario: number
+}
 
 type ServicioSolicitado = {
-  idServicio: number;
-  cantidad: number;
-  precioUnitario: number | null;
-};
-
+  idServicio: number
+  cantidad: number
+  precioUnitario: number | null
+}
 
 type ProductoAgrupado = {
-  idProducto: number;
-  cantidad: number;
-};
+  idProducto: number
+  cantidad: number
+}
 
 type LineaOrdenData = {
-  idServicio: number | null;
-  idProducto: number | null;
-  cantidad: number;
-  precioUnitario: number;
-  descuentoUnitario: number;
-  costoUnitario: number;
-};
+  idServicio: number | null
+  idProducto: number | null
+  cantidad: number
+  precioUnitario: number
+  descuentoUnitario: number
+  costoUnitario: number
+}
 
 type BicicletaData = {
-  tipo: string;
-  marca: string;
-  modelo: string;
-  color: string;
-  descripcionAdicional: string | null;
-  imagenes: string[];
-};
+  tipo: string
+  marca: string
+  modelo: string
+  color: string
+  descripcionAdicional: string | null
+  imagenes: string[]
+}
 
 function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
-  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal);
-  const montoNeto = Math.round(montoTotal / 1.19);
-  const montoIva = montoTotal - montoNeto;
+  const montoTotal = Math.max(0, montoSubtotal - descuentoGlobal)
+  const montoNeto = Math.round(montoTotal / 1.19)
+  const montoIva = montoTotal - montoNeto
 
   return {
     montoSubtotal,
@@ -182,18 +179,18 @@ function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
     montoTotal,
     montoNeto,
     montoIva,
-  };
+  }
 }
 
 function normalizarBicicletas(data: Record<string, unknown>) {
-  const bicicletasInput = data.bicicletas ?? data.bicicleta;
+  const bicicletasInput = data.bicicletas ?? data.bicicleta
 
   if (Array.isArray(bicicletasInput)) {
-    return bicicletasInput as BicicletaInput[];
+    return bicicletasInput as BicicletaInput[]
   }
 
   if (bicicletasInput && typeof bicicletasInput === "object") {
-    return [bicicletasInput as BicicletaInput];
+    return [bicicletasInput as BicicletaInput]
   }
 
   if (
@@ -206,10 +203,10 @@ function normalizarBicicletas(data: Record<string, unknown>) {
     data.imagenesUrl ||
     data.imagenesUrls
   ) {
-    return [data as BicicletaInput];
+    return [data as BicicletaInput]
   }
 
-  return [];
+  return []
 }
 
 function mapearBicicleta(bicicleta: BicicletaInput): BicicletaData {
@@ -222,27 +219,20 @@ function mapearBicicleta(bicicleta: BicicletaInput): BicicletaData {
       ? String(bicicleta.descripcion).trim()
       : null,
     imagenes: normalizarImagenesBicicleta(bicicleta),
-  };
+  }
 }
 
 function parsePositiveInteger(value: unknown) {
-  const parsedValue = Number(value);
+  const parsedValue = Number(value)
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return Number.NaN;
+    return Number.NaN
   }
 
-  return parsedValue;
+  return parsedValue
 }
 
-const etapasOrdenTrabajo = [
-  "Por realizar",
-  "En curso",
-  "En espera",
-  "Listo para entregar",
-  "Entregado",
-  "Anulada",
-];
+const etapasOrdenTrabajo = Object.values(ESTADO_OT)
 
 function normalizarTextoFiltro(value: string) {
   return value
@@ -251,25 +241,26 @@ function normalizarTextoFiltro(value: string) {
     .trim()
     .toLowerCase()
     .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
 }
 
+// Convierte los alias de filtro recibidos por query string al codigo canonico almacenado para la orden.
 function obtenerEtapaFiltro(req: Request) {
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url)
   const etapaInput =
     searchParams.get("etapa") ??
     searchParams.get("estadoOrden") ??
     searchParams.get("estado_orden") ??
-    searchParams.get("estado");
+    searchParams.get("estado")
 
   if (!etapaInput) {
     return {
       fueSolicitada: false,
       etapa: null,
-    };
+    }
   }
 
-  const etapaNormalizada = normalizarTextoFiltro(etapaInput);
+  const etapaNormalizada = normalizarTextoFiltro(etapaInput)
 
   return {
     fueSolicitada: true,
@@ -277,47 +268,47 @@ function obtenerEtapaFiltro(req: Request) {
       etapasOrdenTrabajo.find(
         (etapa) => normalizarTextoFiltro(etapa) === etapaNormalizada
       ) ?? null,
-  };
+  }
 }
 
 function obtenerParametroFecha(searchParams: URLSearchParams, keys: string[]) {
   for (const key of keys) {
     if (searchParams.has(key)) {
-      return searchParams.get(key);
+      return searchParams.get(key)
     }
   }
 
-  return null;
+  return null
 }
 
 function parseFechaFiltro(value: string | null) {
   if (!value?.trim()) {
-    return null;
+    return null
   }
 
-  const fechaInput = value.trim();
-  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? [];
+  const fechaInput = value.trim()
+  const [, datePart] = fechaInput.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/) ?? []
 
   if (!datePart) {
-    return null;
+    return null
   }
 
-  const [year, month, day] = datePart.split("-").map(Number);
-  const fecha = new Date(Date.UTC(year, month - 1, day));
+  const [year, month, day] = datePart.split("-").map(Number)
+  const fecha = new Date(Date.UTC(year, month - 1, day))
 
   if (
     fecha.getUTCFullYear() !== year ||
     fecha.getUTCMonth() !== month - 1 ||
     fecha.getUTCDate() !== day
   ) {
-    return null;
+    return null
   }
 
-  return fecha;
+  return fecha
 }
 
 function obtenerPeriodoFiltro(req: Request) {
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url)
   const fechaInicioInput = obtenerParametroFecha(searchParams, [
     "fechaInicio",
     "fecha_inicio",
@@ -325,7 +316,7 @@ function obtenerPeriodoFiltro(req: Request) {
     "fecha_desde",
     "desde",
     "inicio",
-  ]);
+  ])
   const fechaFinInput = obtenerParametroFecha(searchParams, [
     "fechaFin",
     "fecha_fin",
@@ -333,8 +324,8 @@ function obtenerPeriodoFiltro(req: Request) {
     "fecha_hasta",
     "hasta",
     "fin",
-  ]);
-  const fueSolicitado = fechaInicioInput !== null || fechaFinInput !== null;
+  ])
+  const fueSolicitado = fechaInicioInput !== null || fechaFinInput !== null
 
   if (!fueSolicitado) {
     return {
@@ -342,7 +333,7 @@ function obtenerPeriodoFiltro(req: Request) {
       error: null,
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
   if (!fechaInicioInput?.trim() || !fechaFinInput?.trim()) {
@@ -354,173 +345,138 @@ function obtenerPeriodoFiltro(req: Request) {
       },
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
-  const inicio = parseFechaFiltro(fechaInicioInput);
-  const fin = parseFechaFiltro(fechaFinInput);
+  const inicio = parseFechaFiltro(fechaInicioInput)
+  const fin = parseFechaFiltro(fechaFinInput)
 
   if (!inicio || !fin || inicio > fin) {
     return {
       fueSolicitado,
       error: {
         code: "RANGO_FECHAS_INVALIDO",
-        message: "El rango de fechas no es valido. Corrija las fechas ingresadas",
+        message:
+          "El rango de fechas no es valido. Corrija las fechas ingresadas",
       },
       inicio: null,
       finExclusivo: null,
-    };
+    }
   }
 
-  const finExclusivo = new Date(fin);
-  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1);
+  const finExclusivo = new Date(fin)
+  finExclusivo.setUTCDate(finExclusivo.getUTCDate() + 1)
 
   return {
     fueSolicitado,
     error: null,
     inicio,
     finExclusivo,
-  };
+  }
 }
 
+// Crea una venta con su orden de trabajo, validando cliente, inventario, servicios y estados antes de persistirla.
 export async function POST(req: Request) {
   try {
-    const { session, response } = await requirePermission(PERMISSIONS.WORK_ORDERS_CREATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.WORK_ORDERS_CREATE
+    )
 
     if (response || !session) {
       return response || new NextResponse("No autorizado", { status: 401 })
     }
 
-    const rawData = await req.json();
+    const rawData = await req.json()
 
     const dataNormalizada = {
       idUsuario: session.user.idUsuario,
 
-      idCliente:
-        rawData.id_cliente ??
-        rawData.idCliente,
+      idCliente: rawData.id_cliente ?? rawData.idCliente,
 
       nombreCompletoCliente:
-        rawData.nombre_completo_cliente ??
-        rawData.nombreCompletoCliente,
+        rawData.nombre_completo_cliente ?? rawData.nombreCompletoCliente,
 
-      idComprobante:
-        rawData.id_comprobante ??
-        rawData.idComprobante,
+      idComprobante: rawData.id_comprobante ?? rawData.idComprobante,
 
       fechaEntregaEstimada:
-        rawData.fecha_entrega_estimada ??
-        rawData.fechaEntregaEstimada,
+        rawData.fecha_entrega_estimada ?? rawData.fechaEntregaEstimada,
 
       observacionesIngreso:
-        rawData.observaciones_ingreso ??
-        rawData.observacionesIngreso,
+        rawData.observaciones_ingreso ?? rawData.observacionesIngreso,
 
       estadoPago:
-        rawData.estado_pago ??
-        rawData.estadoPago ??
-        "pendiente",
+        rawData.estado_pago ?? rawData.estadoPago ?? EstadoPagoVenta.PENDIENTE,
 
       estadoOrden:
-        rawData.estado_orden ??
-        rawData.estadoOrden ??
-        "Por realizar",
+        rawData.estado_orden ?? rawData.estadoOrden ?? ESTADO_OT.POR_REALIZAR,
 
-      descuento: Number(
-        rawData.descuento ?? 0
-      ),
+      descuento: Number(rawData.descuento ?? 0),
 
-      bicicletas:
-        normalizarBicicletas(rawData),
+      bicicletas: normalizarBicicletas(rawData),
 
       productos: Array.isArray(rawData.productos)
-        ? rawData.productos.map(
-            (item: ProductoOrdenInput) => ({
-              idProducto: Number(
-                item.id_producto ??
-                item.idProducto
-              ),
-              cantidad: Number(item.cantidad),
-              precioUnitario: toOptionalNumber(
-                item.precio_unitario ?? item.precioUnitario
-              ),
-            })
-          )
+        ? rawData.productos.map((item: ProductoOrdenInput) => ({
+            idProducto: Number(item.id_producto ?? item.idProducto),
+            cantidad: Number(item.cantidad),
+            precioUnitario: toOptionalNumber(
+              item.precio_unitario ?? item.precioUnitario
+            ),
+          }))
         : [],
 
       servicios: Array.isArray(rawData.servicios)
-        ? rawData.servicios.map(
-            (item: ServicioOrdenInput) => ({
-              idServicio: Number(
-                item.id_servicio ??
-                item.idServicio
-              ),
-              cantidad: Number(item.cantidad),
-              precioUnitario: toOptionalNumber(
-                item.precio_unitario ?? item.precioUnitario
-              ),
-            })
-          )
+        ? rawData.servicios.map((item: ServicioOrdenInput) => ({
+            idServicio: Number(item.id_servicio ?? item.idServicio),
+            cantidad: Number(item.cantidad),
+            precioUnitario: toOptionalNumber(
+              item.precio_unitario ?? item.precioUnitario
+            ),
+          }))
         : [],
-    };
+    }
 
-    const validation =
-      ordenTrabajoSchema.safeParse(
-        dataNormalizada
-      );
+    const validation = ordenTrabajoSchema.safeParse(dataNormalizada)
 
     if (!validation.success) {
-      console.log(validation.error.flatten());
+      console.log(validation.error.flatten())
 
       return new NextResponse(
-        validation.error.issues[0]?.message ??
-          "Error de validación",
+        validation.error.issues[0]?.message ?? "Error de validación",
         {
           status: 400,
         }
-      );
+      )
     }
 
-    const data = validation.data;
+    const data = validation.data
 
-    const nombreCompletoClienteInput =
-      data.nombreCompletoCliente;
+    const nombreCompletoClienteInput = data.nombreCompletoCliente
 
-    const idUsuario =
-      data.idUsuario;
+    const idUsuario = data.idUsuario
 
-    const idClienteInput =
-      data.idCliente;
+    const idClienteInput = data.idCliente
 
-    const fechaEntregaEstimadaInput =
-      data.fechaEntregaEstimada;
+    const fechaEntregaEstimadaInput = data.fechaEntregaEstimada
 
-    const observacionesIngreso =
-      data.observacionesIngreso ?? null;
+    const observacionesIngreso = data.observacionesIngreso ?? null
 
-    const estadoPago =
-      data.estadoPago;
+    const estadoPago = data.estadoPago
 
-    const estadoOrden =
-      data.estadoOrden;
+    const estadoOrden = data.estadoOrden
 
-    const descuento =
-      data.descuento;
+    const descuento = data.descuento
 
-    const bicicletasInput =
-      data.bicicletas;
+    const bicicletasInput = data.bicicletas
 
-    const productosInput =
-      data.productos;
+    const productosInput = data.productos
 
-    const serviciosInput =
-      data.servicios;
+    const serviciosInput = data.servicios
 
     const usuario = await db.usuario.findUnique({
       where: {
         idUsuario,
       },
-    });
+    })
 
     if (!usuario) {
       return NextResponse.json(
@@ -529,26 +485,26 @@ export async function POST(req: Request) {
           message: "El usuario indicado no existe",
         },
         { status: 404 }
-      );
+      )
     }
 
-    let cliente = null;
+    let cliente = null
 
     if (idClienteInput) {
-      const idCliente = Number(idClienteInput);
+      const idCliente = Number(idClienteInput)
 
       cliente = await db.cliente.findUnique({
         where: {
           idCliente,
         },
-      });
+      })
     } else if (nombreCompletoClienteInput) {
-      const clientes = await db.cliente.findMany();
-      const nombreBuscado = normalizarTexto(String(nombreCompletoClienteInput));
+      const clientes = await db.cliente.findMany()
+      const nombreBuscado = normalizarTexto(String(nombreCompletoClienteInput))
       const coincidencias = clientes.filter(
         (clienteItem) =>
           normalizarTexto(nombreCompletoCliente(clienteItem)) === nombreBuscado
-      );
+      )
 
       if (coincidencias.length > 1) {
         return NextResponse.json(
@@ -559,10 +515,10 @@ export async function POST(req: Request) {
             clientes: coincidencias,
           },
           { status: 409 }
-        );
+        )
       }
 
-      cliente = coincidencias[0] ?? null;
+      cliente = coincidencias[0] ?? null
     }
 
     if (!cliente) {
@@ -573,12 +529,12 @@ export async function POST(req: Request) {
             "El cliente no está registrado. Debe registrarlo antes de crear la orden.",
         },
         { status: 404 }
-      );
+      )
     }
 
     const fechaEntregaEstimada = fechaEntregaEstimadaInput
       ? new Date(fechaEntregaEstimadaInput)
-      : new Date();
+      : new Date()
 
     if (Number.isNaN(fechaEntregaEstimada.getTime())) {
       return NextResponse.json(
@@ -587,13 +543,13 @@ export async function POST(req: Request) {
           message: "La fecha de entrega estimada no es válida",
         },
         { status: 400 }
-      );
+      )
     }
 
-    const bicicletas = bicicletasInput.map(mapearBicicleta);
+    const bicicletas = bicicletasInput.map(mapearBicicleta)
     const bicicletaConDemasiadasImagenes = bicicletas.find(
       (bicicleta) => bicicleta.imagenes.length > MAX_BICYCLE_IMAGES
-    );
+    )
 
     if (bicicletaConDemasiadasImagenes) {
       return NextResponse.json(
@@ -602,7 +558,7 @@ export async function POST(req: Request) {
           message: `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta`,
         },
         { status: 400 }
-      );
+      )
     }
 
     const productosSolicitados: ProductoSolicitado[] = productosInput.map(
@@ -611,7 +567,7 @@ export async function POST(req: Request) {
         cantidad: parsePositiveInteger(item.cantidad),
         precioUnitario: data.productos[index]!.precioUnitario,
       })
-    );
+    )
 
     const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
       (item, index) => ({
@@ -619,22 +575,21 @@ export async function POST(req: Request) {
         cantidad: parsePositiveInteger(item.cantidad),
         precioUnitario: data.servicios[index]!.precioUnitario ?? null,
       })
-    );
-
+    )
 
     const productosAgrupados: ProductoAgrupado[] = Array.from(
       productosSolicitados.reduce((productosMap, item) => {
         productosMap.set(
           item.idProducto,
           (productosMap.get(item.idProducto) ?? 0) + item.cantidad
-        );
+        )
 
-        return productosMap;
+        return productosMap
       }, new Map<number, number>())
     ).map(([idProducto, cantidad]) => ({
       idProducto,
       cantidad,
-    }));
+    }))
 
     const productos = productosAgrupados.length
       ? await db.producto.findMany({
@@ -644,15 +599,15 @@ export async function POST(req: Request) {
             },
           },
         })
-      : [];
+      : []
 
     const productosPorId = new Map(
       productos.map((producto) => [producto.idProducto, producto])
-    );
+    )
 
     const productoNoExiste = productosAgrupados.find(
       (item) => !productosPorId.has(item.idProducto)
-    );
+    )
 
     if (productoNoExiste) {
       return NextResponse.json(
@@ -663,17 +618,17 @@ export async function POST(req: Request) {
           idProducto: productoNoExiste.idProducto,
         },
         { status: 404 }
-      );
+      )
     }
 
     const productoSinStock = productosAgrupados.find((item) => {
-      const producto = productosPorId.get(item.idProducto);
+      const producto = productosPorId.get(item.idProducto)
 
-      return producto && producto.stockActual < item.cantidad;
-    });
+      return producto && producto.stockActual < item.cantidad
+    })
 
     if (productoSinStock) {
-      const producto = productosPorId.get(productoSinStock.idProducto)!;
+      const producto = productosPorId.get(productoSinStock.idProducto)!
 
       return NextResponse.json(
         {
@@ -690,7 +645,7 @@ export async function POST(req: Request) {
           cantidad_disponible: producto.stockActual,
         },
         { status: 409 }
-      );
+      )
     }
 
     const servicios = serviciosSolicitados.length
@@ -701,15 +656,15 @@ export async function POST(req: Request) {
             },
           },
         })
-      : [];
+      : []
 
     const serviciosPorId = new Map(
       servicios.map((servicio) => [servicio.idServicio, servicio])
-    );
+    )
 
     const servicioNoExiste = serviciosSolicitados.find(
       (item) => !serviciosPorId.has(item.idServicio)
-    );
+    )
 
     if (servicioNoExiste) {
       return NextResponse.json(
@@ -720,17 +675,17 @@ export async function POST(req: Request) {
           idServicio: servicioNoExiste.idServicio,
         },
         { status: 404 }
-      );
+      )
     }
 
     const servicioInactivo = serviciosSolicitados.find((item) => {
-      const servicio = serviciosPorId.get(item.idServicio);
+      const servicio = serviciosPorId.get(item.idServicio)
 
-      return servicio && servicio.estado !== "activo";
-    });
+      return servicio && servicio.estado !== EstadoRegistro.ACTIVO
+    })
 
     if (servicioInactivo) {
-      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!;
+      const servicio = serviciosPorId.get(servicioInactivo.idServicio)!
 
       return NextResponse.json(
         {
@@ -740,13 +695,13 @@ export async function POST(req: Request) {
           idServicio: servicio.idServicio,
         },
         { status: 409 }
-      );
+      )
     }
 
-    const lineasData: LineaOrdenData[] = [];
+    const lineasData: LineaOrdenData[] = []
 
     for (const servicioSolicitado of serviciosSolicitados) {
-      const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!;
+      const servicio = serviciosPorId.get(servicioSolicitado.idServicio)!
 
       lineasData.push({
         idServicio: servicio.idServicio,
@@ -756,7 +711,7 @@ export async function POST(req: Request) {
           servicioSolicitado.precioUnitario ?? toNumber(servicio.precioVenta),
         descuentoUnitario: 0,
         costoUnitario: 0,
-      });
+      })
     }
 
     for (const productoSolicitado of productosSolicitados) {
@@ -769,18 +724,22 @@ export async function POST(req: Request) {
         costoUnitario: toNumber(
           productosPorId.get(productoSolicitado.idProducto)?.costoPromedio
         ),
-      });
+      })
     }
 
     // Calculate grand total
-    const calculatedTotal = lineasData.reduce((sum, line) => sum + (line.cantidad * line.precioUnitario), 0);
-    const montos = calcularMontos(calculatedTotal, descuento);
+    const calculatedTotal = lineasData.reduce(
+      (sum, line) => sum + line.cantidad * line.precioUnitario,
+      0
+    )
+    const montos = calcularMontos(calculatedTotal, descuento)
 
     const ordenTrabajo = await db.$transaction(async (tx) => {
       const ventaCreada = await tx.venta.create({
         data: {
           idUsuario: usuario.idUsuario,
           idCliente: cliente.idCliente,
+          estadoPago,
           ordenDeTrabajo: {
             create: {
               idMecanicoAsignado: null,
@@ -793,7 +752,6 @@ export async function POST(req: Request) {
               montoTotal: montos.montoTotal,
               montoNeto: montos.montoNeto,
               montoIva: montos.montoIva,
-              estadoPago,
               estado: estadoOrden,
               bicicletas: bicicletas.length
                 ? {
@@ -840,10 +798,10 @@ export async function POST(req: Request) {
             },
           },
         },
-      });
+      })
 
       for (const item of productosAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!;
+        const producto = productosPorId.get(item.idProducto)!
 
         await tx.producto.update({
           where: {
@@ -852,7 +810,7 @@ export async function POST(req: Request) {
           data: {
             stockActual: producto.stockActual - item.cantidad,
           },
-        });
+        })
       }
 
       return {
@@ -860,8 +818,8 @@ export async function POST(req: Request) {
         venta: ventaCreada,
         usuario: ventaCreada.usuario,
         cliente: ventaCreada.cliente,
-      };
-    });
+      }
+    })
 
     return NextResponse.json(
       {
@@ -870,17 +828,18 @@ export async function POST(req: Request) {
         bicicletas: ordenTrabajo.bicicletas,
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.log("[CREAR_ORDEN_TRABAJO]", error);
+    console.log("[CREAR_ORDEN_TRABAJO]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
 
+// Lista las ordenes de trabajo y aplica filtros de etapa y periodo usando los codigos canonicos de estado.
 export async function GET(req: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_READ)
@@ -889,8 +848,8 @@ export async function GET(req: Request) {
       return response
     }
 
-    const etapaFiltro = obtenerEtapaFiltro(req);
-    const periodoFiltro = obtenerPeriodoFiltro(req);
+    const etapaFiltro = obtenerEtapaFiltro(req)
+    const periodoFiltro = obtenerPeriodoFiltro(req)
 
     if (etapaFiltro.fueSolicitada && !etapaFiltro.etapa) {
       return NextResponse.json(
@@ -900,19 +859,19 @@ export async function GET(req: Request) {
           etapasDisponibles: etapasOrdenTrabajo,
         },
         { status: 400 }
-      );
+      )
     }
 
     if (periodoFiltro.error) {
-      return NextResponse.json(periodoFiltro.error, { status: 400 });
+      return NextResponse.json(periodoFiltro.error, { status: 400 })
     }
 
-    const filtrosOrden = [];
+    const filtrosOrden = []
 
     if (etapaFiltro.etapa) {
       filtrosOrden.push({
         estado: etapaFiltro.etapa,
-      });
+      })
     }
 
     if (periodoFiltro.inicio && periodoFiltro.finExclusivo) {
@@ -923,7 +882,7 @@ export async function GET(req: Request) {
             lt: periodoFiltro.finExclusivo,
           },
         },
-      });
+      })
     }
 
     const ordenes = await db.ordenDeTrabajo.findMany({
@@ -963,20 +922,20 @@ export async function GET(req: Request) {
           },
         },
       },
-    });
+    })
 
     const ordenesConDetalle = ordenes.map((orden) => {
       const totalServicios = orden.lineasDeOrdenDeTrabajo.reduce(
         (total: number, linea) =>
           total + linea.cantidad * toNumber(linea.precioUnitario),
         0
-      );
+      )
 
-      const asignaciones = orden.venta?.asignacionesPago ?? [];
+      const asignaciones = orden.venta?.asignacionesPago ?? []
       const totalPagado = asignaciones.reduce(
         (sum: number, a: any) => sum + toNumber(a.montoAsociado),
         0
-      );
+      )
 
       return {
         ...orden,
@@ -998,8 +957,8 @@ export async function GET(req: Request) {
           monto: a.pago?.monto,
           tipoAbono: a.tipoAbono,
         })),
-      };
-    });
+      }
+    })
 
     if (etapaFiltro.etapa && ordenesConDetalle.length === 0) {
       if (periodoFiltro.fueSolicitado) {
@@ -1009,7 +968,7 @@ export async function GET(req: Request) {
             message: "No hay ordenes de trabajo dentro del rango ingresado",
           },
           { status: 404 }
-        );
+        )
       }
 
       return NextResponse.json(
@@ -1019,7 +978,7 @@ export async function GET(req: Request) {
           etapa: etapaFiltro.etapa,
         },
         { status: 404 }
-      );
+      )
     }
 
     if (periodoFiltro.fueSolicitado && ordenesConDetalle.length === 0) {
@@ -1029,16 +988,16 @@ export async function GET(req: Request) {
           message: "No hay ordenes de trabajo dentro del rango ingresado",
         },
         { status: 404 }
-      );
+      )
     }
 
-    return NextResponse.json(ordenesConDetalle);
+    return NextResponse.json(ordenesConDetalle)
   } catch (error) {
-    console.log("[ORDENES_TRABAJO_GET]", error);
+    console.log("[ORDENES_TRABAJO_GET]", error)
 
     return NextResponse.json(
       { code: "ERROR_INTERNO", message: "Internal Server Error" },
       { status: 500 }
-    );
+    )
   }
 }
