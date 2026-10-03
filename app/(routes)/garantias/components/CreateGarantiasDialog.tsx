@@ -345,6 +345,10 @@ export function CreateGarantiasDialog({
 
       onCreated?.(nuevaGarantia);
 
+      // HeaderGarantias y ListGarantias son componentes hermanos. Este evento
+      // permite que el listado consulte el API de nuevo sin recargar la ruta.
+      window.dispatchEvent(new Event("garantias:refresh"));
+
       /*
        * Limpiamos y cerramos.
        */

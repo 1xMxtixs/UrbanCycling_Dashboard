@@ -465,6 +465,18 @@ export function ListGarantias() {
 
   useEffect(() => {
     cargarGarantias();
+
+    // La creación sucede en HeaderGarantias; al recibir su evento volvemos a
+    // consultar el catálogo para incluir la garantía recién registrada.
+    const refrescarGarantias = () => {
+      void cargarGarantias(false);
+    };
+
+    window.addEventListener("garantias:refresh", refrescarGarantias);
+
+    return () => {
+      window.removeEventListener("garantias:refresh", refrescarGarantias);
+    };
   }, []);
 
   /*
