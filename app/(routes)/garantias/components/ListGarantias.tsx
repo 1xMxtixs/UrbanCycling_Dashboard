@@ -326,15 +326,6 @@ export function ListGarantias() {
               "";
 
             /*
-             * Observaciones
-             */
-
-            const observaciones =
-              garantia.observaciones ??
-              garantia.observacionesIngreso ??
-              null;
-
-            /*
              * Observaciones de resolución
              */
 
@@ -409,8 +400,6 @@ export function ListGarantias() {
                   garantia.fechaIngreso ??
                     garantia.fechaRegistro
                 ),
-
-              observaciones,
 
               estado: nombresEstado[estadoCodigo],
 

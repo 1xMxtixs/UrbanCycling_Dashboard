@@ -47,11 +47,6 @@ export function EditGarantiaDialog({
   ] = useState("");
 
   const [
-    observaciones,
-    setObservaciones,
-  ] = useState("");
-
-  const [
     isSaving,
     setIsSaving,
   ] = useState(false);
@@ -64,7 +59,6 @@ export function EditGarantiaDialog({
   useEffect(() => {
     if (!garantia) {
       setMotivoReclamo("");
-      setObservaciones("");
       return;
     }
 
@@ -73,10 +67,6 @@ export function EditGarantiaDialog({
         ""
     );
 
-    setObservaciones(
-      garantia.observaciones ??
-        ""
-    );
   }, [
     garantia,
     open,
@@ -97,9 +87,6 @@ export function EditGarantiaDialog({
 
     const motivo =
       motivoReclamo.trim();
-
-    const observacion =
-      observaciones.trim();
 
     if (!motivo) {
       toast.error(
@@ -150,15 +137,9 @@ export function EditGarantiaDialog({
               ?.motivo ??
             motivo,
 
-          observaciones:
-            data?.garantia
-              ?.observaciones ??
-            observacion ??
-            null,
-
           estado: garantia.estado,
 
-          // Editar el motivo u observaciones no modifica el flujo de estados.
+          // Editar el motivo no modifica el flujo de estados.
           estadoCodigo: garantia.estadoCodigo,
         };
 
@@ -219,10 +200,7 @@ export function EditGarantiaDialog({
           </DialogTitle>
 
           <DialogDescription>
-            Modifica el motivo del
-            reclamo y las
-            observaciones de la
-            solicitud.
+            Modifica el motivo del reclamo de la solicitud.
           </DialogDescription>
 
         </DialogHeader>
@@ -266,44 +244,6 @@ export function EditGarantiaDialog({
             <p className="text-right text-xs text-muted-foreground">
               {
                 motivoReclamo.length
-              }
-              /500
-            </p>
-
-          </div>
-
-          {/* OBSERVACIONES */}
-
-          <div className="space-y-2">
-
-            <Label htmlFor="observaciones">
-              Observaciones
-            </Label>
-
-            <Textarea
-              id="observaciones"
-              value={
-                observaciones
-              }
-              onChange={(
-                event
-              ) =>
-                setObservaciones(
-                  event.target
-                    .value
-                )
-              }
-              placeholder="Ingrese observaciones adicionales"
-              maxLength={500}
-              disabled={
-                isSaving
-              }
-              className="min-h-[100px] resize-none"
-            />
-
-            <p className="text-right text-xs text-muted-foreground">
-              {
-                observaciones.length
               }
               /500
             </p>

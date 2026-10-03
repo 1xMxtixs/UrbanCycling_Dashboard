@@ -25,7 +25,6 @@ export interface Garantia {
 
   motivoReclamo: string;
   fechaIngreso: string;
-  observaciones: string | null;
 
   estado: EstadoGarantia;
   // El código canónico se usa para reglas y transiciones; el texto es solo visual.

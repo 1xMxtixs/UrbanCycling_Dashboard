@@ -427,13 +427,6 @@ export function ResolveGarantiaDialog({
               garantia.motivoReclamo,
 
             /*
-             * OBSERVACIONES
-             */
-            observaciones:
-              garantiaRespuesta.observaciones ??
-              garantia.observaciones,
-
-            /*
              * OBSERVACIONES DE RESOLUCIÓN
              */
             observacionesResolucion:

@@ -70,9 +70,6 @@ export function CreateGarantiasDialog({
   const [motivoReclamo, setMotivoReclamo] =
     useState("");
 
-  const [observaciones, setObservaciones] =
-    useState("");
-
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
@@ -174,7 +171,6 @@ export function CreateGarantiasDialog({
   const resetForm = () => {
     setOrdenSeleccionada("");
     setMotivoReclamo("");
-    setObservaciones("");
     setError("");
     setIsSubmitting(false);
   };
@@ -233,14 +229,6 @@ export function CreateGarantiasDialog({
     if (motivoReclamo.length > 500) {
       setError(
         "El motivo del reclamo no puede superar los 500 caracteres."
-      );
-
-      return;
-    }
-
-    if (observaciones.length > 500) {
-      setError(
-        "Las observaciones no pueden superar los 500 caracteres."
       );
 
       return;
@@ -322,9 +310,6 @@ export function CreateGarantiasDialog({
 
         fechaIngreso:
           data.garantia.fechaIngreso,
-
-        observaciones:
-          observaciones.trim() || null,
 
         estado: "Ingresado",
 
@@ -573,36 +558,6 @@ export function CreateGarantiasDialog({
               }}
               maxLength={500}
               rows={5}
-              className="resize-none"
-            />
-          </div>
-
-          {/* =================================================
-              OBSERVACIONES
-          ================================================= */}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="observaciones">
-                Observaciones
-              </Label>
-
-              <span className="text-xs text-muted-foreground">
-                {observaciones.length}/500
-              </span>
-            </div>
-
-            <Textarea
-              id="observaciones"
-              placeholder="Agrega información adicional relacionada con la solicitud..."
-              value={observaciones}
-              onChange={(event) =>
-                setObservaciones(
-                  event.target.value
-                )
-              }
-              maxLength={500}
-              rows={4}
               className="resize-none"
             />
           </div>

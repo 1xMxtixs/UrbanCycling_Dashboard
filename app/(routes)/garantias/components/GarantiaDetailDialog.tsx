@@ -161,15 +161,6 @@ export function GarantiaDetailDialog({
                 </p>
               </div>
 
-              <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Observaciones
-                </p>
-
-                <p className="rounded-lg border border-border/50 bg-background p-3 text-sm leading-relaxed">
-                  {garantia.observaciones || "Sin observaciones."}
-                </p>
-              </div>
             </div>
           </div>
 
