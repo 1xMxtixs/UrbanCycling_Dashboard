@@ -125,9 +125,6 @@ export function EditGarantiaDialog({
 
             body: JSON.stringify({
               motivo,
-              observaciones:
-                observacion ||
-                null,
             }),
           }
         );
