@@ -1,9 +1,9 @@
 import { EstadoReclamoGarantia } from "@/generated/prisma"
 
 const NOMBRE_ESTADO_GARANTIA: Record<EstadoReclamoGarantia, string> = {
-  [EstadoReclamoGarantia.INGRESADO]: "Pendiente",
-  [EstadoReclamoGarantia.EN_REVISION]: "Pendiente",
-  [EstadoReclamoGarantia.EN_ESPERA]: "Pendiente",
+  [EstadoReclamoGarantia.INGRESADO]: "Ingresado",
+  [EstadoReclamoGarantia.EN_REVISION]: "En revisión",
+  [EstadoReclamoGarantia.EN_ESPERA]: "En espera",
   [EstadoReclamoGarantia.APROBADO]: "Aprobada",
   [EstadoReclamoGarantia.RECHAZADO]: "Rechazada",
 }
