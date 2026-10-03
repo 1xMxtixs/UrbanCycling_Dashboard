@@ -4,7 +4,7 @@ import { ListMovements } from "../components/ListMovements"
 export default function MovimientosPage() {
   return (
     <div className="min-h-full space-y-6">
-      <HeaderInventory />
+      <HeaderInventory activeTab="movimientos" />
       <ListMovements />
     </div>
   )

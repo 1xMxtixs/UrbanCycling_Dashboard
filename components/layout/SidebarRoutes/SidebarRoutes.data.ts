@@ -40,6 +40,7 @@ export const dataOperationSidebar = [
     href: "/inventory/productos",
     children: [
       { icon: Package, label: "Productos", href: "/inventory/productos", permission: PERMISSIONS.INVENTORY_READ },
+      { icon: Wrench, label: "Servicios", href: "/inventory/servicios", permission: PERMISSIONS.INVENTORY_READ },
       { icon: Receipt, label: "Movimientos", href: "/inventory/movimientos", permission: PERMISSIONS.INVENTORY_READ },
     ],
   },

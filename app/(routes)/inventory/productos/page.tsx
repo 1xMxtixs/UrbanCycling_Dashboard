@@ -4,7 +4,7 @@ import { ListInventory } from "../components/ListInventory"
 export default function ProductosPage() {
   return (
     <div className="min-h-full space-y-6">
-      <HeaderInventory />
+      <HeaderInventory activeTab="productos" />
       <ListInventory />
     </div>
   )

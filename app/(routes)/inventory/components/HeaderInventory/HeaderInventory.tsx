@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { PageHeader } from "@/components/common/PageHeader"
-import { Plus, Package, Wrench } from "lucide-react"
+import { Plus } from "lucide-react"
 import { FormCreateInventory } from "../FormCreateInventory"
 import { FormCreateServicio } from "../FormCreateServicio"
 
