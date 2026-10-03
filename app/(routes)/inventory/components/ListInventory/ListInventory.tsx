@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+
 import { useSession } from "next-auth/react"
 import { AlertTriangle, PackageX } from "lucide-react"
 import { toast } from "sonner"
@@ -22,9 +24,18 @@ import { FormDialog } from "@/components/forms/FormDialog"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { InventoryCategory } from "../../types"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 
 export function ListInventory() {
   const { data: session } = useSession()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const productIdParam = searchParams.get("productId")
+  const searchParam = searchParams.get("search") ?? ""
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(productIdParam)
+
   const canUpdate = Boolean(
     session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
   )
@@ -81,6 +92,41 @@ export function ListInventory() {
       window.removeEventListener("inventory:refresh", getInventory)
     }
   }, [])
+
+  // Auto-apertura de ficha de producto si viene ?productId=...
+  useEffect(() => {
+    if (
+      !productIdParam ||
+      isCurrentParameterDismissed() ||
+      inventory.length === 0
+    ) return
+
+    const targetId = Number(productIdParam)
+    if (!isNaN(targetId)) {
+      const found = inventory.find((p) => p.idProducto === targetId)
+      if (found) {
+        const openDetailTimer = window.setTimeout(() => {
+          setSelectedProduct(found)
+          setOpenDetail(true)
+        }, 0)
+
+        return () => window.clearTimeout(openDetailTimer)
+      }
+    }
+  }, [inventory, isCurrentParameterDismissed, productIdParam])
+
+  const handleDetailOpenChange = (open: boolean) => {
+    setOpenDetail(open)
+
+    if (open || !productIdParam) return
+
+    dismissCurrentParameter()
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("productId")
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
 
   if (isLoading) {
     return (
@@ -237,7 +283,12 @@ export function ListInventory() {
         </div>
       )}
 
-      <DataTable columns={columns} data={inventory} categories={categories} />
+      <DataTable
+        columns={columns}
+        data={inventory}
+        categories={categories}
+        initialSearch={searchParam}
+      />
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
         <DialogContent className="max-w-2xl rounded-xl">
@@ -306,7 +357,7 @@ export function ListInventory() {
       <ProductDetailSheet
         product={selectedProduct}
         open={openDetail}
-        onOpenChange={setOpenDetail}
+        onOpenChange={handleDetailOpenChange}
         onEdit={handleEditProduct}
       />
       <InventoryMovementDialog

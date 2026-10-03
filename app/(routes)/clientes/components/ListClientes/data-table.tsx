@@ -35,6 +35,7 @@ import {
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react"
+import { includesNormalizedText } from "@/lib/search-normalization"
 
 interface DataTableProps<TData, Tvalue> {
   columns: ColumnDef<TData, Tvalue>[]
@@ -43,6 +44,7 @@ interface DataTableProps<TData, Tvalue> {
   onViewHistory?: (id: number) => void
   onEdit?: (id: number) => void
   onInactivate?: (id: number) => Promise<string>
+  initialSearch?: string
 }
 
 export function DataTable<TData, Tvalue>({
@@ -52,6 +54,7 @@ export function DataTable<TData, Tvalue>({
   onViewHistory,
   onEdit,
   onInactivate,
+  initialSearch = "",
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
@@ -63,6 +66,10 @@ export function DataTable<TData, Tvalue>({
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  React.useEffect(() => {
+    setGlobalFilter(initialSearch)
+  }, [initialSearch])
 
   const table = useReactTable({
     data,
@@ -84,6 +91,12 @@ export function DataTable<TData, Tvalue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) =>
+      row
+        .getAllCells()
+        .some((cell) =>
+          includesNormalizedText(String(cell.getValue() ?? ""), String(filterValue ?? "")),
+        ),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,

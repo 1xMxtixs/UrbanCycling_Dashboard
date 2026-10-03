@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ClientesTabsView } from "./ClientesTabsView";
+
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 import { MetricCard } from "@/components/common/MetricCard";
@@ -38,8 +40,17 @@ import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param";
 
 export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
+  const searchParam = searchParams.get("search") ?? "";
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(clienteIdParam);
+  const [activeMainTab, setActiveMainTab] = useState<"directorio" | "historial">(initialTab);
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
@@ -50,6 +61,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
   const [openEditModal, setOpenEditModal] = useState(false);
   const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const fetchClientes = async () => {
     setIsLoading(true);
@@ -124,9 +136,49 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     };
   }, []);
 
+  // Auto-apertura de detalle de cliente si viene ?clienteId=...
+  useEffect(() => {
+    if (
+      !clienteIdParam ||
+      isCurrentParameterDismissed() ||
+      rawClientes.length === 0
+    ) return;
+
+    const targetId = Number(clienteIdParam);
+    if (!isNaN(targetId)) {
+      const found = rawClientes.find((c) => c.idCliente === targetId);
+      if (found) {
+        // Se difiere la apertura hasta después de sincronizar los datos recibidos
+        // desde la API, evitando una actualización de estado durante el efecto.
+        const openDetailTimer = window.setTimeout(() => {
+          setActiveMainTab("directorio");
+          setSelectedClienteId(targetId);
+          setOpenDetailsModal(true);
+        }, 0);
+
+        return () => window.clearTimeout(openDetailTimer);
+      }
+    }
+  }, [clienteIdParam, isCurrentParameterDismissed, rawClientes]);
+
+
   const handleViewDetails = (id: number) => {
     setSelectedClienteId(id);
     setOpenDetailsModal(true);
+  };
+
+  // Al cerrar un detalle abierto desde el buscador, elimina solo su parámetro.
+  // Así una actualización posterior de clientes no vuelve a abrir el modal.
+  const handleDetailsOpenChange = (open: boolean) => {
+    setOpenDetailsModal(open);
+
+    if (open || !clienteIdParam) return;
+
+    dismissCurrentParameter();
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("clienteId");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   const handleViewHistory = (id: number) => {
@@ -188,7 +240,8 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Selector de Vista Principal: Directorio vs Historial de Clientes */}
       <Tabs
-        value={initialTab}
+        value={activeMainTab}
+        onValueChange={(value) => setActiveMainTab(value as "directorio" | "historial")}
         className="w-full space-y-6"
       >
         <div className="hidden" aria-hidden="true">
@@ -241,6 +294,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
           </div>
 
           <ClientesTabsView
+            initialSearch={searchParam}
             clientesNaturales={clientesNaturales}
             clientesJuridicas={clientesJuridicas}
             onViewDetails={handleViewDetails}
@@ -267,7 +321,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
       />
 
       {/* Modal de Detalles del Cliente */}
-      <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
+      <Dialog open={openDetailsModal} onOpenChange={handleDetailsOpenChange}>
         <DialogContent
           showCloseButton={false}
           className="sm:max-w-4xl lg:max-w-5xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl"

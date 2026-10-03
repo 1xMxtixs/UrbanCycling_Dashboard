@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -23,6 +23,7 @@ import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
 import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
+import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -43,6 +44,9 @@ function toDateInputValue(dateInput: string | Date | null | undefined) {
 
 export function ListOrdenesTrabajo() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orderIdParam = searchParams.get("ordenId")
+  const searchParam = searchParams.get("search") ?? ""
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -55,8 +59,13 @@ export function ListOrdenesTrabajo() {
   const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
   const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
 
-  const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
-  const [openDetailsModal, setOpenDetailsModal] = useState(false)
+  const {
+    activeItem: selectedOrder,
+    isOpen: openDetailsModal,
+    openLocal: openOrderDetail,
+    close: closeOrderDetail,
+    setLocalItem: setSelectedOrder,
+  } = useSearchDetailNavigation(orderIdParam, orders, (order) => order.idOrdenDeTrabajo)
 
   const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
   const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
@@ -385,7 +394,7 @@ export function ListOrdenesTrabajo() {
 
       toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      closeOrderDetail()
       refreshOrders()
       router.refresh()
     } catch (err: any) {
@@ -397,8 +406,7 @@ export function ListOrdenesTrabajo() {
   }
 
   const handleViewDetails = (order: WorkOrder) => {
-    setSelectedOrder(order)
-    setOpenDetailsModal(true)
+    openOrderDetail(order)
   }
 
   const handleGenerateReceipt = async (order: WorkOrder) => {
@@ -560,6 +568,7 @@ export function ListOrdenesTrabajo() {
               }
             : undefined
         }
+        initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onStatusChange={handleStatusChange}
         updatingId={updatingId}
@@ -578,7 +587,14 @@ export function ListOrdenesTrabajo() {
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeOrderDetail()
+          }
+          if (!open && orderIdParam) {
+            router.replace("/punto-ventas/ordenes-trabajo", { scroll: false })
+          }
+        }}
         order={selectedOrder}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
