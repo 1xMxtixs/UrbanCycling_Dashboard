@@ -162,7 +162,7 @@ export function ListVentas() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          origen: "venta-directa",
+          origen: "venta",
           idVenta: op.venta.idVenta,
           tipoDte: 39,
         }),
