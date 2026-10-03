@@ -58,7 +58,7 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
   return (
     <Card className="flex flex-col">
       <CardHeader className="border-b py-5">
-        <CardTitle className="text-base">Ventas por Método de Pago</CardTitle>
+        <CardTitle className="text-base">Recaudación por Método de Pago</CardTitle>
         <CardDescription>
           Participación por medio de pago en el período seleccionado
         </CardDescription>

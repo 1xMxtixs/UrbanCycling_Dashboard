@@ -76,12 +76,14 @@ export async function getDashboardData(range: DateRange): Promise<ReportsData> {
     getReport<VentasDiariasResponse>(`/api/ventas/reporte-diario?fecha=${today}`),
   ])
 
-  const ingresosOt = ingresos?.ingresosOrdenesTrabajo ?? rentabilidad?.ingresosOrdenesTrabajo ?? 0
-  const ventasMostrador = metodosPago?.totalRecaudado ?? 0
+  // Los métodos de pago ya incluyen pagos de ventas de mostrador y de OTs.
+  // Sumarlos a los ingresos de OT duplicaba las órdenes que ya habían sido
+  // pagadas. Este KPI representa la recaudación efectiva del período.
+  const recaudacionPeriodo = metodosPago?.totalRecaudado ?? 0
 
   return {
     financialSummary: {
-      totalRevenue: ingresosOt + ventasMostrador,
+      totalRevenue: recaudacionPeriodo,
       todayRevenue: ventasDiarias?.totalIngresos ?? 0,
       totalWorkOrders: ordenes?.totalOrdenes ?? 0,
       workOrdersFinished: ordenes?.totalOrdenes ?? 0,
