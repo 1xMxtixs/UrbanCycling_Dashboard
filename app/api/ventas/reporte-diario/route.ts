@@ -85,7 +85,7 @@ function esErrorFecha(
   return "message" in fecha
 }
 
-/** Ejecuta la SP detallada y conserva cada venta que devuelve el procedimiento. */
+/** Abre una conexión exclusiva para las consultas de reportes. */
 function crearConexionReportes() {
   const rawUrl = process.env.DATABASE_URL
 
@@ -128,7 +128,7 @@ function esFilaVentaDiaria(valor: unknown): valor is FilaVentaDiariaSql {
   )
 }
 
-/** El driver adjunta metadatos a CALL; solo se retienen filas de ventas. */
+/** La consulta devuelve filas tipadas de operaciones con pagos del día. */
 function extraerVentas(resultado: unknown): FilaVentaDiariaSql[] {
   if (Array.isArray(resultado)) {
     return resultado.flatMap(extraerVentas)
@@ -137,17 +137,50 @@ function extraerVentas(resultado: unknown): FilaVentaDiariaSql[] {
   return esFilaVentaDiaria(resultado) ? [resultado] : []
 }
 
-function esErrorSinVentas(error: unknown) {
-  const mensaje = error instanceof Error ? error.message : String(error)
-
-  return mensaje.toLowerCase().includes("no se registraron ventas")
-}
+const CONSULTA_INGRESOS_DIARIOS = `
+  SELECT
+    v.id_venta,
+    TIME(MIN(p.fecha_registro)) AS hora_registro,
+    CASE
+      WHEN vm.id_venta_en_mostrador IS NOT NULL THEN 'Venta Mostrador'
+      WHEN ot.id_orden_de_trabajo IS NOT NULL THEN 'Orden de Trabajo'
+      ELSE 'Otro'
+    END AS tipo_operacion,
+    COALESCE(ot.id_orden_de_trabajo, vm.id_venta_en_mostrador) AS identificador_operacion,
+    COALESCE(CONCAT(c.primer_nombre, ' ', c.apellido_paterno), c.razon_social, 'Cliente General') AS cliente,
+    v.estado_pago,
+    SUM(ap.monto_asociado) AS monto_total_venta
+  FROM pagos p
+  INNER JOIN asignaciones_pago ap ON ap.id_pago = p.id_pago
+  INNER JOIN ventas v ON v.id_venta = ap.id_venta
+  LEFT JOIN ventas_en_mostrador vm ON vm.id_venta = v.id_venta
+  LEFT JOIN ordenes_de_trabajo ot ON ot.id_venta = v.id_venta
+  LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
+  WHERE p.estado = 'COMPLETADO'
+    AND p.fecha_registro >= ?
+    AND p.fecha_registro < DATE_ADD(?, INTERVAL 1 DAY)
+    AND (
+      (vm.id_venta_en_mostrador IS NOT NULL AND vm.estado = 'COMPLETADA')
+      OR
+      (ot.id_orden_de_trabajo IS NOT NULL AND ot.estado = 'ENTREGADO')
+    )
+  GROUP BY
+    v.id_venta,
+    vm.id_venta_en_mostrador,
+    ot.id_orden_de_trabajo,
+    c.primer_nombre,
+    c.apellido_paterno,
+    c.razon_social,
+    v.estado_pago
+  ORDER BY MIN(p.fecha_registro) ASC
+`
 
 /**
  * GET /api/ventas/reporte-diario?fecha=DD-MM-YYYY
  *
- * Devuelve el detalle auditable de las ventas y OTs entregadas del día. ventas
- * alimenta la tabla; totalIngresos y cantidadVentas alimentan los indicadores.
+ * Devuelve el detalle auditable de los pagos recibidos en ventas directas y OTs
+ * entregadas. La fecha y el monto provienen del pago, no de la creación de la
+ * venta, para incluir OTs creadas en jornadas anteriores y pagadas hoy.
  */
 export async function GET(request: Request) {
   try {
@@ -172,7 +205,8 @@ export async function GET(request: Request) {
     let resultado: unknown
 
     try {
-      resultado = await conexion.query("CALL sp_reporte_diario_ventas(?)", [
+      resultado = await conexion.query(CONSULTA_INGRESOS_DIARIOS, [
+        fecha.fechaSql,
         fecha.fechaSql,
       ])
     } finally {
@@ -210,16 +244,6 @@ export async function GET(request: Request) {
       ventas,
     })
   } catch (error) {
-    if (esErrorSinVentas(error)) {
-      return NextResponse.json(
-        {
-          code: "SIN_DATOS_REPORTE",
-          message: "No se registraron ventas en la jornada seleccionada",
-        },
-        { status: 404 }
-      )
-    }
-
     console.error("[VENTAS_REPORTE_DIARIO_GET]", error)
 
     // No se exponen detalles de la conexión o de la SP al navegador.
