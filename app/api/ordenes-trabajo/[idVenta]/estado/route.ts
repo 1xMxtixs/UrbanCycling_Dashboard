@@ -6,7 +6,6 @@ import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import {
   ESTADO_OT,
   ESTADOS_OT_CERRADOS,
-  ESTADOS_OT_FINALIZADOS,
   TRANSICIONES_OT,
 } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
@@ -113,12 +112,11 @@ export async function PATCH(
       }
     }
 
-    const fechaEntregaReal = ESTADOS_OT_FINALIZADOS.includes(estado)
-      ? (() => {
-          const now = new Date()
-          const localStr = now.toLocaleDateString("sv-SE", { timeZone: "America/Santiago" })
-          return new Date(`${localStr}T00:00:00.000Z`)
-        })()
+    // La entrega real es un instante, no una fecha local convertida a UTC.
+    // new Date() conserva el día real en Santiago cuando calcularDiasServicio
+    // compara ambos valores como días calendario de la tienda.
+    const fechaEntregaReal = estado === ESTADO_OT.ENTREGADO
+      ? new Date()
       : undefined
 
     // UR 5.15: service time is computed and stored when the bike is effectively delivered.
@@ -130,7 +128,11 @@ export async function PATCH(
           )
         : undefined
 
-    if (diasServicio === null) {
+    if (
+      estado === ESTADO_OT.ENTREGADO &&
+      (!ordenTrabajo.venta.fechaRegistro ||
+        Number.isNaN(ordenTrabajo.venta.fechaRegistro.getTime()))
+    ) {
       return NextResponse.json(
         {
           code: "TIEMPO_SERVICIO_INVALIDO",
@@ -138,6 +140,17 @@ export async function PATCH(
             "No se pudo calcular el tiempo de servicio: la orden no tiene una fecha de ingreso válida",
         },
         { status: 422 }
+      )
+    }
+
+    if (diasServicio === null) {
+      return NextResponse.json(
+        {
+          code: "RANGO_TIEMPO_SERVICIO_INVALIDO",
+          message:
+            "La fecha de entrega no puede ser anterior a la fecha de ingreso de la orden",
+        },
+        { status: 409 }
       )
     }
 
