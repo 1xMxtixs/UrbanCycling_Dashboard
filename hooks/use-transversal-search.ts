@@ -39,7 +39,6 @@ interface RawCliente {
   correo?: string | null
   telefonos?: Array<{ telefono: string }>
 }
-
 interface RawWorkOrderItem {
   tipoOperacion?: string
   cliente?: {
@@ -388,4 +387,3 @@ export function useTransversalSearch() {
     invalidateCache,
   }
 }
-
