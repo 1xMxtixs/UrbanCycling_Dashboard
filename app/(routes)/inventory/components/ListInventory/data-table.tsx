@@ -215,9 +215,6 @@ export function DataTable({
               </Select>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              {filteredRowCount} {filteredRowCount === 1 ? "producto encontrado" : "productos encontrados"}
-            </p>
           </div>
         }
         footer={

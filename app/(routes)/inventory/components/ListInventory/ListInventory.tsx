@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { AlertTriangle, PackageX } from "lucide-react"
+import { toast } from "sonner"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,8 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { InventoryCategory } from "../../types"
-import { isRegistroActivo } from "@/lib/registro-status"
+import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 
 export function ListInventory() {
   const { data: session } = useSession()
@@ -41,6 +43,9 @@ export function ListInventory() {
   const [openEdit, setOpenEdit] = useState(false)
   const [openLowStock, setOpenLowStock] = useState(false)
   const [openOutOfStock, setOpenOutOfStock] = useState(false)
+  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(null)
+  const [openToggleDialog, setOpenToggleDialog] = useState(false)
+  const [isSubmittingToggle, setIsSubmittingToggle] = useState(false)
 
   useEffect(() => {
     async function getInventory() {
@@ -119,9 +124,56 @@ export function ListInventory() {
     setOpenMovement(true)
   }
 
+  const handleToggleProductStatus = (product: ProductColumn) => {
+    setProductToToggle(product)
+    setOpenToggleDialog(true)
+  }
+
+  const handleConfirmToggle = async () => {
+    if (!productToToggle) return
+
+    const nuevoEstado = isRegistroActivo(productToToggle.estado)
+      ? ESTADO_REGISTRO.INACTIVO
+      : ESTADO_REGISTRO.ACTIVO
+
+    try {
+      setIsSubmittingToggle(true)
+      const res = await fetch(`/api/inventory/${productToToggle.idProducto}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      })
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "No se pudo actualizar el estado del producto. Intenta nuevamente."
+        )
+      }
+
+      window.dispatchEvent(new Event("inventory:refresh"))
+      toast.success(
+        nuevoEstado === ESTADO_REGISTRO.ACTIVO
+          ? "Producto reactivado correctamente"
+          : "Producto inactivado correctamente"
+      )
+      setOpenToggleDialog(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el estado del producto. Intenta nuevamente."
+      )
+      setOpenToggleDialog(false)
+    } finally {
+      setIsSubmittingToggle(false)
+    }
+  }
+
   const columns = getColumns(
     handleViewDetail,
     handleRegisterMovement,
+    handleToggleProductStatus,
     canUpdate,
   )
 
@@ -262,6 +314,17 @@ export function ListInventory() {
         open={openMovement}
         onOpenChange={setOpenMovement}
       />
+      {productToToggle && (
+        <StatusToggleDialog
+          open={openToggleDialog}
+          onOpenChange={setOpenToggleDialog}
+          entityLabel="producto"
+          entityName={productToToggle.nombre}
+          isActive={isRegistroActivo(productToToggle.estado)}
+          onConfirm={handleConfirmToggle}
+          isSubmitting={isSubmittingToggle}
+        />
+      )}
       <Dialog
         open={openEdit}
         onOpenChange={(open) => {
