@@ -108,7 +108,6 @@ async function main() {
     { nombre: "Actualizar ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update", codigo: "work-orders:update", descripcion: "Permite modificar ordenes de trabajo" },
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
     { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
-    { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia registradas" },
     { nombre: "Modificar garantias", modulo: "garantias", recurso: "garantias", accion: "update", codigo: "warranties:update", descripcion: "Permite modificar solicitudes de garantia pendientes" },
     { nombre: "Resolver garantias", modulo: "garantias", recurso: "garantias", accion: "resolve", codigo: "warranties:resolve", descripcion: "Permite aprobar o rechazar solicitudes de garantia pendientes" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
