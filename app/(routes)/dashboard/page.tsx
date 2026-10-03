@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      <PageHeader title="Reportes y Analítica" description="Ingresos, órdenes de trabajo, pagos e inventario con datos registrados." />
+      <PageHeader title="Reportes y Analítica" description="Recaudación, órdenes de trabajo, pagos e inventario con datos registrados." />
       <DateRangeFilter onApply={handleApplyDateRange} />
       <div className="space-y-2">
         <div className="flex items-center justify-between"><h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resumen financiero y operativo</h2><span className="text-[11px] text-muted-foreground">Período: {dateRange.from} al {dateRange.to}</span></div>
