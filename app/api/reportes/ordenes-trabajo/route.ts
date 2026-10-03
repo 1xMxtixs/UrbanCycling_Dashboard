@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
+import * as mariadb from "mariadb"
 
-import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 
@@ -21,6 +21,32 @@ type FilaConteoOrdenes = {
 type FilaConteoOrdenesSql = {
   fecha: Date | string
   cantidad_ordenes: number | string | bigint
+}
+
+/**
+ * Abre una conexión puntual para procedimientos que devuelven varias filas.
+ * El adaptador Prisma/MariaDB no entrega el conjunto completo de un CALL, mientras
+ * que el cliente MariaDB sí entrega todas las filas que necesita el gráfico.
+ */
+function crearConexionReportes() {
+  const rawUrl = process.env.DATABASE_URL
+
+  if (!rawUrl) {
+    throw new Error("DATABASE_URL no está configurada")
+  }
+
+  const url = new URL(rawUrl)
+  const caCert = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n")
+  const requiereSsl = /[?&]ssl-mode=required/i.test(rawUrl)
+
+  return mariadb.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.slice(1),
+    ssl: caCert ? { ca: caCert } : requiereSsl || undefined,
+  })
 }
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
@@ -210,12 +236,17 @@ export async function GET(request: Request) {
     // La SP agrupa OTs entregadas por día. Puede incluir el día siguiente por
     // su implementación actual, por lo que el filtro posterior preserva el
     // rango solicitado sin modificar el procedimiento almacenado.
-    const resultado = await db.$queryRaw<unknown>`
-      CALL sp_reporte_conteo_ordenes_trabajo(
-        ${rango.fechaInicioSql},
-        ${rango.fechaFinSql}
+    const conexion = await crearConexionReportes()
+    let resultado: unknown
+
+    try {
+      resultado = await conexion.query(
+        "CALL sp_reporte_conteo_ordenes_trabajo(?, ?)",
+        [rango.fechaInicioSql, rango.fechaFinSql]
       )
-    `
+    } finally {
+      await conexion.end()
+    }
     const filas = extraerFilasConteo(resultado)
       .map((fila) => ({
         fecha: formatearFecha(fila.fecha),
