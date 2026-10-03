@@ -45,6 +45,7 @@ interface DataTableProps<TData, TValue> {
   updatingId: number | null
   onPayClick?: (idVenta: number, total: number) => void
   onGenerateReceipt?: (op: SaleOperation) => void
+  initialSearch?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -55,6 +56,7 @@ export function DataTable<TData, TValue>({
   updatingId,
   onPayClick,
   onGenerateReceipt,
+  initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -64,6 +66,16 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Sincroniza el filtro al llegar desde el buscador transversal, incluso si
+  // la lista de ventas ya estaba montada antes del cambio de URL.
+  React.useEffect(() => {
+    const filterTimer = window.setTimeout(() => {
+      setGlobalFilter(initialSearch)
+    }, 0)
+
+    return () => window.clearTimeout(filterTimer)
+  }, [initialSearch])
 
   const table = useReactTable({
     data,

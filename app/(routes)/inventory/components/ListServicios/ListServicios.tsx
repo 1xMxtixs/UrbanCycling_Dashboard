@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -16,12 +16,17 @@ import { getColumns } from "./columns"
 import { ServiceDetailSheet } from "./ServiceDetailSheet"
 import { FormEditServicio } from "../FormEditServicio"
 import { type ServiceColumn } from "../../types"
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 
 export function ListServicios() {
   const { data: session } = useSession()
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const serviceIdParam = searchParams.get("serviceId")
   const searchParam = searchParams.get("search") ?? ""
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(serviceIdParam)
   const canUpdate = Boolean(
     session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
@@ -71,7 +76,11 @@ export function ListServicios() {
   // Abre el servicio indicado por el buscador transversal sin sustituir la tabla
   // completa ni sus acciones de administración.
   useEffect(() => {
-    if (!serviceIdParam || services.length === 0) return
+    if (
+      !serviceIdParam ||
+      isCurrentParameterDismissed() ||
+      services.length === 0
+    ) return
 
     const targetId = Number(serviceIdParam)
     if (Number.isNaN(targetId)) return
@@ -87,7 +96,19 @@ export function ListServicios() {
 
       return () => window.clearTimeout(openDetailTimer)
     }
-  }, [serviceIdParam, services])
+  }, [isCurrentParameterDismissed, serviceIdParam, services])
+
+  const handleDetailOpenChange = (open: boolean) => {
+    setOpenDetail(open)
+
+    if (open || !serviceIdParam) return
+
+    dismissCurrentParameter()
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("serviceId")
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   // Acciones
   const handleViewDetails = (service: ServiceColumn) => {
@@ -189,7 +210,7 @@ export function ListServicios() {
       {/* Sheet de Detalle */}
       <ServiceDetailSheet
         open={openDetail}
-        onOpenChange={setOpenDetail}
+        onOpenChange={handleDetailOpenChange}
         service={selectedService}
       />
 

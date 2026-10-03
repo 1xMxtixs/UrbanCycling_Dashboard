@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ClientesTabsView } from "./ClientesTabsView";
 
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -40,11 +40,16 @@ import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param";
 
 export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const clienteIdParam = searchParams.get("clienteId");
   const searchParam = searchParams.get("search") ?? "";
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(clienteIdParam);
   const [activeMainTab, setActiveMainTab] = useState<"directorio" | "historial">(initialTab);
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
@@ -133,7 +138,11 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
 
   // Auto-apertura de detalle de cliente si viene ?clienteId=...
   useEffect(() => {
-    if (!clienteIdParam || rawClientes.length === 0) return;
+    if (
+      !clienteIdParam ||
+      isCurrentParameterDismissed() ||
+      rawClientes.length === 0
+    ) return;
 
     const targetId = Number(clienteIdParam);
     if (!isNaN(targetId)) {
@@ -150,12 +159,26 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
         return () => window.clearTimeout(openDetailTimer);
       }
     }
-  }, [clienteIdParam, rawClientes]);
+  }, [clienteIdParam, isCurrentParameterDismissed, rawClientes]);
 
 
   const handleViewDetails = (id: number) => {
     setSelectedClienteId(id);
     setOpenDetailsModal(true);
+  };
+
+  // Al cerrar un detalle abierto desde el buscador, elimina solo su parámetro.
+  // Así una actualización posterior de clientes no vuelve a abrir el modal.
+  const handleDetailsOpenChange = (open: boolean) => {
+    setOpenDetailsModal(open);
+
+    if (open || !clienteIdParam) return;
+
+    dismissCurrentParameter();
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("clienteId");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   const handleViewHistory = (id: number) => {
@@ -298,7 +321,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
       />
 
       {/* Modal de Detalles del Cliente */}
-      <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
+      <Dialog open={openDetailsModal} onOpenChange={handleDetailsOpenChange}>
         <DialogContent
           showCloseButton={false}
           className="sm:max-w-4xl lg:max-w-5xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl"

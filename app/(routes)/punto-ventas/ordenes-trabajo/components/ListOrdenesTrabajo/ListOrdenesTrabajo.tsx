@@ -46,6 +46,7 @@ export function ListOrdenesTrabajo() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderIdParam = searchParams.get("ordenId")
+  const searchParam = searchParams.get("search") ?? ""
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -567,6 +568,7 @@ export function ListOrdenesTrabajo() {
               }
             : undefined
         }
+        initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onStatusChange={handleStatusChange}
         updatingId={updatingId}

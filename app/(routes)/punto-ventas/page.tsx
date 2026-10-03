@@ -26,6 +26,8 @@ function PuntoVentasContent() {
 
     if (nextTab === "ventas") {
       params.delete("ordenId")
+    } else {
+      params.delete("ventaId")
     }
 
     router.replace(`/punto-ventas?${params.toString()}`, { scroll: false })

@@ -23,6 +23,7 @@ export function ListVentas() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const saleIdParam = searchParams.get("ventaId")
+  const searchParam = searchParams.get("search") ?? ""
   const [sales, setSales] = useState<SaleOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -70,7 +71,9 @@ export function ListVentas() {
   }
 
   useEffect(() => {
-    getSales()
+    // Difiere la carga inicial para evitar una actualización de estado durante
+    // el efecto y mantiene la suscripción para actualizaciones de ventas.
+    void Promise.resolve().then(() => getSales())
     window.addEventListener("sales:refresh", getSales)
 
     return () => {
@@ -335,6 +338,7 @@ export function ListVentas() {
       <DataTable
         columns={columns}
         data={sales}
+        initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onUpdateStatus={handleUpdateStatus}
         updatingId={updatingId}
