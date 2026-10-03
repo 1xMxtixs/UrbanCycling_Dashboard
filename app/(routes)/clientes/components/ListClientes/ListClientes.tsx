@@ -38,7 +38,6 @@ import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
-import { getNombreEstadoOt } from "@/lib/work-order-status";
 
 export function ListClientes() {
   const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
@@ -114,11 +113,14 @@ export function ListClientes() {
   };
 
   useEffect(() => {
-    fetchClientes();
+    const initialFetch = window.setTimeout(() => {
+      void fetchClientes();
+    }, 0);
 
     window.addEventListener("clientes:refresh", fetchClientes);
 
     return () => {
+      window.clearTimeout(initialFetch);
       window.removeEventListener("clientes:refresh", fetchClientes);
     };
   }, []);
@@ -142,6 +144,24 @@ export function ListClientes() {
       setClienteToEdit(cli);
       setOpenEditModal(true);
     }
+  };
+
+  const handleInactivate = async (id: number) => {
+    const res = await fetch(`/api/clientes/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || "No se pudo inactivar el cliente. Intenta nuevamente."
+      );
+    }
+
+    await fetchClientes();
+
+    return data?.message || "Cliente inactivado correctamente";
   };
 
   if (isLoading) {
@@ -228,6 +248,7 @@ export function ListClientes() {
             onViewDetails={handleViewDetails}
             onViewHistory={handleViewHistory}
             onEdit={handleEdit}
+            onInactivate={handleInactivate}
           />
         </TabsContent>
 

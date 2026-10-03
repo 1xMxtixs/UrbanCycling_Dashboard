@@ -194,7 +194,9 @@ export async function GET() {
 
     const clientes = await db.cliente.findMany({
       where: {
-        estado: EstadoRegistro.ACTIVO,
+        estado: {
+          in: [EstadoRegistro.ACTIVO, EstadoRegistro.INACTIVO]
+        }
       },
       orderBy: {
         fechaRegistro: "desc",
@@ -255,13 +257,13 @@ export async function GET() {
         direcciones: cliente.direcciones,
         correos: cliente.correo
           ? [
-              {
-                idCorreoCliente: cliente.idCliente,
-                idCliente: cliente.idCliente,
-                correo: cliente.correo,
-                descripcion: "Principal",
-              },
-            ]
+            {
+              idCorreoCliente: cliente.idCliente,
+              idCliente: cliente.idCliente,
+              correo: cliente.correo,
+              descripcion: "Principal",
+            },
+          ]
           : [],
         ordenesDeTrabajo,
       }
