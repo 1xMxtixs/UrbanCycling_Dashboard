@@ -24,7 +24,6 @@ export * from "./layout/SidebarItem";
 export * from "./layout/SidebarRoutes";
 export * from "./layout/Logo";
 export * from "./layout/RouteTransition";
-export * from "./layout/ToggleTheme";
 
 // Componentes comunes / feedback
 export * from "./common/PageHeader";

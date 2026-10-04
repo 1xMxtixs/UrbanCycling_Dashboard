@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Menu, Search, X } from "lucide-react"
 import { SidebarRoutes } from "../SidebarRoutes"
-import { ToggleTheme } from "../ToggleTheme"
 import { UserButton } from "./UserButton"
 import { TransversalSearchDropdown } from "@/components/common/TransversalSearch"
 import { useTransversalSearch } from "@/hooks/use-transversal-search"
@@ -167,11 +166,6 @@ export function Navbar({ permissions, isAdmin }: NavbarProps) {
               </div>
             </SheetContent>
           </Sheet>
-        </div>
-
-        {/* Theme toggle & User Actions */}
-        <div className="flex items-center gap-3">
-          <ToggleTheme />
         </div>
       </div>
     </header>

@@ -73,7 +73,7 @@ export function ListProveedores({
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/40">
