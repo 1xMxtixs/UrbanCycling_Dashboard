@@ -1,6 +1,16 @@
 // Endpoints generales para registrar y listar ventas directas de productos.
+import {
+  EstadoPagoVenta,
+  EstadoRegistro,
+  EstadoVentaMostrador,
+} from "@/generated/prisma"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
+import {
+  resolverEstadoPago,
+  resolverEstadoVenta,
+  respuestaInvalida,
+} from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import { NextResponse } from "next/server"
 
@@ -31,7 +41,6 @@ function calcularMontos(montoSubtotal: number, descuentoGlobal: number) {
 function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[number] & {
   ventaEnMostrador?: {
     estado: string
-    estadoPago: string
     montoTotal: unknown
     descuentoGlobal: unknown
     lineasDeVenta?: unknown[]
@@ -42,7 +51,7 @@ function adaptarVenta(venta: Awaited<ReturnType<typeof db.venta.findMany>>[numbe
     fechaCreacion: venta.fechaRegistro,
     total: venta.ventaEnMostrador?.montoTotal ?? 0,
     descuento: venta.ventaEnMostrador?.descuentoGlobal ?? 0,
-    estadoPago: venta.ventaEnMostrador?.estadoPago ?? null,
+    estadoPago: venta.estadoPago,
     estadoVenta: venta.ventaEnMostrador?.estado ?? null,
     lineasDeVenta: venta.ventaEnMostrador?.lineasDeVenta ?? [],
   }
@@ -58,6 +67,11 @@ function parsePositiveInteger(value: unknown) {
   return parsedValue
 }
 
+/**
+ * POST /api/ventas
+ * Registra una venta directa, descuenta stock y devuelve totales y líneas. El
+ * estado financiero se guarda en Venta y el operativo en VentaEnMostrador.
+ */
 export async function POST(req: Request) {
   try {
     const { session, response } = await requirePermission(PERMISSIONS.SALES_CREATE)
@@ -70,9 +84,27 @@ export async function POST(req: Request) {
     const idUsuario = session.user.idUsuario
     const idCliente = parsePositiveInteger(data.id_cliente ?? data.idCliente)
     const descuento = Number(data.descuento ?? 0)
-    const estadoPago = data.estado_pago ?? data.estadoPago ?? "pagado"
-    const estadoVenta = data.estado_venta ?? data.estadoVenta ?? "confirmada"
+    const estadoPagoInput =
+      data.estado_pago ?? data.estadoPago ?? EstadoPagoVenta.PAGADA
+    const estadoPago = resolverEstadoPago(estadoPagoInput)
+    const estadoVentaInput =
+      data.estado_venta ?? data.estadoVenta ?? EstadoVentaMostrador.COMPLETADA
+    const estadoVenta = resolverEstadoVenta(estadoVentaInput)
     const productosInput = data.productos ?? data.lineas ?? []
+
+    if (!estadoPago) {
+      return respuestaInvalida(
+        "ESTADO_PAGO_INVALIDO",
+        "Estado de pago inválido",
+      )
+    }
+
+    if (!estadoVenta) {
+      return respuestaInvalida(
+        "ESTADO_VENTA_INVALIDO",
+        "Estado de venta inválido",
+      )
+    }
 
     if (Number.isNaN(idUsuario) || Number.isNaN(idCliente)) {
       return NextResponse.json(
@@ -152,7 +184,7 @@ export async function POST(req: Request) {
       )
     }
 
-    if (cliente.estado !== "activo") {
+    if (cliente.estado !== EstadoRegistro.ACTIVO) {
       return NextResponse.json(
         {
           code: "CLIENTE_INACTIVO",
@@ -259,10 +291,11 @@ export async function POST(req: Request) {
         data: {
           idUsuario,
           idCliente,
+          // El estado financiero pertenece a la venta raíz y cubre todos sus subtipos.
+          estadoPago,
           ventaEnMostrador: {
             create: {
               estado: estadoVenta,
-              estadoPago,
               montoSubtotal: montos.montoSubtotal,
               descuentoProductos: 0,
               descuentoGlobal: montos.descuentoGlobal,
@@ -331,6 +364,11 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * GET /api/ventas
+ * Lista ventas directas con cliente, vendedor, líneas y estados adaptados para
+ * la tabla histórica de ventas.
+ */
 export async function GET() {
   try {
     const { response } = await requirePermission(PERMISSIONS.SALES_READ)

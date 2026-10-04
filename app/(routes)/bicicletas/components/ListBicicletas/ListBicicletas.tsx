@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Bike, Wrench, CheckCircle2, Tag } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
 import type { Bicicleta } from "../../types";
+import { ESTADO_OT, ESTADOS_OT_FINALIZADOS } from "@/lib/work-order-status";
 
 export function ListBicicletas() {
   const [bicicletas, setBicicletas] = useState<Bicicleta[]>([]);
@@ -82,12 +83,12 @@ export function ListBicicletas() {
   // Métricas
   const totalBikes = bicicletas.length;
   const inServiceBikes = bicicletas.filter((b) => {
-    const estado = b.ordenDeTrabajo?.estadoOrden?.toLowerCase();
-    return estado === "en curso" || estado === "en espera" || estado === "por realizar";
+    const estado = b.ordenDeTrabajo?.estadoOrden;
+    return estado === ESTADO_OT.EN_CURSO || estado === ESTADO_OT.EN_ESPERA || estado === ESTADO_OT.POR_REALIZAR;
   }).length;
   const readyBikes = bicicletas.filter((b) => {
-    const estado = b.ordenDeTrabajo?.estadoOrden?.toLowerCase();
-    return estado === "listo para entregar" || estado === "entregado";
+    const estado = b.ordenDeTrabajo?.estadoOrden;
+    return ESTADOS_OT_FINALIZADOS.includes(estado as never);
   }).length;
   const uniqueBrands = new Set(bicicletas.map((b) => b.marca?.toLowerCase().trim()).filter(Boolean)).size;
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -19,6 +19,11 @@ import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
+import { ESTADO_PAGO } from "@/lib/payment-status"
+import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
+import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
+import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
+import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -39,6 +44,9 @@ function toDateInputValue(dateInput: string | Date | null | undefined) {
 
 export function ListOrdenesTrabajo() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orderIdParam = searchParams.get("ordenId")
+  const searchParam = searchParams.get("search") ?? ""
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -51,15 +59,20 @@ export function ListOrdenesTrabajo() {
   const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
   const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
 
-  const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null)
-  const [openDetailsModal, setOpenDetailsModal] = useState(false)
+  const {
+    activeItem: selectedOrder,
+    isOpen: openDetailsModal,
+    openLocal: openOrderDetail,
+    close: closeOrderDetail,
+    setLocalItem: setSelectedOrder,
+  } = useSearchDetailNavigation(orderIdParam, orders, (order) => order.idOrdenDeTrabajo)
 
   const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
   const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("efectivo")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
@@ -110,9 +123,9 @@ export function ListOrdenesTrabajo() {
       const ordenes = Array.isArray(data)
         ? data
           .filter((item) => item.tipoOperacion === "orden_trabajo")
-          .map((item) => item.ordenTrabajo)
-          .filter(Boolean)
-          .map((orden: WorkOrder) => ({
+          .map((item) => adaptarOrdenPuntoVenta(item))
+          .filter((orden): orden is WorkOrder => Boolean(orden))
+          .map((orden) => ({
             ...orden,
             bicicletas: (orden.bicicletas ?? []).map((bicicleta) => ({
               ...bicicleta,
@@ -212,7 +225,7 @@ export function ListOrdenesTrabajo() {
         throw new Error(errorData.message || "Error al actualizar estado")
       }
 
-      toast.success(`Estado actualizado a "${nextStatus}" correctamente.`)
+      toast.success(`Estado actualizado a "${getNombreEstadoOt(nextStatus)}" correctamente.`)
 
       if (selectedOrder && selectedOrder.idOrdenDeTrabajo === orderId) {
         setSelectedOrder({
@@ -238,7 +251,7 @@ export function ListOrdenesTrabajo() {
 
   const handlePayClick = (order: WorkOrder) => {
     setOrderToPay(order)
-    setSelectedMetodoPago("efectivo")
+    setSelectedMetodoPago(METODO_PAGO_DEFECTO)
     setPayModalOpen(true)
   }
 
@@ -274,7 +287,7 @@ export function ListOrdenesTrabajo() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ estado: "Anulada" }),
+        body: JSON.stringify({ estado: ESTADO_OT.ANULADA }),
       })
 
       if (!res.ok) {
@@ -292,7 +305,7 @@ export function ListOrdenesTrabajo() {
       if (selectedOrder?.idOrdenDeTrabajo === orderToCancel.idOrdenDeTrabajo) {
         setSelectedOrder({
           ...selectedOrder,
-          estadoOrden: "Anulada",
+          estadoOrden: ESTADO_OT.ANULADA,
         })
       }
 
@@ -368,7 +381,7 @@ export function ListOrdenesTrabajo() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: "pagada",
+          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
           montoPago: saldoRestante,
         }),
@@ -381,7 +394,7 @@ export function ListOrdenesTrabajo() {
 
       toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
       setPayModalOpen(false)
-      setOpenDetailsModal(false)
+      closeOrderDetail()
       refreshOrders()
       router.refresh()
     } catch (err: any) {
@@ -393,8 +406,7 @@ export function ListOrdenesTrabajo() {
   }
 
   const handleViewDetails = (order: WorkOrder) => {
-    setSelectedOrder(order)
-    setOpenDetailsModal(true)
+    openOrderDetail(order)
   }
 
   const handleGenerateReceipt = async (order: WorkOrder) => {
@@ -556,6 +568,7 @@ export function ListOrdenesTrabajo() {
               }
             : undefined
         }
+        initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onStatusChange={handleStatusChange}
         updatingId={updatingId}
@@ -574,13 +587,17 @@ export function ListOrdenesTrabajo() {
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}
-        onOpenChange={setOpenDetailsModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeOrderDetail()
+          }
+          if (!open && orderIdParam) {
+            router.replace("/punto-ventas/ordenes-trabajo", { scroll: false })
+          }
+        }}
         order={selectedOrder}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
-        onRescheduleClick={handleRescheduleClick}
-        onCancelClick={handleCancelClick}
-        onStatusChange={handleStatusChange}
         onAssignSuppliesClick={handleAssignSuppliesClick}
         onAuditClick={handleAuditClick}
         onModifyServiceClick={handleModifyServiceClick}

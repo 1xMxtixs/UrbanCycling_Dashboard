@@ -1,12 +1,7 @@
-import { HeaderClientes, ListClientes } from "./components";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function ClientesPage() {
-  return (
-    <div className="min-h-full space-y-6">
-      <HeaderClientes />
-      <ListClientes />
-    </div>
-  );
+  redirect("/clientes/directorio");
 }

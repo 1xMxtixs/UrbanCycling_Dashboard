@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ClientesTabsView } from "./ClientesTabsView";
+
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 import { MetricCard } from "@/components/common/MetricCard";
 import {
   Dialog,
@@ -36,9 +39,18 @@ import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import { FormCreateCliente } from "../FormCreateCliente";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
+import { ESTADO_OT, ESTADOS_OT_FINALIZADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status";
+import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param";
 
-export function ListClientes() {
-  const [activeMainTab, setActiveMainTab] = useState<string>("directorio");
+export function ListClientes({ initialTab = "directorio" }: { initialTab?: "directorio" | "historial" }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
+  const searchParam = searchParams.get("search") ?? "";
+  const { dismissCurrentParameter, isCurrentParameterDismissed } =
+    useDismissedSearchParam(clienteIdParam);
+  const [activeMainTab, setActiveMainTab] = useState<"directorio" | "historial">(initialTab);
   const [clientesNaturales, setClientesNaturales] = useState<ClienteNatural[]>([]);
   const [clientesJuridicas, setClientesJuridicas] = useState<ClienteJuridica[]>([]);
   const [rawClientes, setRawClientes] = useState<DBCliente[]>([]);
@@ -49,6 +61,7 @@ export function ListClientes() {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [historyCliente, setHistoryCliente] = useState<DBCliente | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const fetchClientes = async () => {
     setIsLoading(true);
@@ -111,18 +124,61 @@ export function ListClientes() {
   };
 
   useEffect(() => {
-    fetchClientes();
+    const initialFetch = window.setTimeout(() => {
+      void fetchClientes();
+    }, 0);
 
     window.addEventListener("clientes:refresh", fetchClientes);
 
     return () => {
+      window.clearTimeout(initialFetch);
       window.removeEventListener("clientes:refresh", fetchClientes);
     };
   }, []);
 
+  // Auto-apertura de detalle de cliente si viene ?clienteId=...
+  useEffect(() => {
+    if (
+      !clienteIdParam ||
+      isCurrentParameterDismissed() ||
+      rawClientes.length === 0
+    ) return;
+
+    const targetId = Number(clienteIdParam);
+    if (!isNaN(targetId)) {
+      const found = rawClientes.find((c) => c.idCliente === targetId);
+      if (found) {
+        // Se difiere la apertura hasta después de sincronizar los datos recibidos
+        // desde la API, evitando una actualización de estado durante el efecto.
+        const openDetailTimer = window.setTimeout(() => {
+          setActiveMainTab("directorio");
+          setSelectedClienteId(targetId);
+          setOpenDetailsModal(true);
+        }, 0);
+
+        return () => window.clearTimeout(openDetailTimer);
+      }
+    }
+  }, [clienteIdParam, isCurrentParameterDismissed, rawClientes]);
+
+
   const handleViewDetails = (id: number) => {
     setSelectedClienteId(id);
     setOpenDetailsModal(true);
+  };
+
+  // Al cerrar un detalle abierto desde el buscador, elimina solo su parámetro.
+  // Así una actualización posterior de clientes no vuelve a abrir el modal.
+  const handleDetailsOpenChange = (open: boolean) => {
+    setOpenDetailsModal(open);
+
+    if (open || !clienteIdParam) return;
+
+    dismissCurrentParameter();
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("clienteId");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   const handleViewHistory = (id: number) => {
@@ -139,6 +195,24 @@ export function ListClientes() {
       setClienteToEdit(cli);
       setOpenEditModal(true);
     }
+  };
+
+  const handleInactivate = async (id: number) => {
+    const res = await fetch(`/api/clientes/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || "No se pudo inactivar el cliente. Intenta nuevamente."
+      );
+    }
+
+    await fetchClientes();
+
+    return data?.message || "Cliente inactivado correctamente";
   };
 
   if (isLoading) {
@@ -167,10 +241,10 @@ export function ListClientes() {
       {/* Selector de Vista Principal: Directorio vs Historial de Clientes */}
       <Tabs
         value={activeMainTab}
-        onValueChange={setActiveMainTab}
+        onValueChange={(value) => setActiveMainTab(value as "directorio" | "historial")}
         className="w-full space-y-6"
       >
-        <div className="flex items-center justify-between flex-wrap gap-4 border-b border-border/80 pb-4">
+        <div className="hidden" aria-hidden="true">
           <SegmentedTabs
             items={[
               {
@@ -220,11 +294,13 @@ export function ListClientes() {
           </div>
 
           <ClientesTabsView
+            initialSearch={searchParam}
             clientesNaturales={clientesNaturales}
             clientesJuridicas={clientesJuridicas}
             onViewDetails={handleViewDetails}
             onViewHistory={handleViewHistory}
             onEdit={handleEdit}
+            onInactivate={handleInactivate}
           />
         </TabsContent>
 
@@ -245,7 +321,7 @@ export function ListClientes() {
       />
 
       {/* Modal de Detalles del Cliente */}
-      <Dialog open={openDetailsModal} onOpenChange={setOpenDetailsModal}>
+      <Dialog open={openDetailsModal} onOpenChange={handleDetailsOpenChange}>
         <DialogContent
           showCloseButton={false}
           className="sm:max-w-4xl lg:max-w-5xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl"
@@ -285,8 +361,8 @@ export function ListClientes() {
                             {fullName}
                           </h3>
                           <StatusBadge
-                            status={selectedCliente.estado.toLowerCase() === "activo" ? "success" : "danger"}
-                            label={selectedCliente.estado}
+                            status={isRegistroActivo(selectedCliente.estado) ? "success" : "danger"}
+                            label={getNombreEstadoRegistro(selectedCliente.estado)}
                           />
                         </div>
 
@@ -450,8 +526,8 @@ export function ListClientes() {
                     {selectedCliente.ordenesDeTrabajo && selectedCliente.ordenesDeTrabajo.length > 0 ? (
                       <div className="space-y-2.5 overflow-y-auto max-h-[35vh] pr-1">
                         {selectedCliente.ordenesDeTrabajo.map((order) => {
-                          const isCompleted = ["listo para entregar", "entregado"].includes(order.estadoOrden.toLowerCase());
-                          const isWarning = ["en espera", "en curso"].includes(order.estadoOrden.toLowerCase());
+                          const isCompleted = ESTADOS_OT_FINALIZADOS.includes(order.estadoOrden as never);
+                          const isWarning = order.estadoOrden === ESTADO_OT.EN_ESPERA || order.estadoOrden === ESTADO_OT.EN_CURSO;
 
                           return (
                             <div
@@ -464,7 +540,7 @@ export function ListClientes() {
                                 </span>
                                 <StatusBadge
                                   status={isCompleted ? "success" : isWarning ? "warning" : "neutral"}
-                                  label={order.estadoOrden}
+                                  label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}
                                 />
                               </div>
 

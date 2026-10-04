@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { esDescuentoUnitarioValido } from "@/lib/discounts";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import {
@@ -8,6 +9,7 @@ import {
   WorkOrderTotalsError,
 } from "@/lib/stored-procedures";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
+import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status";
 import { NextResponse } from "next/server";
 
 class WorkOrderLineError extends Error {
@@ -77,6 +79,11 @@ function sanitizarOrdenTrabajo(orden: Record<string, unknown>) {
   };
 }
 
+/**
+ * PATCH /api/punto-venta/:idPuntoVenta/lineas/:idLinea
+ * Edita una línea de venta u OT y recalcula los totales presentados.
+ * Valida que el descuento unitario no supere el precio de la línea.
+ */
 export async function PATCH(
   req: Request,
   {
@@ -150,14 +157,19 @@ export async function PATCH(
         );
       }
 
-      if (tieneCantidad && orden.estado !== "En curso") {
+      // Ajustar existencias modifica inventario, por eso solo se permite mientras la OT está en curso.
+      if (tieneCantidad && orden.estado !== ESTADO_OT.EN_CURSO) {
         throw new WorkOrderLineError(
           "ESTADO_ORDEN_NO_PERMITE_AJUSTE",
           'La orden debe estar en estado "En curso" para ajustar sus insumos'
         );
       }
 
-      if (!tieneCantidad && ["Entregado", "Anulada"].includes(orden.estado)) {
+      // Los cambios de precio o descuento también se bloquean cuando la OT ya está cerrada.
+      if (
+        !tieneCantidad &&
+        ESTADOS_OT_CERRADOS.some((estadoCerrado) => estadoCerrado === orden.estado)
+      ) {
         throw new WorkOrderLineError(
           "ORDEN_NO_MODIFICABLE",
           "La orden de trabajo no puede ser modificada en su estado actual"
@@ -217,11 +229,7 @@ export async function PATCH(
         : Number(linea.descuentoUnitario);
 
       if (
-        !Number.isFinite(precioUnitario) ||
-        precioUnitario < 0 ||
-        !Number.isFinite(descuentoUnitario) ||
-        descuentoUnitario < 0 ||
-        descuentoUnitario > precioUnitario
+        !esDescuentoUnitarioValido(precioUnitario, descuentoUnitario)
       ) {
         throw new WorkOrderLineError(
           "VALORES_LINEA_INVALIDOS",

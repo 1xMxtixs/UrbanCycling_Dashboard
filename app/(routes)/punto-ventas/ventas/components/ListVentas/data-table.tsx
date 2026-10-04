@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
+import { ESTADO_PAGO } from "@/lib/payment-status"
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ interface DataTableProps<TData, TValue> {
   updatingId: number | null
   onPayClick?: (idVenta: number, total: number) => void
   onGenerateReceipt?: (op: SaleOperation) => void
+  initialSearch?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -54,6 +56,7 @@ export function DataTable<TData, TValue>({
   updatingId,
   onPayClick,
   onGenerateReceipt,
+  initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -63,6 +66,16 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Sincroniza el filtro al llegar desde el buscador transversal, incluso si
+  // la lista de ventas ya estaba montada antes del cambio de URL.
+  React.useEffect(() => {
+    const filterTimer = window.setTimeout(() => {
+      setGlobalFilter(initialSearch)
+    }, 0)
+
+    return () => window.clearTimeout(filterTimer)
+  }, [initialSearch])
 
   const table = useReactTable({
     data,
@@ -129,9 +142,11 @@ export function DataTable<TData, TValue>({
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados de pago</SelectItem>
-                <SelectItem value="pagada">Pagadas</SelectItem>
-                <SelectItem value="pendiente">Pendientes</SelectItem>
-                <SelectItem value="anulada">Anuladas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PAGADA}>Pagadas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendientes</SelectItem>
+                <SelectItem value={ESTADO_PAGO.PARCIAL}>Parciales</SelectItem>
+                <SelectItem value={ESTADO_PAGO.REEMBOLSADA}>Reembolsadas</SelectItem>
+                <SelectItem value={ESTADO_PAGO.ANULADA}>Anuladas</SelectItem>
               </SelectContent>
             </Select>
           </div>

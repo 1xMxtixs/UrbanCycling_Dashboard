@@ -1,12 +1,20 @@
 // Endpoints generales del inventario para listar productos y registrar nuevos items.
 import { NextResponse } from "next/server"
 
+import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import {
+  productSearchQuerySchema,
+  sortArticleSearchResults,
+} from "@/lib/inventory-search"
+import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
+import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
 
 function withImageAlias(product: {
   idProducto: number
+  nombre: string
   urlImagen: string
   categoriasProducto?: Array<{
     categoria: {
@@ -69,7 +77,7 @@ async function validateCategoryIds(categoryIds: number[]) {
   const categories = await db.categoria.findMany({
     where: {
       idCategoria: { in: categoryIds },
-      estado: "activo",
+      estado: EstadoRegistro.ACTIVO,
     },
     select: { idCategoria: true },
   })
@@ -87,6 +95,24 @@ function parseCategoryId(value: string | null) {
   return Number.isInteger(categoryId) && categoryId > 0
     ? categoryId
     : Number.NaN
+}
+
+/**
+ * Convierte los parámetros del código de proveedor al mismo formato utilizado
+ * por las operaciones de creación y actualización de productos.
+ */
+function parseSupplierCodeFilter(searchParams: URLSearchParams) {
+  const filterData: Record<string, unknown> = {}
+
+  if (searchParams.has("codigoProveedor")) {
+    filterData.codigoProveedor = searchParams.get("codigoProveedor")
+  }
+
+  if (searchParams.has("codigo_proveedor")) {
+    filterData.codigo_proveedor = searchParams.get("codigo_proveedor")
+  }
+
+  return parseProductSupplierCode(filterData)
 }
 
 function validateStockMinimum(stockMinimo: unknown) {
@@ -118,6 +144,11 @@ function validateStockMinimum(stockMinimo: unknown) {
   return null
 }
 
+/**
+ * GET /api/inventory
+ * Lista productos o consulta uno por ID. Admite filtros combinables por
+ * categoriaId y codigoProveedor para consultar asociaciones del inventario.
+ */
 export async function GET(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
@@ -131,6 +162,17 @@ export async function GET(request: Request) {
       searchParams.has("idProducto") || searchParams.has("id")
 
     if (hasProductId) {
+      if (searchParams.has("q")) {
+        return NextResponse.json(
+          {
+            code: "BUSQUEDA_AMBIGUA",
+            message:
+              "Use la búsqueda por ID o por nombre, pero no ambas a la vez.",
+          },
+          { status: 400 },
+        )
+      }
+
       const productIdValue =
         searchParams.get("idProducto") ?? searchParams.get("id")
 
@@ -174,6 +216,113 @@ export async function GET(request: Request) {
       return NextResponse.json(withImageAlias(product))
     }
 
+    const searchQuery = searchParams.get("q")
+
+    if (searchQuery !== null) {
+      const validation = productSearchQuerySchema.safeParse(searchQuery)
+
+      if (!validation.success) {
+        return NextResponse.json(
+          {
+            code: "BUSQUEDA_INVALIDA",
+            message:
+              validation.error.issues[0]?.message ??
+              "El texto de búsqueda no es válido.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const query = validation.data
+      const categoryId = parseCategoryId(
+        searchParams.get("categoriaId") ??
+          searchParams.get("idCategoria") ??
+          searchParams.get("categoria")
+      )
+
+      if (Number.isNaN(categoryId)) {
+        return NextResponse.json(
+          {
+            code: "CATEGORIA_INVALIDA",
+            message: "Debe seleccionar una categoría válida para filtrar.",
+          },
+          { status: 400 }
+        )
+      }
+
+      if (categoryId !== null) {
+        const category = await db.categoria.findUnique({
+          where: { idCategoria: categoryId },
+          select: { idCategoria: true },
+        })
+
+        if (!category) {
+          return NextResponse.json(
+            {
+              code: "CATEGORIA_NO_EXISTE",
+              message: "La categoría seleccionada no existe.",
+            },
+            { status: 404 }
+          )
+        }
+      }
+
+      const [products, services] = await Promise.all([
+        db.producto.findMany({
+          where:
+            categoryId === null
+              ? { nombre: { contains: query } }
+              : {
+                  AND: [
+                    { nombre: { contains: query } },
+                    {
+                      categoriasProducto: {
+                        some: { idCategoria: categoryId },
+                      },
+                    },
+                  ],
+                },
+          orderBy: { nombre: "asc" },
+          include: productCategoriesInclude,
+        }),
+        categoryId === null
+          ? db.servicio.findMany({
+              where: { nombre: { contains: query } },
+              orderBy: { nombre: "asc" },
+            })
+          : Promise.resolve([]),
+      ])
+
+      const items = sortArticleSearchResults(
+        [
+          ...products.map((product) => ({
+            tipo: "producto" as const,
+            ...withImageAlias(product),
+          })),
+          ...services.map((service) => ({
+            tipo: "servicio" as const,
+            ...service,
+            idServicio: Number(service.idServicio),
+            precioVenta: Number(service.precioVenta),
+          })),
+        ],
+        query
+      )
+
+      return NextResponse.json({
+        code:
+          items.length > 0
+            ? "ARTICULOS_ENCONTRADOS"
+            : "ARTICULOS_NO_ENCONTRADOS",
+        message:
+          items.length > 0
+            ? "Coincidencias encontradas."
+            : "No se encontraron productos o servicios con ese nombre.",
+        items,
+        count: items.length,
+      })
+    }
+
     const categoryId = parseCategoryId(
       searchParams.get("categoriaId") ??
         searchParams.get("idCategoria") ??
@@ -190,37 +339,82 @@ export async function GET(request: Request) {
       )
     }
 
-    if (categoryId !== null) {
-      const category = await db.categoria.findUnique({
-        where: { idCategoria: categoryId },
-        select: {
-          idCategoria: true,
-          nombre: true,
-          estado: true,
+    const supplierCodeFilter = parseSupplierCodeFilter(searchParams)
+
+    if (supplierCodeFilter.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
         },
-      })
+        { status: 400 },
+      )
+    }
 
-      if (!category) {
-        return NextResponse.json(
-          {
-            code: "CATEGORIA_NO_EXISTE",
-            message: "La categoría seleccionada no existe.",
-          },
-          { status: 404 },
-        )
-      }
+    const supplierCode =
+      supplierCodeFilter.status === "valid"
+        ? supplierCodeFilter.value
+        : null
 
+    const category =
+      categoryId !== null
+        ? await db.categoria.findUnique({
+            where: { idCategoria: categoryId },
+            select: {
+              idCategoria: true,
+              nombre: true,
+              estado: true,
+            },
+          })
+        : null
+
+    if (categoryId !== null && !category) {
+      return NextResponse.json(
+        {
+          code: "CATEGORIA_NO_EXISTE",
+          message: "La categoría seleccionada no existe.",
+        },
+        { status: 404 },
+      )
+    }
+
+    const hasCategoryFilter = categoryId !== null
+    const hasSupplierCodeFilter = supplierCode !== null
+
+    if (hasCategoryFilter || hasSupplierCodeFilter) {
       const products = await db.producto.findMany({
         where: {
-          categoriasProducto: {
-            some: { idCategoria: categoryId },
-          },
+          ...(supplierCode !== null
+            ? { codigoProveedor: supplierCode }
+            : {}),
+          ...(categoryId !== null
+            ? {
+                categoriasProducto: {
+                  some: { idCategoria: categoryId },
+                },
+              }
+            : {}),
         },
         orderBy: { idProducto: "desc" },
         include: productCategoriesInclude,
       })
 
-      if (products.length === 0) {
+      if (supplierCode !== null) {
+        return NextResponse.json({
+          code: "PRODUCTOS_PROVEEDOR_CARGADOS",
+          message:
+            products.length > 0
+              ? `Productos asociados al código ${supplierCode}.`
+              : `No existen productos asociados al código ${supplierCode}.`,
+          codigoProveedor: supplierCode,
+          ...(category ? { category } : {}),
+          products: products.map(withImageAlias),
+          count: products.length,
+        })
+      }
+
+      if (products.length === 0 && category) {
         return NextResponse.json(
           {
             code: "PRODUCTOS_NO_ENCONTRADOS_EN_CATEGORIA",
@@ -235,7 +429,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         code: "PRODUCTOS_FILTRADOS",
-        message: `Productos de la categoría ${category.nombre}.`,
+        message: `Productos de la categoría ${category!.nombre}.`,
         category,
         products: products.map(withImageAlias),
         count: products.length,
@@ -256,6 +450,11 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * POST /api/inventory
+ * Crea un producto, valida su stock mínimo, EstadoRegistro y categorías, y
+ * devuelve el registro con los aliases de imagen esperados por el frontend.
+ */
 export async function POST(request: Request) {
   try {
     const { response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)
@@ -264,7 +463,45 @@ export async function POST(request: Request) {
       return response
     }
 
-    const data = await request.json()
+    let data
+
+    try {
+      data = await request.json()
+    } catch {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener datos JSON válidos.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return NextResponse.json(
+        {
+          code: "DATOS_INVALIDOS",
+          message: "La solicitud debe contener un objeto JSON válido.",
+        },
+        { status: 400 },
+      )
+    }
+
+    const supplierCodeResult = parseProductSupplierCode(
+      data as Record<string, unknown>,
+    )
+
+    if (supplierCodeResult.status === "invalid") {
+      return NextResponse.json(
+        {
+          code: "CODIGO_PROVEEDOR_INVALIDO",
+          message:
+            "El código de proveedor debe contener entre 1 y 50 caracteres.",
+        },
+        { status: 400 },
+      )
+    }
+
     const stockMinimumValidation = validateStockMinimum(data.stockMinimo)
 
     if (stockMinimumValidation) {
@@ -306,17 +543,33 @@ export async function POST(request: Request) {
       return new NextResponse("Product already exists", { status: 409 })
     }
 
+    const estado = resolverEstadoRegistro(data.estado ?? EstadoRegistro.ACTIVO)
+
+    if (!estado) {
+      return NextResponse.json(
+        {
+          code: "ESTADO_REGISTRO_INVALIDO",
+          message: "El estado del producto debe ser ACTIVO o INACTIVO",
+        },
+        { status: 400 },
+      )
+    }
+
     const product = await db.$transaction(async (tx) => {
       const createdProduct = await tx.producto.create({
         data: {
           tipoProducto: data.tipoProducto,
+          codigoProveedor:
+            supplierCodeResult.status === "valid"
+              ? supplierCodeResult.value
+              : null,
           nombre: data.nombre,
           descripcion: data.descripcion ?? null,
           precioVenta: data.precioVenta,
           costoPromedio: data.costoPromedio ?? data.precioCosto ?? 0,
           stockActual: data.stockActual,
           stockMinimo: data.stockMinimo,
-          estado: data.estado,
+          estado,
           urlImagen: data.urlImagen ?? data.imageUrl ?? "",
         },
       })

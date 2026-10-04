@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table"
 
 import { Input } from "@/components/ui/input"
+import { ESTADO_REGISTRO } from "@/lib/registro-status"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -34,6 +35,7 @@ import {
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react"
+import { includesNormalizedText } from "@/lib/search-normalization"
 
 interface DataTableProps<TData, Tvalue> {
   columns: ColumnDef<TData, Tvalue>[]
@@ -41,6 +43,8 @@ interface DataTableProps<TData, Tvalue> {
   onViewDetails?: (id: number) => void
   onViewHistory?: (id: number) => void
   onEdit?: (id: number) => void
+  onInactivate?: (id: number) => Promise<string>
+  initialSearch?: string
 }
 
 export function DataTable<TData, Tvalue>({
@@ -49,15 +53,23 @@ export function DataTable<TData, Tvalue>({
   onViewDetails,
   onViewHistory,
   onEdit,
+  onInactivate,
+  initialSearch = "",
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
+    { id: "estado", value: ESTADO_REGISTRO.ACTIVO },
+  ])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [isMounted, setIsMounted] = React.useState(false)
 
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  React.useEffect(() => {
+    setGlobalFilter(initialSearch)
+  }, [initialSearch])
 
   const table = useReactTable({
     data,
@@ -71,6 +83,7 @@ export function DataTable<TData, Tvalue>({
       onViewDetails,
       onViewHistory,
       onEdit,
+      onInactivate,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -78,6 +91,12 @@ export function DataTable<TData, Tvalue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) =>
+      row
+        .getAllCells()
+        .some((cell) =>
+          includesNormalizedText(String(cell.getValue() ?? ""), String(filterValue ?? "")),
+        ),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
@@ -110,18 +129,18 @@ export function DataTable<TData, Tvalue>({
             </div>
 
             <Select
-              value={(table.getColumn("estado")?.getFilterValue() as string) ?? "all"}
+              value={(table.getColumn("estado")?.getFilterValue() as string) ?? ESTADO_REGISTRO.ACTIVO}
               onValueChange={(value) =>
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
               }
             >
               <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder="Estado: Todos" />
+                <SelectValue placeholder="Solo Activos" />
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="activo">Solo Activos</SelectItem>
-                <SelectItem value="inactivo">Solo Inactivos</SelectItem>
+                <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Solo Activos</SelectItem>
+                <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Solo Inactivos</SelectItem>
               </SelectContent>
             </Select>
           </div>
