@@ -78,7 +78,7 @@ export function DataTable<
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
         <Table>
           <TableHeader>
             {table
