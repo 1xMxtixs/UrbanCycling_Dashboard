@@ -107,9 +107,6 @@ async function main() {
     { nombre: "Crear ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "create", codigo: "work-orders:create", descripcion: "Permite crear ordenes de trabajo" },
     { nombre: "Actualizar ordenes trabajo", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update", codigo: "work-orders:update", descripcion: "Permite modificar ordenes de trabajo" },
     { nombre: "Actualizar estado OT", modulo: "ordenes_trabajo", recurso: "ordenes_trabajo", accion: "update-status", codigo: "work-orders:update-status", descripcion: "Permite cambiar el estado de una OT" },
-    { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
-    { nombre: "Modificar garantias", modulo: "garantias", recurso: "garantias", accion: "update", codigo: "warranties:update", descripcion: "Permite modificar solicitudes de garantia pendientes" },
-    { nombre: "Resolver garantias", modulo: "garantias", recurso: "garantias", accion: "resolve", codigo: "warranties:resolve", descripcion: "Permite aprobar o rechazar solicitudes de garantia pendientes" },
     { nombre: "Ver ventas", modulo: "ventas", recurso: "ventas", accion: "read", codigo: "sales:read", descripcion: "Permite ver ventas" },
     { nombre: "Crear ventas", modulo: "ventas", recurso: "ventas", accion: "create", codigo: "sales:create", descripcion: "Permite crear ventas" },
     { nombre: "Ver ordenes de compra", modulo: "ordenes_compra", recurso: "ordenes_compra", accion: "read", codigo: "purchase_orders:read", descripcion: "Permite consultar ordenes de compra y proveedores disponibles" },
@@ -124,6 +121,10 @@ async function main() {
     { nombre: "Asignar roles", modulo: "roles", recurso: "roles", accion: "assign", codigo: "roles:assign", descripcion: "Permite asignar roles" },
     { nombre: "Quitar roles", modulo: "roles", recurso: "roles", accion: "remove", codigo: "roles:remove", descripcion: "Permite quitar roles" },
     { nombre: "Ver reportes", modulo: "reportes", recurso: "reportes", accion: "read", codigo: "reports:read", descripcion: "Permite ver reportes" },
+    { nombre: "Ver garantias", modulo: "garantias", recurso: "garantias", accion: "read", codigo: "warranties:read", descripcion: "Permite consultar solicitudes de garantia" },
+    { nombre: "Registrar garantias", modulo: "garantias", recurso: "garantias", accion: "create", codigo: "warranties:create", descripcion: "Permite registrar solicitudes de garantia para ordenes entregadas" },
+    { nombre: "Modificar garantias", modulo: "garantias", recurso: "garantias", accion: "update", codigo: "warranties:update", descripcion: "Permite modificar solicitudes de garantia pendientes" },
+    { nombre: "Resolver garantias", modulo: "garantias", recurso: "garantias", accion: "resolve", codigo: "warranties:resolve", descripcion: "Permite aprobar o rechazar solicitudes de garantia pendientes" },
   ];
 
   const permisos: Awaited<ReturnType<typeof db.permiso.upsert>>[] = [];
