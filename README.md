@@ -52,6 +52,9 @@ Abre [http://localhost:3000](http://localhost:3000) e ingresa con `admin@urbancy
 | 📦 **Inventario** | `/inventory` | Productos, categorías, movimientos de bodega y alertas de stock bajo |
 | 🚲 **Bicicletas** | `/bicicletas` | Registro de bicicletas de clientes |
 | 👥 **Clientes** | `/clientes` | Gestión de clientes y su historial |
+| 🏭 **Proveedores** | `/proveedores` | Gestión de proveedores |
+| 🛡️ **Garantías** | `/garantias` | Solicitudes de garantía sobre órdenes de trabajo entregadas |
+| 📊 **Dashboard** | `/dashboard` | Reportes e indicadores del negocio |
 | 📄 **Historial de Boletas** | `/historial-boletas` | Consulta de documentos tributarios emitidos |
 | 👤 **Usuarios** | `/usuarios` | Cuentas, roles y matriz de permisos |
 | 🙍 **Perfil** | `/perfil` | Datos personales y cambio de contraseña |
@@ -92,7 +95,17 @@ TAX_ISSUER_RUT=""
 
 - Las migraciones incluyen **procedimientos almacenados** (descuento/ajuste de stock, folios, reporte diario). El motor debe soportarlos: MySQL o MariaDB sirven, TiDB **no**.
 - El cliente de Prisma se genera en `generated/prisma`. Tras cambiar `prisma/schema.prisma`, ejecuta `npx prisma generate`.
-- En producción las migraciones se aplican manualmente con `npx prisma migrate deploy` apuntando a la base de Aiven.
+- En producción las migraciones se aplican manualmente con `npx prisma migrate deploy` apuntando a la base de Aiven. El build de Vercel **no** las ejecuta: aplícalas **antes** de mergear a `main`.
+- `npm run seed` **borra todos los datos** y carga usuarios de demostración. Úsalo solo en local; nunca contra staging o producción.
+
+### Ambientes
+
+| Ambiente | URL | Rama | Base de datos |
+|----------|-----|------|---------------|
+| Producción | https://urbancycling.vercel.app | `main` | `urbancycling_db` (Aiven) |
+| Staging | https://staging-urbancycling.vercel.app | `develop` | `urbancycling_staging_db` (Aiven) |
+
+Detalle del flujo de trabajo con staging en [`docs/staging-workflow.md`](docs/staging-workflow.md).
 
 ---
 
@@ -147,8 +160,11 @@ Cada usuario tiene un rol con permisos (ej. `inventory:read`) que viajan en la s
 
 ## 🤝 Contribución
 
-1. Crea una rama desde `main`:
+Solo existen dos ramas permanentes: `main` (producción) y `develop` (staging). `main` está protegida: solo se cambia por Pull Request aprobado.
+
+1. Crea una rama desde `develop`:
    ```bash
+   git checkout develop && git pull
    git checkout -b feature/nombre-de-la-feature
    ```
 2. Haz commit siguiendo [Conventional Commits](https://www.conventionalcommits.org/):
@@ -156,7 +172,8 @@ Cada usuario tiene un rol con permisos (ej. `inventory:read`) que viajan en la s
    git commit -m "feat(inventario): descripción del cambio"
    ```
 3. Verifica con `npm run lint` y `npm run typecheck`.
-4. Sube tu rama y abre un Pull Request hacia `main`.
+4. Sube tu rama y abre un Pull Request hacia `develop`. Se prueba en staging.
+5. Para pasar a producción, se abre un Pull Request `develop` → `main` (requiere aprobación) y se borra la rama de la feature una vez mergeada.
 
 ---
 
