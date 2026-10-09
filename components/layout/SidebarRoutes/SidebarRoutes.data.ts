@@ -7,6 +7,7 @@ import {
   Receipt,
   ShieldCheck,
   Store,
+  Truck,
   UserCog,
   Users,
   Wrench,
@@ -58,7 +59,15 @@ export const dataManagementSidebar = [
   },
   { icon: Bike, label: "Bicicletas", href: "/bicicletas", permission: PERMISSIONS.BICYCLES_READ },
   { icon: ShieldCheck, label: "Garantías", href: "/garantias", permission: PERMISSIONS.WARRANTIES_READ },
-  { icon: Users, label: "Proveedores", href: "/proveedores", permission: PERMISSIONS.SUPPLIERS_READ },
+  {
+    icon: Users,
+    label: "Proveedores",
+    href: "/proveedores",
+    children: [
+      { icon: Users, label: "Proveedores", href: "/proveedores", permission: PERMISSIONS.SUPPLIERS_READ },
+      { icon: Truck, label: "Asociar Proveedor", href: "/proveedores/asociar", permission: PERMISSIONS.INVENTORY_UPDATE },
+    ],
+  },
   { icon: FileText, label: "Historial de Boletas", href: "/historial-boletas", permission: PERMISSIONS.REPORTS_READ },
 ] satisfies SidebarRoute[]
 
