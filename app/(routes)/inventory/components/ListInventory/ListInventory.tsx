@@ -4,7 +4,14 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { useSession } from "next-auth/react"
-import { AlertTriangle, PackageX } from "lucide-react"
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  LoaderCircle,
+  PackageX,
+  Truck,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { PERMISSIONS } from "@/lib/permissions"
@@ -19,12 +26,22 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { InventoryCategory } from "../../types"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
+import { Button } from "@/components/ui/button"
+
+type SupplierOption = {
+  idProveedor: number
+  razonSocial: string
+  nombreFantasia: string | null
+  rut: string
+}
 
 export function ListInventory() {
   const { data: session } = useSession()
@@ -37,14 +54,14 @@ export function ListInventory() {
     useDismissedSearchParam(productIdParam)
 
   const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
 
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
-    null,
+    null
   )
   const [openDetail, setOpenDetail] = useState(false)
   const [selectedMovementProduct, setSelectedMovementProduct] =
@@ -54,9 +71,25 @@ export function ListInventory() {
   const [openEdit, setOpenEdit] = useState(false)
   const [openLowStock, setOpenLowStock] = useState(false)
   const [openOutOfStock, setOpenOutOfStock] = useState(false)
-  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(null)
+  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(
+    null
+  )
   const [openToggleDialog, setOpenToggleDialog] = useState(false)
   const [isSubmittingToggle, setIsSubmittingToggle] = useState(false)
+  const [associateDialogOpen, setAssociateDialogOpen] = useState(false)
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false)
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([])
+  const [supplierLoadError, setSupplierLoadError] = useState("")
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(
+    null
+  )
+  const [productsToAssociate, setProductsToAssociate] = useState<number[]>([])
+  const [isSavingAssociation, setIsSavingAssociation] = useState(false)
+  const [associationError, setAssociationError] = useState("")
+
+  const canAssociateSupplier = Boolean(
+    canUpdate && session?.user?.permisos?.includes(PERMISSIONS.SUPPLIERS_READ)
+  )
 
   useEffect(() => {
     async function getInventory() {
@@ -67,7 +100,9 @@ export function ListInventory() {
         ])
 
         const categoriesData = await categoriesResponse.json().catch(() => null)
-        setCategories(categoriesResponse.ok ? categoriesData?.categories ?? [] : [])
+        setCategories(
+          categoriesResponse.ok ? (categoriesData?.categories ?? []) : []
+        )
 
         if (!response.ok) {
           setInventory([])
@@ -99,7 +134,8 @@ export function ListInventory() {
       !productIdParam ||
       isCurrentParameterDismissed() ||
       inventory.length === 0
-    ) return
+    )
+      return
 
     const targetId = Number(productIdParam)
     if (!isNaN(targetId)) {
@@ -127,7 +163,6 @@ export function ListInventory() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -141,17 +176,17 @@ export function ListInventory() {
     )
   }
 
-  const activeProducts = inventory.filter(
-    (product) => isRegistroActivo(product.estado),
+  const activeProducts = inventory.filter((product) =>
+    isRegistroActivo(product.estado)
   )
 
   const lowStockProducts = activeProducts.filter(
     (product) =>
-      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo
   )
 
   const outOfStockProducts = activeProducts.filter(
-    (product) => product.stockActual === 0,
+    (product) => product.stockActual === 0
   )
 
   const handleViewDetail = (product: ProductColumn) => {
@@ -175,6 +210,87 @@ export function ListInventory() {
     setOpenToggleDialog(true)
   }
 
+  const handleOpenSupplierDialog = async (productIds: number[]) => {
+    setProductsToAssociate(productIds)
+    setSelectedSupplierId(null)
+    setAssociationError("")
+    setSupplierLoadError("")
+    setAssociateDialogOpen(true)
+    setIsLoadingSuppliers(true)
+
+    try {
+      const response = await fetch("/api/proveedores", { cache: "no-store" })
+      const result = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(
+          result?.message || "No fue posible cargar los proveedores."
+        )
+      }
+      setSuppliers(Array.isArray(result?.providers) ? result.providers : [])
+    } catch (error) {
+      setSupplierLoadError(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cargar los proveedores."
+      )
+    } finally {
+      setIsLoadingSuppliers(false)
+    }
+  }
+
+  const handleSaveSupplierAssociation = async () => {
+    const supplier = suppliers.find(
+      (item) => item.idProveedor === selectedSupplierId
+    )
+    if (!supplier || productsToAssociate.length === 0) return
+
+    setIsSavingAssociation(true)
+    setAssociationError("")
+
+    try {
+      const results = await Promise.all(
+        productsToAssociate.map(async (productId) => {
+          const response = await fetch(`/api/inventory/${productId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codigoProveedor: supplier.rut }),
+          })
+          const result = await response.json().catch(() => null)
+          return {
+            productId,
+            ok: response.ok,
+            message: result?.message as string | undefined,
+          }
+        })
+      )
+
+      const failed = results.filter((result) => !result.ok)
+      if (failed.length > 0) {
+        window.dispatchEvent(new Event("inventory:refresh"))
+        throw new Error(
+          failed.length === results.length
+            ? failed[0]?.message || "No se pudieron asociar los productos."
+            : `Se asociaron ${results.length - failed.length} de ${results.length} productos. ${failed[0]?.message || "Revisa los productos restantes e inténtalo nuevamente."}`
+        )
+      }
+
+      window.dispatchEvent(new Event("inventory:refresh"))
+      toast.success(
+        `${results.length} ${results.length === 1 ? "producto asociado" : "productos asociados"} a ${supplier.razonSocial}.`
+      )
+      setAssociateDialogOpen(false)
+      setProductsToAssociate([])
+    } catch (error) {
+      setAssociationError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron asociar los productos."
+      )
+    } finally {
+      setIsSavingAssociation(false)
+    }
+  }
+
   const handleConfirmToggle = async () => {
     if (!productToToggle) return
 
@@ -193,7 +309,8 @@ export function ListInventory() {
 
       if (!res.ok) {
         throw new Error(
-          data?.message || "No se pudo actualizar el estado del producto. Intenta nuevamente."
+          data?.message ||
+            "No se pudo actualizar el estado del producto. Intenta nuevamente."
         )
       }
 
@@ -220,7 +337,7 @@ export function ListInventory() {
     handleViewDetail,
     handleRegisterMovement,
     handleToggleProductStatus,
-    canUpdate,
+    canUpdate
   )
 
   return (
@@ -288,7 +405,133 @@ export function ListInventory() {
         data={inventory}
         categories={categories}
         initialSearch={searchParam}
+        canAssociate={canAssociateSupplier}
+        onAssociateProducts={handleOpenSupplierDialog}
       />
+
+      <Dialog
+        open={associateDialogOpen}
+        onOpenChange={(open) => {
+          if (isSavingAssociation) return
+          setAssociateDialogOpen(open)
+          if (!open) {
+            setProductsToAssociate([])
+            setSelectedSupplierId(null)
+            setAssociationError("")
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-primary" />
+              Asociar proveedor
+            </DialogTitle>
+            <DialogDescription>
+              Elige el proveedor para {productsToAssociate.length}{" "}
+              {productsToAssociate.length === 1
+                ? "producto seleccionado"
+                : "productos seleccionados"}
+              . Se guardará su RUT en el código de proveedor.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingSuppliers ? (
+            <div
+              className="space-y-3 py-2"
+              aria-busy="true"
+              aria-label="Cargando proveedores"
+            >
+              {[...Array(3)].map((_, index) => (
+                <Skeleton key={index} className="h-16 rounded-lg" />
+              ))}
+            </div>
+          ) : supplierLoadError ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {supplierLoadError}
+            </div>
+          ) : suppliers.length === 0 ? (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              No hay proveedores activos disponibles.
+            </div>
+          ) : (
+            <div className="max-h-72 space-y-2 overflow-y-auto py-1">
+              {suppliers.map((supplier) => {
+                const selected = supplier.idProveedor === selectedSupplierId
+                return (
+                  <button
+                    key={supplier.idProveedor}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setSelectedSupplierId(supplier.idProveedor)
+                      setAssociationError("")
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
+                        {supplier.razonSocial}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {supplier.nombreFantasia || "Proveedor"} · RUT:{" "}
+                        {supplier.rut}
+                      </span>
+                    </span>
+                    {selected && (
+                      <CheckCircle2 className="ml-3 h-5 w-5 shrink-0 text-primary" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {associationError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {associationError}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSavingAssociation}
+              onClick={() => setAssociateDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                isLoadingSuppliers ||
+                Boolean(supplierLoadError) ||
+                !selectedSupplierId ||
+                isSavingAssociation
+              }
+              onClick={() => void handleSaveSupplierAssociation()}
+            >
+              {isSavingAssociation ? (
+                <>
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
         <DialogContent className="max-w-2xl rounded-xl">
