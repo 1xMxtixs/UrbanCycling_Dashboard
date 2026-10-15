@@ -130,7 +130,7 @@ export function OrdenesCompra() {
         )}
       </section>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto"><DialogHeader><DialogTitle>Nueva orden de compra</DialogTitle><DialogDescription>Selecciona un proveedor activo, agrega productos y define las fechas de la orden.</DialogDescription></DialogHeader><CreatePurchaseOrderForm onCreated={handleCreated} onCancel={() => setCreateOpen(false)} /></DialogContent></Dialog>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Nueva orden de compra</DialogTitle><DialogDescription>Selecciona un proveedor activo, agrega productos y define las fechas de la orden.</DialogDescription></DialogHeader><CreatePurchaseOrderForm onCreated={handleCreated} onCancel={() => setCreateOpen(false)} /></DialogContent></Dialog>
       <PurchaseOrderDetail orderSummary={selected} canUpdate={canUpdate} onOpenChange={(open) => { if (!open) setSelected(null) }} onUpdated={handleUpdated} />
     </div>
   )
