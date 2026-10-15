@@ -1,5 +1,5 @@
-import { AsociarProveedor } from "./components/AsociarProveedor"
+import { redirect } from "next/navigation"
 
 export default function AsociarProveedorPage() {
-  return <AsociarProveedor />
+  redirect("/inventory/productos")
 }

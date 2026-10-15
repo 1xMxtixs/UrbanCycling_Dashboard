@@ -7,7 +7,6 @@ import {
   Receipt,
   ShieldCheck,
   Store,
-  Truck,
   UserCog,
   Users,
   Wrench,
@@ -31,8 +30,18 @@ export const dataOperationSidebar = [
     label: "Punto de Venta",
     href: "/punto-ventas/ordenes-trabajo",
     children: [
-      { icon: Wrench, label: "Órdenes de trabajo", href: "/punto-ventas/ordenes-trabajo", permission: PERMISSIONS.WORK_ORDERS_READ },
-      { icon: Store, label: "Ventas en caja", href: "/punto-ventas/ventas", permission: PERMISSIONS.SALES_READ },
+      {
+        icon: Wrench,
+        label: "Órdenes de trabajo",
+        href: "/punto-ventas/ordenes-trabajo",
+        permission: PERMISSIONS.WORK_ORDERS_READ,
+      },
+      {
+        icon: Store,
+        label: "Ventas en caja",
+        href: "/punto-ventas/ventas",
+        permission: PERMISSIONS.SALES_READ,
+      },
     ],
   },
   {
@@ -40,9 +49,24 @@ export const dataOperationSidebar = [
     label: "Inventario",
     href: "/inventory/productos",
     children: [
-      { icon: Package, label: "Productos", href: "/inventory/productos", permission: PERMISSIONS.INVENTORY_READ },
-      { icon: Wrench, label: "Servicios", href: "/inventory/servicios", permission: PERMISSIONS.INVENTORY_READ },
-      { icon: Receipt, label: "Movimientos", href: "/inventory/movimientos", permission: PERMISSIONS.INVENTORY_READ },
+      {
+        icon: Package,
+        label: "Productos",
+        href: "/inventory/productos",
+        permission: PERMISSIONS.INVENTORY_READ,
+      },
+      {
+        icon: Wrench,
+        label: "Servicios",
+        href: "/inventory/servicios",
+        permission: PERMISSIONS.INVENTORY_READ,
+      },
+      {
+        icon: Receipt,
+        label: "Movimientos",
+        href: "/inventory/movimientos",
+        permission: PERMISSIONS.INVENTORY_READ,
+      },
     ],
   },
 ] satisfies SidebarRoute[]
@@ -53,24 +77,51 @@ export const dataManagementSidebar = [
     label: "Clientes",
     href: "/clientes/directorio",
     children: [
-      { icon: Users, label: "Directorio de clientes", href: "/clientes/directorio", permission: PERMISSIONS.CLIENTS_READ },
-      { icon: History, label: "Historial de clientes", href: "/clientes/historial", permission: PERMISSIONS.CLIENTS_READ },
+      {
+        icon: Users,
+        label: "Directorio de clientes",
+        href: "/clientes/directorio",
+        permission: PERMISSIONS.CLIENTS_READ,
+      },
+      {
+        icon: History,
+        label: "Historial de clientes",
+        href: "/clientes/historial",
+        permission: PERMISSIONS.CLIENTS_READ,
+      },
     ],
   },
-  { icon: Bike, label: "Bicicletas", href: "/bicicletas", permission: PERMISSIONS.BICYCLES_READ },
-  { icon: ShieldCheck, label: "Garantías", href: "/garantias", permission: PERMISSIONS.WARRANTIES_READ },
+  {
+    icon: Bike,
+    label: "Bicicletas",
+    href: "/bicicletas",
+    permission: PERMISSIONS.BICYCLES_READ,
+  },
+  {
+    icon: ShieldCheck,
+    label: "Garantías",
+    href: "/garantias",
+    permission: PERMISSIONS.WARRANTIES_READ,
+  },
   {
     icon: Users,
     label: "Proveedores",
     href: "/proveedores",
-    children: [
-      { icon: Users, label: "Proveedores", href: "/proveedores", permission: PERMISSIONS.SUPPLIERS_READ },
-      { icon: Truck, label: "Asociar Proveedor", href: "/proveedores/asociar", permission: PERMISSIONS.INVENTORY_UPDATE },
-    ],
+    permission: PERMISSIONS.SUPPLIERS_READ,
   },
-  { icon: FileText, label: "Historial de Boletas", href: "/historial-boletas", permission: PERMISSIONS.REPORTS_READ },
+  {
+    icon: FileText,
+    label: "Historial de Boletas",
+    href: "/historial-boletas",
+    permission: PERMISSIONS.REPORTS_READ,
+  },
 ] satisfies SidebarRoute[]
 
 export const dataAdministrationSidebar = [
-  { icon: UserCog, label: "Usuarios", href: "/usuarios", permission: PERMISSIONS.USERS_READ },
+  {
+    icon: UserCog,
+    label: "Usuarios",
+    href: "/usuarios",
+    permission: PERMISSIONS.USERS_READ,
+  },
 ] satisfies SidebarRoute[]
