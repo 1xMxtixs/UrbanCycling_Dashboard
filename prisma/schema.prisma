@@ -167,7 +167,7 @@ model Usuario {
   apellidoPaterno         String        @db.VarChar(50)  @map("apellido_paterno")
   apellidoMaterno         String?       @db.VarChar(50)  @map("apellido_materno")
   rut                     String        @db.VarChar(12)  @unique
-  correo                  String?       @db.VarChar(255) @unique
+  correo                  String       @db.VarChar(255) @unique
   contrasenaHash          String        @db.VarChar(255) @map("contrasena_hash")
   fechaRegistro           DateTime      @default(now()) @db.Timestamp(0) @map("fecha_registro")
   fechaUltimoAcceso       DateTime?     @db.Timestamp(0) @map("fecha_ultimo_acceso")
@@ -182,6 +182,7 @@ model Usuario {
   ordenesDeTrabajoAsignadas OrdenDeTrabajo[]       @relation("OrdenDeTrabajoAsignada")
   ordenesDeCompra           OrdenDeCompra[]
   ajustesInventario         AjusteInventario[]
+  documentosTributarios     DocumentoTributario[]
   pagos                     Pago[]
   auditorias                Auditoria[]
 
@@ -201,7 +202,7 @@ model Auditoria {
 
   usuario Usuario @relation(fields: [idUsuario], references: [idUsuario])
 
-  @@map("auditoria")
+  @@map("auditorias")
 }
 
 //    --------------------------------------------------------------------
@@ -226,6 +227,7 @@ model Cliente {
   ventas      Venta[]
   telefonos   TelefonoCliente[]
   direcciones DireccionCliente[]
+  documentosTributarios DocumentoTributario[]
 
   @@map("clientes")
 }
@@ -251,7 +253,7 @@ model DireccionCliente{
   calle               String  @db.VarChar(150)
   numero              String  @db.VarChar(20)
   unidad              String? @db.VarChar(20)
-  descripcion         String  @db.VarChar(50)
+  descripcion         String?  @db.VarChar(50)
 
   cliente Cliente @relation(fields: [idCliente], references: [idCliente])
 
@@ -289,7 +291,7 @@ model TelefonoProveedor{
 
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
 
-  @@map("telefonos_proveedor")
+  @@map("telefonos_proveedores")
 }
 
 model CorreoProveedor{
@@ -312,7 +314,7 @@ model DireccionProveedor{
   calle                 String  @db.VarChar(150)
   numero                String  @db.VarChar(20)
   unidad                String? @db.VarChar(20)
-  descripcion           String  @db.VarChar(50)
+  descripcion           String?  @db.VarChar(50)
 
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
 
@@ -597,8 +599,19 @@ model ReclamoGarantia {
 
   ventaReclamada Venta  @relation("VentaReclamada", fields: [idVentaReclamada], references: [idVenta])
   ventaGenerada  Venta? @relation("VentaGenerada",  fields: [idVentaGenerada],  references: [idVenta])
+  imagenesGarantia  ImagenGarantia[]
 
   @@map("reclamos_garantia")
+}
+
+model ImagenGarantia {
+  idImagenGarantia  Int @id @default(autoincrement()) @db.UnsignedInt @map("id_imagen_garantia")
+  idReclamoGarantia Int     @db.UnsignedInt @map("id_reclamo_garantia")
+  urlImagen         String  @db.VarChar(512) @map("url_imagen")
+
+  reclamoGarantia ReclamoGarantia @relation(fields: [idReclamoGarantia], references: [idReclamoGarantia])
+
+  @@map("imagenes_garantia")
 }
 
 //    --------------------------------------------------------------------
@@ -714,6 +727,8 @@ model DocumentoTributario {
   estado                EstadoDocumentoTributario @default(BORRADOR) @map("estado")
   urlPdf                String?                   @db.VarChar(512)   @map("url_pdf")
 
+  usuario      Usuario          @relation(fields: [idUsuario], references: [idUsuario])
+  cliente      Cliente?          @relation(fields: [idCliente], references: [idCliente])
   origenes     OrigenDocumentoTributario[]  
   referencias  ReferenciaDte[]              @relation("DteOrigen")
   referenciado ReferenciaDte[]              @relation("DteReferenciado")
