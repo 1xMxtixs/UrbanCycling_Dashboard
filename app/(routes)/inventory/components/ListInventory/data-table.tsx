@@ -32,7 +32,15 @@ import {
 } from "@/components/ui/table"
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
-import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  Search,
+  Truck,
+  X,
+} from "lucide-react"
 
 import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
@@ -44,6 +52,8 @@ interface DataTableProps {
   data: ProductColumn[]
   categories: InventoryCategory[]
   initialSearch?: string
+  canAssociate?: boolean
+  onAssociateProducts?: (productIds: number[]) => void
 }
 
 type ProductSearch =
@@ -66,11 +76,7 @@ function parseProductSearch(value: string): ProductSearch {
   const idValue = trimmedValue.slice(1).trim()
   const id = Number(idValue)
 
-  if (
-    !/^\d+$/.test(idValue) ||
-    !Number.isSafeInteger(id) ||
-    id <= 0
-  ) {
+  if (!/^\d+$/.test(idValue) || !Number.isSafeInteger(id) || id <= 0) {
     return {
       type: "invalid-id",
       message: "Ingresa un ID numérico positivo después de #.",
@@ -85,6 +91,8 @@ export function DataTable({
   data,
   categories,
   initialSearch = "",
+  canAssociate = false,
+  onAssociateProducts,
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -92,6 +100,55 @@ export function DataTable({
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
   const [productSearch, setProductSearch] = React.useState(initialSearch)
+  const [isSelectingProducts, setIsSelectingProducts] = React.useState(false)
+  const [selectedProductIds, setSelectedProductIds] = React.useState<number[]>(
+    []
+  )
+
+  const cancelProductSelection = () => {
+    setIsSelectingProducts(false)
+    setSelectedProductIds([])
+  }
+
+  const acceptProductSelection = () => {
+    if (selectedProductIds.length === 0) return
+    const productIds = [...selectedProductIds]
+    cancelProductSelection()
+    onAssociateProducts?.(productIds)
+  }
+
+  const selectionColumn = React.useMemo<ColumnDef<ProductColumn> | null>(() => {
+    if (!isSelectingProducts) return null
+
+    return {
+      id: "associateSelection",
+      header: "Seleccionar",
+      cell: ({ row }) => {
+        const product = row.original
+        const checked = selectedProductIds.includes(product.idProducto)
+        return (
+          <input
+            type="checkbox"
+            aria-label={`Seleccionar ${product.nombre}`}
+            checked={checked}
+            onChange={(event) => {
+              setSelectedProductIds((current) =>
+                event.target.checked
+                  ? [...current, product.idProducto]
+                  : current.filter((id) => id !== product.idProducto)
+              )
+            }}
+            className="h-4 w-4 cursor-pointer accent-primary"
+          />
+        )
+      },
+    }
+  }, [isSelectingProducts, selectedProductIds])
+
+  const visibleColumns = React.useMemo(
+    () => (selectionColumn ? [selectionColumn, ...columns] : columns),
+    [columns, selectionColumn]
+  )
 
   React.useEffect(() => {
     if (initialSearch) {
@@ -101,9 +158,8 @@ export function DataTable({
 
   const productSearchState = React.useMemo(
     () => parseProductSearch(productSearch),
-    [productSearch],
+    [productSearch]
   )
-
 
   const categoryFilteredData = React.useMemo(() => {
     const productsByCategory =
@@ -125,18 +181,18 @@ export function DataTable({
 
     if (productSearchState.type === "id") {
       return productsByCategory.filter(
-        (product) => product.idProducto === productSearchState.id,
+        (product) => product.idProducto === productSearchState.id
       )
     }
 
     return productsByCategory.filter((product) =>
-      product.nombre.toLowerCase().includes(productSearchState.query),
+      product.nombre.toLowerCase().includes(productSearchState.query)
     )
   }, [data, productSearchState, selectedCategoryId])
 
   const table = useReactTable({
     data: categoryFilteredData,
-    columns,
+    columns: visibleColumns,
     initialState: {
       pagination: {
         pageSize: 10,
@@ -162,10 +218,23 @@ export function DataTable({
       <DataTableContainer
         title="Catálogo de Productos"
         description={`${table.getFilteredRowModel().rows.length} ${table.getFilteredRowModel().rows.length === 1 ? "producto encontrado" : "productos encontrados"}`}
+        actions={
+          canAssociate &&
+          (isSelectingProducts ? (
+            <span className="text-xs text-muted-foreground">
+              {selectedProductIds.length} seleccionados
+            </span>
+          ) : (
+            <Button size="sm" onClick={() => setIsSelectingProducts(true)}>
+              <Truck className="mr-2 h-4 w-4" />
+              Asociar proveedor
+            </Button>
+          ))
+        }
         toolbar={
           <div className="space-y-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-describedby={
                   productSearchState.type === "invalid-id"
@@ -181,11 +250,17 @@ export function DataTable({
             </div>
 
             <div className="space-y-1">
-              <p id="product-search-help" className="text-xs text-muted-foreground">
+              <p
+                id="product-search-help"
+                className="text-xs text-muted-foreground"
+              >
                 Usa # seguido del ID para una búsqueda exacta.
               </p>
               {productSearchState.type === "invalid-id" && (
-                <p id="product-search-error" className="text-xs text-destructive">
+                <p
+                  id="product-search-error"
+                  className="text-xs text-destructive"
+                >
                   {productSearchState.message}
                 </p>
               )}
@@ -194,10 +269,13 @@ export function DataTable({
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
               <Select
                 value={
-                  (table.getColumn("estado")?.getFilterValue() as string) ?? "all"
+                  (table.getColumn("estado")?.getFilterValue() as string) ??
+                  "all"
                 }
                 onValueChange={(value) =>
-                  table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
+                  table
+                    .getColumn("estado")
+                    ?.setFilterValue(value === "all" ? "" : value)
                 }
               >
                 <SelectTrigger className="h-9 w-full sm:w-40">
@@ -205,33 +283,63 @@ export function DataTable({
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Solo Activos</SelectItem>
-                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Solo Inactivos</SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>
+                    Solo Activos
+                  </SelectItem>
+                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>
+                    Solo Inactivos
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+              <Select
+                value={selectedCategoryId}
+                onValueChange={setSelectedCategoryId}
+              >
                 <SelectTrigger className="h-9 w-full sm:w-48">
                   <SelectValue placeholder="Categoría: Todas" />
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectItem value="all">Todas las categorías</SelectItem>
                   {categories.map((category) => (
-                    <SelectItem key={category.idCategoria} value={String(category.idCategoria)}>
+                    <SelectItem
+                      key={category.idCategoria}
+                      value={String(category.idCategoria)}
+                    >
                       {category.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
           </div>
         }
         footer={
-          filteredRowCount > 0 ? (
+          filteredRowCount > 0 || isSelectingProducts ? (
             <>
+              {isSelectingProducts && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelProductSelection}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={selectedProductIds.length === 0}
+                    onClick={acceptProductSelection}
+                  >
+                    <Check className="mr-1 h-4 w-4" />
+                    Aceptar
+                  </Button>
+                </div>
+              )}
               <div>
-                Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1}
+                Página {table.getState().pagination.pageIndex + 1} de{" "}
+                {table.getPageCount() || 1}
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -293,7 +401,14 @@ export function DataTable({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  data-state={
+                    selectedProductIds.includes(row.original.idProducto)
+                      ? "selected"
+                      : undefined
+                  }
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(

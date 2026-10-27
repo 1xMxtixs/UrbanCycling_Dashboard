@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { LogOut, User, ShieldCheck, ChevronsUpDown } from "lucide-react"
+import { LogOut, User, ShieldCheck, ChevronsUpDown, Sun, Moon, Monitor } from "lucide-react"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 
 import {
@@ -28,12 +29,19 @@ function getInitials(name?: string | null, email?: string | null) {
   return "UC"
 }
 
+const THEMES = [
+  { value: "light", label: "Claro", Icon: Sun },
+  { value: "dark", label: "Oscuro", Icon: Moon },
+  { value: "system", label: "Sistema", Icon: Monitor },
+]
+
 type UserButtonProps = {
   collapsed?: boolean
 }
 
 export function UserButton({ collapsed = false }: UserButtonProps) {
   const { data: session, status } = useSession()
+  const { theme, setTheme } = useTheme()
 
   if (status === "loading") {
     return (
@@ -112,6 +120,33 @@ export function UserButton({ collapsed = false }: UserButtonProps) {
             <span>Mi perfil</span>
           </Link>
         </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="my-1" />
+
+        <div className="px-3 py-2">
+          <span className="text-xs font-medium text-muted-foreground">Tema</span>
+          <div className="mt-1.5 grid grid-cols-3 gap-1 rounded-xl bg-muted/50 p-1">
+            {THEMES.map(({ value, label, Icon }) => (
+              <DropdownMenuItem
+                key={value}
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setTheme(value)
+                }}
+                aria-label={label}
+                className={cn(
+                  "flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium",
+                  theme === value && "bg-background text-foreground shadow-xs"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </div>
+        </div>
+
+        <DropdownMenuSeparator className="my-1" />
 
         <DropdownMenuItem
           className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium cursor-pointer rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive transition-colors"
