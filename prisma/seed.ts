@@ -1,10 +1,14 @@
-import { EstadoReclamoGarantia } from "../generated/prisma";
 import { db } from "../lib/db";
 import {
   EstadoRegistro,
   EstadoPagoVenta,
   EstadoVentaMostrador,
+  EstadoOrdenCompra,
+  EstadoPagoOrdenCompra,
+  EstadoRecepcionOrdenCompra,
   EstadoPago,
+  EstadoDocumentoTributario,
+  EstadoReclamoGarantia,
 } from "../generated/prisma";
 
 async function main() {
@@ -14,13 +18,15 @@ async function main() {
   // Limpieza en orden (FKs)
   // ──────────────────────────────────────────────
   console.log("🧹 Limpiando datos existentes...");
+  await db.contadorFolio.deleteMany();
   await db.referenciaDte.deleteMany();
   await db.origenDocumentoTributario.deleteMany();
   await db.documentoTributario.deleteMany();
   await db.asignacionPago.deleteMany();
   await db.pago.deleteMany();
   await db.metodoPago.deleteMany(); // Limpieza del catálogo referenciado por pagos.
-  await db.reclamoGarantia.deleteMany(); // Debe eliminarse antes de las ventas reclamadas.
+  await db.imagenGarantia.deleteMany(); // Debe eliminarse antes de los reclamos de garantía.
+  await db.reclamoGarantia.deleteMany(); // Debe eliminarse antes de las ventas reclamadas/generadas.
   await db.movimientoInventario.deleteMany();
   await db.lineaDeAjuste.deleteMany();
   await db.ajusteInventario.deleteMany();
@@ -129,17 +135,19 @@ async function main() {
 
   const permisos: Awaited<ReturnType<typeof db.permiso.upsert>>[] = [];
   for (const p of permisosData) {
-    permisos.push(await db.permiso.upsert({
-      where: { codigo: p.codigo },
-      create: p,
-      update: {
-        nombre: p.nombre,
-        modulo: p.modulo,
-        recurso: p.recurso,
-        accion: p.accion,
-        descripcion: p.descripcion,
-      },
-    }));
+    permisos.push(
+      await db.permiso.upsert({
+        where: { codigo: p.codigo },
+        create: p,
+        update: {
+          nombre: p.nombre,
+          modulo: p.modulo,
+          recurso: p.recurso,
+          accion: p.accion,
+          descripcion: p.descripcion,
+        },
+      })
+    );
   }
   console.log(`  ${permisos.length} permisos sincronizados.`);
 
@@ -275,6 +283,19 @@ async function main() {
         telefono: "+56 9 6666 6666",
       },
     }),
+    db.usuario.create({
+      data: {
+        idRol: roles[4].idRol,
+        primerNombre: "Diego",
+        apellidoPaterno: "Herrera",
+        apellidoMaterno: "Pizarro",
+        rut: "77777777-7",
+        correo: "diego.herrera@urbancycling.cl",
+        contrasenaHash: hash,
+        estado: EstadoRegistro.ACTIVO,
+        telefono: "+56 9 7777 7777",
+      },
+    }),
   ]);
   console.log(`  ${usuarios.length} usuarios creados.`);
 
@@ -334,7 +355,7 @@ async function main() {
       db.producto.create({
         data: {
           tipoProducto: p.tipoProducto,
-          codigoProveedor: `PROV-ART-${String(index + 1).padStart(4, "0")}`, // <-- Código de ejemplo
+          codigoProveedor: `PROV-ART-${String(index + 1).padStart(4, "0")}`,
           nombre: p.nombre,
           descripcion: p.descripcion,
           estado: EstadoRegistro.ACTIVO,
@@ -396,14 +417,14 @@ async function main() {
   // ──────────────────────────────────────────────
   console.log("👤 Creando clientes...");
   const clientesData = [
-    { tipoCliente: "natural", rut: "12345678-9", primerNombre: "Juan", apellidoPaterno: "Perez", apellidoMaterno: "Gonzalez", correo: "juan.perez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 1234 5678", region: "Metropolitana", ciudad: "Santiago", comuna: "Providencia", calle: "Av. Providencia", numero: "1234" },
-    { tipoCliente: "natural", rut: "23456789-0", primerNombre: "María", apellidoPaterno: "López", apellidoMaterno: "Rojas", correo: "maria.lopez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 2345 6789", region: "Metropolitana", ciudad: "Santiago", comuna: "Las Condes", calle: "Av. Las Condes", numero: "567" },
+    { tipoCliente: "natural", rut: "12345678-9", primerNombre: "Juan", segundoNombre: "Andrés", apellidoPaterno: "Perez", apellidoMaterno: "Gonzalez", correo: "juan.perez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 1234 5678", region: "Metropolitana", ciudad: "Santiago", comuna: "Providencia", calle: "Av. Providencia", numero: "1234", unidad: "Depto 402" },
+    { tipoCliente: "natural", rut: "23456789-0", primerNombre: "María", segundoNombre: "Isabel", apellidoPaterno: "López", apellidoMaterno: "Rojas", correo: "maria.lopez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 2345 6789", region: "Metropolitana", ciudad: "Santiago", comuna: "Las Condes", calle: "Av. Las Condes", numero: "567" },
     { tipoCliente: "natural", rut: "34567890-1", primerNombre: "Pedro", apellidoPaterno: "Ramírez", apellidoMaterno: "Soto", correo: "pedro.ramirez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 3456 7890", region: "Valparaíso", ciudad: "Viña del Mar", comuna: "Viña del Mar", calle: "Av. San Martín", numero: "890" },
     { tipoCliente: "natural", rut: "45678901-2", primerNombre: "Ana", apellidoPaterno: "Torres", apellidoMaterno: "Vega", correo: "ana.torres@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 4567 8901", region: "Metropolitana", ciudad: "Santiago", comuna: "Ñuñoa", calle: "Calle Seminario", numero: "345" },
-    { tipoCliente: "juridico", rut: "76543210-8", razonSocial: "Ciclismo Total SpA", giro: "Venta de bicicletas y accesorios", nombreContacto: "Roberto Muñoz", correo: "contacto@ciclismototal.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2123 4567", region: "Metropolitana", ciudad: "Santiago", comuna: "Santiago Centro", calle: "Calle Moneda", numero: "456" },
+    { tipoCliente: "juridico", rut: "76543210-8", razonSocial: "Ciclismo Total SpA", giro: "Venta de bicicletas y accesorios", nombreContacto: "Roberto Muñoz", correo: "contacto@ciclismototal.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2123 4567", region: "Metropolitana", ciudad: "Santiago", comuna: "Santiago Centro", calle: "Calle Moneda", numero: "456", unidad: "Local 3" },
     { tipoCliente: "natural", rut: "56789012-3", primerNombre: "Luis", apellidoPaterno: "Fernández", apellidoMaterno: "Rivas", correo: "luis.fernandez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 5678 9012", region: "Metropolitana", ciudad: "Santiago", comuna: "Estación Central", calle: "Av. Libertador", numero: "2100" },
     { tipoCliente: "natural", rut: "67890123-4", primerNombre: "Carolina", apellidoPaterno: "Martínez", apellidoMaterno: "Díaz", correo: "carolina.martinez@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 6789 0123", region: "O'Higgins", ciudad: "Rancagua", comuna: "Rancagua", calle: "Calle Estado", numero: "789" },
-    { tipoCliente: "juridico", rut: "87654321-9", razonSocial: "Bike Parts Chile Ltda", giro: "Importación y distribución de repuestos", nombreContacto: "Patricio Vera", correo: "ventas@bikeparts.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2987 6543", region: "Metropolitana", ciudad: "Santiago", comuna: "Maipú", calle: "Av. Los Pajaritos", numero: "1500" },
+    { tipoCliente: "juridico", rut: "87654321-9", razonSocial: "Bike Parts Chile Ltda", giro: "Importación y distribución de repuestos", nombreContacto: "Patricio Vera", correo: "ventas@bikeparts.cl", estado: EstadoRegistro.ACTIVO, telefono: "+56 2 2987 6543", region: "Metropolitana", ciudad: "Santiago", comuna: "Maipú", calle: "Av. Los Pajaritos", numero: "1500", unidad: "Bodega B" },
     { tipoCliente: "natural", rut: "78901234-5", primerNombre: "Francisco", apellidoPaterno: "Aravena", apellidoMaterno: "Mora", correo: "francisco.aravena@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 7890 1234", region: "Biobío", ciudad: "Concepción", comuna: "Concepción", calle: "Calle Barros Arana", numero: "234" },
     { tipoCliente: "natural", rut: "89012345-6", primerNombre: "Daniela", apellidoPaterno: "Reyes", apellidoMaterno: "Castro", correo: "daniela.reyes@email.com", estado: EstadoRegistro.ACTIVO, telefono: "+56 9 8901 2345", region: "Metropolitana", ciudad: "Santiago", comuna: "La Florida", calle: "Av. Vicuña Mackenna", numero: "4567" },
   ];
@@ -414,9 +435,10 @@ async function main() {
         data: {
           tipoCliente: c.tipoCliente,
           rut: c.rut,
-          primerNombre: "tipoCliente" in c && (c as any).tipoCliente === "juridico" ? null : c.primerNombre || null,
-          apellidoPaterno: "tipoCliente" in c && (c as any).tipoCliente === "juridico" ? null : c.apellidoPaterno || null,
-          apellidoMaterno: c.apellidoMaterno || null,
+          primerNombre: c.tipoCliente === "juridico" ? null : c.primerNombre || null,
+          segundoNombre: c.tipoCliente === "juridico" ? null : (c as any).segundoNombre || null,
+          apellidoPaterno: c.tipoCliente === "juridico" ? null : c.apellidoPaterno || null,
+          apellidoMaterno: c.tipoCliente === "juridico" ? null : c.apellidoMaterno || null,
           razonSocial: (c as any).razonSocial || null,
           giro: (c as any).giro || null,
           nombreContacto: (c as any).nombreContacto || null,
@@ -433,6 +455,7 @@ async function main() {
                 comuna: c.comuna,
                 calle: c.calle,
                 numero: c.numero,
+                unidad: (c as any).unidad || null,
                 descripcion: "Principal",
               },
             ],
@@ -447,28 +470,199 @@ async function main() {
   // 9. PROVEEDORES
   // ──────────────────────────────────────────────
   console.log("🏭 Creando proveedores...");
-  await db.proveedor.create({
+  const proveedores = await Promise.all([
+    db.proveedor.create({
+      data: {
+        razonSocial: "Distribuidora de Bicicletas Ltda",
+        nombreFantasia: "DistriBike Chile",
+        rut: "98765432-1",
+        giro: "Venta al por mayor de bicicletas y repuestos",
+        condicionesDePago: "30 días",
+        nombreContacto: "Rodrigo Valdés",
+        estado: EstadoRegistro.ACTIVO,
+        telefonos: { create: [{ telefono: "+56 2 2123 4567", descripcion: "Principal" }] },
+        correos: { create: [{ correo: "ventas@distribuidora.cl", descripcion: "Ventas" }] },
+        direcciones: {
+          create: [
+            {
+              region: "Metropolitana",
+              ciudad: "Santiago",
+              comuna: "Quilicura",
+              calle: "Av. Américo Vespucio",
+              numero: "1850",
+              unidad: "Galpón 4",
+              descripcion: "Casa Matriz y Bodega",
+            },
+          ],
+        },
+      },
+    }),
+    db.proveedor.create({
+      data: {
+        razonSocial: "Importadora Taiwan Bike Parts",
+        nombreFantasia: "TBP Imports",
+        rut: "11223344-5",
+        giro: "Importación de componentes para bicicletas",
+        condicionesDePago: "60 días",
+        nombreContacto: "Marcela Fuentes",
+        estado: EstadoRegistro.ACTIVO,
+        telefonos: { create: [{ telefono: "+56 2 2987 6543", descripcion: "Oficina" }] },
+        correos: { create: [{ correo: "import@taiwanbike.com", descripcion: "Contacto" }] },
+        direcciones: {
+          create: [
+            {
+              region: "Metropolitana",
+              ciudad: "Santiago",
+              comuna: "Pudahuel",
+              calle: "Ruta 68",
+              numero: "9400",
+              unidad: "Módulo B-12",
+              descripcion: "Centro de Distribución",
+            },
+          ],
+        },
+      },
+    }),
+  ]);
+  console.log(`  ${proveedores.length} proveedores creados.`);
+
+  // ──────────────────────────────────────────────
+  // 9.1 ÓRDENES DE COMPRA Y AJUSTES DE INVENTARIO
+  // ──────────────────────────────────────────────
+  console.log("📦 Creando órdenes de compra y ajustes de inventario...");
+  const fechaOcRecibida = new Date();
+  fechaOcRecibida.setDate(fechaOcRecibida.getDate() - 35);
+  const fechaOcEstimada1 = new Date(fechaOcRecibida);
+  fechaOcEstimada1.setDate(fechaOcEstimada1.getDate() + 5);
+  const fechaOcReal1 = new Date(fechaOcRecibida);
+  fechaOcReal1.setDate(fechaOcReal1.getDate() + 4);
+
+  const ocSubtotal1 = 10 * 6000 + 5 * 15000; // 135000
+  const ocNeto1 = Math.round(ocSubtotal1 / 1.19);
+  const ocIva1 = ocSubtotal1 - ocNeto1;
+
+  const ordenCompraRecibida = await db.ordenDeCompra.create({
     data: {
-      razonSocial: "Distribuidora de Bicicletas Ltda",
-      rut: "98765432-1",
-      giro: "Venta al por mayor de bicicletas y repuestos",
-      condicionesDePago: "30 días",
-      estado: EstadoRegistro.ACTIVO,
-      telefonos: { create: [{ telefono: "+56 2 2123 4567", descripcion: "Principal" }] },
-      correos: { create: [{ correo: "ventas@distribuidora.cl", descripcion: "Ventas" }] },
+      idUsuario: usuarios[5].idUsuario, // Bodeguero
+      idProveedor: proveedores[0].idProveedor,
+      fechaRegistro: fechaOcRecibida,
+      estado: EstadoOrdenCompra.COMPLETADA,
+      estadoPago: EstadoPagoOrdenCompra.PAGADA,
+      estadoRecepcion: EstadoRecepcionOrdenCompra.RECIBIDA,
+      fechaEntregaEstimada: fechaOcEstimada1,
+      fechaEntregaReal: fechaOcReal1,
+      montoSubtotal: ocSubtotal1,
+      descuentoProductos: 0,
+      descuentoGlobal: 0,
+      montoTotal: ocSubtotal1,
+      montoNeto: ocNeto1,
+      montoIva: ocIva1,
     },
   });
-  await db.proveedor.create({
+
+  const lineasOc1 = await Promise.all([
+    db.lineaDeOrdenDeCompra.create({
+      data: {
+        idOrdenDeCompra: ordenCompraRecibida.idOrdenDeCompra,
+        idProducto: productos[7].idProducto, // Pastillas de Freno Resina
+        cantidadOrdenada: 10,
+        cantidadRecibida: 10,
+        precioCostoUnitario: 6000,
+      },
+    }),
+    db.lineaDeOrdenDeCompra.create({
+      data: {
+        idOrdenDeCompra: ordenCompraRecibida.idOrdenDeCompra,
+        idProducto: productos[8].idProducto, // Cadena 11 Velocidades
+        cantidadOrdenada: 5,
+        cantidadRecibida: 5,
+        precioCostoUnitario: 15000,
+      },
+    }),
+  ]);
+
+  for (const lineaOc of lineasOc1) {
+    await db.movimientoInventario.create({
+      data: {
+        idLineaDeOrdenDeCompra: lineaOc.idLineaDeOrdenDeCompra,
+        fechaRegistro: fechaOcReal1,
+        tipoMovimiento: "Entrada",
+        cantidad: lineaOc.cantidadRecibida,
+        costoUnitario: lineaOc.precioCostoUnitario,
+      },
+    });
+  }
+
+  const fechaOcEnviada = new Date();
+  fechaOcEnviada.setDate(fechaOcEnviada.getDate() - 4);
+  const fechaOcEstimada2 = new Date(fechaOcEnviada);
+  fechaOcEstimada2.setDate(fechaOcEstimada2.getDate() + 10);
+  const ocSubtotal2 = 4 * 50000; // 200000
+  const ocNeto2 = Math.round(ocSubtotal2 / 1.19);
+  const ocIva2 = ocSubtotal2 - ocNeto2;
+
+  await db.ordenDeCompra.create({
     data: {
-      razonSocial: "Importadora Taiwan Bike Parts",
-      rut: "11223344-5",
-      giro: "Importación de componentes para bicicletas",
-      condicionesDePago: "60 días",
-      estado: EstadoRegistro.ACTIVO,
-      telefonos: { create: [{ telefono: "+56 2 2987 6543", descripcion: "Oficina" }] },
-      correos: { create: [{ correo: "import@taiwanbike.com", descripcion: "Contacto" }] },
+      idUsuario: usuarios[5].idUsuario,
+      idProveedor: proveedores[1].idProveedor,
+      fechaRegistro: fechaOcEnviada,
+      estado: EstadoOrdenCompra.ENVIADA,
+      estadoPago: EstadoPagoOrdenCompra.PENDIENTE,
+      estadoRecepcion: EstadoRecepcionOrdenCompra.PENDIENTE,
+      fechaEntregaEstimada: fechaOcEstimada2,
+      montoSubtotal: ocSubtotal2,
+      descuentoProductos: 0,
+      descuentoGlobal: 0,
+      montoTotal: ocSubtotal2,
+      montoNeto: ocNeto2,
+      montoIva: ocIva2,
+      lineas: {
+        create: [
+          {
+            idProducto: productos[6].idProducto, // Freno Disco Hidráulico
+            cantidadOrdenada: 4,
+            cantidadRecibida: 0,
+            precioCostoUnitario: 50000,
+          },
+        ],
+      },
     },
   });
+
+  // Ajuste de inventario de prueba
+  const fechaAjuste = new Date();
+  fechaAjuste.setDate(fechaAjuste.getDate() - 12);
+  const ajuste = await db.ajusteInventario.create({
+    data: {
+      idUsuario: usuarios[5].idUsuario,
+      fechaRegistro: fechaAjuste,
+      motivo: "Conteo cíclico de bodega",
+      direccion: "Entrada",
+      observacion: "Se encontró 1 unidad adicional en estantería de lubricantes",
+    },
+  });
+
+  const lineaAjuste = await db.lineaDeAjuste.create({
+    data: {
+      idAjuste: ajuste.idAjusteInventario,
+      idProducto: productos[21].idProducto, // Aceite Lubricante 100ml
+      cantidad: 1,
+      cantidadAnterior: 29,
+      cantidadNueva: 30,
+      costoUnitario: 4000,
+    },
+  });
+
+  await db.movimientoInventario.create({
+    data: {
+      idLineaDeAjuste: lineaAjuste.idLineaDeAjuste,
+      fechaRegistro: fechaAjuste,
+      tipoMovimiento: "Entrada",
+      cantidad: 1,
+      costoUnitario: 4000,
+    },
+  });
+  console.log("  2 órdenes de compra y 1 ajuste de inventario creados.");
 
   // ──────────────────────────────────────────────
   // 10. VENTAS EN MOSTRADOR
@@ -522,13 +716,16 @@ async function main() {
           },
         },
       },
+      include: {
+        ventaEnMostrador: true,
+      },
     });
 
     for (const item of v.items) {
       const linea = await db.lineaDeVenta.create({
         data: {
           idProducto: item.idProducto,
-          idVentaEnMostrador: (await db.ventaEnMostrador.findUnique({ where: { idVenta: venta.idVenta } }))!.idVentaEnMostrador,
+          idVentaEnMostrador: venta.ventaEnMostrador!.idVentaEnMostrador,
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario,
           descuentoUnitario: 0,
@@ -572,11 +769,21 @@ async function main() {
       estadoPago: EstadoPagoVenta.PAGADA,
       fechaEntregaEstimadaDias: 5,
       fechaEntregaRealDias: 5,
+      diasServicio: 5,
       items: [
         { idServicio: servicios[5].idServicio, cantidad: 1, precioUnitario: 45000 },
         { idProducto: productos[10].idProducto, cantidad: 1, precioUnitario: 55000 },
       ],
-      bicicletas: [{ tipo: "MTB", marca: "Trek", modelo: "Marlin 7", color: "Rojo", descripcionAdicional: "Bicicleta MTB 29" }],
+      bicicletas: [
+        {
+          tipo: "MTB",
+          marca: "Trek",
+          modelo: "Marlin 7",
+          color: "Rojo",
+          descripcionAdicional: "Bicicleta MTB 29",
+          imagenes: ["https://images.urbancycling.cl/bicicletas/trek-marlin-7-ingreso.jpg"],
+        },
+      ],
     },
     {
       idUsuario: usuarios[0].idUsuario,
@@ -587,11 +794,21 @@ async function main() {
       estadoPago: EstadoPagoVenta.PARCIAL,
       fechaEntregaEstimadaDias: 3,
       fechaEntregaRealDias: null,
+      diasServicio: 3,
       items: [
         { idServicio: servicios[7].idServicio, cantidad: 1, precioUnitario: 25000 },
         { idProducto: productos[7].idProducto, cantidad: 2, precioUnitario: 12000 },
       ],
-      bicicletas: [{ tipo: "MTB", marca: "Specialized", modelo: "Rockhopper", color: "Negro", descripcionAdicional: "Bicicleta 29 ready" }],
+      bicicletas: [
+        {
+          tipo: "MTB",
+          marca: "Specialized",
+          modelo: "Rockhopper",
+          color: "Negro",
+          descripcionAdicional: "Bicicleta 29 ready",
+          imagenes: ["https://images.urbancycling.cl/bicicletas/specialized-rockhopper.jpg"],
+        },
+      ],
     },
     {
       idUsuario: usuarios[0].idUsuario,
@@ -602,6 +819,7 @@ async function main() {
       estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 7,
       fechaEntregaRealDias: null,
+      diasServicio: null,
       items: [
         { idServicio: servicios[0].idServicio, cantidad: 1, precioUnitario: 15000 },
         { idServicio: servicios[1].idServicio, cantidad: 1, precioUnitario: 12000 },
@@ -618,6 +836,7 @@ async function main() {
       estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 10,
       fechaEntregaRealDias: null,
+      diasServicio: null,
       items: [
         { idServicio: servicios[5].idServicio, cantidad: 1, precioUnitario: 45000 },
       ],
@@ -632,6 +851,7 @@ async function main() {
       estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 2,
       fechaEntregaRealDias: null,
+      diasServicio: null,
       items: [
         { idServicio: servicios[8].idServicio, cantidad: 1, precioUnitario: 35000 },
       ],
@@ -646,6 +866,7 @@ async function main() {
       estadoPago: EstadoPagoVenta.PENDIENTE,
       fechaEntregaEstimadaDias: 7,
       fechaEntregaRealDias: null,
+      diasServicio: null,
       items: [
         { idServicio: servicios[9].idServicio, cantidad: 1, precioUnitario: 15000 },
         { idServicio: servicios[5].idServicio, cantidad: 1, precioUnitario: 45000 },
@@ -685,6 +906,7 @@ async function main() {
             estado: o.estadoCodigo,
             fechaEntregaEstimada,
             fechaEntregaReal: fechaEntregaReal || undefined,
+            diasServicio: o.diasServicio ?? undefined,
             observacionesIngreso: Math.random() > 0.5 ? "Cliente solicita revisión completa" : null,
             montoSubtotal: subtotal,
             descuentoProductosServicios: descProductos,
@@ -695,15 +917,18 @@ async function main() {
           },
         },
       },
+      include: {
+        ordenDeTrabajo: true,
+      },
     });
 
-    const ot = await db.ordenDeTrabajo.findUnique({ where: { idVenta: venta.idVenta } });
+    const ot = venta.ordenDeTrabajo!;
 
     for (const item of o.items) {
       const itemAny = item as any;
       const linea = await db.lineaDeOrdenDeTrabajo.create({
         data: {
-          idOrdenDeTrabajo: ot!.idOrdenDeTrabajo,
+          idOrdenDeTrabajo: ot.idOrdenDeTrabajo,
           idServicio: itemAny.idServicio || null,
           idProducto: itemAny.idProducto || null,
           cantidad: itemAny.cantidad,
@@ -732,14 +957,20 @@ async function main() {
     }
 
     for (const bici of o.bicicletas) {
+      const biciAny = bici as any;
       await db.bicicleta.create({
         data: {
-          idOrdenDeTrabajo: ot!.idOrdenDeTrabajo,
+          idOrdenDeTrabajo: ot.idOrdenDeTrabajo,
           tipo: bici.tipo,
           marca: bici.marca,
           modelo: bici.modelo,
           color: bici.color,
           descripcionAdicional: bici.descripcionAdicional,
+          imagenes: biciAny.imagenes?.length
+            ? {
+                create: biciAny.imagenes.map((urlImagen: string) => ({ urlImagen })),
+              }
+            : undefined,
         },
       });
     }
@@ -747,7 +978,7 @@ async function main() {
   console.log(`  ${ordenesData.length} órdenes de trabajo creadas.`);
 
   // ──────────────────────────────────────────────
-  // 12. SOLICITUD DE GARANTIA
+  // 12. SOLICITUD DE GARANTIA (con ImagenGarantia)
   // ──────────────────────────────────────────────
   console.log("🛡️ Creando solicitud de garantía de prueba...");
   const ordenEntregada = await db.ordenDeTrabajo.findFirst({
@@ -764,38 +995,56 @@ async function main() {
       idVentaReclamada: ordenEntregada.idVenta,
       estado: EstadoReclamoGarantia.INGRESADO,
       motivo: "La bicicleta continúa presentando ruido después de la reparación",
+      imagenesGarantia: {
+        create: [
+          {
+            urlImagen: "https://images.urbancycling.cl/garantias/evidencia-ruido-transmision-1.jpg",
+          },
+        ],
+      },
     },
   });
-  console.log("  1 solicitud de garantía creada.");
+  console.log("  1 solicitud de garantía creada (con evidencia fotográfica).");
 
   // ──────────────────────────────────────────────
-  // 13. PAGOS (para las ventas pagadas)
+  // 13. PAGOS (ventas en mostrador, OT y compras)
   // ──────────────────────────────────────────────
   console.log("💰 Creando pagos...");
   const ventasPagadas = await db.venta.findMany({
     where: {
-      estadoPago: EstadoPagoVenta.PAGADA,
-      ventaEnMostrador: { isNot: null },
+      estadoPago: { in: [EstadoPagoVenta.PAGADA, EstadoPagoVenta.PARCIAL] },
     },
-    include: { ventaEnMostrador: true },
+    include: {
+      ventaEnMostrador: true,
+      ordenDeTrabajo: true,
+    },
   });
 
   const metodosDisponibles = ["EFECTIVO", "DEBITO", "CREDITO", "TRANSFERENCIA"];
 
   for (const venta of ventasPagadas) {
-    if (venta.ventaEnMostrador) {
+    const montoTotalVenta = venta.ventaEnMostrador
+      ? Number(venta.ventaEnMostrador.montoTotal)
+      : venta.ordenDeTrabajo
+      ? Number(venta.ordenDeTrabajo.montoTotal)
+      : 0;
+
+    if (montoTotalVenta > 0) {
+      const esParcial = venta.estadoPago === EstadoPagoVenta.PARCIAL;
+      const montoAbonado = esParcial ? Math.round(montoTotalVenta * 0.5) : montoTotalVenta;
+
       await db.pago.create({
         data: {
           idUsuario: usuarios[3].idUsuario,
           fechaRegistro: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
           estado: EstadoPago.COMPLETADO,
           metodoPago: metodosDisponibles[Math.floor(Math.random() * metodosDisponibles.length)],
-          monto: venta.ventaEnMostrador.montoTotal,
+          monto: montoAbonado,
           asignaciones: {
             create: {
               idVenta: venta.idVenta,
-              montoAsociado: venta.ventaEnMostrador.montoTotal,
-              tipoAbono: "Contado",
+              montoAsociado: montoAbonado,
+              tipoAbono: esParcial ? "Abono inicial" : "Contado",
             },
           },
         },
@@ -803,12 +1052,83 @@ async function main() {
     }
   }
 
+  // Pago asociado a la orden de compra completada
+  await db.pago.create({
+    data: {
+      idUsuario: usuarios[5].idUsuario,
+      fechaRegistro: fechaOcReal1,
+      estado: EstadoPago.COMPLETADO,
+      metodoPago: "TRANSFERENCIA",
+      monto: ordenCompraRecibida.montoTotal,
+      asignaciones: {
+        create: {
+          idOrdenDeCompra: ordenCompraRecibida.idOrdenDeCompra,
+          montoAsociado: ordenCompraRecibida.montoTotal,
+          tipoAbono: "Pago factura proveedor",
+        },
+      },
+    },
+  });
+
+  // ──────────────────────────────────────────────
+  // 14. DOCUMENTOS TRIBUTARIOS Y CONTADOR DE FOLIOS
+  // ──────────────────────────────────────────────
+  console.log("📄 Creando documentos tributarios y contadores de folios...");
+  const rutEmpresa = "77123456-K";
+  let folioBoleta = 0;
+
+  for (const venta of ventasPagadas) {
+    if (venta.estadoPago === EstadoPagoVenta.PAGADA && venta.ventaEnMostrador) {
+      folioBoleta += 1;
+      const clienteVenta = clientes.find((c) => c.idCliente === venta.idCliente);
+
+      await db.documentoTributario.create({
+        data: {
+          idUsuario: venta.idUsuario,
+          idCliente: venta.idCliente,
+          tipoMovimiento: "Venta",
+          tipoDte: 39, // Boleta electrónica
+          numeroFolio: folioBoleta,
+          rutEmisor: rutEmpresa,
+          rutReceptor: clienteVenta?.rut ?? null,
+          fechaRegistro: venta.fechaRegistro,
+          fechaEmision: venta.fechaRegistro,
+          montoSubtotal: venta.ventaEnMostrador.montoSubtotal,
+          descuentoAcumulado:
+            Number(venta.ventaEnMostrador.descuentoProductos) +
+            Number(venta.ventaEnMostrador.descuentoGlobal),
+          montoTotal: venta.ventaEnMostrador.montoTotal,
+          montoNeto: venta.ventaEnMostrador.montoNeto,
+          montoIva: venta.ventaEnMostrador.montoIva,
+          estado: EstadoDocumentoTributario.EMITIDO,
+          urlPdf: `https://dte.urbancycling.cl/boletas/39-${folioBoleta}.pdf`,
+          origenes: {
+            create: {
+              idVenta: venta.idVenta,
+              fechaRegistro: venta.fechaRegistro,
+            },
+          },
+        },
+      });
+    }
+  }
+
+  await db.contadorFolio.create({
+    data: {
+      rutEmisor: rutEmpresa,
+      tipoDte: 39,
+      ultimoFolio: folioBoleta,
+    },
+  });
+  console.log(`  ${folioBoleta} documentos tributarios creados y contador de folios actualizado.`);
+
   console.log("\n✅ Seed completado exitosamente!");
   console.log("   Credenciales de acceso:");
-  console.log("   Admin:     admin@urbancycling.cl / admin123");
-  console.log("   Mecánico:  carlos.munoz@urbancycling.cl / admin123");
-  console.log("   Vendedor:  maria.gonzalez@urbancycling.cl / admin123");
-  console.log("   Bodeguero: luis.fernandez@urbancycling.cl / admin123");
+  console.log("   Admin:          admin@urbancycling.cl / admin123");
+  console.log("   Mecánico:       carlos.munoz@urbancycling.cl / admin123");
+  console.log("   Vendedor:       maria.gonzalez@urbancycling.cl / admin123");
+  console.log("   Bodeguero:      luis.fernandez@urbancycling.cl / admin123");
+  console.log("   Asesor Técnico: diego.herrera@urbancycling.cl / admin123");
 }
 
 main()
