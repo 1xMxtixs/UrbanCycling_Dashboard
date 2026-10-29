@@ -223,6 +223,8 @@ export async function PATCH(request: Request, context: RouteContext) {
               select: { idMovimientoInventario: true },
             })
 
+            // Registra al usuario que confirmó la recepción, quien puede ser distinto
+            // del creador de la orden o del usuario que registró el pago.
             await tx.auditoria.create({
               data: {
                 idUsuario: session.user.idUsuario,

@@ -967,6 +967,8 @@ export async function POST(req: Request) {
           idLineaDeVenta: linea.idLineaDeVenta,
         })) ?? []
 
+      // La SP descuenta las existencias y crea una SALIDA por cada línea.
+      // No se debe actualizar Producto.stockActual nuevamente para evitar duplicar el descuento.
       await descontarStockProductos(tx, itemsStockVenta)
 
       if (ordenTrabajo) {

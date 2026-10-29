@@ -290,6 +290,8 @@ export async function GET() {
       return response
     }
 
+    // MovimientoInventario no tiene una relación directa con Producto.
+    // El producto y el origen se resuelven mediante la línea asociada a cada operación.
     const movements = await db.movimientoInventario.findMany({
       orderBy: [
         {
@@ -349,6 +351,8 @@ export async function GET() {
     const idsMovimientos = movements.map(
       (movement) => movement.idMovimientoInventario,
     )
+    // Las recepciones usan auditoría porque el usuario receptor puede ser distinto
+    // del usuario que creó la orden de compra.
     const auditoriasRecepcion =
       idsMovimientos.length > 0
         ? await db.auditoria.findMany({
@@ -386,6 +390,8 @@ export async function GET() {
       }
     }
 
+    // Los movimientos se recorren del más reciente al más antiguo.
+    // El stock actual funciona como punto de partida para inferir cada estado anterior.
     const stockPorProducto = new Map<number, number>()
 
     return NextResponse.json({
@@ -411,6 +417,8 @@ export async function GET() {
         const auditoriaRecepcion = auditoriaPorMovimiento.get(
           movement.idMovimientoInventario,
         )
+        // Los ajustes conservan su observación manual; las operaciones automáticas
+        // muestran una referencia breve al documento que originó el movimiento.
         const observacion =
           movement.lineaDeAjuste?.ajusteInventario.observacion ??
           (movement.lineaDeOrdenDeCompra
@@ -446,6 +454,8 @@ export async function GET() {
           motivo:
             movement.lineaDeAjuste?.ajusteInventario.motivo ?? origen,
           observacion,
+          // Prioriza al actor específico del movimiento y utiliza el usuario de la
+          // operación de origen cuando no existe una auditoría directa.
           usuario:
             auditoriaRecepcion?.usuario.primerNombre ??
             movement.lineaDeAjuste?.ajusteInventario.usuario.primerNombre ??
