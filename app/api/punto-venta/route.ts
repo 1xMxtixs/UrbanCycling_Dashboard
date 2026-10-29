@@ -633,7 +633,6 @@ export async function POST(req: Request) {
       }
     }
 
-    const productosVentaAgrupados = agruparProductos(productosVenta)
     const productosAgrupados = agruparProductos([
       ...productosVenta,
       ...productosOrden,
@@ -961,18 +960,16 @@ export async function POST(req: Request) {
       const lineasOrden = [...lineasOrdenProductos, ...lineasOrdenServicios]
       const lineasOrdenCreadas = []
 
-      for (const item of productosVentaAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!
+      const itemsStockVenta =
+        venta?.ventaEnMostrador?.lineasDeVenta.map((linea) => ({
+          idProducto: linea.idProducto,
+          cantidad: linea.cantidad,
+          idLineaDeVenta: linea.idLineaDeVenta,
+        })) ?? []
 
-        await tx.producto.update({
-          where: {
-            idProducto: item.idProducto,
-          },
-          data: {
-            stockActual: producto.stockActual - item.cantidad,
-          },
-        })
-      }
+      // La SP descuenta las existencias y crea una SALIDA por cada línea.
+      // No se debe actualizar Producto.stockActual nuevamente para evitar duplicar el descuento.
+      await descontarStockProductos(tx, itemsStockVenta)
 
       if (ordenTrabajo) {
         for (const linea of lineasOrden) {

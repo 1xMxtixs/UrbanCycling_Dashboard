@@ -48,12 +48,12 @@ function parsePurchaseOrderId(value: string) {
  */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { response } = await requirePermission(
+    const { session, response } = await requirePermission(
       PERMISSIONS.PURCHASE_ORDERS_UPDATE,
     )
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response || new NextResponse("No autorizado", { status: 401 })
     }
 
     const { id } = await context.params
@@ -221,6 +221,26 @@ export async function PATCH(request: Request, context: RouteContext) {
                 costoUnitario: line.precioCostoUnitario,
               },
               select: { idMovimientoInventario: true },
+            })
+
+            // Registra al usuario que confirmó la recepción, quien puede ser distinto
+            // del creador de la orden o del usuario que registró el pago.
+            await tx.auditoria.create({
+              data: {
+                idUsuario: session.user.idUsuario,
+                tipoOperacion: "RECEPCION_INVENTARIO",
+                nombreTablaAfectada: "movimientos_inventario",
+                registroAfectado: movement.idMovimientoInventario,
+                valorNuevo: {
+                  idOrdenDeCompra,
+                  idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
+                  idProducto: line.idProducto,
+                  cantidad: quantityToAdd,
+                  tipoMovimiento: "ENTRADA",
+                },
+                detalleCambio:
+                  "Producto recibido desde una orden de compra e ingresado al inventario.",
+              },
             })
 
             movements.push({
