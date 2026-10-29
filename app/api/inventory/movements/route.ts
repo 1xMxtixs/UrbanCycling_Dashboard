@@ -291,15 +291,48 @@ export async function GET() {
     }
 
     const movements = await db.movimientoInventario.findMany({
-      where: {
-        idLineaDeAjuste: {
-          not: null,
+      orderBy: [
+        {
+          fechaRegistro: "desc",
         },
-      },
-      orderBy: {
-        fechaRegistro: "desc",
-      },
+        {
+          idMovimientoInventario: "desc",
+        },
+      ],
       include: {
+        lineaDeOrdenDeCompra: {
+          include: {
+            producto: true,
+          },
+        },
+        lineaDeVenta: {
+          include: {
+            producto: true,
+            ventaEnMostrador: {
+              include: {
+                venta: {
+                  include: {
+                    usuario: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        lineaDeOrdenDeTrabajo: {
+          include: {
+            producto: true,
+            ordenDeTrabajo: {
+              include: {
+                venta: {
+                  include: {
+                    usuario: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         lineaDeAjuste: {
           include: {
             producto: true,
@@ -313,20 +346,116 @@ export async function GET() {
       },
     })
 
+    const idsMovimientos = movements.map(
+      (movement) => movement.idMovimientoInventario,
+    )
+    const auditoriasRecepcion =
+      idsMovimientos.length > 0
+        ? await db.auditoria.findMany({
+            where: {
+              nombreTablaAfectada: "movimientos_inventario",
+              tipoOperacion: "RECEPCION_INVENTARIO",
+              registroAfectado: {
+                in: idsMovimientos,
+              },
+            },
+            include: {
+              usuario: true,
+            },
+            orderBy: [
+              {
+                fechaRegistro: "desc",
+              },
+              {
+                idAuditoria: "desc",
+              },
+            ],
+          })
+        : []
+    const auditoriaPorMovimiento = new Map<
+      number,
+      (typeof auditoriasRecepcion)[number]
+    >()
+
+    for (const auditoria of auditoriasRecepcion) {
+      if (!auditoriaPorMovimiento.has(auditoria.registroAfectado)) {
+        auditoriaPorMovimiento.set(
+          auditoria.registroAfectado,
+          auditoria,
+        )
+      }
+    }
+
+    const stockPorProducto = new Map<number, number>()
+
     return NextResponse.json({
-      movements: movements.map((movement) => ({
-        idMovimientoInventario: movement.idMovimientoInventario,
-        idProducto: movement.lineaDeAjuste?.idProducto,
-        producto: movement.lineaDeAjuste?.producto.nombre,
-        tipoMovimiento: movement.tipoMovimiento,
-        cantidad: movement.cantidad,
-        fechaOperacion: movement.fechaRegistro,
-        stockAnterior: movement.lineaDeAjuste?.cantidadAnterior,
-        stockNuevo: movement.lineaDeAjuste?.cantidadNueva,
-        motivo: movement.lineaDeAjuste?.ajusteInventario.motivo,
-        observacion: movement.lineaDeAjuste?.ajusteInventario.observacion,
-        usuario: movement.lineaDeAjuste?.ajusteInventario.usuario.primerNombre,
-      })),
+      movements: movements.map((movement) => {
+        const producto =
+          movement.lineaDeOrdenDeCompra?.producto ??
+          movement.lineaDeVenta?.producto ??
+          movement.lineaDeOrdenDeTrabajo?.producto ??
+          movement.lineaDeAjuste?.producto ??
+          null
+
+        const origen = movement.idLineaDeOrdenDeCompra
+          ? "ORDEN_COMPRA"
+          : movement.idLineaDeVenta
+            ? "VENTA"
+            : movement.idLineaDeOrdenDeTrabajo
+              ? "ORDEN_TRABAJO"
+              : movement.idLineaDeAjuste
+                ? "AJUSTE"
+                : null
+
+        const tipoMovimiento = movement.tipoMovimiento.toUpperCase()
+        const auditoriaRecepcion = auditoriaPorMovimiento.get(
+          movement.idMovimientoInventario,
+        )
+        const observacion =
+          movement.lineaDeAjuste?.ajusteInventario.observacion ??
+          (movement.lineaDeOrdenDeCompra
+            ? `Recepción de orden de compra #${movement.lineaDeOrdenDeCompra.idOrdenDeCompra}`
+            : movement.lineaDeVenta
+              ? `Salida asociada a venta #${movement.lineaDeVenta.idVentaEnMostrador}`
+              : movement.lineaDeOrdenDeTrabajo
+                ? `Consumo asociado a OT #${movement.lineaDeOrdenDeTrabajo.idOrdenDeTrabajo}`
+                : null)
+        let stockAnterior: number | null = null
+        let stockNuevo: number | null = null
+
+        if (producto) {
+          stockNuevo =
+            stockPorProducto.get(producto.idProducto) ?? producto.stockActual
+          stockAnterior =
+            tipoMovimiento === "ENTRADA"
+              ? stockNuevo - movement.cantidad
+              : stockNuevo + movement.cantidad
+
+          stockPorProducto.set(producto.idProducto, stockAnterior)
+        }
+
+        return {
+          idMovimientoInventario: movement.idMovimientoInventario,
+          idProducto: producto?.idProducto,
+          producto: producto?.nombre ?? null,
+          tipoMovimiento,
+          cantidad: movement.cantidad,
+          fechaOperacion: movement.fechaRegistro,
+          stockAnterior,
+          stockNuevo,
+          motivo:
+            movement.lineaDeAjuste?.ajusteInventario.motivo ?? origen,
+          observacion,
+          usuario:
+            auditoriaRecepcion?.usuario.primerNombre ??
+            movement.lineaDeAjuste?.ajusteInventario.usuario.primerNombre ??
+            movement.lineaDeVenta?.ventaEnMostrador.venta.usuario
+              .primerNombre ??
+            movement.lineaDeOrdenDeTrabajo?.ordenDeTrabajo.venta.usuario
+              .primerNombre ??
+            null,
+        }
+      }),
       count: movements.length,
     })
   } catch (error) {
