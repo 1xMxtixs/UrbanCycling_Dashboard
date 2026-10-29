@@ -633,7 +633,6 @@ export async function POST(req: Request) {
       }
     }
 
-    const productosVentaAgrupados = agruparProductos(productosVenta)
     const productosAgrupados = agruparProductos([
       ...productosVenta,
       ...productosOrden,
@@ -961,18 +960,14 @@ export async function POST(req: Request) {
       const lineasOrden = [...lineasOrdenProductos, ...lineasOrdenServicios]
       const lineasOrdenCreadas = []
 
-      for (const item of productosVentaAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!
+      const itemsStockVenta =
+        venta?.ventaEnMostrador?.lineasDeVenta.map((linea) => ({
+          idProducto: linea.idProducto,
+          cantidad: linea.cantidad,
+          idLineaDeVenta: linea.idLineaDeVenta,
+        })) ?? []
 
-        await tx.producto.update({
-          where: {
-            idProducto: item.idProducto,
-          },
-          data: {
-            stockActual: producto.stockActual - item.cantidad,
-          },
-        })
-      }
+      await descontarStockProductos(tx, itemsStockVenta)
 
       if (ordenTrabajo) {
         for (const linea of lineasOrden) {
