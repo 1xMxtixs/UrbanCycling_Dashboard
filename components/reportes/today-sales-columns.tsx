@@ -1,7 +1,6 @@
 "use client"
 
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table"
-
 import { Badge } from "@/components/ui/badge"
 
 export interface TodaySale {
@@ -18,6 +17,7 @@ function formatCLP(value: number) {
 
 const columnHelper = createColumnHelper<TodaySale>()
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const todaySalesColumns: ColumnDef<TodaySale, any>[] = [
   columnHelper.accessor("id", {
     header: "ID Venta",

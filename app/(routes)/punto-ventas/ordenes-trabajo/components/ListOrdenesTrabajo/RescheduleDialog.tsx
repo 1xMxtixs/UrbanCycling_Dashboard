@@ -4,13 +4,7 @@ import { CalendarClock, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { WorkOrder } from "../../types"
 
 function toDateInputValue(dateInput: string | Date | null | undefined) {
@@ -43,91 +37,89 @@ export function RescheduleDialog({
   if (!order) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg font-black text-amber-700 dark:text-amber-400">
-            <CalendarClock className="h-5 w-5" />
-            Reprogramar Entrega
-          </DialogTitle>
-          <DialogDescription>
-            Actualiza la fecha estimada comprometida para la orden seleccionada.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-3">
-          <div className="rounded-lg bg-muted/40 border border-border p-3 text-xs space-y-2">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Orden</span>
-              <span className="font-bold">#{order.idOrdenDeTrabajo}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Fecha de ingreso</span>
-              <span className="font-bold">
-                {new Date(order.fechaRecepcion || order.fechaCreacion || "").toLocaleDateString("es-ES", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                })}
-              </span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Fecha estimada actual</span>
-              <span className="font-bold">
-                {new Date(order.fechaEntregaEstimada).toLocaleDateString("es-ES", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                })}
-              </span>
-            </div>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        <span className="flex items-center gap-2">
+          <CalendarClock className="h-5 w-5 text-primary" />
+          Reprogramar Entrega
+        </span>
+      }
+      description="Actualiza la fecha estimada comprometida para la orden seleccionada."
+      size="md"
+    >
+      <div className="space-y-4 py-2">
+        <div className="rounded-lg bg-muted/40 border border-border p-3 text-xs space-y-2">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Orden</span>
+            <span className="font-bold">#{order.idOrdenDeTrabajo}</span>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="nuevaFechaEntrega" className="text-xs font-bold text-foreground">
-              Nueva Fecha Estimada de Entrega
-            </Label>
-            <Input
-              id="nuevaFechaEntrega"
-              type="date"
-              value={newDeliveryDate}
-              min={toDateInputValue(order.fechaRecepcion || order.fechaCreacion)}
-              onChange={(event) => onNewDeliveryDateChange(event.target.value)}
-              disabled={isRescheduling}
-              className="h-10"
-            />
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Fecha de ingreso</span>
+            <span className="font-bold">
+              {new Date(order.fechaRecepcion || order.fechaCreacion || "").toLocaleDateString("es-ES", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                timeZone: "UTC",
+              })}
+            </span>
           </div>
-
-          <div className="flex justify-end gap-2.5 pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={isRescheduling}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onConfirmReschedule}
-              disabled={isRescheduling}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
-            >
-              {isRescheduling ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Guardando...
-                </span>
-              ) : (
-                "Guardar Reprogramación"
-              )}
-            </Button>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Fecha estimada actual</span>
+            <span className="font-bold">
+              {new Date(order.fechaEntregaEstimada).toLocaleDateString("es-ES", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                timeZone: "UTC",
+              })}
+            </span>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="space-y-2">
+          <Label htmlFor="nuevaFechaEntrega" className="text-xs font-semibold text-foreground">
+            Nueva Fecha Estimada de Entrega
+          </Label>
+          <Input
+            id="nuevaFechaEntrega"
+            type="date"
+            value={newDeliveryDate}
+            min={toDateInputValue(order.fechaRecepcion || order.fechaCreacion)}
+            onChange={(event) => onNewDeliveryDateChange(event.target.value)}
+            disabled={isRescheduling}
+            className="h-10"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2.5 pt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={isRescheduling}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onConfirmReschedule}
+            disabled={isRescheduling}
+          >
+            {isRescheduling ? (
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Guardando...
+              </span>
+            ) : (
+              "Guardar Reprogramación"
+            )}
+          </Button>
+        </div>
+      </div>
+    </FormDialog>
   )
 }

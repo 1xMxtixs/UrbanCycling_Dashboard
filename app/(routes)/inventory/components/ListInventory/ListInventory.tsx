@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
-import { useSession } from "next-auth/react"
+import { useUserPermissions } from "@/components/providers"
 import {
   AlertCircle,
   AlertTriangle,
@@ -44,7 +44,7 @@ type SupplierOption = {
 }
 
 export function ListInventory() {
-  const { data: session } = useSession()
+  const { hasPermission } = useUserPermissions()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -53,9 +53,7 @@ export function ListInventory() {
   const { dismissCurrentParameter, isCurrentParameterDismissed } =
     useDismissedSearchParam(productIdParam)
 
-  const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
-  )
+  const canUpdate = hasPermission(PERMISSIONS.INVENTORY_UPDATE)
 
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [categories, setCategories] = useState<InventoryCategory[]>([])
@@ -88,7 +86,7 @@ export function ListInventory() {
   const [associationError, setAssociationError] = useState("")
 
   const canAssociateSupplier = Boolean(
-    canUpdate && session?.user?.permisos?.includes(PERMISSIONS.SUPPLIERS_READ)
+    canUpdate && hasPermission(PERMISSIONS.SUPPLIERS_READ)
   )
 
   useEffect(() => {

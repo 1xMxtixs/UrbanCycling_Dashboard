@@ -71,76 +71,80 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
           </div>
         ) : (
           <div className="flex flex-1 min-h-[220px] items-center justify-center">
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square h-full max-h-[220px]"
-          >
-            <PieChart>
-              <defs>
-                {chartData.map((d) => (
-                  <linearGradient
-                    key={d.gradientId}
-                    id={d.gradientId}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="5%" stopColor={d.colorVar} stopOpacity={0.95} />
-                    <stop offset="95%" stopColor={d.colorVar} stopOpacity={0.55} />
-                  </linearGradient>
-                ))}
-              </defs>
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    hideLabel
-                    formatter={(value, _name, item) => (
-                      <div className="flex w-full items-center gap-2">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: item.payload.colorVar }}
-                        />
-                        <span className="text-muted-foreground">{item.payload.label}</span>
-                        <span className="ml-auto font-medium tabular-nums text-foreground">
-                          {formatCLP(Number(value))} · {item.payload.pct}%
-                        </span>
-                      </div>
-                    )}
-                  />
-                }
-              />
-              <Pie
-                data={chartData}
-                dataKey="monto"
-                nameKey="label"
-                innerRadius={60}
-                strokeWidth={2}
-                stroke="var(--background)"
-              >
-                {chartData.map((d) => (
-                  <Cell key={d.metodo} fill={`url(#${d.gradientId})`} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto aspect-square h-full max-h-[220px]"
+            >
+              <PieChart>
+                <defs>
+                  {chartData.map((d) => (
+                    <linearGradient
+                      key={d.gradientId}
+                      id={d.gradientId}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor={d.colorVar} stopOpacity={0.95} />
+                      <stop offset="95%" stopColor={d.colorVar} stopOpacity={0.55} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      formatter={(value, _name, item) => (
+                        <div className="flex w-full items-center gap-2">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: item.payload.colorVar }}
+                          />
+                          <span className="text-muted-foreground">{item.payload.label}</span>
+                          <span className="ml-auto font-medium tabular-nums text-foreground">
+                            {formatCLP(Number(value))} · {item.payload.pct}%
+                          </span>
+                        </div>
+                      )}
+                    />
+                  }
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="monto"
+                  nameKey="label"
+                  innerRadius={60}
+                  strokeWidth={2}
+                  stroke="var(--background)"
+                >
+                  {chartData.map((d) => (
+                    <Cell key={d.metodo} fill={`url(#${d.gradientId})`} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm">
+        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-xs sm:text-sm">
           {chartData.map((d) => (
-            <div key={d.metodo} className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: d.colorVar }}
-              />
-              <span className="text-muted-foreground">{d.label}</span>
-              <span className="text-xs text-muted-foreground">({d.pagos} pagos)</span>
-              <span className="ml-auto font-medium tabular-nums">
-                {formatCLP(d.monto)}
-              </span>
-              <span className="w-10 text-right text-muted-foreground">{d.pct}%</span>
+            <div key={d.metodo} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: d.colorVar }}
+                />
+                <span className="truncate text-muted-foreground">{d.label}</span>
+                <span className="hidden text-xs text-muted-foreground sm:inline">({d.pagos} pagos)</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatCLP(d.monto)}
+                </span>
+                <span className="w-9 text-right text-muted-foreground tabular-nums">{d.pct}%</span>
+              </div>
             </div>
           ))}
         </div>

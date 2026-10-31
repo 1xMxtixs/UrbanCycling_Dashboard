@@ -5,13 +5,20 @@ import {
   MoreHorizontal,
   PackageCheck,
   Pencil,
-  Search,
+  Store,
   Trash2,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import { DataTableContainer } from "@/components/common/DataTableContainer"
+import { EmptyState } from "@/components/common/EmptyState"
+import { StatusBadge } from "@/components/common/StatusBadge"
+import type { StatusType } from "@/components/common/StatusBadge"
 
 import type { ProveedorListado } from "./types"
 
@@ -31,6 +41,15 @@ interface ListProveedoresProps {
   onDelete: (proveedor: ProveedorListado) => void
   onAssociateProducts: (proveedor: ProveedorListado) => void
   canAssociateProducts: boolean
+}
+
+/** Mapea el estado del proveedor a los tipos semánticos de StatusBadge */
+function resolveStatusType(estado: string): StatusType {
+  const normalizado = estado.trim().toUpperCase()
+  if (normalizado === "ACTIVO") return "success"
+  if (normalizado === "INACTIVO" || normalizado === "DADO_DE_BAJA") return "danger"
+  if (normalizado === "SUSPENDIDO" || normalizado === "EN_REVISION") return "warning"
+  return "neutral"
 }
 
 export function ListProveedores({
@@ -46,161 +65,131 @@ export function ListProveedores({
 
   const proveedoresFiltrados = useMemo(() => {
     const value = search.trim().toLowerCase()
-
-    if (!value) {
-      return proveedores
-    }
-
-    return proveedores.filter((proveedor) => {
-      return (
-        proveedor.razonSocial.toLowerCase().includes(value) ||
-        proveedor.rut.toLowerCase().includes(value) ||
-        proveedor.giro.toLowerCase().includes(value) ||
-        proveedor.nombreFantasia?.toLowerCase().includes(value)
-      )
-    })
+    if (!value) return proveedores
+    return proveedores.filter((proveedor) =>
+      proveedor.razonSocial.toLowerCase().includes(value) ||
+      proveedor.rut.toLowerCase().includes(value) ||
+      proveedor.giro.toLowerCase().includes(value) ||
+      proveedor.nombreFantasia?.toLowerCase().includes(value)
+    )
   }, [proveedores, search])
 
   return (
-    <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por razón social, RUT o giro..."
-          className="pl-9"
-        />
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">
-                  Razón social
-                </th>
-
-                <th className="px-4 py-3 text-left font-medium">RUT</th>
-
-                <th className="px-4 py-3 text-left font-medium">Giro</th>
-
-                <th className="px-4 py-3 text-left font-medium">Contacto</th>
-
-                <th className="px-4 py-3 text-left font-medium">Estado</th>
-
-                <th className="w-12 px-4 py-3" />
-              </tr>
-            </thead>
-
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="h-32 text-center text-muted-foreground"
-                  >
-                    Cargando proveedores...
-                  </td>
-                </tr>
-              ) : proveedoresFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="h-32 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <p className="font-medium">
-                        No se encontraron proveedores
-                      </p>
-
-                      <p className="text-sm text-muted-foreground">
-                        {search
-                          ? "Prueba con otro criterio de búsqueda."
-                          : "Registra tu primer proveedor para comenzar."}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                proveedoresFiltrados.map((proveedor) => (
-                  <tr
-                    key={proveedor.idProveedor}
-                    className="border-b last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-4">
-                      <div>
-                        <p className="font-medium">{proveedor.razonSocial}</p>
-
-                        {proveedor.nombreFantasia && (
-                          <p className="text-xs text-muted-foreground">
-                            {proveedor.nombreFantasia}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">{proveedor.rut}</td>
-
-                    <td className="max-w-xs px-4 py-4">
-                      <p className="truncate">{proveedor.giro}</p>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      {proveedor.nombreContacto || "Sin contacto"}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <Badge variant="secondary">Activo</Badge>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Acciones</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onView(proveedor)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Ver ficha
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem onClick={() => onEdit(proveedor)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-
-                          {canAssociateProducts && (
-                            <DropdownMenuItem
-                              onClick={() => onAssociateProducts(proveedor)}
-                            >
-                              <PackageCheck className="mr-2 h-4 w-4" />
-                              Asociar productos
-                            </DropdownMenuItem>
-                          )}
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => onDelete(proveedor)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <DataTableContainer
+      searchPlaceholder="Buscar por razón social, RUT o giro..."
+      searchValue={search}
+      onSearchChange={setSearch}
+      description={
+        !isLoading
+          ? `${proveedoresFiltrados.length} ${proveedoresFiltrados.length === 1 ? "proveedor encontrado" : "proveedores encontrados"}`
+          : undefined
+      }
+    >
+      {isLoading ? (
+        <div className="py-16 text-center text-sm text-muted-foreground">
+          Cargando proveedores...
         </div>
-      </div>
-    </div>
+      ) : proveedoresFiltrados.length === 0 ? (
+        <div className="p-6">
+          <EmptyState
+            icon={Store}
+            title="No se encontraron proveedores"
+            description={
+              search
+                ? "Prueba con otro criterio de búsqueda."
+                : "Registra tu primer proveedor para comenzar."
+            }
+          />
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Razón social</TableHead>
+              <TableHead>RUT</TableHead>
+              <TableHead>Giro</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="w-12 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {proveedoresFiltrados.map((proveedor) => (
+              <TableRow
+                key={proveedor.idProveedor}
+              >
+                <TableCell>
+                  <div>
+                    <p className="font-medium">{proveedor.razonSocial}</p>
+                    {proveedor.nombreFantasia && (
+                      <p className="text-xs text-muted-foreground">
+                        {proveedor.nombreFantasia}
+                      </p>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell>{proveedor.rut}</TableCell>
+
+                <TableCell className="max-w-xs">
+                  <p className="truncate">{proveedor.giro}</p>
+                </TableCell>
+
+                <TableCell>
+                  {proveedor.nombreContacto || "Sin contacto"}
+                </TableCell>
+
+                <TableCell>
+                  <StatusBadge
+                    status={resolveStatusType(proveedor.estado)}
+                    label={proveedor.estado}
+                  />
+                </TableCell>
+
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="Acciones del proveedor">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onView(proveedor)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver ficha
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem onClick={() => onEdit(proveedor)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+
+                      {canAssociateProducts && (
+                        <DropdownMenuItem onClick={() => onAssociateProducts(proveedor)}>
+                          <PackageCheck className="mr-2 h-4 w-4" />
+                          Asociar productos
+                        </DropdownMenuItem>
+                      )}
+
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDelete(proveedor)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </DataTableContainer>
   )
 }

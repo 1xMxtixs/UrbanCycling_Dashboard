@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUserPermissions } from "@/components/providers";
 import {
   CheckCircle2,
   Clock3,
@@ -179,7 +179,7 @@ function convertirFecha(
  */
 
 export function ListGarantias() {
-  const { data: session } = useSession();
+  const { hasPermission } = useUserPermissions();
   const [garantias, setGarantias] =
     useState<Garantia[]>([]);
 
@@ -236,9 +236,8 @@ export function ListGarantias() {
   } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
 
-  const permisos = session?.user?.permisos ?? [];
-  const canUpdate = permisos.includes(PERMISSIONS.WARRANTIES_UPDATE);
-  const canResolve = permisos.includes(PERMISSIONS.WARRANTIES_RESOLVE);
+  const canUpdate = hasPermission(PERMISSIONS.WARRANTIES_UPDATE);
+  const canResolve = hasPermission(PERMISSIONS.WARRANTIES_RESOLVE);
 
   /*
    * ==========================================================
@@ -274,7 +273,18 @@ export function ListGarantias() {
         (
           data?.garantias ?? []
         ).map(
-          (garantia: any) => {
+          (garantia: {
+            idGarantia?: number | string;
+            idReclamoGarantia?: number | string;
+            cliente?: { idCliente?: number; nombre?: string; rut?: string };
+            estado?: unknown;
+            motivoReclamo?: string;
+            motivo?: string;
+            observacionesResolucion?: string | null;
+            justificacionResolucion?: string | null;
+            veredicto?: string | null;
+            [key: string]: unknown;
+          }) => {
             /*
              * ==================================================
              * IMPORTANTE
@@ -453,6 +463,7 @@ export function ListGarantias() {
    */
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarGarantias();
 
     // La creación sucede en HeaderGarantias; al recibir su evento volvemos a

@@ -9,8 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { DataTable } from "@/components/reportes/data-table"
-import { todaySalesColumns, type TodaySale } from "@/components/reportes/today-sales-columns"
+import { DataTable, todaySalesColumns, type TodaySale } from "@/components/reportes"
 
 interface TodaySalesDetailProps {
   sales: TodaySale[]

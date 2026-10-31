@@ -1,12 +1,22 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AlertCircle, LoaderCircle, PackageCheck, Search } from "lucide-react"
+import { AlertCircle, PackageCheck, Search } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -257,24 +267,15 @@ export function AssociateProductsDialog({
                 : "No se encontraron productos para esa búsqueda."}
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground backdrop-blur">
-                <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Producto
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium whitespace-nowrap"
-                  >
-                    Stock
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right font-medium">
-                    Asociar
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead className="text-right">Asociar</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredProducts.map((product) => {
                   const belongsToThisSupplier =
                     product.codigoProveedor === proveedor?.rut
@@ -293,17 +294,17 @@ export function AssociateProductsDialog({
                         : "Sin proveedor"
 
                   return (
-                    <tr key={product.idProducto} className="hover:bg-muted/30">
-                      <td className="min-w-0 px-4 py-3">
+                    <TableRow key={product.idProducto}>
+                      <TableCell className="min-w-0">
                         <p className="truncate font-medium">{product.nombre}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           #{product.idProducto} · {product.tipoProducto}
                         </p>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
                         {product.stockActual} u
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <span className="inline-flex items-center justify-end gap-2">
                           <input
                             type="checkbox"
@@ -314,24 +315,25 @@ export function AssociateProductsDialog({
                             className="h-4 w-4 cursor-pointer accent-primary"
                           />
                           {belongsToAnotherSupplier && (
-                            <span className="text-xs whitespace-nowrap text-muted-foreground">
+                            <Badge variant="outline" className="text-xs font-normal">
                               {checked ? "Se reasignará" : "Otro proveedor"}
-                            </span>
+                            </Badge>
                           )}
                           {!belongsToAnotherSupplier && (
-                            <span
-                              className={`text-xs whitespace-nowrap ${checked ? "text-primary" : "text-muted-foreground"}`}
+                            <Badge
+                              variant={checked ? "default" : "secondary"}
+                              className="text-xs font-normal"
                             >
                               {associationStatus}
-                            </span>
+                            </Badge>
                           )}
                         </span>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
 
@@ -363,7 +365,7 @@ export function AssociateProductsDialog({
           >
             {isSaving ? (
               <>
-                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner className="mr-2" />
                 Guardando...
               </>
             ) : (

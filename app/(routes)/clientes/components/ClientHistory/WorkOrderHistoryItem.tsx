@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Calendar, ChevronDown, ChevronUp, ExternalLink, Wrench } from "lucide-react";
@@ -31,10 +32,19 @@ export function WorkOrderHistoryItem({
   orden: DBOrdenTrabajoCliente;
   onViewWorkOrder?: (id: number) => void;
 }) {
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const orderStatus = getOrderStatusConfig(orden.estadoOrden, orden.fechaEntregaEstimada);
   const paymentStatus = getPaymentStatusConfig(orden.estadoPago);
   const fIngreso = new Date(orden.fechaRecepcion || orden.fechaCreacion);
+
+  const handleGoToOrder = () => {
+    if (onViewWorkOrder) {
+      onViewWorkOrder(orden.idOrdenDeTrabajo);
+    } else {
+      router.push(`/punto-ventas/ordenes-trabajo?ordenId=${orden.idOrdenDeTrabajo}`);
+    }
+  };
 
   return (
     <div className="rounded-xl border border-border/70 bg-card hover:border-border transition-all duration-200 overflow-hidden shadow-2xs">
@@ -78,16 +88,15 @@ export function WorkOrderHistoryItem({
             >
               {isExpanded ? <>Ocultar <ChevronUp className="h-3 w-3 ml-1" /></> : <>Detalles <ChevronDown className="h-3 w-3 ml-1" /></>}
             </Button>
-            {onViewWorkOrder && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onViewWorkOrder(orden.idOrdenDeTrabajo)}
-                className="h-7.5 text-xs px-2 rounded-lg cursor-pointer"
-              >
-                <ExternalLink className="h-3 w-3 mr-1" /> OT
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGoToOrder}
+              className="h-7.5 text-xs px-2 rounded-lg cursor-pointer"
+              title="Abrir en taller para ver o imprimir comprobante oficial"
+            >
+              <ExternalLink className="h-3 w-3 mr-1" /> OT
+            </Button>
           </div>
         </div>
       </div>

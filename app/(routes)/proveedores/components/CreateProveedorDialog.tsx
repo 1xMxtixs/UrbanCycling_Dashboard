@@ -5,13 +5,7 @@ import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -193,18 +187,14 @@ export function CreateProveedorDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Nuevo proveedor</DialogTitle>
-
-          <DialogDescription>
-            Registra la información comercial, de contacto y
-            dirección del proveedor.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
+    <FormDialog
+      open={open}
+      onOpenChange={handleClose}
+      title="Nuevo proveedor"
+      description="Registra la información comercial, de contacto y dirección del proveedor."
+      size="3xl"
+    >
+      <div className="space-y-6">
           {error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
@@ -486,7 +476,6 @@ export function CreateProveedorDialog({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   )
 }

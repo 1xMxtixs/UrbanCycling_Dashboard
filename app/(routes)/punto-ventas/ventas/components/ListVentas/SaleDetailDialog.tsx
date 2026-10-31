@@ -3,6 +3,15 @@
 import { User, Calendar, ShoppingBag, CheckCircle, Ban } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Separator } from "@/components/ui/separator"
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -93,48 +102,50 @@ export function SaleDetailDialog({
           </div>
 
           {/* Tabla de Productos */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 font-sans font-bold border-b border-border pb-1 mb-1 text-foreground">
               <ShoppingBag className="h-3.5 w-3.5 text-primary" />
               Productos Vendidos
             </div>
             <div className="rounded-lg border border-border bg-background overflow-hidden">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-muted text-muted-foreground font-bold border-b border-border">
-                    <th className="px-3 py-1.5">Producto</th>
-                    <th className="px-3 py-1.5 text-center">Cant</th>
-                    <th className="px-3 py-1.5 text-right">Precio Unit.</th>
-                    <th className="px-3 py-1.5 text-right">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Producto</TableHead>
+                    <TableHead className="text-center">Cant</TableHead>
+                    <TableHead className="text-right">Precio Unit.</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {lineas.map((line) => {
                     const lineSubtotal = line.cantidad * Number(line.precioUnitario)
                     return (
-                      <tr key={line.idLineaDeVenta}>
-                        <td className="px-3 py-1.5 font-medium">
+                      <TableRow key={line.idLineaDeVenta}>
+                        <TableCell className="font-medium">
                           {line.producto?.nombre || `Producto #${line.idProducto}`}
-                        </td>
-                        <td className="px-3 py-1.5 text-center font-bold">
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
                           {line.cantidad}
-                        </td>
-                        <td className="px-3 py-1.5 text-right">
+                        </TableCell>
+                        <TableCell className="text-right">
                           ${Number(line.precioUnitario).toLocaleString("es-CL")}
-                        </td>
-                        <td className="px-3 py-1.5 text-right font-bold">
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
                           ${lineSubtotal.toLocaleString("es-CL")}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 
+          <Separator className="my-2" />
+
           {/* Totales */}
-          <div className="grid gap-3 border-t border-slate-200/50 pt-3 sm:grid-cols-2">
+          <div className="grid gap-3 pt-1 sm:grid-cols-2">
             <DataField label="Subtotal bruto" value={`$${subtotal.toLocaleString("es-CL")}`} />
             {descuento > 0 && (
               <DataField label="Descuento" value={`-$${descuento.toLocaleString("es-CL")}`} />
@@ -145,15 +156,16 @@ export function SaleDetailDialog({
           </div>
         </div>
 
+        <Separator />
+
         {/* Acciones del Modal */}
-        <div className="flex justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+        <div className="flex justify-between gap-2 pt-1">
           <div>
             {!isAnulada && sale.estadoPago === ESTADO_PAGO.PENDIENTE && (
               <Button
                 variant="default"
                 size="sm"
                 onClick={() => onPayClick(sale.venta.idVenta, total)}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold"
               >
                 <CheckCircle className="h-4 w-4 mr-1.5" />
                 Registrar Pago
@@ -166,7 +178,6 @@ export function SaleDetailDialog({
                 variant="destructive"
                 size="sm"
                 onClick={() => onUpdateStatus(sale.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
-                className="font-bold"
               >
                 <Ban className="h-4 w-4 mr-1.5" />
                 Anular

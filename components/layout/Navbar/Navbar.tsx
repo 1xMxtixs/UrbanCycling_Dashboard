@@ -167,6 +167,11 @@ export function Navbar({ permissions, isAdmin }: NavbarProps) {
             </SheetContent>
           </Sheet>
         </div>
+
+        {/* UserButton — visible on desktop/tablet (lg+); hidden on mobile where it lives in the sidebar Sheet */}
+        <div className="hidden lg:flex items-center">
+          <UserButton />
+        </div>
       </div>
     </header>
   )

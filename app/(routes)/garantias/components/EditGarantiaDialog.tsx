@@ -4,15 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
+import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -58,6 +50,7 @@ export function EditGarantiaDialog({
 
   useEffect(() => {
     if (!garantia) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMotivoReclamo("");
       return;
     }
@@ -173,120 +166,65 @@ export function EditGarantiaDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
-      onOpenChange={(
-        value
-      ) => {
+      onOpenChange={(value: boolean) => {
         if (!isSaving) {
-          onOpenChange(
-            value
-          );
+          onOpenChange(value);
         }
       }}
+      title={
+        <span className="flex items-center gap-2">
+          <Pencil className="h-5 w-5" />
+          Modificar solicitud de garantía
+        </span>
+      }
+      description="Modifica el motivo del reclamo de la solicitud."
+      size="xl"
     >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* MOTIVO */}
+        <div className="space-y-2">
+          <Label htmlFor="motivoReclamo">
+            Motivo del reclamo
+          </Label>
 
-      <DialogContent className="sm:max-w-[600px]">
+          <Textarea
+            id="motivoReclamo"
+            value={motivoReclamo}
+            onChange={(event) =>
+              setMotivoReclamo(event.target.value)
+            }
+            placeholder="Ingrese el motivo del reclamo"
+            maxLength={500}
+            disabled={isSaving}
+            className="min-h-[120px] resize-none"
+          />
 
-        <DialogHeader>
+          <p className="text-right text-xs text-muted-foreground">
+            {motivoReclamo.length}/500
+          </p>
+        </div>
 
-          <DialogTitle className="flex items-center gap-2">
+        {/* BOTONES */}
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            Cancelar
+          </Button>
 
-            <Pencil className="h-5 w-5" />
-
-            Modificar solicitud
-            de garantía
-
-          </DialogTitle>
-
-          <DialogDescription>
-            Modifica el motivo del reclamo de la solicitud.
-          </DialogDescription>
-
-        </DialogHeader>
-
-        <form
-          onSubmit={
-            handleSubmit
-          }
-          className="space-y-5"
-        >
-
-          {/* MOTIVO */}
-
-          <div className="space-y-2">
-
-            <Label htmlFor="motivoReclamo">
-              Motivo del reclamo
-            </Label>
-
-            <Textarea
-              id="motivoReclamo"
-              value={
-                motivoReclamo
-              }
-              onChange={(
-                event
-              ) =>
-                setMotivoReclamo(
-                  event.target
-                    .value
-                )
-              }
-              placeholder="Ingrese el motivo del reclamo"
-              maxLength={500}
-              disabled={
-                isSaving
-              }
-              className="min-h-[120px] resize-none"
-            />
-
-            <p className="text-right text-xs text-muted-foreground">
-              {
-                motivoReclamo.length
-              }
-              /500
-            </p>
-
-          </div>
-
-          {/* BOTONES */}
-
-          <DialogFooter>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                onOpenChange(
-                  false
-                )
-              }
-              disabled={
-                isSaving
-              }
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={
-                isSaving ||
-                !motivoReclamo.trim()
-              }
-            >
-              {isSaving
-                ? "Guardando..."
-                : "Guardar cambios"}
-            </Button>
-
-          </DialogFooter>
-
-        </form>
-
-      </DialogContent>
-
-    </Dialog>
+          <Button
+            type="submit"
+            disabled={isSaving || !motivoReclamo.trim()}
+          >
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
+      </form>
+    </FormDialog>
   );
 }

@@ -8,16 +8,9 @@ import {
   XCircle,
 } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
+import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
@@ -75,6 +68,7 @@ export function ResolveGarantiaDialog({
     }
 
     if (!garantia) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVeredicto("");
       setObservaciones("");
       return;
@@ -267,7 +261,24 @@ export function ResolveGarantiaDialog({
             "content-type"
           ) ?? "";
 
-        let data: any = null;
+        let data: {
+          message?: string;
+          garantia?: {
+            idGarantia?: number;
+            idReclamoGarantia?: number;
+            idOrdenDeTrabajo?: number;
+            estado?: string;
+            veredicto?: string;
+            fechaIngreso?: string;
+            motivo?: string;
+            motivoReclamo?: string;
+            observaciones?: string | null;
+            observacionesResolucion?: string | null;
+            justificacionResolucion?: string | null;
+            fechaResolucion?: string | null;
+            [key: string]: unknown;
+          };
+        } | null = null;
 
         if (
           contentType.includes(
@@ -497,38 +508,22 @@ export function ResolveGarantiaDialog({
    */
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
-      onOpenChange={
-        handleOpenChange
+      onOpenChange={handleOpenChange}
+      title={
+        <span className="flex items-center gap-2">
+          <Gavel className="h-5 w-5" />
+          Resolver solicitud de garantía
+        </span>
       }
+      description="Selecciona el veredicto de la solicitud y agrega observaciones si corresponde."
+      size="xl"
     >
-      <DialogContent className="sm:max-w-[600px]">
-
-        <DialogHeader>
-
-          <DialogTitle className="flex items-center gap-2">
-
-            <Gavel className="h-5 w-5" />
-
-            Resolver solicitud de garantía
-
-          </DialogTitle>
-
-          <DialogDescription>
-            Selecciona el veredicto de la
-            solicitud y agrega observaciones
-            si corresponde.
-          </DialogDescription>
-
-        </DialogHeader>
-
-        <form
-          onSubmit={
-            handleSubmit
-          }
-          className="space-y-6"
-        >
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
 
           {/* ==================================================
               VEREDICTO
@@ -565,8 +560,8 @@ export function ResolveGarantiaDialog({
                   ${
                     veredicto ===
                     "APROBADA"
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-border hover:border-emerald-500/50"
+                      ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                      : "border-border hover:border-primary/50 hover:bg-muted/30"
                   }
                 `}
               >
@@ -583,7 +578,7 @@ export function ResolveGarantiaDialog({
                     ${
                       veredicto ===
                       "APROBADA"
-                        ? "bg-emerald-500/20"
+                        ? "bg-primary/20"
                         : "bg-muted"
                     }
                   `}
@@ -596,7 +591,7 @@ export function ResolveGarantiaDialog({
                       ${
                         veredicto ===
                         "APROBADA"
-                          ? "text-emerald-500"
+                          ? "text-primary"
                           : "text-muted-foreground"
                       }
                     `}
@@ -606,7 +601,7 @@ export function ResolveGarantiaDialog({
 
                 <div>
 
-                  <p className="font-semibold">
+                  <p className="font-semibold text-foreground">
                     Aprobar
                   </p>
 
@@ -641,8 +636,8 @@ export function ResolveGarantiaDialog({
                   ${
                     veredicto ===
                     "RECHAZADA"
-                      ? "border-red-500 bg-red-500/10"
-                      : "border-border hover:border-red-500/50"
+                      ? "border-destructive bg-destructive/10 shadow-xs ring-1 ring-destructive/40"
+                      : "border-border hover:border-destructive/50 hover:bg-muted/30"
                   }
                 `}
               >
@@ -659,7 +654,7 @@ export function ResolveGarantiaDialog({
                     ${
                       veredicto ===
                       "RECHAZADA"
-                        ? "bg-red-500/20"
+                        ? "bg-destructive/20"
                         : "bg-muted"
                     }
                   `}
@@ -672,7 +667,7 @@ export function ResolveGarantiaDialog({
                       ${
                         veredicto ===
                         "RECHAZADA"
-                          ? "text-red-500"
+                          ? "text-destructive"
                           : "text-muted-foreground"
                       }
                     `}
@@ -682,7 +677,7 @@ export function ResolveGarantiaDialog({
 
                 <div>
 
-                  <p className="font-semibold">
+                  <p className="font-semibold text-foreground">
                     Rechazar
                   </p>
 
@@ -742,7 +737,7 @@ export function ResolveGarantiaDialog({
               FOOTER
           ================================================== */}
 
-          <DialogFooter>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-2">
 
             <Button
               type="button"
@@ -766,16 +761,19 @@ export function ResolveGarantiaDialog({
                 !veredicto
               }
             >
-              {isSaving
-                ? "Procesando..."
-                : "Confirmar resolución"}
+              {isSaving ? (
+                <>
+                  <Spinner className="mr-2" />
+                  Procesando...
+                </>
+              ) : (
+                "Confirmar resolución"
+              )}
             </Button>
 
-          </DialogFooter>
+          </div>
 
         </form>
-
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

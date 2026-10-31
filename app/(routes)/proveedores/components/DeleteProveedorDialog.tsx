@@ -1,20 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { ProveedorListado } from "./types"
 
 interface DeleteProveedorDialogProps {
@@ -49,8 +37,7 @@ export function DeleteProveedorDialog({
 
       if (!response.ok) {
         throw new Error(
-          data?.message ||
-            "No fue posible eliminar el proveedor.",
+          data?.message || "No fue posible eliminar el proveedor.",
         )
       }
 
@@ -70,58 +57,17 @@ export function DeleteProveedorDialog({
     }
   }
 
+  if (!proveedor) return null
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-            <TriangleAlert className="h-5 w-5 text-destructive" />
-          </div>
-
-          <AlertDialogTitle>
-            ¿Eliminar proveedor?
-          </AlertDialogTitle>
-
-          <AlertDialogDescription>
-            Estás a punto de eliminar a{" "}
-            <span className="font-semibold text-foreground">
-              {proveedor?.razonSocial}
-            </span>
-            .
-
-            <br />
-            <br />
-
-            El proveedor será marcado como{" "}
-            <span className="font-semibold">
-              inactivo
-            </span>{" "}
-            y dejará de aparecer en el listado. Sus datos
-            no serán eliminados permanentemente.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>
-            Cancelar
-          </AlertDialogCancel>
-
-          <AlertDialogAction
-            onClick={(event) => {
-              event.preventDefault()
-              void handleDelete()
-            }}
-            disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isDeleting && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-
-            {isDeleting ? "Eliminando..." : "Eliminar proveedor"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <StatusToggleDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      entityLabel="proveedor"
+      entityName={proveedor.razonSocial}
+      isActive={true}
+      onConfirm={handleDelete}
+      isSubmitting={isDeleting}
+    />
   )
 }

@@ -2,11 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
+import { MetricCard } from "@/components/common/MetricCard";
 import { User, Building2, Phone, Mail, MapPin, Calendar, ClipboardList, Wrench, Search, CheckCircle2, Clock, Banknote } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
 import type { DBCliente } from "../../types";
@@ -77,22 +77,35 @@ export function ClientHistoryContent({
           </span>
         </div>
 
-        {/* Tarjetas de Métricas Holgadas */}
+        {/* Tarjetas de Métricas Holgadas usando MetricCard */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-          {[
-            { label: "Total Órdenes", val: ordenes.length, desc: "Historial acumulado", icon: ClipboardList, color: "text-primary" },
-            { label: "En Taller", val: enProceso, desc: "En proceso / espera", icon: Clock, color: "text-amber-500" },
-            { label: "Completadas", val: completadas, desc: "Entregadas con éxito", icon: CheckCircle2, color: "text-emerald-500" },
-            { label: "Total Invertido", val: `$${Number(total).toLocaleString("es-CL")}`, desc: "Gasto acumulado", icon: Banknote, color: "text-primary" },
-          ].map((m, i) => (
-            <div key={i} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
-                <m.icon className={`h-4 w-4 ${m.color}`} /> {m.label}
-              </div>
-              <p className="text-xl font-extrabold text-foreground mt-1.5">{m.val}</p>
-              <p className="text-[10.5px] text-muted-foreground mt-0.5">{m.desc}</p>
-            </div>
-          ))}
+          <MetricCard
+            title="Total Órdenes"
+            value={ordenes.length}
+            description="Historial acumulado"
+            icon={ClipboardList}
+          />
+          <MetricCard
+            title="En Taller"
+            value={enProceso}
+            description="En proceso / espera"
+            icon={Clock}
+            accentColor="amber"
+          />
+          <MetricCard
+            title="Completadas"
+            value={completadas}
+            description="Entregadas con éxito"
+            icon={CheckCircle2}
+            accentColor="emerald"
+          />
+          <MetricCard
+            title="Total Invertido"
+            value={`$${Number(total).toLocaleString("es-CL")}`}
+            description="Gasto acumulado"
+            icon={Banknote}
+            accentColor="cyan"
+          />
         </div>
 
         {/* Dirección y Fecha si existen */}

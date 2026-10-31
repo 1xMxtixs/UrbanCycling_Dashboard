@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+
+import { useUserPermissions } from "@/components/providers"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
@@ -19,7 +20,7 @@ import { type ServiceColumn } from "../../types"
 import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
 
 export function ListServicios() {
-  const { data: session } = useSession()
+  const { hasPermission } = useUserPermissions()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -27,9 +28,7 @@ export function ListServicios() {
   const searchParam = searchParams.get("search") ?? ""
   const { dismissCurrentParameter, isCurrentParameterDismissed } =
     useDismissedSearchParam(serviceIdParam)
-  const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
-  )
+  const canUpdate = hasPermission(PERMISSIONS.INVENTORY_UPDATE)
 
   const [services, setServices] = useState<ServiceColumn[]>([])
   const [isLoading, setIsLoading] = useState(true)

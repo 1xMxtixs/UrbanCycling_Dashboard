@@ -25,6 +25,15 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Separator } from "@/components/ui/separator"
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -259,37 +268,37 @@ export function OrderDetailDialog({
                   Insumos y Repuestos Utilizados:
                 </span>
                 <div className="rounded-lg border border-border bg-background overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
-                        <th className="px-3 py-2">Producto / Insumo</th>
-                        <th className="px-3 py-2 text-center">Cant</th>
-                        <th className="px-3 py-2 text-right">Precio Unit.</th>
-                        <th className="px-3 py-2 text-right">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
+                  <Table className="text-xs">
+                    <TableHeader>
+                      <TableRow className="border-b border-border">
+                        <TableHead className="px-3 py-2">Producto / Insumo</TableHead>
+                        <TableHead className="px-3 py-2 text-center">Cant</TableHead>
+                        <TableHead className="px-3 py-2 text-right">Precio Unit.</TableHead>
+                        <TableHead className="px-3 py-2 text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {productLines.map((line) => {
                         const subtotal = line.cantidad * Number(line.precioUnitario)
                         return (
-                          <tr key={line.idLineaDeOrdenDeTrabajo}>
-                            <td className="px-3 py-2 font-medium text-foreground">
+                          <TableRow key={line.idLineaDeOrdenDeTrabajo}>
+                            <TableCell className="px-3 py-2 font-medium text-foreground">
                               {line.producto?.nombre || `Producto #${line.idProducto}`}
-                            </td>
-                            <td className="px-3 py-2 text-center font-bold text-foreground">
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center font-bold text-foreground">
                               {line.cantidad}
-                            </td>
-                            <td className="px-3 py-2 text-right text-foreground font-mono">
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-right text-foreground font-mono">
                               ${Number(line.precioUnitario).toLocaleString("es-CL")}
-                            </td>
-                            <td className="px-3 py-2 text-right font-bold text-foreground font-mono">
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-right font-bold text-foreground font-mono">
                               ${subtotal.toLocaleString("es-CL")}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         )
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             ) : (
@@ -298,7 +307,9 @@ export function OrderDetailDialog({
               </p>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/50 pt-4">
+            <Separator className="my-3" />
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
               <DataField
                 label="Total Repuestos"
                 value={`$${productsCost.toLocaleString("es-CL")}`}
@@ -532,14 +543,16 @@ export function OrderDetailDialog({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+        <Separator />
+
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <div>
             {!isPaid && onPayClick && (
               <Button
                 variant="default"
                 size="sm"
                 onClick={() => onPayClick(order)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 cursor-pointer"
+                className="font-bold gap-1.5 cursor-pointer shadow-xs"
               >
                 <Coins className="h-4 w-4" />
                 Registrar Pago Restante
@@ -565,7 +578,7 @@ export function OrderDetailDialog({
                 variant="outline"
                 size="sm"
                 onClick={() => onModifyServiceClick(order)}
-                className="gap-1.5 cursor-pointer font-semibold text-blue-600 dark:text-blue-400"
+                className="gap-1.5 cursor-pointer font-semibold text-primary"
               >
                 <Wrench className="h-4 w-4" />
                 Modificar servicio

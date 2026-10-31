@@ -5,13 +5,7 @@ import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -254,21 +248,18 @@ export function EditProveedorDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Editar proveedor</DialogTitle>
-
-          <DialogDescription>
-            Modifica los datos registrados del proveedor.
-          </DialogDescription>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex min-h-64 items-center justify-center">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Editar proveedor"
+      description="Modifica los datos registrados del proveedor."
+      size="3xl"
+    >
+      {isLoading ? (
+        <div className="flex min-h-64 items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
           <div className="space-y-6">
             {error && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -529,7 +520,6 @@ export function EditProveedorDialog({
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   )
 }

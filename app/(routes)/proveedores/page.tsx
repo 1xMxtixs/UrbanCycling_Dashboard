@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
-import { RefreshCw } from "lucide-react"
+import { Building2, CheckCircle2, RefreshCw, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { MetricCard } from "@/components/common/MetricCard"
+import { useUserPermissions } from "@/components/providers"
 
 import {
   CreateProveedorDialog,
@@ -20,11 +21,10 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { AssociateProductsDialog } from "./components/AssociateProductsDialog"
 
 export default function ProveedoresPage() {
-  const { data: session } = useSession()
-  const canAssociateProducts = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_READ) &&
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
-  )
+  const { hasPermission } = useUserPermissions()
+  const canAssociateProducts =
+    hasPermission(PERMISSIONS.INVENTORY_READ) &&
+    hasPermission(PERMISSIONS.INVENTORY_UPDATE)
   const [proveedores, setProveedores] = useState<ProveedorListado[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
@@ -127,9 +127,39 @@ export default function ProveedoresPage() {
     setAssociateProductsOpen(true)
   }
 
+  const activosCount = proveedores.filter(
+    (p) => p.estado.trim().toUpperCase() === "ACTIVO"
+  ).length
+  const conContactoCount = proveedores.filter(
+    (p) => Boolean(p.nombreContacto && p.nombreContacto.trim())
+  ).length
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <HeaderProveedores onCreate={() => setCreateOpen(true)} />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          title="Proveedores registrados"
+          value={proveedores.length}
+          description="Total de distribuidores y empresas registradas"
+          icon={Building2}
+        />
+        <MetricCard
+          title="Proveedores activos"
+          value={activosCount}
+          description="Habilitados para órdenes de compra y cotizaciones"
+          icon={CheckCircle2}
+          accentColor="emerald"
+        />
+        <MetricCard
+          title="Con contacto directo"
+          value={conContactoCount}
+          description="Fichas con ejecutivo o contacto registrado"
+          icon={UserCheck}
+          accentColor="cyan"
+        />
+      </div>
 
       {error && (
         <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">

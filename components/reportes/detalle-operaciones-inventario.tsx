@@ -17,7 +17,7 @@ import { DataTable } from "./data-table"
 import { productosDestacadosColumns, type ProductoDestacado } from "./productos-destacados-columns"
 import { consumoInsumosColumns, type ConsumoInsumo } from "./consumo-insumos-columns"
 
-interface DetalleOperacionesInventarioProps {
+export interface DetalleOperacionesInventarioProps {
   productosDestacados: ProductoDestacado[]
   consumoInsumos: ConsumoInsumo[]
   onExportCSV: () => void
@@ -43,8 +43,8 @@ export function DetalleOperacionesInventario({
 
       <CardContent className="pt-4 sm:pt-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between">
-            <TabsList variant="line">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList variant="line" className="w-full sm:w-auto">
               <TabsTrigger value="destacados">
                 Productos Destacados
                 <span className="ml-1.5 text-xs text-muted-foreground">
@@ -60,7 +60,13 @@ export function DetalleOperacionesInventario({
             </TabsList>
 
             {activeTab === "insumos" && (
-              <Button variant="outline" size="sm" onClick={onExportCSV}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExportCSV}
+                className="self-start sm:self-auto"
+                aria-label="Exportar consumo de insumos a CSV"
+              >
                 <Download className="h-3.5 w-3.5" />
                 Exportar CSV
               </Button>

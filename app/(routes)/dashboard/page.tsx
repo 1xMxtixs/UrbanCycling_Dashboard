@@ -1,18 +1,22 @@
 "use client"
 
 import React, { useCallback, useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
 import { AlertCircle } from "lucide-react"
+import { useUserPermissions } from "@/components/providers"
 import { PageHeader } from "@/components/common/PageHeader"
 import { Button } from "@/components/ui/button"
-import { DateRangeFilter } from "./components/DateRangeFilter"
+import {
+  DateRangeFilter,
+  ChartRentabilidadOrdenesTrabajo,
+  ChartVentasPorMetodoPago,
+  DetalleOperacionesInventario,
+  type RentabilidadOrdenTrabajoPoint,
+  type MetodoPagoDatum,
+  type ProductoDestacado,
+  type ConsumoInsumo,
+} from "@/components/reportes"
 import { FinancialSummaryCards } from "./components/FinancialSummaryCards"
 import { TodaySalesDetail } from "./components/TodaySalesDetail"
-import { ChartRentabilidadOrdenesTrabajo, type RentabilidadOrdenTrabajoPoint } from "@/components/reportes/chart-mano-obra-vs-repuestos"
-import { ChartVentasPorMetodoPago, type MetodoPagoDatum } from "@/components/reportes/chart-ventas-por-metodo-pago"
-import { DetalleOperacionesInventario } from "@/components/reportes/detalle-operaciones-inventario"
-import type { ProductoDestacado } from "@/components/reportes/productos-destacados-columns"
-import type { ConsumoInsumo } from "@/components/reportes/consumo-insumos-columns"
 import { AccessDeniedState } from "./components/AccessDeniedState"
 import { FinancialSummarySkeleton, ChartsSkeleton, TableSkeleton } from "./components/ReportsSkeletons"
 import { getDashboardData } from "./data"
@@ -55,7 +59,7 @@ function getWelcome(name?: string | null) {
 }
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { session, status, hasPermission } = useUserPermissions()
   const [dateRange, setDateRange] = useState<DateRange>(getInitialRange)
   const [reportsData, setReportsData] = useState<ReportsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -66,7 +70,7 @@ export default function DashboardPage() {
     const timer = window.setTimeout(() => setWelcome(getWelcome(session?.user?.name)), 0)
     return () => window.clearTimeout(timer)
   }, [session?.user?.name])
-  const hasAccess = session?.user?.permisos?.includes("reports:read") ?? false
+  const hasAccess = hasPermission("reports:read")
 
   const loadReports = useCallback(async (range: DateRange) => {
     setIsLoading(true)

@@ -3,30 +3,25 @@
 import { Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/common/PageHeader"
 
 interface HeaderProveedoresProps {
   onCreate: () => void
 }
 
-export function HeaderProveedores({
-  onCreate,
-}: HeaderProveedoresProps) {
+export function HeaderProveedores({ onCreate }: HeaderProveedoresProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Proveedores
-        </h1>
-
-        <p className="text-sm text-muted-foreground">
-          Gestiona los proveedores registrados en Urban Cycling.
-        </p>
-      </div>
-
-      <Button onClick={onCreate}>
-        <Plus className="mr-2 h-4 w-4" />
+    <PageHeader
+      title="Proveedores"
+      description="Gestiona los proveedores registrados en Urban Cycling: datos de contacto, giro y productos asociados."
+    >
+      <Button
+        onClick={onCreate}
+        className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+      >
+        <Plus className="h-4 w-4 mr-1.5" />
         Nuevo proveedor
       </Button>
-    </div>
+    </PageHeader>
   )
 }

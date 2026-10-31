@@ -64,7 +64,7 @@ export function ChartRentabilidadOrdenesTrabajo({ data }: ChartRentabilidadOrden
                   tickLine={false}
                   axisLine={false}
                   tickMargin={10}
-                  minTickGap={32}
+                  minTickGap={28}
                   tickFormatter={(value) => formatDateLabel(String(value))}
                 />
                 <ChartTooltip
@@ -99,18 +99,26 @@ export function ChartRentabilidadOrdenesTrabajo({ data }: ChartRentabilidadOrden
             </ChartContainer>
           </div>
         )}
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-1)" }} />
-            <span className="text-muted-foreground">Ingresos de OT</span>
-            <span className="font-medium tabular-nums">{formatCLP(totals.ingresosTotal)}</span>
-            <span className="text-muted-foreground">({totals.ingresosPct}%)</span>
+        <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-4 text-xs sm:grid-cols-2 sm:text-sm">
+          <div className="flex items-center justify-between sm:justify-start sm:gap-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--chart-1)" }} />
+              <span className="text-muted-foreground">Ingresos de OT:</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-medium tabular-nums text-foreground">{formatCLP(totals.ingresosTotal)}</span>
+              <span className="text-muted-foreground">({totals.ingresosPct}%)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--chart-2)" }} />
-            <span className="text-muted-foreground">Costo de Repuestos</span>
-            <span className="font-medium tabular-nums">{formatCLP(totals.costosTotal)}</span>
-            <span className="text-muted-foreground">({totals.costosPct}%)</span>
+          <div className="flex items-center justify-between sm:justify-start sm:gap-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--chart-2)" }} />
+              <span className="text-muted-foreground">Costo de Repuestos:</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-medium tabular-nums text-foreground">{formatCLP(totals.costosTotal)}</span>
+              <span className="text-muted-foreground">({totals.costosPct}%)</span>
+            </div>
           </div>
         </div>
       </CardContent>

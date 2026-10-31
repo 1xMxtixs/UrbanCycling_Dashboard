@@ -1,21 +1,19 @@
 "use client"
 
 import * as React from "react"
-import { FilterIcon } from "lucide-react"
-import { type DateRange } from "react-day-picker"
+import type { DateRange } from "react-day-picker"
 
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-interface DateRangeFilterProps {
+export interface DateRangeFilterProps {
   onApply: (range: DateRange) => Promise<void> | void
 }
 
-type PresetKey = "hoy" | "7dias" | "mes" | "personalizado"
+type PresetKey = "hoy" | "7dias" | "mes"
 
 function getPresetRange(preset: PresetKey): DateRange {
   const today = new Date()
@@ -30,111 +28,119 @@ function getPresetRange(preset: PresetKey): DateRange {
 }
 
 export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
-  const [preset, setPreset] = React.useState<PresetKey>("mes")
+  const [preset, setPreset] = React.useState<string>("mes")
   const [range, setRange] = React.useState<DateRange | undefined>(
     getPresetRange("mes")
   )
-  const [isApplying, setIsApplying] = React.useState(false)
+  const [pendingRange, setPendingRange] = React.useState<DateRange | undefined>(range)
+  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false)
+  const [showIncompleteWarning, setShowIncompleteWarning] = React.useState(false)
+  const warningTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handlePresetChange(value: string) {
     if (!value) return
     const key = value as PresetKey
     setPreset(key)
-    if (key !== "personalizado") {
-      setRange(getPresetRange(key))
+    const newRange = getPresetRange(key)
+    setRange(newRange)
+    setPendingRange(newRange)
+    void onApply(newRange)
+  }
+
+  function handleSelectDateRange(newRange: DateRange | undefined) {
+    setPendingRange(newRange)
+    setPreset("")
+    if (newRange?.from && newRange?.to) {
+      setShowIncompleteWarning(false)
+      setRange(newRange)
+      setIsPopoverOpen(false)
+      void onApply(newRange)
     }
   }
 
-  async function handleApply() {
-    if (!range?.from || !range?.to) return
-    setIsApplying(true)
-    try {
-      await onApply(range)
-    } finally {
-      setIsApplying(false)
+  function handlePopoverOpenChange(open: boolean) {
+    setIsPopoverOpen(open)
+    if (!open) {
+      const incomplete = !!pendingRange?.from && !pendingRange?.to
+      if (incomplete) {
+        setPendingRange(range)
+        setShowIncompleteWarning(true)
+        if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current)
+        warningTimeoutRef.current = setTimeout(() => {
+          setShowIncompleteWarning(false)
+        }, 3000)
+      }
     }
   }
+
+  React.useEffect(() => {
+    return () => {
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current)
+    }
+  }, [])
 
   return (
-    <div className="flex flex-wrap items-center gap-3 py-4">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Período:
-      </span>
+    <div className="flex flex-col gap-2 py-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Período:
+        </span>
 
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        value={preset}
-        onValueChange={handlePresetChange}
-      >
-        <ToggleGroupItem value="hoy">Hoy</ToggleGroupItem>
-        <ToggleGroupItem value="7dias">Últimos 7 días</ToggleGroupItem>
-        <ToggleGroupItem value="mes">Este mes</ToggleGroupItem>
-        <ToggleGroupItem value="personalizado">Personalizado</ToggleGroupItem>
-      </ToggleGroup>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={preset}
+          onValueChange={handlePresetChange}
+        >
+          <ToggleGroupItem value="hoy">Hoy</ToggleGroupItem>
+          <ToggleGroupItem value="7dias">Últimos 7 días</ToggleGroupItem>
+          <ToggleGroupItem value="mes">Este mes</ToggleGroupItem>
+        </ToggleGroup>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreset("personalizado")}
-          >
-            {range?.from
-              ? range.from.toLocaleDateString("es-CL", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })
-              : "Desde"}
-            {" – "}
-            {range?.to
-              ? range.to.toLocaleDateString("es-CL", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })
-              : "Hasta"}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Card className="w-fit border-0 p-0 shadow-none">
-            <CardContent className="p-0">
-              <Calendar
-                mode="range"
-                defaultMonth={range?.from}
-                selected={range}
-                onSelect={(newRange) => {
-                  setRange(newRange)
-                  setPreset("personalizado")
-                }}
-                numberOfMonths={2}
-                disabled={(date) =>
-                  date > new Date() || date < new Date("1900-01-01")
-                }
-              />
-            </CardContent>
-          </Card>
-        </PopoverContent>
-      </Popover>
+        <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" aria-label="Seleccionar rango de fechas personalizado">
+              {range?.from
+                ? range.from.toLocaleDateString("es-CL", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : "Desde"}
+              {" – "}
+              {range?.to
+                ? range.to.toLocaleDateString("es-CL", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : "Hasta"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Card className="w-fit border-0 p-0 shadow-none">
+              <CardContent className="p-0">
+                <Calendar
+                  mode="range"
+                  defaultMonth={pendingRange?.from}
+                  selected={pendingRange}
+                  onSelect={handleSelectDateRange}
+                  numberOfMonths={2}
+                  disabled={(date) =>
+                    date > new Date() || date < new Date("1900-01-01")
+                  }
+                />
+              </CardContent>
+            </Card>
+          </PopoverContent>
+        </Popover>
+      </div>
 
-      <Button
-        size="sm"
-        onClick={handleApply}
-        disabled={isApplying || !range?.from || !range?.to}
-      >
-        {isApplying ? (
-          <>
-            <Spinner data-icon="inline-start" />
-            Aplicando...
-          </>
-        ) : (
-          <>
-            <FilterIcon className="h-3.5 w-3.5" />
-            Aplicar
-          </>
-        )}
-      </Button>
+      {showIncompleteWarning && (
+        <p className="animate-in fade-in-0 text-xs text-destructive duration-300">
+          Debes seleccionar ambas fechas del rango (inicio y fin) para aplicar el filtro.
+        </p>
+      )}
     </div>
   )
 }
