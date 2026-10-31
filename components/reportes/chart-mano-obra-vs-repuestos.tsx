@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { formatCLP } from "@/lib/formatters"
 
 export interface RentabilidadOrdenTrabajoPoint {
   date: string
@@ -20,10 +21,6 @@ const chartConfig = {
   ingresosOrdenesTrabajo: { label: "Ingresos de OT", color: "var(--chart-1)" },
   costosRepuestos: { label: "Costo de Repuestos", color: "var(--chart-2)" },
 } satisfies ChartConfig
-
-function formatCLP(value: number) {
-  return `$${value.toLocaleString("es-CL")}`
-}
 
 function formatDateLabel(value: string) {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number)

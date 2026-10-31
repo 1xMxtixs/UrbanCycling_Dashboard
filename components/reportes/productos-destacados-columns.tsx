@@ -2,6 +2,7 @@
 
 import { type ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { formatCLP } from "@/lib/formatters"
 
 export interface ProductoDestacado {
   ranking: number
@@ -10,8 +11,6 @@ export interface ProductoDestacado {
   unidades: number
   totalRecaudado: number
 }
-
-function formatCLP(value: number) { return `$${value.toLocaleString("es-CL")}` }
 
 export const productosDestacadosColumns: ColumnDef<ProductoDestacado>[] = [
   { accessorKey: "ranking", header: "#", cell: ({ getValue }) => <span className="text-sm text-muted-foreground">{getValue() as number}</span>, enableSorting: false },

@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export interface DateRangeFilterProps {
   onApply: (range: DateRange) => Promise<void> | void
@@ -28,6 +29,7 @@ function getPresetRange(preset: PresetKey): DateRange {
 }
 
 export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
+  const isMobile = useIsMobile()
   const [preset, setPreset] = React.useState<string>("mes")
   const [range, setRange] = React.useState<DateRange | undefined>(
     getPresetRange("mes")
@@ -82,7 +84,7 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
   return (
     <div className="flex flex-col gap-2 py-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        <span className="text-xs font-semibold text-muted-foreground">
           Período:
         </span>
 
@@ -125,7 +127,7 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
                   defaultMonth={pendingRange?.from}
                   selected={pendingRange}
                   onSelect={handleSelectDateRange}
-                  numberOfMonths={2}
+                  numberOfMonths={isMobile ? 1 : 2}
                   disabled={(date) =>
                     date > new Date() || date < new Date("1900-01-01")
                   }
@@ -136,11 +138,13 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
         </Popover>
       </div>
 
-      {showIncompleteWarning && (
-        <p className="animate-in fade-in-0 text-xs text-destructive duration-300">
-          Debes seleccionar ambas fechas del rango (inicio y fin) para aplicar el filtro.
-        </p>
-      )}
+      <div className="min-h-5 flex items-center" role="status" aria-live="polite">
+        {showIncompleteWarning && (
+          <p className="animate-in fade-in-0 text-xs text-destructive duration-200 motion-reduce:animate-none">
+            Debes seleccionar ambas fechas del rango (inicio y fin) para aplicar el filtro.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

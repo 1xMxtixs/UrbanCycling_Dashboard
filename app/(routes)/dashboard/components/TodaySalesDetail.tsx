@@ -29,14 +29,14 @@ export function TodaySalesDetail({ sales }: TodaySalesDetailProps) {
               <span className="text-xs text-muted-foreground">({sales.length})</span>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${
                 open ? "rotate-180" : ""
               }`}
             />
           </CardHeader>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-200">
+        <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none">
           <CardContent className="pt-0 pb-4">
             {sales.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">

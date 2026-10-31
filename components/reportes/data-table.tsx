@@ -55,11 +55,17 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
                   const sortDir = header.column.getIsSorted()
+                  const headerTitle =
+                    typeof header.column.columnDef.header === "string"
+                      ? header.column.columnDef.header
+                      : header.id
+                  const nextSortDirection =
+                    sortDir === "asc" ? "descendente" : "ascendente"
 
                   return (
                     <TableHead
                       key={header.id}
-                      className="h-10 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                      className="h-10 text-xs font-semibold text-muted-foreground"
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -67,7 +73,8 @@ export function DataTable<TData>({
                           onClick={() =>
                             header.column.toggleSorting(sortDir === "asc")
                           }
-                          className="flex items-center gap-1 transition-colors duration-150 hover:text-foreground"
+                          aria-label={`Ordenar por ${headerTitle} en orden ${nextSortDirection}`}
+                          className="flex items-center gap-1 transition-colors duration-150 motion-reduce:transition-none hover:text-foreground"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -75,13 +82,13 @@ export function DataTable<TData>({
                           )}
                           <span className="relative flex h-3.5 w-3.5 items-center justify-center">
                             {sortDir === "asc" && (
-                              <ArrowUp className="h-3.5 w-3.5 transition-transform duration-200" />
+                              <ArrowUp className="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none" />
                             )}
                             {sortDir === "desc" && (
-                              <ArrowDown className="h-3.5 w-3.5 transition-transform duration-200" />
+                              <ArrowDown className="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none" />
                             )}
                             {!sortDir && (
-                              <ArrowUpDown className="h-3.5 w-3.5 opacity-40 transition-opacity duration-150" />
+                              <ArrowUpDown className="h-3.5 w-3.5 opacity-40 transition-opacity duration-150 motion-reduce:transition-none" />
                             )}
                           </span>
                         </button>
@@ -103,7 +110,7 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   className={cn(
-                    "border-border/60 transition-colors duration-150",
+                    "border-border/60 transition-colors duration-150 motion-reduce:transition-none",
                     "hover:bg-muted/40"
                   )}
                 >

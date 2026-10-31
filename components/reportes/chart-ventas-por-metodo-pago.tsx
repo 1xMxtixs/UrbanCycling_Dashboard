@@ -16,6 +16,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { formatCLP } from "@/lib/formatters"
 
 export interface MetodoPagoDatum {
   metodo: string
@@ -36,10 +37,6 @@ const chartConfig = {
   metodo4: { label: "Método 4", color: "var(--chart-4)" },
   metodo5: { label: "Método 5", color: "var(--chart-5)" },
 } satisfies ChartConfig
-
-function formatCLP(value: number) {
-  return `$${value.toLocaleString("es-CL")}`
-}
 
 export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps) {
   const total = React.useMemo(() => data.reduce((sum, d) => sum + d.monto, 0), [data])

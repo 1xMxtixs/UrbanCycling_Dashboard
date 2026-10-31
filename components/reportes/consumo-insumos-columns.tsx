@@ -2,6 +2,7 @@
 
 import { type ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { formatCLP } from "@/lib/formatters"
 
 export interface ConsumoInsumo {
   nombre: string
@@ -10,8 +11,6 @@ export interface ConsumoInsumo {
   ordenesAsociadas: number
   costoTotal: number
 }
-
-function formatCLP(value: number) { return `$${value.toLocaleString("es-CL")}` }
 
 export const consumoInsumosColumns: ColumnDef<ConsumoInsumo>[] = [
   { accessorKey: "nombre", header: "Insumo / Repuesto", cell: ({ getValue }) => <span className="font-medium">{getValue() as string}</span>, sortingFn: "text" },

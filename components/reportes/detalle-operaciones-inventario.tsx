@@ -75,7 +75,7 @@ export function DetalleOperacionesInventario({
 
           <TabsContent
             value="destacados"
-            className="mt-4 animate-in fade-in-0 duration-200"
+            className="mt-4 animate-in fade-in-0 duration-200 motion-reduce:animate-none"
           >
             <DataTable
               columns={productosDestacadosColumns}
@@ -86,7 +86,7 @@ export function DetalleOperacionesInventario({
 
           <TabsContent
             value="insumos"
-            className="mt-4 animate-in fade-in-0 duration-200"
+            className="mt-4 animate-in fade-in-0 duration-200 motion-reduce:animate-none"
           >
             <DataTable
               columns={consumoInsumosColumns}

@@ -1,7 +1,9 @@
 "use client"
 
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/common/StatusBadge"
+import { formatCLP } from "@/lib/formatters"
+import { getPaymentStatusBadgeVariant, getNombreEstadoPago } from "@/lib/payment-status"
 
 export interface TodaySale {
   id: string
@@ -9,10 +11,6 @@ export interface TodaySale {
   cliente: string
   monto: number
   estado: "pagada" | "pendiente" | "anulada"
-}
-
-function formatCLP(value: number) {
-  return `$${value.toLocaleString("es-CL")}`
 }
 
 const columnHelper = createColumnHelper<TodaySale>()
@@ -40,14 +38,11 @@ export const todaySalesColumns: ColumnDef<TodaySale, any>[] = [
     header: "Estado",
     cell: ({ getValue }) => {
       const value = getValue()
-      const label =
-        value === "pagada" ? "Pagada" : value === "pendiente" ? "Pendiente" : "Anulada"
-      const variant =
-        value === "pagada" ? "default" : value === "pendiente" ? "secondary" : "destructive"
       return (
-        <Badge variant={variant} className="font-normal">
-          {label}
-        </Badge>
+        <StatusBadge
+          status={getPaymentStatusBadgeVariant(value)}
+          label={getNombreEstadoPago(value)}
+        />
       )
     },
     enableSorting: false,
