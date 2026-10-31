@@ -53,7 +53,7 @@ const CellActions = <TData extends { id: number }>({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label="Acciones de cliente">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { MetricCard } from "@/components/common/MetricCard";
 import { User, Building2, Phone, Mail, MapPin, Calendar, ClipboardList, Wrench, Search, CheckCircle2, Clock, Banknote } from "lucide-react";
-import { formatClientName } from "@/lib/formatters";
+import { formatClientName, formatCLP, formatDateCL } from "@/lib/formatters";
 import type { DBCliente } from "../../types";
 import { WorkOrderHistoryItem, getOrderStatusConfig } from "./WorkOrderHistoryItem";
 import { ESTADO_OT, NOMBRES_ESTADO_OT } from "@/lib/work-order-status";
@@ -101,7 +101,7 @@ export function ClientHistoryContent({
           />
           <MetricCard
             title="Total Invertido"
-            value={`$${Number(total).toLocaleString("es-CL")}`}
+            value={formatCLP(total)}
             description="Gasto acumulado"
             icon={Banknote}
             accentColor="cyan"
@@ -124,7 +124,7 @@ export function ClientHistoryContent({
               <Calendar className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold text-foreground block">Registro</span>
-                <span>Desde el {new Date(cliente.fechaCreacion).toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" })}</span>
+                <span>Desde el {formatDateCL(cliente.fechaCreacion)}</span>
               </div>
             </div>
           </div>
@@ -144,10 +144,18 @@ export function ClientHistoryContent({
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="relative w-full sm:w-48">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Buscar orden..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-8.5 pl-8 text-xs bg-background" />
+              <Input
+                placeholder="Buscar orden..."
+                aria-label="Buscar orden de trabajo"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-8.5 pl-8 text-xs bg-background"
+              />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8.5 text-xs w-full sm:w-40 bg-background"><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectTrigger className="h-8.5 text-xs w-full sm:w-40 bg-background" aria-label="Filtrar órdenes por estado">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
                 {Object.values(ESTADO_OT).map((estado) => (

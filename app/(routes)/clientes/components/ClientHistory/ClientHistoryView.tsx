@@ -22,10 +22,18 @@ export function ClientHistoryView({
   selectedIdInitial = null,
   onViewWorkOrder,
 }: ClientHistoryViewProps) {
+  const [prevInitialId, setPrevInitialId] = useState<number | null>(selectedIdInitial);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(
     selectedIdInitial || (clientes.length > 0 ? clientes[0].idCliente : null)
   );
   const [searchQuery, setSearchQuery] = useState("");
+
+  if (selectedIdInitial !== prevInitialId) {
+    setPrevInitialId(selectedIdInitial);
+    if (selectedIdInitial !== null && selectedIdInitial !== undefined) {
+      setSelectedClienteId(selectedIdInitial);
+    }
+  }
 
   const filteredClientes = useMemo(() => {
     if (!searchQuery.trim()) return clientes;
@@ -57,13 +65,16 @@ export function ClientHistoryView({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Buscar por RUT o Nombre..."
+            aria-label="Buscar cliente por RUT o Nombre"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9 text-xs"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
+              aria-label="Limpiar búsqueda"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
             >
               <X className="h-3.5 w-3.5" />
@@ -107,17 +118,17 @@ export function ClientHistoryView({
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 space-y-0.5">
-                      <p className="font-semibold text-xs text-foreground truncate">{cName}</p>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <span className="font-semibold text-xs text-foreground truncate block">{cName}</span>
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1.5 block">
                         <span>{cli.rut}</span>
                         <span>•</span>
                         <span>{isNat ? "Natural" : "Jurídica"}</span>
-                      </p>
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <span
-                      className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         cantOrdenes > 0
                           ? "bg-primary/10 text-primary border-primary/20"
                           : "bg-muted text-muted-foreground border-border/60"

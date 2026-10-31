@@ -1,0 +1,293 @@
+"use client";
+
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { DataField } from "@/components/common/DataField";
+import { formatClientName, formatCLP, formatDateCL } from "@/lib/formatters";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
+import { getNombreEstadoOtVisible, getOtStatusBadgeVariant } from "@/lib/work-order-status";
+import {
+  User,
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  ClipboardList,
+  Info,
+  History,
+} from "lucide-react";
+import type { DBCliente } from "../../types";
+
+export interface ClientDetailDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  cliente: DBCliente | null;
+  onViewHistory: (clientId: number) => void;
+}
+
+export function ClientDetailDialog({
+  open,
+  onOpenChange,
+  cliente,
+  onViewHistory,
+}: ClientDetailDialogProps) {
+  if (!cliente) return null;
+
+  const isNatural = cliente.tipoCliente === "natural";
+  const fullName = formatClientName(cliente);
+
+  const initials = isNatural
+    ? `${cliente.primerNombre?.[0] || ""}${
+        cliente.apellidoPaterno?.[0] || ""
+      }`.toUpperCase()
+    : (cliente.razonSocial?.slice(0, 2) || "PJ").toUpperCase();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-4xl lg:max-w-5xl overflow-hidden max-h-[90vh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl"
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Detalles del Cliente - {fullName}</DialogTitle>
+          <DialogDescription>
+            Información detallada, contactos, direcciones y órdenes de trabajo del cliente {fullName}.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Header Section */}
+        <div className="p-4 sm:p-6 border-b border-border/60 bg-muted/30">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <Avatar className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl border border-border shadow-xs shrink-0">
+                <AvatarFallback className="rounded-2xl font-bold text-base sm:text-lg bg-primary/10 text-primary">
+                  {initials || <User className="h-6 w-6" />}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+                  <h3 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
+                    {fullName}
+                  </h3>
+                  <StatusBadge
+                    status={isRegistroActivo(cliente.estado) ? "success" : "danger"}
+                    label={getNombreEstadoRegistro(cliente.estado)}
+                  />
+                </div>
+
+                <div className="text-xs font-medium text-muted-foreground flex items-center gap-2 flex-wrap">
+                  {isNatural ? (
+                    <span className="inline-flex items-center gap-1">
+                      <User className="h-3.5 w-3.5 text-primary" /> Persona Natural
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Persona Jurídica
+                    </span>
+                  )}
+                  <span>•</span>
+                  <span>RUT: {cliente.rut}</span>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                onViewHistory(cliente.idCliente);
+              }}
+              className="rounded-xl text-xs font-semibold gap-1.5 cursor-pointer self-start sm:self-center shrink-0"
+            >
+              <History className="h-3.5 w-3.5 text-primary" /> Ver Historial Completo
+            </Button>
+          </div>
+        </div>
+
+        {/* Content Section */}
+        <div className="overflow-y-auto flex-1 p-4 sm:p-6 grid gap-6 md:grid-cols-5 max-h-[60vh]">
+          {/* Left Column */}
+          <div className="md:col-span-3 space-y-4 min-w-0">
+            {!isNatural && (
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border/40 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <Info className="h-4 w-4 text-primary" />
+                  Detalles de la Empresa
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DataField
+                    label="Giro Comercial"
+                    value={cliente.giro || "No especificado"}
+                  />
+                  <DataField
+                    label="Contacto"
+                    value={cliente.nombreContacto || "No especificado"}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Contact Details */}
+            <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border/40 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                <Phone className="h-4 w-4 text-primary" />
+                Información de Contacto
+              </h4>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
+                    Teléfono(s)
+                  </span>
+                  {cliente.telefonos && cliente.telefonos.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {cliente.telefonos.map((t) => (
+                        <div key={t.idTelefonoCliente} className="flex items-center gap-2 text-foreground flex-wrap">
+                          <Phone className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-semibold">{t.telefono}</span>
+                          {t.descripcion && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md border border-border/60">
+                              {t.descripcion}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground italic">Sin teléfonos registrados</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
+                    Correo(s)
+                  </span>
+                  {cliente.correos && cliente.correos.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {cliente.correos.map((m) => (
+                        <div key={m.idCorreoCliente} className="flex items-center gap-2 text-foreground flex-wrap">
+                          <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-semibold break-all">{m.correo}</span>
+                          {m.descripcion && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md border border-border/60">
+                              {m.descripcion}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground italic">Sin correos registrados</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-muted-foreground block mb-1 font-bold uppercase tracking-wider text-[10px]">
+                    Dirección(es)
+                  </span>
+                  {cliente.direcciones && cliente.direcciones.length > 0 ? (
+                    <div className="space-y-2">
+                      {cliente.direcciones.map((d) => {
+                        const formattedAddress = `${d.calle} ${d.numero}${
+                          d.unidad ? `, Dpto/Of. ${d.unidad}` : ""
+                        }, ${d.comuna}, ${d.ciudad}`;
+                        return (
+                          <div key={d.idDireccionCliente} className="flex items-start gap-2 text-foreground">
+                            <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <span className="font-semibold leading-relaxed block break-words">{formattedAddress}</span>
+                              <span className="text-[10px] text-muted-foreground">{d.region}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground italic">Sin direcciones registradas</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-1">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                Registrado el {formatDateCL(cliente.fechaCreacion)}
+              </span>
+            </div>
+          </div>
+
+          {/* Right Column: Work Orders History */}
+          <div className="md:col-span-2 space-y-4 min-w-0">
+            <div className="flex items-center justify-between">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                Historial de Órdenes ({cliente.ordenesDeTrabajo?.length || 0})
+              </h4>
+            </div>
+
+            {cliente.ordenesDeTrabajo && cliente.ordenesDeTrabajo.length > 0 ? (
+              <div className="space-y-2.5 overflow-y-auto max-h-[35vh] pr-1">
+                {cliente.ordenesDeTrabajo.map((order) => (
+                  <div
+                    key={order.idOrdenDeTrabajo}
+                    className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 p-3 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-foreground text-xs">
+                        Orden #{order.idOrdenDeTrabajo}
+                      </span>
+                      <StatusBadge
+                        status={getOtStatusBadgeVariant(order.estadoOrden)}
+                        label={getNombreEstadoOtVisible(
+                          order.estadoOrden,
+                          order.fechaEntregaEstimada,
+                          order.estadoOrdenNombre
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-end justify-between text-[11px] text-muted-foreground">
+                      <span>{formatDateCL(order.fechaRecepcion)}</span>
+                      <span className="font-extrabold text-foreground">
+                        {formatCLP(Number(order.total || 0))}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-border/80 rounded-xl bg-muted/20">
+                <ClipboardList className="h-6 w-6 text-muted-foreground mb-1 stroke-[1.5]" />
+                <span className="text-xs text-muted-foreground">Sin órdenes asociadas</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border/60 p-4 bg-muted/20">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl cursor-pointer"
+            onClick={() => onOpenChange(false)}
+          >
+            Cerrar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

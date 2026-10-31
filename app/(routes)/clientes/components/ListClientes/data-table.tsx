@@ -122,6 +122,7 @@ export function DataTable<TData, Tvalue>({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nombre, razón social o RUT..."
+                aria-label="Buscar por nombre, razón social o RUT"
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(event.target.value)}
                 className="pl-9"
@@ -134,7 +135,7 @@ export function DataTable<TData, Tvalue>({
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
               }
             >
-              <SelectTrigger className="h-9 w-full sm:w-40">
+              <SelectTrigger className="h-9 w-full sm:w-40" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Solo Activos" />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -144,10 +145,6 @@ export function DataTable<TData, Tvalue>({
               </SelectContent>
             </Select>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            {filteredRowCount} {filteredRowCount === 1 ? "cliente encontrado" : "clientes encontrados"}
-          </p>
         </div>
       }
       footer={
