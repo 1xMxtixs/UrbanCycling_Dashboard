@@ -1,30 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUserPermissions } from "@/components/providers";
 import {
   CheckCircle2,
   Clock3,
   FileCheck2,
   PauseCircle,
+  RotateCcw,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
 
 import { MetricCard } from "@/components/common/MetricCard";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog";
 import { PERMISSIONS } from "@/lib/permissions";
 import { toast } from "sonner";
+import {
+  NOMBRES_ESTADO_GARANTIA,
+  normalizarCodigoEstado,
+} from "@/lib/garantia-status";
+import { formatDateCL } from "@/lib/formatters";
 
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
@@ -35,141 +33,83 @@ import { EditGarantiaDialog } from "./EditGarantiaDialog";
 import type {
   EstadoGarantiaCodigo,
   Garantia,
+  RawGarantiaBackend,
 } from "../types";
 
-const nombresEstado: Record<EstadoGarantiaCodigo, Garantia["estado"]> = {
-  INGRESADO: "Ingresado",
-  EN_REVISION: "En Revisión",
-  EN_ESPERA: "En espera",
-  APROBADO: "Aprobado",
-  RECHAZADO: "Rechazado",
-};
-
 /*
  * ============================================================
- * CONVERTIR ESTADO DEL BACKEND
+ * PARSEAR DATOS DEL BACKEND A GARANTIA[]
  * ============================================================
  */
 
-function normalizarCodigoEstado(
-  estado: unknown
-): EstadoGarantiaCodigo | null {
-  /*
-   * El backend puede devolver:
-   *
-   * "INGRESADO"
-   *
-   * o un objeto como:
-   *
-   * {
-   *   codigo: "INGRESADO",
-   *   nombre: "Ingresado"
-   * }
-   */
+function parseGarantiasBackend(data: unknown): Garantia[] {
+  const rawList = Array.isArray((data as { garantias?: unknown })?.garantias)
+    ? ((data as { garantias: unknown[] }).garantias)
+    : [];
 
-  let codigo = "";
+  return rawList
+    .map((raw: unknown) => {
+      const garantia = raw as RawGarantiaBackend;
 
-  if (typeof estado === "string") {
-    codigo = estado;
-  } else if (
-    estado &&
-    typeof estado === "object"
-  ) {
-    const objeto = estado as {
-      codigo?: unknown;
-      code?: unknown;
-      nombre?: unknown;
-      name?: unknown;
-    };
+      const idGarantia = Number(
+        garantia.idGarantia ?? garantia.idReclamoGarantia
+      );
 
-    codigo =
-      typeof objeto.codigo === "string"
-        ? objeto.codigo
-        : typeof objeto.code === "string"
-        ? objeto.code
-        : typeof objeto.nombre === "string"
-        ? objeto.nombre
-        : typeof objeto.name === "string"
-        ? objeto.name
-        : "";
-  }
+      const cliente = garantia.cliente ?? {
+        idCliente: 0,
+        nombre: "Cliente sin nombre",
+        rut: "Sin RUT",
+      };
 
-  const estadoNormalizado = codigo
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replaceAll(" ", "_");
+      const estadoCodigo = normalizarCodigoEstado(garantia.estado);
 
-  switch (estadoNormalizado) {
-    case "INGRESADO":
-      return "INGRESADO";
+      const motivoReclamo =
+        garantia.motivoReclamo ?? garantia.motivo ?? "";
 
-    case "EN_REVISION":
-      return "EN_REVISION";
+      const observacionesResolucion =
+        garantia.observacionesResolucion ??
+        garantia.justificacionResolucion ??
+        null;
 
-    case "EN_ESPERA":
-      return "EN_ESPERA";
+      let veredicto = garantia.veredicto ?? null;
 
-    case "APROBADO":
-    case "APROBADA":
-      return "APROBADO";
+      if (veredicto === "APROBADA") {
+        veredicto = "Aprobado";
+      }
 
-    case "RECHAZADO":
-    case "RECHAZADA":
-      return "RECHAZADO";
+      if (veredicto === "RECHAZADA") {
+        veredicto = "Rechazado";
+      }
 
-    default:
-      return null;
-  }
-}
+      if (
+        !Number.isInteger(idGarantia) ||
+        idGarantia <= 0 ||
+        !estadoCodigo
+      ) {
+        console.error(
+          "[GARANTIAS] Garantía con ID o estado inválido:",
+          garantia
+        );
+        return null;
+      }
 
-/*
- * ============================================================
- * CONVERTIR FECHA
- * ============================================================
- */
-
-function convertirFecha(
-  fecha: unknown
-): string {
-  if (!fecha) {
-    return "";
-  }
-
-  if (typeof fecha !== "string") {
-    return "";
-  }
-
-  /*
-   * Si ya viene como DD-MM-YYYY,
-   * la dejamos tal cual.
-   */
-  if (
-    /^\d{2}-\d{2}-\d{4}$/.test(
-      fecha
-    )
-  ) {
-    return fecha;
-  }
-
-  /*
-   * Si viene ISO desde Prisma.
-   */
-  const date = new Date(fecha);
-
-  if (Number.isNaN(date.getTime())) {
-    return fecha;
-  }
-
-  return date.toLocaleDateString(
-    "es-CL",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
-  );
+      return {
+        idGarantia,
+        idOrdenDeTrabajo: Number(garantia.idOrdenDeTrabajo ?? 0),
+        idVenta: garantia.idVenta ?? null,
+        cliente,
+        motivoReclamo,
+        fechaIngreso: formatDateCL(
+          garantia.fechaIngreso ?? garantia.fechaRegistro
+        ),
+        estado: NOMBRES_ESTADO_GARANTIA[estadoCodigo],
+        estadoCodigo,
+        veredicto,
+        observacionesResolucion,
+        fechaResolucion: formatDateCL(garantia.fechaResolucion),
+      } as Garantia;
+    })
+    .filter((garantia): garantia is Garantia => garantia !== null);
 }
 
 /*
@@ -185,6 +125,7 @@ export function ListGarantias() {
 
   const [isLoading, setIsLoading] =
     useState(true);
+  const [error, setError] = useState("");
 
   /*
    * ==========================================================
@@ -241,233 +182,86 @@ export function ListGarantias() {
 
   /*
    * ==========================================================
-   * CARGAR GARANTÍAS
+   * CARGAR GARANTÍAS (RECARGA MANUAL / EVENTOS)
    * ==========================================================
    */
 
-  const cargarGarantias = async (mostrarCarga = true) => {
+  const cargarGarantias = useCallback(async (mostrarCarga = true) => {
     try {
       if (mostrarCarga) {
         setIsLoading(true);
       }
+      setError("");
 
-      const response = await fetch(
-        "/api/garantias",
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+      const response = await fetch("/api/garantias", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.message ||
-            "No fue posible obtener las garantías"
+          data?.message || "No fue posible obtener las garantías"
         );
       }
 
-      const garantiasBackend: Garantia[] =
-        (
-          data?.garantias ?? []
-        ).map(
-          (garantia: {
-            idGarantia?: number | string;
-            idReclamoGarantia?: number | string;
-            cliente?: { idCliente?: number; nombre?: string; rut?: string };
-            estado?: unknown;
-            motivoReclamo?: string;
-            motivo?: string;
-            observacionesResolucion?: string | null;
-            justificacionResolucion?: string | null;
-            veredicto?: string | null;
-            [key: string]: unknown;
-          }) => {
-            /*
-             * ==================================================
-             * IMPORTANTE
-             *
-             * Backend:
-             * idReclamoGarantia
-             *
-             * Frontend:
-             * idGarantia
-             *
-             * Aquí hacemos la conversión.
-             * ==================================================
-             */
-
-            const idGarantia = Number(
-              garantia.idGarantia ??
-                garantia.idReclamoGarantia
-            );
-
-            /*
-             * Cliente
-             */
-
-            const cliente = garantia.cliente ?? {
-              idCliente: 0,
-              nombre: "Cliente sin nombre",
-              rut: "Sin RUT",
-            };
-
-            /*
-             * Estado
-             */
-
-            const estadoCodigo = normalizarCodigoEstado(garantia.estado);
-
-            /*
-             * Motivo
-             *
-             * Backend nuevo:
-             * motivo
-             *
-             * Frontend:
-             * motivoReclamo
-             */
-
-            const motivoReclamo =
-              garantia.motivoReclamo ??
-              garantia.motivo ??
-              "";
-
-            /*
-             * Observaciones de resolución
-             */
-
-            const observacionesResolucion =
-              garantia.observacionesResolucion ??
-              garantia.justificacionResolucion ??
-              null;
-
-            /*
-             * Veredicto
-             */
-
-            let veredicto =
-              garantia.veredicto ??
-              null;
-
-            if (
-              veredicto ===
-              "APROBADA"
-            ) {
-              veredicto =
-                "Aprobado";
-            }
-
-            if (
-              veredicto ===
-              "RECHAZADA"
-            ) {
-              veredicto =
-                "Rechazado";
-            }
-
-            /*
-             * Si no existe ID válido,
-             * no agregamos el registro roto.
-             */
-
-            if (
-              !Number.isInteger(
-                idGarantia
-              ) ||
-              idGarantia <= 0 ||
-              !estadoCodigo
-            ) {
-              console.error(
-                "[GARANTIAS] Garantía con ID o estado inválido:",
-                garantia
-              );
-
-              return null;
-            }
-
-            return {
-              idGarantia,
-
-              idOrdenDeTrabajo:
-                Number(
-                  garantia.idOrdenDeTrabajo ??
-                    0
-                ),
-
-              idVenta:
-                garantia.idVenta ??
-                null,
-
-              cliente,
-
-              motivoReclamo,
-
-              fechaIngreso:
-                convertirFecha(
-                  garantia.fechaIngreso ??
-                    garantia.fechaRegistro
-                ),
-
-              estado: nombresEstado[estadoCodigo],
-
-              // El código gobierna las reglas de la interfaz y las llamadas al API.
-              estadoCodigo,
-
-              veredicto,
-
-              observacionesResolucion,
-
-              fechaResolucion:
-                convertirFecha(
-                  garantia.fechaResolucion
-                ),
-            } as Garantia;
-          }
-        )
-        .filter(
-          (
-            garantia: Garantia | null
-          ): garantia is Garantia =>
-            garantia !== null
-        );
-
-      console.log(
-        "[GARANTIAS] Garantías cargadas:",
-        garantiasBackend
+      setGarantias(parseGarantiasBackend(data));
+    } catch (err) {
+      console.error("[LIST_GARANTIAS]", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No fue posible obtener las garantías"
       );
-
-      setGarantias(
-        garantiasBackend
-      );
-    } catch (error) {
-      console.error(
-        "[LIST_GARANTIAS]",
-        error
-      );
-
       setGarantias([]);
     } finally {
       if (mostrarCarga) {
         setIsLoading(false);
       }
     }
-  };
+  }, []);
 
   /*
    * ==========================================================
-   * CARGAR AL MONTAR
+   * CARGA INICIAL
    * ==========================================================
    */
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    cargarGarantias();
+    let mounted = true;
 
-    // La creación sucede en HeaderGarantias; al recibir su evento volvemos a
-    // consultar el catálogo para incluir la garantía recién registrada.
+    fetch("/api/garantias", {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            data?.message || "No fue posible obtener las garantías"
+          );
+        }
+        if (mounted) {
+          setGarantias(parseGarantiasBackend(data));
+        }
+      })
+      .catch((err: unknown) => {
+        if (mounted) {
+          console.error("[LIST_GARANTIAS]", err);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No fue posible obtener las garantías"
+          );
+          setGarantias([]);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      });
+
     const refrescarGarantias = () => {
       void cargarGarantias(false);
     };
@@ -475,9 +269,10 @@ export function ListGarantias() {
     window.addEventListener("garantias:refresh", refrescarGarantias);
 
     return () => {
+      mounted = false;
       window.removeEventListener("garantias:refresh", refrescarGarantias);
     };
-  }, []);
+  }, [cargarGarantias]);
 
   /*
    * ==========================================================
@@ -724,7 +519,7 @@ export function ListGarantias() {
       const garantiaActualizada = {
         ...garantia,
         estadoCodigo,
-        estado: nombresEstado[estadoCodigo],
+        estado: NOMBRES_ESTADO_GARANTIA[estadoCodigo],
       };
 
       setGarantias((actuales) =>
@@ -760,11 +555,6 @@ export function ListGarantias() {
   const handleResolved = (
     garantiaActualizada: Garantia
   ) => {
-    /*
-     * Nos aseguramos de que el ID
-     * siga siendo numérico.
-     */
-
     const idActualizado =
       Number(
         garantiaActualizada.idGarantia
@@ -825,7 +615,7 @@ export function ListGarantias() {
           ].map(
             (_, index) => (
               <Skeleton
-                key={index}
+                key={`skeleton-${index}`}
                 className="h-24 rounded-2xl"
               />
             )
@@ -844,7 +634,27 @@ export function ListGarantias() {
    */
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 motion-reduce:animate-none">
+      {/* Banner de error no destructivo con reintento */}
+      {error && (
+        <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-destructive">
+              Error al cargar las garantías
+            </p>
+            <p className="text-xs text-destructive/90">{error}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void cargarGarantias(true)}
+            className="border-destructive/30 text-destructive hover:bg-destructive/10 w-fit shrink-0 cursor-pointer"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" aria-hidden="true" />
+            Reintentar
+          </Button>
+        </div>
+      )}
 
       {/* ======================================================
           KPIs
@@ -922,39 +732,23 @@ export function ListGarantias() {
       />
 
       {/* Confirma la transición antes de enviar el PATCH al controlador. */}
-      <AlertDialog
+      <StatusToggleDialog
         open={Boolean(cambioEstadoPendiente)}
         onOpenChange={(open) => {
           if (!open && !isChangingStatus) {
             setCambioEstadoPendiente(null);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar cambio de estado</AlertDialogTitle>
-            <AlertDialogDescription>
-              La solicitud #{cambioEstadoPendiente?.garantia.idGarantia} pasará de{" "}
-              {cambioEstadoPendiente?.garantia.estado} a{" "}
-              {cambioEstadoPendiente
-                ? nombresEstado[cambioEstadoPendiente.estadoDestino]
-                : ""}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isChangingStatus}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isChangingStatus}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmStatusChange();
-              }}
-            >
-              {isChangingStatus ? "Actualizando..." : "Confirmar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Confirmar cambio de estado"
+        description={
+          cambioEstadoPendiente
+            ? `La solicitud #${cambioEstadoPendiente.garantia.idGarantia} pasará de ${cambioEstadoPendiente.garantia.estado} a ${NOMBRES_ESTADO_GARANTIA[cambioEstadoPendiente.estadoDestino]}.`
+            : undefined
+        }
+        confirmLabel="Confirmar"
+        onConfirm={handleConfirmStatusChange}
+        isSubmitting={isChangingStatus}
+      />
 
       {/* ======================================================
           DETALLE

@@ -20,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
+import { resolveGarantiaStatusType } from "@/lib/garantia-status";
+import { formatDateCL } from "@/lib/formatters";
 
 import type { Garantia } from "../types";
 
@@ -29,19 +31,6 @@ interface GarantiaDetailDialogProps {
   garantia: Garantia | null;
 }
 
-function formatearFechaVisual(fecha: string) {
-  // El API usa DD-MM-YYYY; ese formato no debe pasar por Date porque algunos
-  // navegadores lo interpretan como MM-DD-YYYY.
-  if (/^\d{2}-\d{2}-\d{4}$/.test(fecha)) {
-    return fecha;
-  }
-
-  const fechaConvertida = new Date(fecha);
-  return Number.isNaN(fechaConvertida.getTime())
-    ? fecha
-    : fechaConvertida.toLocaleDateString("es-CL");
-}
-
 export function GarantiaDetailDialog({
   open,
   onOpenChange,
@@ -49,12 +38,7 @@ export function GarantiaDetailDialog({
 }: GarantiaDetailDialogProps) {
   if (!garantia) return null;
 
-  const status =
-    garantia.estadoCodigo === "APROBADO"
-      ? "success"
-      : garantia.estadoCodigo === "RECHAZADO"
-        ? "danger"
-        : "warning";
+  const status = resolveGarantiaStatusType(garantia.estadoCodigo);
 
   // Solo las garantías con veredicto tienen información de resolución.
   const estaResuelta =
@@ -91,7 +75,7 @@ export function GarantiaDetailDialog({
         <div className="space-y-6">
           <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Estado de Solicitud
               </p>
 
@@ -120,7 +104,7 @@ export function GarantiaDetailDialog({
 
               <DataField
                 label="Fecha de Ingreso"
-                value={formatearFechaVisual(garantia.fechaIngreso)}
+                value={formatDateCL(garantia.fechaIngreso)}
               />
             </div>
           </div>
@@ -152,7 +136,7 @@ export function GarantiaDetailDialog({
 
             <div className="space-y-4">
               <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Motivo del Reclamo
                 </p>
 
@@ -181,14 +165,14 @@ export function GarantiaDetailDialog({
                   label="Fecha de Resolución"
                   value={
                     garantia.fechaResolucion
-                      ? formatearFechaVisual(garantia.fechaResolucion)
+                      ? formatDateCL(garantia.fechaResolucion)
                       : "-"
                   }
                 />
               </div>
 
               <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Observaciones de Resolución
                 </p>
 
@@ -205,7 +189,7 @@ export function GarantiaDetailDialog({
 
             <span>
               Solicitud registrada el{" "}
-              {formatearFechaVisual(garantia.fechaIngreso)}
+              {formatDateCL(garantia.fechaIngreso)}
             </span>
           </div>
 

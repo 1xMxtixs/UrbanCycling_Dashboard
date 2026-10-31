@@ -197,29 +197,8 @@ export function ResolveGarantiaDialog({
       setIsSaving(true);
 
       try {
-        /*
-         * ====================================================
-         * URL CORRECTA
-         * ====================================================
-         */
-
         const url =
           `/api/garantias/${idGarantia}/resolucion`;
-
-        console.log(
-          "[RESOLVER_GARANTIA] Enviando:",
-          {
-            url,
-            idGarantia,
-            veredicto,
-          }
-        );
-
-        /*
-         * ====================================================
-         * PETICIÓN
-         * ====================================================
-         */
 
         const response =
           await fetch(
@@ -242,19 +221,6 @@ export function ResolveGarantiaDialog({
               ),
             }
           );
-
-        /*
-         * ====================================================
-         * LEER RESPUESTA DE FORMA SEGURA
-         * ====================================================
-         *
-         * Esto evita:
-         *
-         * Unexpected token '<'
-         *
-         * cuando Next devuelve una página HTML
-         * de error.
-         */
 
         const contentType =
           response.headers.get(
@@ -301,24 +267,12 @@ export function ResolveGarantiaDialog({
           );
         }
 
-        /*
-         * ====================================================
-         * ERROR HTTP
-         * ====================================================
-         */
-
         if (!response.ok) {
           throw new Error(
             data?.message ??
               "No fue posible resolver la garantía."
           );
         }
-
-        /*
-         * ====================================================
-         * GARANTÍA DEVUELTA
-         * ====================================================
-         */
 
         const garantiaRespuesta =
           data?.garantia;
@@ -330,20 +284,6 @@ export function ResolveGarantiaDialog({
             "La garantía fue procesada, pero el servidor no devolvió sus datos."
           );
         }
-
-        /*
-         * ====================================================
-         * OBTENER ID DEVUELTO
-         * ====================================================
-         *
-         * La API devuelve:
-         *
-         * idReclamoGarantia
-         *
-         * mientras el frontend usa:
-         *
-         * idGarantia
-         */
 
         const idRespuesta =
           Number(
@@ -363,23 +303,11 @@ export function ResolveGarantiaDialog({
           );
         }
 
-        /*
-         * ====================================================
-         * ESTADO FINAL
-         * ====================================================
-         */
-
         const estadoFinal =
           veredicto ===
           "APROBADA"
             ? "Aprobado"
             : "Rechazado";
-
-        /*
-         * ====================================================
-         * OBSERVACIONES
-         * ====================================================
-         */
 
         const observacionesFinales =
           garantiaRespuesta.observacionesResolucion ??
@@ -388,39 +316,21 @@ export function ResolveGarantiaDialog({
           (observaciones.trim() ||
             null);
 
-        /*
-         * ====================================================
-         * CONSTRUIR GARANTÍA PARA EL FRONTEND
-         * ====================================================
-         */
-
         const garantiaActualizada: Garantia =
           {
             ...garantia,
 
-            /*
-             * ID REAL
-             */
             idGarantia:
               idRespuesta,
 
-            /*
-             * OT
-             */
             idOrdenDeTrabajo:
               garantiaRespuesta.idOrdenDeTrabajo ??
               garantia.idOrdenDeTrabajo,
 
-            /*
-             * FECHA
-             */
             fechaIngreso:
               garantiaRespuesta.fechaIngreso ??
               garantia.fechaIngreso,
 
-            /*
-             * ESTADO
-             */
             estado:
               estadoFinal,
 
@@ -429,47 +339,21 @@ export function ResolveGarantiaDialog({
                 ? "APROBADO"
                 : "RECHAZADO",
 
-            /*
-             * MOTIVO
-             */
             motivoReclamo:
               garantiaRespuesta.motivoReclamo ??
               garantiaRespuesta.motivo ??
               garantia.motivoReclamo,
 
-            /*
-             * OBSERVACIONES DE RESOLUCIÓN
-             */
             observacionesResolucion:
               observacionesFinales,
 
-            /*
-             * VEREDICTO
-             */
             veredicto:
               estadoFinal,
           };
 
-        console.log(
-          "[RESOLVER_GARANTIA] Garantía actualizada:",
-          garantiaActualizada
-        );
-
-        /*
-         * ====================================================
-         * ACTUALIZAR TABLA
-         * ====================================================
-         */
-
         onResolved(
           garantiaActualizada
         );
-
-        /*
-         * ====================================================
-         * MENSAJE
-         * ====================================================
-         */
 
         toast.success(
           veredicto ===
@@ -477,12 +361,6 @@ export function ResolveGarantiaDialog({
             ? "Garantía aprobada correctamente."
             : "Garantía rechazada correctamente."
         );
-
-        /*
-         * ====================================================
-         * CERRAR
-         * ====================================================
-         */
 
         onOpenChange(false);
       } catch (error) {
@@ -535,12 +413,18 @@ export function ResolveGarantiaDialog({
               Veredicto
             </Label>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div
+              className="grid grid-cols-2 gap-4"
+              role="radiogroup"
+              aria-label="Seleccionar veredicto"
+            >
 
               {/* APROBAR */}
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={veredicto === "APROBADA"}
                 disabled={isSaving}
                 onClick={() =>
                   setVeredicto(
@@ -556,7 +440,12 @@ export function ResolveGarantiaDialog({
                   p-4
                   text-left
                   transition-all
+                  motion-reduce:transition-none
                   cursor-pointer
+                  focus-visible:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-ring
+                  focus-visible:ring-offset-2
                   ${
                     veredicto ===
                     "APROBADA"
@@ -617,6 +506,8 @@ export function ResolveGarantiaDialog({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={veredicto === "RECHAZADA"}
                 disabled={isSaving}
                 onClick={() =>
                   setVeredicto(
@@ -632,7 +523,12 @@ export function ResolveGarantiaDialog({
                   p-4
                   text-left
                   transition-all
+                  motion-reduce:transition-none
                   cursor-pointer
+                  focus-visible:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-ring
+                  focus-visible:ring-offset-2
                   ${
                     veredicto ===
                     "RECHAZADA"
@@ -743,7 +639,7 @@ export function ResolveGarantiaDialog({
               type="button"
               variant="outline"
               onClick={() =>
-                onOpenChange(
+                handleOpenChange(
                   false
                 )
               }

@@ -15,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { resolveGarantiaStatusType } from "@/lib/garantia-status";
 
 import {
   DropdownMenu,
@@ -95,6 +96,7 @@ function CellActions({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Abrir menú de acciones"
           className="h-8 w-8 cursor-pointer"
         >
           <MoreHorizontal className="h-4 w-4" />
@@ -318,43 +320,12 @@ export const columns: ColumnDef<Garantia>[] = [
       );
     },
 
-    cell: ({ row }) => {
-      const estado = row.original.estado;
-      const codigo = row.original.estadoCodigo;
-
-      let status:
-        | "success"
-        | "warning"
-        | "danger"
-        | "neutral" = "neutral";
-
-      // INGRESADO
-      if (codigo === "INGRESADO" || codigo === "EN_ESPERA") {
-        status = "neutral";
-      }
-
-      // EN REVISIÓN
-      if (codigo === "EN_REVISION") {
-        status = "warning";
-      }
-
-      // APROBADO
-      if (codigo === "APROBADO") {
-        status = "success";
-      }
-
-      // RECHAZADO
-      if (codigo === "RECHAZADO") {
-        status = "danger";
-      }
-
-      return (
-        <StatusBadge
-          status={status}
-          label={estado}
-        />
-      );
-    },
+    cell: ({ row }) => (
+      <StatusBadge
+        status={resolveGarantiaStatusType(row.original.estadoCodigo)}
+        label={row.original.estado}
+      />
+    ),
   },
 
   // ==========================================================

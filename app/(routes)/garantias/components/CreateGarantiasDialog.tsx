@@ -11,6 +11,7 @@ import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ESTADO_GARANTIA_CODIGO, NOMBRES_ESTADO_GARANTIA } from "@/lib/garantia-status";
 
 import {
   Select,
@@ -304,9 +305,9 @@ export function CreateGarantiasDialog({
         fechaIngreso:
           data.garantia.fechaIngreso,
 
-        estado: "Ingresado",
+        estado: NOMBRES_ESTADO_GARANTIA.INGRESADO,
 
-        estadoCodigo: "INGRESADO",
+        estadoCodigo: ESTADO_GARANTIA_CODIGO.INGRESADO,
 
         veredicto: null,
 
@@ -383,16 +384,18 @@ export function CreateGarantiasDialog({
                 setOrdenSeleccionada(value);
                 setError("");
               }}
-              disabled={isLoadingOrdenes}
+              disabled={isLoadingOrdenes || ordenesDisponibles.length === 0}
             >
               <SelectTrigger
                 id="orden"
-                className="w-full"
+                className="w-full cursor-pointer"
               >
                 <SelectValue
                   placeholder={
                     isLoadingOrdenes
                       ? "Cargando órdenes..."
+                      : ordenesDisponibles.length === 0
+                      ? "No hay órdenes disponibles"
                       : "Seleccionar orden de trabajo"
                   }
                 />
@@ -407,12 +410,9 @@ export function CreateGarantiasDialog({
                     Cargando órdenes...
                   </SelectItem>
                 ) : ordenesDisponibles.length === 0 ? (
-                  <SelectItem
-                    value="empty"
-                    disabled
-                  >
+                  <div className="p-4 text-center text-sm text-muted-foreground">
                     No hay órdenes disponibles
-                  </SelectItem>
+                  </div>
                 ) : (
                   ordenesDisponibles.map(
                     (item) => (
@@ -497,9 +497,9 @@ export function CreateGarantiasDialog({
           ================================================= */}
 
           <div className="space-y-2">
-            <Label>
+            <span className="text-sm font-medium leading-none text-foreground select-none">
               Fecha de Ingreso
-            </Label>
+            </span>
 
             <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3">
               <CalendarDays className="h-4 w-4 text-muted-foreground" />

@@ -45,3 +45,25 @@ export function formatUserName(user: UserNombreInput): string {
   if (parts.length > 0) return parts.join(" ").trim()
   return user.correoElectronico?.trim() || "Usuario sin nombre"
 }
+
+/** Convierte una fecha ISO o string al formato visual DD-MM-YYYY (es-CL). */
+export function formatDateCL(fecha: unknown): string {
+  if (!fecha || typeof fecha !== "string") {
+    return ""
+  }
+
+  if (/^\d{2}-\d{2}-\d{4}$/.test(fecha)) {
+    return fecha
+  }
+
+  const date = new Date(fecha)
+  if (Number.isNaN(date.getTime())) {
+    return fecha
+  }
+
+  return date.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
