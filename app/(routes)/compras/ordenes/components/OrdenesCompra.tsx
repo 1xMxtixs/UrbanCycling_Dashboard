@@ -13,7 +13,6 @@ import { StatusBadge } from "@/components/common/StatusBadge"
 import type { StatusType } from "@/components/common/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Dialog } from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -24,25 +23,15 @@ import {
 } from "@/components/ui/table"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { PERMISSIONS } from "@/lib/permissions"
+import { cn } from "@/lib/utils"
+import { formatCLP, formatDateCL } from "@/lib/formatters"
+import { getNombreEstadoPago, getPaymentStatusBadgeVariant } from "@/lib/payment-status"
 import { CreatePurchaseOrderForm } from "./CreatePurchaseOrderForm"
 import { PurchaseOrderDetail } from "./PurchaseOrderDetail"
+import type { PurchaseOrder } from "../types"
 
-export type PurchaseOrder = {
-  idOrdenDeCompra: number
-  fechaRegistro: string
-  fechaEntregaEstimada: string
-  fechaEntregaReal?: string | null
-  estado: string
-  estadoPago: string
-  estadoRecepcion: string
-  montoTotal: number | string
-  proveedor: { idProveedor: number; razonSocial: string }
-  _count?: { lineas: number }
-}
+export type { PurchaseOrder }
 
-export const currency = new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 })
-export const date = (value: string) =>
-  new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value))
 
 /** Mapea los estados de compra a los tipos semánticos de StatusBadge */
 function resolveOrderStatusType(value: string): StatusType {
@@ -102,9 +91,32 @@ export function OrdenesCompra() {
   }, [])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadOrders(), 0)
-    return () => window.clearTimeout(timer)
-  }, [loadOrders])
+    let isMounted = true
+    const controller = new AbortController()
+
+    async function init() {
+      try {
+        const response = await fetch("/api/ordenes-compra?page=1&pageSize=100", {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+        const result = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(result?.message || "No fue posible cargar las órdenes de compra.")
+        if (isMounted) setOrders(result?.orders ?? [])
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") return
+        if (isMounted) setError(cause instanceof Error ? cause.message : "No fue posible cargar las órdenes de compra.")
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    void init()
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [])
 
   const filteredOrders = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase()
@@ -139,7 +151,7 @@ export function OrdenesCompra() {
   const complete = orders.filter((order) => order.estado === "COMPLETADA").length
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="space-y-6 animate-in fade-in duration-300 motion-reduce:animate-none">
       <PageHeader
         title="Órdenes de compra"
         description="Crea órdenes para tus proveedores y sigue su envío, pagos y recepción en inventario."
@@ -192,9 +204,10 @@ export function OrdenesCompra() {
             variant="outline"
             size="icon"
             onClick={() => void loadOrders()}
+            disabled={loading}
             aria-label="Actualizar órdenes"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin motion-reduce:animate-none")} />
           </Button>
         }
       >
@@ -212,9 +225,9 @@ export function OrdenesCompra() {
         )}
 
         {loading ? (
-          <div className="space-y-3 p-5" aria-busy="true">
+          <div className="space-y-3 p-5 animate-pulse motion-reduce:animate-none" aria-busy="true">
             {[1, 2, 3].map((item) => (
-              <Skeleton key={item} className="h-14" />
+              <Skeleton key={`skeleton-order-${item}`} className="h-14" />
             ))}
           </div>
         ) : !error && filteredOrders.length === 0 ? (
@@ -262,14 +275,18 @@ export function OrdenesCompra() {
                       {order._count?.lineas ?? 0} productos
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{date(order.fechaRegistro)}</TableCell>
-                  <TableCell className="text-muted-foreground">{date(order.fechaEntregaEstimada)}</TableCell>
-                  <TableCell className="font-semibold">{currency.format(Number(order.montoTotal))}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDateCL(order.fechaRegistro)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDateCL(order.fechaEntregaEstimada)}</TableCell>
+                  <TableCell className="font-semibold">{formatCLP(Number(order.montoTotal))}</TableCell>
                   <TableCell>
                     <StatePill value={order.estado} />
                   </TableCell>
                   <TableCell>
-                    <StatePill value={order.estadoPago} />
+                    <StatusBadge
+                      status={getPaymentStatusBadgeVariant(order.estadoPago)}
+                      label={getNombreEstadoPago(order.estadoPago)}
+                      showDot={false}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => setSelected(order)}>
@@ -283,18 +300,18 @@ export function OrdenesCompra() {
         ) : null}
       </DataTableContainer>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <FormDialog
-          title="Nueva orden de compra"
-          description="Selecciona un proveedor activo, agrega productos y define las fechas de la orden."
-          size="3xl"
-        >
-          <CreatePurchaseOrderForm
-            onCreated={handleCreated}
-            onCancel={() => setCreateOpen(false)}
-          />
-        </FormDialog>
-      </Dialog>
+      <FormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Nueva orden de compra"
+        description="Selecciona un proveedor activo, agrega productos y define las fechas de la orden."
+        size="3xl"
+      >
+        <CreatePurchaseOrderForm
+          onCreated={handleCreated}
+          onCancel={() => setCreateOpen(false)}
+        />
+      </FormDialog>
 
       <PurchaseOrderDetail
         orderSummary={selected}
