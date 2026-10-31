@@ -35,6 +35,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
           ) : (
             <MoreHorizontal className="h-4 w-4" />
           )}
+          <span className="sr-only">Abrir menú de acciones</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -61,7 +62,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         {!isAnulada && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+            <DropdownMenuLabel className="text-xs font-semibold tracking-tight text-muted-foreground">
               Actualizar Venta
             </DropdownMenuLabel>
 
@@ -80,7 +81,11 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
             )}
 
             <DropdownMenuItem
-              onClick={() => meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
+              onClick={() =>
+                meta?.onCancelClick
+                  ? meta.onCancelClick(op)
+                  : meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)
+              }
               className="flex cursor-pointer items-center gap-2 text-destructive font-semibold"
             >
               <XCircle className="h-4 w-4" />

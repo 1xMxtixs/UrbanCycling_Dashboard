@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
+import { AlertCircle, RotateCcw } from "lucide-react"
 
 import { useUserPermissions } from "@/components/providers"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog } from "@/components/ui/dialog"
+import { EmptyState } from "@/components/common/EmptyState"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import { DataTable } from "./data-table"
@@ -32,6 +35,8 @@ export function ListServicios() {
 
   const [services, setServices] = useState<ServiceColumn[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   // Modales y Sheets
   const [selectedService, setSelectedService] = useState<ServiceColumn | null>(null)
@@ -44,9 +49,12 @@ export function ListServicios() {
 
   // Cargar servicios reales directamente desde API
   useEffect(() => {
+    let isMounted = true
+
     async function loadServices() {
       try {
         setIsLoading(true)
+        setLoadError(null)
         const response = await fetch("/api/servicios", { cache: "no-store" })
         const data = await response.json().catch(() => null)
 
@@ -56,46 +64,57 @@ export function ListServicios() {
           )
         }
 
-        setServices(data)
+        if (isMounted) {
+          setServices(data)
+        }
       } catch (error) {
-        setServices([])
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "No se pudieron cargar los servicios. Intenta nuevamente."
-        )
+        if (isMounted) {
+          setServices([])
+          const message =
+            error instanceof Error
+              ? error.message
+              : "No se pudieron cargar los servicios. Intenta nuevamente."
+          setLoadError(message)
+          toast.error(message)
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadServices()
-  }, [])
+    void loadServices()
+
+    return () => {
+      isMounted = false
+    }
+  }, [reloadKey])
 
   // Abre el servicio indicado por el buscador transversal sin sustituir la tabla
-  // completa ni sus acciones de administración.
-  useEffect(() => {
-    if (
-      !serviceIdParam ||
-      isCurrentParameterDismissed() ||
-      services.length === 0
-    ) return
-
+  // completa ni sus acciones de administración (render-phase derived state).
+  const [prevAutoOpenId, setPrevAutoOpenId] = useState<string | null>(null)
+  if (
+    serviceIdParam &&
+    !isCurrentParameterDismissed() &&
+    serviceIdParam !== prevAutoOpenId &&
+    services.length > 0
+  ) {
     const targetId = Number(serviceIdParam)
-    if (Number.isNaN(targetId)) return
-
-    const targetService = services.find(
-      (service) => service.idServicio === targetId
-    )
-    if (targetService) {
-      const openDetailTimer = window.setTimeout(() => {
+    if (!Number.isNaN(targetId)) {
+      const targetService = services.find(
+        (service) => service.idServicio === targetId
+      )
+      if (targetService) {
+        setPrevAutoOpenId(serviceIdParam)
         setSelectedService(targetService)
         setOpenDetail(true)
-      }, 0)
-
-      return () => window.clearTimeout(openDetailTimer)
+      }
     }
-  }, [isCurrentParameterDismissed, serviceIdParam, services])
+  }
+  if (!serviceIdParam && prevAutoOpenId !== null) {
+    setPrevAutoOpenId(null)
+  }
 
   const handleDetailOpenChange = (open: boolean) => {
     setOpenDetail(open)
@@ -107,6 +126,12 @@ export function ListServicios() {
     params.delete("serviceId")
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  const handleRetry = () => {
+    setIsLoading(true)
+    setLoadError(null)
+    setReloadKey((k) => k + 1)
   }
 
   // Acciones
@@ -181,24 +206,40 @@ export function ListServicios() {
     onToggleStatus: handleToggleClick,
   })
 
+  if (loadError && services.length === 0) {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title="Error al cargar los servicios"
+        description={loadError}
+        action={
+          <Button variant="outline" onClick={handleRetry}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
+        }
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Tabla de Servicios o Skeleton */}
       {isLoading ? (
-        <div className="space-y-6">
+        <div className="space-y-6" aria-busy="true">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton key="skeleton-service-kpi-1" className="h-28 rounded-2xl motion-reduce:animate-none" />
+            <Skeleton key="skeleton-service-kpi-2" className="h-28 rounded-2xl motion-reduce:animate-none" />
+            <Skeleton key="skeleton-service-kpi-3" className="h-28 rounded-2xl motion-reduce:animate-none" />
+            <Skeleton key="skeleton-service-kpi-4" className="h-28 rounded-2xl motion-reduce:animate-none" />
           </div>
           <div className="rounded-2xl border p-4 space-y-4 bg-card">
-            <Skeleton className="h-9 w-64 rounded-lg" />
+            <Skeleton className="h-9 w-64 rounded-lg motion-reduce:animate-none" />
             <div className="space-y-2">
-              <Skeleton className="h-10 w-full rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
+              <Skeleton key="skeleton-service-row-1" className="h-10 w-full rounded-md motion-reduce:animate-none" />
+              <Skeleton key="skeleton-service-row-2" className="h-12 w-full rounded-md motion-reduce:animate-none" />
+              <Skeleton key="skeleton-service-row-3" className="h-12 w-full rounded-md motion-reduce:animate-none" />
+              <Skeleton key="skeleton-service-row-4" className="h-12 w-full rounded-md motion-reduce:animate-none" />
             </div>
           </div>
         </div>
@@ -213,7 +254,7 @@ export function ListServicios() {
         service={selectedService}
       />
 
-      {/* Modal de EdiciÃ³n */}
+      {/* Modal de Edición */}
       {serviceToEdit && (
         <Dialog open={openEdit} onOpenChange={setOpenEdit}>
           <FormDialog
@@ -230,7 +271,7 @@ export function ListServicios() {
         </Dialog>
       )}
 
-      {/* DiÃ¡logo de ConfirmaciÃ³n para Inactivar/Reactivar */}
+      {/* Diálogo de Confirmación para Inactivar/Reactivar */}
       {serviceToToggle && (
         <StatusToggleDialog
           open={openToggleDialog}

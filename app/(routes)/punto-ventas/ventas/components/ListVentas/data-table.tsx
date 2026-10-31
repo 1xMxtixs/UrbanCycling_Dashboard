@@ -45,6 +45,7 @@ interface DataTableProps<TData, TValue> {
   updatingId: number | null
   onPayClick?: (idVenta: number, total: number) => void
   onGenerateReceipt?: (op: SaleOperation) => void
+  onCancelClick?: (op: SaleOperation) => void
   initialSearch?: string
 }
 
@@ -56,6 +57,7 @@ export function DataTable<TData, TValue>({
   updatingId,
   onPayClick,
   onGenerateReceipt,
+  onCancelClick,
   initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -91,6 +93,7 @@ export function DataTable<TData, TValue>({
       updatingId,
       onPayClick,
       onGenerateReceipt,
+      onCancelClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

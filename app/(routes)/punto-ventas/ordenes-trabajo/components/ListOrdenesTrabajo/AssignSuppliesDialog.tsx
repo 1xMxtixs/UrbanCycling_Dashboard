@@ -40,8 +40,9 @@ import { StatusBadge } from "@/components/common/StatusBadge"
 import { WorkOrder, WorkOrderServiceLine } from "../../types"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 import { isRegistroActivo } from "@/lib/registro-status"
+import { formatCLP } from "@/lib/formatters"
 
-// ─── Tipos ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface EditableLineState {
   draftPrice: string
@@ -83,10 +84,6 @@ function toNum(v: number | string | null | undefined): number {
   return Number(v ?? 0)
 }
 
-function formatCLP(amount: number): string {
-  return `$${amount.toLocaleString("es-CL")}`
-}
-
 function formatDateForInput(dateVal: string | Date | undefined): string {
   if (!dateVal) return ""
   const d = new Date(dateVal)
@@ -94,7 +91,7 @@ function formatDateForInput(dateVal: string | Date | undefined): string {
   return d.toISOString().split("T")[0]
 }
 
-// ─── Componente Principal ───────────────────────────────────────────────────
+// â”€â”€â”€ Componente Principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function AssignSuppliesDialog({
   open,
@@ -107,7 +104,7 @@ export function AssignSuppliesDialog({
   const [isEditingDescuento, setIsEditingDescuento] = useState(false)
   const [isSavingDescuento, setIsSavingDescuento] = useState(false)
 
-  // Datos generales: Mecánico, Fecha y Observaciones
+  // Datos generales: MecÃ¡nico, Fecha y Observaciones
   const [mechanics, setMechanics] = useState<MechanicOption[]>([])
   const [selectedMechanicId, setSelectedMechanicId] = useState<string>("none")
   const [isSavingMechanic, setIsSavingMechanic] = useState(false)
@@ -125,14 +122,14 @@ export function AssignSuppliesDialog({
   const [newServiceQuantity, setNewServiceQuantity] = useState<number>(1)
   const [isAddingService, setIsAddingService] = useState(false)
 
-  // Edición por línea (precio y descuento unitario)
+  // EdiciÃ³n por lÃ­nea (precio y descuento unitario)
   const [lineStates, setLineStates] = useState<Record<number, EditableLineState>>({})
 
   // Anular Orden de Trabajo
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
-  // Cargar catálogo de mecánicos y servicios cuando abre el diálogo
+  // Cargar catÃ¡logo de mecÃ¡nicos y servicios cuando abre el diÃ¡logo
   useEffect(() => {
     if (!open) return
 
@@ -146,7 +143,7 @@ export function AssignSuppliesDialog({
         if (usersRes.ok) {
           const usersData: unknown = await usersRes.json()
           if (Array.isArray(usersData)) {
-            // Filtrar usuarios con rol de mecánico o administrador/vendedor
+            // Filtrar usuarios con rol de mecÃ¡nico o administrador/vendedor
             const mechs = (usersData as UserApiResponse[])
               .filter((u) => isRegistroActivo(u.estado))
               .map((u) => ({
@@ -165,7 +162,7 @@ export function AssignSuppliesDialog({
           }
         }
       } catch (err) {
-        console.error("Error al cargar recursos para edición de orden:", err)
+        console.error("Error al cargar recursos para ediciÃ³n de orden:", err)
       }
     }
 
@@ -211,7 +208,7 @@ export function AssignSuppliesDialog({
 
   if (!order) return null
 
-  // ─── Cálculos derivados ─────────────────────────────────────────────────────
+  // â”€â”€â”€ CÃ¡lculos derivados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const lineas = order.lineasDeOrdenDeTrabajo ?? []
   const serviceLines = lineas.filter(
@@ -240,13 +237,13 @@ export function AssignSuppliesDialog({
 
   const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
 
-  // ─── Operaciones Backend ───────────────────────────────────────────────────
+  // â”€â”€â”€ Operaciones Backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   // 1. Descuento global
   async function handleSaveDescuento() {
     const newDescuento = Number(descuentoDraft)
     if (!Number.isFinite(newDescuento) || newDescuento < 0) {
-      toast.error("El descuento debe ser un número válido mayor o igual a 0.")
+      toast.error("El descuento debe ser un nÃºmero vÃ¡lido mayor o igual a 0.")
       return
     }
 
@@ -272,7 +269,7 @@ export function AssignSuppliesDialog({
     }
   }
 
-  // 2. Asignar Mecánico
+  // 2. Asignar MecÃ¡nico
   async function handleSaveMechanic(newVal: string) {
     setSelectedMechanicId(newVal)
     setIsSavingMechanic(true)
@@ -286,13 +283,13 @@ export function AssignSuppliesDialog({
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.message || "Error al actualizar mecánico asignado")
+        throw new Error(errData.message || "Error al actualizar mecÃ¡nico asignado")
       }
-      toast.success("Mecánico asignado actualizado.")
+      toast.success("MecÃ¡nico asignado actualizado.")
       window.dispatchEvent(new Event("work-orders:refresh"))
       onSuccess?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo reasignar mecánico.")
+      toast.error(err instanceof Error ? err.message : "No se pudo reasignar mecÃ¡nico.")
       setSelectedMechanicId(order!.idMecanicoAsignado ? String(order!.idMecanicoAsignado) : "none")
     } finally {
       setIsSavingMechanic(false)
@@ -329,7 +326,7 @@ export function AssignSuppliesDialog({
     }
   }
 
-  // 4. Observaciones / Diagnóstico de ingreso
+  // 4. Observaciones / DiagnÃ³stico de ingreso
   async function handleSaveObservations() {
     setIsSavingObservations(true)
     try {
@@ -359,7 +356,7 @@ export function AssignSuppliesDialog({
   async function handleAddServiceToOrder() {
     const srvId = Number(selectedNewServiceId)
     if (!srvId || srvId <= 0) {
-      toast.error("Selecciona un servicio válido de la lista.")
+      toast.error("Selecciona un servicio vÃ¡lido de la lista.")
       return
     }
     if (!newServiceQuantity || newServiceQuantity <= 0) {
@@ -395,7 +392,7 @@ export function AssignSuppliesDialog({
     }
   }
 
-  // 6. Guardar Precio y Descuento de una Línea
+  // 6. Guardar Precio y Descuento de una LÃ­nea
   async function handleSaveLine(linea: WorkOrderServiceLine) {
     const lineId = linea.idLineaDeOrdenDeTrabajo
     const state = lineStates[lineId]
@@ -403,11 +400,11 @@ export function AssignSuppliesDialog({
     const newDiscount = Number(state?.draftDiscount ?? 0)
 
     if (!Number.isFinite(newPrice) || newPrice < 0) {
-      toast.error("El precio debe ser un número válido mayor o igual a 0.")
+      toast.error("El precio debe ser un nÃºmero vÃ¡lido mayor o igual a 0.")
       return
     }
     if (!Number.isFinite(newDiscount) || newDiscount < 0) {
-      toast.error("El descuento unitario debe ser un número mayor o igual a 0.")
+      toast.error("El descuento unitario debe ser un nÃºmero mayor o igual a 0.")
       return
     }
     if (newDiscount > newPrice) {
@@ -434,9 +431,9 @@ export function AssignSuppliesDialog({
       )
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.message || `Error al actualizar línea (${res.status})`)
+        throw new Error(errData.message || `Error al actualizar lÃ­nea (${res.status})`)
       }
-      toast.success("Línea actualizada correctamente.")
+      toast.success("LÃ­nea actualizada correctamente.")
       setLineStates((prev) => ({
         ...prev,
         [lineId]: { ...prev[lineId], isEditing: false, isSaving: false },
@@ -444,7 +441,7 @@ export function AssignSuppliesDialog({
       window.dispatchEvent(new Event("work-orders:refresh"))
       onSuccess?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo actualizar la línea.")
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar la lÃ­nea.")
       setLineStates((prev) => ({
         ...prev,
         [lineId]: { ...prev[lineId], isSaving: false },
@@ -471,7 +468,7 @@ export function AssignSuppliesDialog({
     }))
   }
 
-  // ─── Renderizado de filas de líneas ─────────────────────────────────────────
+  // â”€â”€â”€ Renderizado de filas de lÃ­neas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function renderLineRow(linea: WorkOrderServiceLine) {
     const lineId = linea.idLineaDeOrdenDeTrabajo
@@ -481,7 +478,7 @@ export function AssignSuppliesDialog({
       isEditing: false,
       isSaving: false,
     }
-    const nombre = linea.servicio?.nombre ?? linea.producto?.nombre ?? `Línea #${lineId}`
+    const nombre = linea.servicio?.nombre ?? linea.producto?.nombre ?? `LÃ­nea #${lineId}`
     const isService = linea.idServicio !== null && linea.idServicio !== undefined
     const unitPriceEffective = Math.max(0, toNum(linea.precioUnitario) - toNum(linea.descuentoUnitario))
     const subtotalLinea = unitPriceEffective * Number(linea.cantidad || 1)
@@ -506,7 +503,7 @@ export function AssignSuppliesDialog({
               {nombre}
             </span>
             <span className="text-muted-foreground font-mono">
-              (×{linea.cantidad})
+              (Ã—{linea.cantidad})
             </span>
           </div>
 
@@ -533,7 +530,7 @@ export function AssignSuppliesDialog({
           </div>
         </div>
 
-        {/* Campos de edición inline para la línea */}
+        {/* Campos de ediciÃ³n inline para la lÃ­nea */}
         {state.isEditing && canEdit ? (
           <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-border/60 bg-background/80 p-2.5 rounded-md">
             <div className="space-y-1">
@@ -660,13 +657,13 @@ export function AssignSuppliesDialog({
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
-                    Edición Integral de Orden de Trabajo
+                    EdiciÃ³n Integral de Orden de Trabajo
                     <span className="text-muted-foreground font-normal text-sm">
                       (#{order.idOrdenDeTrabajo})
                     </span>
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    Modifica precios de insumos, agrega servicios técnicos con descuento de inventario y ajusta responsable, entrega o diagnóstico.
+                    Modifica precios de insumos, agrega servicios tÃ©cnicos con descuento de inventario y ajusta responsable, entrega o diagnÃ³stico.
                   </DialogDescription>
                 </div>
               </div>
@@ -675,27 +672,27 @@ export function AssignSuppliesDialog({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-6 py-4 pr-1">
-            {/* SECCIÓN 1: Datos Generales (Mecánico, Fecha Estimada, Diagnóstico) */}
+            {/* SECCIÃ“N 1: Datos Generales (MecÃ¡nico, Fecha Estimada, DiagnÃ³stico) */}
             <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-xs">
               <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
                 <UserCheck className="h-4 w-4 text-primary" />
-                Gestión de Responsable, Entrega y Diagnóstico
+                GestiÃ³n de Responsable, Entrega y DiagnÃ³stico
               </h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Mecánico Asignado */}
+                {/* MecÃ¡nico Asignado */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Mecánico Asignado</Label>
+                  <Label className="text-xs font-semibold">MecÃ¡nico Asignado</Label>
                   <Select
                     value={selectedMechanicId}
                     onValueChange={handleSaveMechanic}
                     disabled={!canEdit || isSavingMechanic}
                   >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Sin mecánico asignado" />
+                      <SelectValue placeholder="Sin mecÃ¡nico asignado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sin mecánico asignado</SelectItem>
+                      <SelectItem value="none">Sin mecÃ¡nico asignado</SelectItem>
                       {mechanics.map((m) => (
                         <SelectItem key={m.idUsuario} value={String(m.idUsuario)}>
                           {m.nombre}
@@ -704,7 +701,7 @@ export function AssignSuppliesDialog({
                     </SelectContent>
                   </Select>
                   <span className="text-[10px] text-muted-foreground">
-                    El cambio de mecánico se guarda automáticamente al seleccionarlo.
+                    El cambio de mecÃ¡nico se guarda automÃ¡ticamente al seleccionarlo.
                   </span>
                 </div>
 
@@ -738,12 +735,12 @@ export function AssignSuppliesDialog({
                 </div>
               </div>
 
-              {/* Diagnóstico / Observaciones de Ingreso */}
+              {/* DiagnÃ³stico / Observaciones de Ingreso */}
               <div className="space-y-1.5 pt-2 border-t border-border/60">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold flex items-center gap-1.5">
                     <FileText className="h-3.5 w-3.5 text-primary" />
-                    Observaciones de Ingreso / Diagnóstico Técnico
+                    Observaciones de Ingreso / DiagnÃ³stico TÃ©cnico
                   </Label>
                   {canEdit && !isEditingObservations && (
                     <Button
@@ -754,7 +751,7 @@ export function AssignSuppliesDialog({
                       onClick={() => setIsEditingObservations(true)}
                     >
                       <Pencil className="h-3 w-3" />
-                      Editar Diagnóstico
+                      Editar DiagnÃ³stico
                     </Button>
                   )}
                 </div>
@@ -767,7 +764,7 @@ export function AssignSuppliesDialog({
                       rows={3}
                       className="text-xs"
                       disabled={isSavingObservations}
-                      placeholder="Escribe el diagnóstico o requerimiento técnico..."
+                      placeholder="Escribe el diagnÃ³stico o requerimiento tÃ©cnico..."
                     />
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -793,7 +790,7 @@ export function AssignSuppliesDialog({
                         {isSavingObservations ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          "Guardar Diagnóstico"
+                          "Guardar DiagnÃ³stico"
                         )}
                       </Button>
                     </div>
@@ -806,20 +803,20 @@ export function AssignSuppliesDialog({
               </div>
             </div>
 
-            {/* SECCIÓN 2: Agregar Servicio Adicional */}
+            {/* SECCIÃ“N 2: Agregar Servicio Adicional */}
             {canEdit && (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
                   <PlusCircle className="h-4 w-4 text-primary" />
-                  Agregar Servicio Técnico Adicional
+                  Agregar Servicio TÃ©cnico Adicional
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Al agregar un servicio, el sistema descontará automáticamente los insumos vinculados desde el stock en inventario y recalculará la orden.
+                  Al agregar un servicio, el sistema descontarÃ¡ automÃ¡ticamente los insumos vinculados desde el stock en inventario y recalcularÃ¡ la orden.
                 </p>
 
                 <div className="flex flex-wrap items-end gap-3 pt-1">
                   <div className="flex-1 min-w-[220px] space-y-1">
-                    <Label className="text-xs">Servicio del Catálogo</Label>
+                    <Label className="text-xs">Servicio del CatÃ¡logo</Label>
                     <Select
                       value={selectedNewServiceId}
                       onValueChange={setSelectedNewServiceId}
@@ -867,7 +864,7 @@ export function AssignSuppliesDialog({
               </div>
             )}
 
-            {/* SECCIÓN 3: Mano de Obra / Servicios Actuales */}
+            {/* SECCIÃ“N 3: Mano de Obra / Servicios Actuales */}
             {serviceLines.length > 0 && (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
                 <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -882,7 +879,7 @@ export function AssignSuppliesDialog({
               </div>
             )}
 
-            {/* SECCIÓN 4: Insumos & Repuestos de Taller */}
+            {/* SECCIÃ“N 4: Insumos & Repuestos de Taller */}
             {productLines.length > 0 && (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
                 <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -897,7 +894,7 @@ export function AssignSuppliesDialog({
               </div>
             )}
 
-            {/* SECCIÓN 5: Descuento Global */}
+            {/* SECCIÃ“N 5: Descuento Global */}
             <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs">
               <div className="flex items-center gap-2 border-b border-border pb-2">
                 <DollarSign className="h-4.5 w-4.5 text-primary" />
@@ -983,13 +980,13 @@ export function AssignSuppliesDialog({
               </div>
             </div>
 
-            {/* SECCIÓN 6: Resumen de Valorización Total */}
+            {/* SECCIÃ“N 6: Resumen de ValorizaciÃ³n Total */}
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 shadow-xs">
               <div className="flex items-center justify-between border-b border-primary/10 pb-2">
                 <div className="flex items-center gap-2">
                   <Calculator className="h-4.5 w-4.5 text-primary" />
                   <h4 className="text-sm font-bold text-foreground">
-                    Resumen Económico en Tiempo Real
+                    Resumen EconÃ³mico en Tiempo Real
                   </h4>
                 </div>
                 <StatusBadge
@@ -1059,12 +1056,12 @@ export function AssignSuppliesDialog({
 
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Info className="h-3.5 w-3.5 text-primary shrink-0" />
-                Todos los cambios aplicados impactan automáticamente la base de datos y recalculan los saldos de la orden.
+                Todos los cambios aplicados impactan automÃ¡ticamente la base de datos y recalculan los saldos de la orden.
               </div>
             </div>
           </div>
 
-          {/* Pie del diálogo */}
+          {/* Pie del diÃ¡logo */}
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
               {canEdit && (
@@ -1093,7 +1090,7 @@ export function AssignSuppliesDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo de Confirmación de Anulación */}
+      {/* DiÃ¡logo de ConfirmaciÃ³n de AnulaciÃ³n */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1102,7 +1099,7 @@ export function AssignSuppliesDialog({
               Anular Orden de Trabajo
             </DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que deseas anular esta orden? Esta acción no se puede deshacer.
+              Â¿EstÃ¡s seguro de que deseas anular esta orden? Esta acciÃ³n no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
 
@@ -1143,7 +1140,7 @@ export function AssignSuppliesDialog({
                     Anulando...
                   </span>
                 ) : (
-                  "Confirmar Anulación"
+                  "Confirmar AnulaciÃ³n"
                 )}
               </Button>
             </div>

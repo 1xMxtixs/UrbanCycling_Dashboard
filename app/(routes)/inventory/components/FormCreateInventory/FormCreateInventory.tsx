@@ -84,17 +84,27 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   const { isSubmitting, isValid } = form.formState;
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadCategories() {
       try {
         const response = await fetch("/api/inventory/categories", { cache: "no-store" });
         const result = await response.json().catch(() => null);
-        setCategories(response.ok ? result?.categories ?? [] : []);
+        if (isMounted) {
+          setCategories(response.ok ? result?.categories ?? [] : []);
+        }
       } catch {
-        setCategories([]);
+        if (isMounted) {
+          setCategories([]);
+        }
       }
     }
 
-    loadCategories();
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -164,7 +174,6 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       setImagePreview(null);
       setSelectedCategoryIds([]);
     } catch (error) {
-      console.error(error);
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
       );

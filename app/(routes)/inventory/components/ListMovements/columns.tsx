@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { formatDateCL } from "@/lib/formatters"
 
 export type MovementColumn = {
   idMovimientoInventario: number
@@ -29,7 +30,11 @@ export const columns: ColumnDef<MovementColumn>[] = [
     ),
     cell: ({ row }) => {
       const v = row.original.fechaOperacion
-      return <span className="text-xs text-muted-foreground whitespace-nowrap">{v ? new Date(v).toLocaleString("es-CL") : "—"}</span>
+      return (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {v ? formatDateCL(typeof v === "string" ? v : v.toISOString()) : "—"}
+        </span>
+      )
     },
   },
   {

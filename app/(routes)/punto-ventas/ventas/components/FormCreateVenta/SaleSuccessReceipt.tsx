@@ -55,9 +55,9 @@ export function SaleSuccessReceipt({
   return (
     <div className="space-y-6 py-4 animate-in fade-in duration-300">
       <div className="flex flex-col items-center justify-center text-center space-y-2">
-        <CheckCircle2 className="h-14 w-14 text-green-500 animate-bounce" />
+        <CheckCircle2 className="h-14 w-14 text-primary animate-bounce motion-reduce:animate-none" />
 
-        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h3 className="text-xl font-bold text-foreground">
           Venta Registrada Exitosamente
         </h3>
 
@@ -66,9 +66,9 @@ export function SaleSuccessReceipt({
         </p>
       </div>
 
-      <div className="border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-5 rounded-lg font-mono text-xs space-y-4">
+      <div className="border border-dashed border-border bg-muted/30 p-5 rounded-lg font-mono text-xs space-y-4">
 
-        <div className="text-center border-b border-dashed border-slate-300 dark:border-slate-700 pb-2">
+        <div className="text-center border-b border-dashed border-border pb-2">
           <h4 className="font-bold text-sm">
             URBAN CYCLING
           </h4>
@@ -130,10 +130,10 @@ export function SaleSuccessReceipt({
           </div>
         </div>
 
-        <div className="border-t border-b border-dashed border-slate-300 dark:border-slate-700 py-2">
+        <div className="border-t border-b border-dashed border-border py-2">
           <table className="w-full">
             <thead>
-              <tr className="text-left font-bold text-[10px] text-muted-foreground border-b border-slate-200 dark:border-slate-800 pb-1">
+              <tr className="text-left font-bold text-[10px] text-muted-foreground border-b border-border pb-1">
                 <th className="w-2/4">
                   PRODUCTO
                 </th>
@@ -148,7 +148,7 @@ export function SaleSuccessReceipt({
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y divide-dashed divide-border">
               {selectedProducts.map(
                 (sp, i) => {
                   const prod =
@@ -167,7 +167,7 @@ export function SaleSuccessReceipt({
 
                   return (
                     <tr
-                      key={i}
+                      key={sp.idProducto ? `receipt-prod-${sp.idProducto}` : `receipt-line-${i}`}
                       className="align-top"
                     >
                       <td className="py-1 max-w-[150px] truncate">
@@ -193,8 +193,7 @@ export function SaleSuccessReceipt({
           </table>
         </div>
 
-        <div className="space-y-1.5 text-right font-semibold">
-
+        <div className="space-y-1.5 pt-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">
               SUBTOTAL:
@@ -209,7 +208,7 @@ export function SaleSuccessReceipt({
           </div>
 
           {descuento > 0 && (
-            <div className="flex justify-between text-red-500">
+            <div className="flex justify-between text-destructive">
               <span className="font-bold">
                 DESCUENTO:
               </span>
@@ -245,7 +244,7 @@ export function SaleSuccessReceipt({
             </span>
           </div>
 
-          <div className="flex justify-between text-sm font-bold border-t border-dashed border-slate-300 dark:border-slate-700 pt-1.5">
+          <div className="flex justify-between text-sm font-bold border-t border-dashed border-border pt-1.5">
             <span>
               TOTAL PAGADO:
             </span>
@@ -259,14 +258,14 @@ export function SaleSuccessReceipt({
           </div>
         </div>
 
-        <div className="text-center border-t border-dashed border-slate-300 dark:border-slate-700 pt-3">
+        <div className="text-center border-t border-dashed border-border pt-3">
           <p className="text-[10px] font-semibold uppercase">
             Método:{" "}
             <strong className="text-primary">
               {metodoPago}
             </strong>{" "}
             | Estado:{" "}
-            <strong className="text-green-600">
+            <strong className="text-primary">
               {estadoPago}
             </strong>
           </p>

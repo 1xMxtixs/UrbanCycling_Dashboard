@@ -85,7 +85,7 @@ export function OrderLinesSection({
 
       <div className="space-y-3">
         <Label className="text-xs font-bold text-foreground">
-          Servicios del Catálogo
+          Servicios del CatÃ¡logo
         </Label>
 
         {selectedServices.length === 0 ? (
@@ -97,7 +97,7 @@ export function OrderLinesSection({
             {selectedServices.map((selService, idx) => (
               <div
                 key={idx}
-                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1"
+                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1 motion-reduce:animate-none"
               >
                 <div className="min-w-50 flex-1">
                   <Select
@@ -185,7 +185,7 @@ export function OrderLinesSection({
             {selectedProducts.map((selProd, idx) => (
               <div
                 key={idx}
-                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1"
+                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1 motion-reduce:animate-none"
               >
                 {/* Select Product */}
                 <div className="min-w-50 flex-1">

@@ -44,7 +44,7 @@ export function ProductDetailSheet({
           <>
             <SheetHeader className="pb-4 border-b border-border/60">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-semibold tracking-tight text-muted-foreground">
                   Ficha de Producto #{product.idProducto}
                 </span>
                 <StatusBadge
@@ -94,11 +94,11 @@ export function ProductDetailSheet({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                  <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
                     Tipo de producto
                   </span>
                   <p className="text-sm font-bold text-foreground">{product.tipoProducto}</p>
-                  <span className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <span className="mt-3 block text-xs font-semibold tracking-tight text-muted-foreground">
                     Categorías
                   </span>
                   <div className="mt-1 flex flex-wrap gap-1.5">
@@ -118,21 +118,21 @@ export function ProductDetailSheet({
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                  <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
                     Precio Venta
                   </span>
                   <p className="text-base font-extrabold text-foreground">{formatCurrency(product.precioVenta)}</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                  <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
                     Stock Disponible
                   </span>
                   <p className="text-sm font-bold text-foreground">{product.stockActual} unidades</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                  <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
                     Stock Mínimo
                   </span>
                   <p className="text-sm font-bold text-muted-foreground">{product.stockMinimo} unidades</p>
@@ -140,7 +140,7 @@ export function ProductDetailSheet({
               </div>
 
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción del Producto</p>
+                <p className="text-xs font-semibold tracking-tight text-muted-foreground">Descripción del Producto</p>
                 <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">
                   {product.descripcion || "Sin descripción adicional registrada para este producto."}
                 </p>

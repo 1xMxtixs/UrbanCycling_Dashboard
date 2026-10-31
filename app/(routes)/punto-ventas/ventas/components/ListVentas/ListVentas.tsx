@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { formatClientName } from "@/lib/formatters"
@@ -8,6 +8,7 @@ import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { MetricCard } from "@/components/common/MetricCard"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
@@ -16,7 +17,8 @@ import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
 import { SaleOperation } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
-import { isVentaAnulada } from "@/lib/sale-status"
+import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
+import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 export function ListVentas() {
@@ -38,13 +40,17 @@ export function ListVentas() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
   const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
-  const getSales = async () => {
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [saleToCancel, setSaleToCancel] = useState<SaleOperation | null>(null)
+  const [isCancelling, setIsCancelling] = useState(false)
+
+  const getSales = useCallback(async () => {
     try {
       const response = await fetch("/api/punto-venta", {
         cache: "no-store",
@@ -52,6 +58,7 @@ export function ListVentas() {
 
       if (!response.ok) {
         setSales([])
+        toast.error("No fue posible consultar las ventas en mostrador.")
         return
       }
 
@@ -65,10 +72,11 @@ export function ListVentas() {
       setSales(ventas)
     } catch (err) {
       console.error("Error fetching sales:", err)
+      toast.error("No fue posible consultar las ventas en mostrador.")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     // Difiere la carga inicial para evitar una actualización de estado durante
@@ -79,7 +87,7 @@ export function ListVentas() {
     return () => {
       window.removeEventListener("sales:refresh", getSales)
     }
-  }, [])
+  }, [getSales])
 
   const handleUpdateStatus = async (idVenta: number, nextPagoStatus: string, nextVentaStatus: string) => {
     setUpdatingId(idVenta)
@@ -122,8 +130,29 @@ export function ListVentas() {
 
   const handlePayClick = (idVenta: number, total: number) => {
     setSaleToPay({ idVenta, total: Number(total) })
-    setSelectedMetodoPago("EFECTIVO")
+    setSelectedMetodoPago(METODO_PAGO_DEFECTO)
     setPayModalOpen(true)
+  }
+
+  const handleCancelClick = (op: SaleOperation) => {
+    setSaleToCancel(op)
+    setCancelModalOpen(true)
+  }
+
+  const handleConfirmCancelSale = async () => {
+    if (!saleToCancel) return
+    setIsCancelling(true)
+    try {
+      await handleUpdateStatus(
+        Number(saleToCancel.venta.idVenta),
+        ESTADO_PAGO.ANULADA,
+        ESTADO_VENTA.ANULADA
+      )
+      setCancelModalOpen(false)
+      setSaleToCancel(null)
+    } finally {
+      setIsCancelling(false)
+    }
   }
 
   const handleConfirmPayment = async () => {
@@ -295,13 +324,13 @@ export function ListVentas() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" aria-busy="true">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
+            <Skeleton key={`skeleton-kpi-${index}`} className="h-24 rounded-xl motion-reduce:animate-none" />
           ))}
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl motion-reduce:animate-none" />
       </div>
     )
   }
@@ -344,6 +373,7 @@ export function ListVentas() {
         updatingId={updatingId}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
+        onCancelClick={handleCancelClick}
       />
 
       <SaleDetailDialog
@@ -359,6 +389,7 @@ export function ListVentas() {
         sale={selectedSale}
         onPayClick={handlePayClick}
         onUpdateStatus={handleUpdateStatus}
+        onCancelClick={handleCancelClick}
       />
 
       <SalePayDialog
@@ -377,6 +408,19 @@ export function ListVentas() {
         activeReceipt={activeReceipt}
         onPrint={() => handlePrintReceipt(activeReceipt, selectedSale)}
         isGeneratingReceipt={isGeneratingReceipt}
+      />
+
+      <StatusToggleDialog
+        open={cancelModalOpen}
+        onOpenChange={setCancelModalOpen}
+        entityLabel="venta"
+        entityName={saleToCancel ? `Venta #${saleToCancel.idPuntoVenta}` : ""}
+        title={saleToCancel ? `¿Anular Venta #${saleToCancel.idPuntoVenta}?` : "¿Anular venta?"}
+        description="La venta será anulada en el sistema y cambiará su estado a Anulada. Esta acción no se puede revertir."
+        confirmLabel="Confirmar Anulación"
+        actionVariant="destructive"
+        isSubmitting={isCancelling}
+        onConfirm={handleConfirmCancelSale}
       />
     </div>
   )

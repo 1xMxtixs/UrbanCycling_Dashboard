@@ -35,7 +35,7 @@ export function ServiceDetailSheet({
           <>
             <SheetHeader className="pb-4 border-b border-border/60">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-semibold tracking-tight text-muted-foreground">
                   Ficha de Servicio #{service.idServicio}
                 </span>
                 <StatusBadge
@@ -97,7 +97,7 @@ export function ServiceDetailSheet({
 
               {/* Sección descripción */}
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción del Servicio</p>
+                <p className="text-xs font-semibold tracking-tight text-muted-foreground">Descripción del Servicio</p>
                 <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">
                   {service.descripcion || "Sin descripción adicional registrada para este servicio."}
                 </p>

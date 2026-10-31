@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import type { ProductColumn } from "../ListInventory/columns"
 
 export interface InventoryMovementDialogProps {
@@ -27,7 +28,7 @@ function getNowLocalString() {
 
 const movementSchema = (stockActual: number) =>
   z.object({
-    tipoMovimiento: z.enum(["ENTRADA", "SALIDA"], { error: "Obligatorio" }),
+    tipoMovimiento: z.enum(["ENTRADA", "SALIDA"], { message: "Obligatorio" }),
     cantidad: z.string().min(1, "Obligatorio")
       .refine((v) => !Number.isNaN(Number(v)) && Number.isInteger(Number(v)) && Number(v) > 0, "Entero > 0"),
     fechaOperacion: z.string().min(1, "Obligatorio"),
@@ -112,9 +113,11 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
                 <p className="text-xs text-muted-foreground font-medium">Producto</p>
                 <p className="font-semibold text-sm text-foreground">{product.nombre}</p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
-                Stock actual: {product.stockActual} u
-              </span>
+              <StatusBadge
+                status="info"
+                label={`Stock actual: ${product.stockActual} u`}
+                showDot={false}
+              />
             </div>
 
             <Form {...form}>

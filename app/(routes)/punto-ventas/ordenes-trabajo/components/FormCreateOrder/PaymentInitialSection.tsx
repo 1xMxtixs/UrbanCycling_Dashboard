@@ -37,7 +37,7 @@ export function PaymentInitialSection({
     <div className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs">
       <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
         <DollarSign className="h-4.5 w-4.5 text-primary" />
-        Información del Pago Inicial
+        InformaciÃ³n del Pago Inicial
       </h3>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -65,14 +65,14 @@ export function PaymentInitialSection({
           </Select>
         </div>
 
-        {/* Método de Pago */}
+        {/* MÃ©todo de Pago */}
         {estadoPago !== ESTADO_PAGO.PENDIENTE && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in">
+          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="metodoPago"
               className="text-muted-foreground text-xs font-semibold"
             >
-              Método de Pago
+              MÃ©todo de Pago
             </Label>
             <Select value={metodoPago} onValueChange={onMetodoPagoChange}>
               <SelectTrigger className="h-10 w-full border-input bg-background text-sm">
@@ -87,7 +87,7 @@ export function PaymentInitialSection({
 
         {/* Monto del Abono */}
         {estadoPago === ESTADO_PAGO.PARCIAL && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in">
+          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="montoAbono"
               className="text-muted-foreground text-xs font-semibold"

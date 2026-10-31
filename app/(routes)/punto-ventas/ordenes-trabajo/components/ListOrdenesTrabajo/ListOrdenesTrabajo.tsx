@@ -112,11 +112,11 @@ export function ListOrdenesTrabajo() {
       if (!response.ok) {
         if (response.status === 404 && data?.code === "SIN_ORDENES_EN_PERIODO") {
           setOrders([])
-          setPeriodEmptyMessage("No hay órdenes de trabajo dentro del período seleccionado.")
+          setPeriodEmptyMessage("No hay Ã³rdenes de trabajo dentro del perÃ­odo seleccionado.")
           return true
         }
 
-        toast.error(data?.message || "No fue posible consultar las órdenes de trabajo.")
+        toast.error(data?.message || "No fue posible consultar las Ã³rdenes de trabajo.")
         return false
       }
 
@@ -137,13 +137,13 @@ export function ListOrdenesTrabajo() {
       setOrders(ordenes)
       setPeriodEmptyMessage(
         period && ordenes.length === 0
-          ? "No hay órdenes de trabajo dentro del período seleccionado."
+          ? "No hay Ã³rdenes de trabajo dentro del perÃ­odo seleccionado."
           : null,
       )
       return true
     } catch (err) {
       console.error("Error fetching work orders:", err)
-      toast.error("No fue posible consultar las órdenes de trabajo.")
+      toast.error("No fue posible consultar las Ã³rdenes de trabajo.")
       return false
     } finally {
       setIsLoading(false)
@@ -155,7 +155,7 @@ export function ListOrdenesTrabajo() {
   }, [appliedPeriod, getOrders])
 
   useEffect(() => {
-    // Difiere la carga inicial para evitar actualizaciones de estado síncronas durante el efecto.
+    // Difiere la carga inicial para evitar actualizaciones de estado sÃ­ncronas durante el efecto.
     void Promise.resolve().then(() => getOrders(null))
   }, [getOrders])
 
@@ -392,7 +392,7 @@ export function ListOrdenesTrabajo() {
         throw new Error(err.message || "Error al registrar el pago restante")
       }
 
-      toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
+      toast.success("Pago registrado correctamente. La orden ahora estÃ¡ Pagada.")
       setPayModalOpen(false)
       closeOrderDetail()
       refreshOrders()
@@ -450,7 +450,7 @@ export function ListOrdenesTrabajo() {
     const content = `
       <html>
         <head>
-          <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
+          <title>Comprobante de Compra NÂ° ${dte.numeroFolio}</title>
           <style>
             body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
             .text-center { text-align: center; }
@@ -468,9 +468,9 @@ export function ListOrdenesTrabajo() {
           <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
           <div class="divider"></div>
           <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-          <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
+          <div class="text-center bold">NÂ° Folio: ${dte.numeroFolio}</div>
           <div class="divider"></div>
-          <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
+          <div>Fecha EmisiÃ³n: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
           <div>Cliente: ${clientLabel}</div>
           ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
           <div class="divider"></div>
@@ -486,7 +486,7 @@ export function ListOrdenesTrabajo() {
           <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
           <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
           <div class="divider"></div>
-          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>¡Gracias por su preferencia en Urban Cycling!</div>
+          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>Â¡Gracias por su preferencia en Urban Cycling!</div>
         </body>
       </html>
     `
@@ -502,7 +502,7 @@ export function ListOrdenesTrabajo() {
 
     const iframeDoc = iframe.contentWindow?.document
     if (!iframeDoc) {
-      toast.error("No se pudo preparar la impresión.")
+      toast.error("No se pudo preparar la impresiÃ³n.")
       document.body.removeChild(iframe)
       return
     }
@@ -525,19 +525,19 @@ export function ListOrdenesTrabajo() {
     if (iframe.contentWindow) {
       iframe.contentWindow.onafterprint = cleanup
     }
-    // Red de seguridad: si `onafterprint` no se dispara en algún navegador, igual se limpia solo a los 60s.
+    // Red de seguridad: si `onafterprint` no se dispara en algÃºn navegador, igual se limpia solo a los 60s.
     setTimeout(cleanup, 60000)
   }
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" aria-busy="true">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
+            <Skeleton key={`skeleton-kpi-${index}`} className="h-24 rounded-xl motion-reduce:animate-none" />
           ))}
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl motion-reduce:animate-none" />
       </div>
     )
   }
@@ -547,7 +547,7 @@ export function ListOrdenesTrabajo() {
       {/* 1. Panel de KPIs */}
       <KpiCards orders={orders} />
 
-      {/* 2. Tabla Principal de Órdenes */}
+      {/* 2. Tabla Principal de Ã“rdenes */}
       <DataTable
         columns={columns}
         data={orders}
@@ -563,7 +563,7 @@ export function ListOrdenesTrabajo() {
         emptyState={
           periodEmptyMessage
             ? {
-                title: "Sin órdenes en este período",
+                title: "Sin Ã³rdenes en este perÃ­odo",
                 description: periodEmptyMessage,
               }
             : undefined
@@ -581,7 +581,7 @@ export function ListOrdenesTrabajo() {
         onModifyServiceClick={handleModifyServiceClick}
       />
 
-      {/* 3. Próximos Vencimientos */}
+      {/* 3. PrÃ³ximos Vencimientos */}
       <UpcomingDeadlines orders={orders} />
 
       {/* 4. Modal de Detalle */}
@@ -603,7 +603,7 @@ export function ListOrdenesTrabajo() {
         onModifyServiceClick={handleModifyServiceClick}
       />
 
-      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
+      {/* 4.5. Modal de AsignaciÃ³n de Insumos y ValorizaciÃ³n */}
       <AssignSuppliesDialog
         open={suppliesModalOpen}
         onOpenChange={setSuppliesModalOpen}
@@ -634,7 +634,7 @@ export function ListOrdenesTrabajo() {
         isGeneratingReceipt={isGeneratingReceipt}
       />
 
-      {/* 7. Modal de Reprogramación de Entrega */}
+      {/* 7. Modal de ReprogramaciÃ³n de Entrega */}
       <RescheduleDialog
         open={rescheduleModalOpen}
         onOpenChange={setRescheduleModalOpen}
@@ -645,7 +645,7 @@ export function ListOrdenesTrabajo() {
         isRescheduling={isRescheduling}
       />
 
-      {/* 8. Modal de Confirmación de Anulación */}
+      {/* 8. Modal de ConfirmaciÃ³n de AnulaciÃ³n */}
       <CancelOrderDialog
         open={cancelModalOpen}
         onOpenChange={setCancelModalOpen}
@@ -654,14 +654,14 @@ export function ListOrdenesTrabajo() {
         isCancelling={isCancellingOrder}
       />
 
-      {/* 9. Modal de Historial de Auditoría */}
+      {/* 9. Modal de Historial de AuditorÃ­a */}
       <OrderAuditDialog
         open={auditModalOpen}
         onOpenChange={setAuditModalOpen}
         order={orderToAudit}
       />
 
-      {/* 10. Modal de Modificación de Servicio */}
+      {/* 10. Modal de ModificaciÃ³n de Servicio */}
       <ModifyServiceDialog
         open={modifyServiceModalOpen}
         onOpenChange={setModifyServiceModalOpen}

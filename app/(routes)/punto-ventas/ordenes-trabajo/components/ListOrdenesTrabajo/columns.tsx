@@ -22,7 +22,6 @@ import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import {
   ESTADO_OT,
-  ESTADOS_OT_CERRADOS,
   getNombreEstadoOt,
   getNombreEstadoOtVisible,
   isOrdenTrabajoRetrasada,
@@ -61,6 +60,7 @@ const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrd
           ) : (
             <MoreHorizontal className="h-4 w-4" />
           )}
+          <span className="sr-only">Abrir menú de opciones</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -86,7 +86,7 @@ const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrd
         {transitions.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+            <DropdownMenuLabel className="text-xs font-semibold tracking-tight text-muted-foreground">
               Cambiar Estado
             </DropdownMenuLabel>
             {transitions.map((nextState: string) => (

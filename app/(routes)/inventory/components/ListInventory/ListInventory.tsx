@@ -10,12 +10,14 @@ import {
   CheckCircle2,
   LoaderCircle,
   PackageX,
+  RotateCcw,
   Truck,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { PERMISSIONS } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/common/EmptyState"
 import { DataTable } from "./data-table"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
@@ -58,6 +60,8 @@ export function ListInventory() {
   const [inventory, setInventory] = useState<ProductColumn[]>([])
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
     null
   )
@@ -90,64 +94,87 @@ export function ListInventory() {
   )
 
   useEffect(() => {
+    let isMounted = true
+
     async function getInventory() {
       try {
+        setIsLoading(true)
+        setLoadError(null)
         const [response, categoriesResponse] = await Promise.all([
           fetch("/api/inventory", { cache: "no-store" }),
           fetch("/api/inventory/categories", { cache: "no-store" }),
         ])
 
         const categoriesData = await categoriesResponse.json().catch(() => null)
-        setCategories(
-          categoriesResponse.ok ? (categoriesData?.categories ?? []) : []
-        )
+        if (isMounted) {
+          setCategories(
+            categoriesResponse.ok ? (categoriesData?.categories ?? []) : []
+          )
+        }
 
         if (!response.ok) {
-          setInventory([])
-          return
+          const errData = await response.json().catch(() => null)
+          throw new Error(
+            errData?.message || "No se pudo cargar el inventario."
+          )
         }
 
         const data = (await response.json()) as ProductColumn[]
-        setInventory(data)
+        if (isMounted) {
+          setInventory(data)
+        }
+      } catch (error) {
+        if (isMounted) {
+          setInventory([])
+          const message =
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el inventario."
+          setLoadError(message)
+          toast.error(message)
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    const timerId = window.setTimeout(() => {
-      getInventory()
-    }, 0)
+    void getInventory()
 
-    window.addEventListener("inventory:refresh", getInventory)
+    const handleRefresh = () => {
+      void getInventory()
+    }
+
+    window.addEventListener("inventory:refresh", handleRefresh)
 
     return () => {
-      window.clearTimeout(timerId)
-      window.removeEventListener("inventory:refresh", getInventory)
+      isMounted = false
+      window.removeEventListener("inventory:refresh", handleRefresh)
     }
-  }, [])
+  }, [reloadKey])
 
-  // Auto-apertura de ficha de producto si viene ?productId=...
-  useEffect(() => {
-    if (
-      !productIdParam ||
-      isCurrentParameterDismissed() ||
-      inventory.length === 0
-    )
-      return
-
+  // Auto-apertura de ficha de producto si viene ?productId=... (render-phase derived state)
+  const [prevAutoOpenId, setPrevAutoOpenId] = useState<string | null>(null)
+  if (
+    productIdParam &&
+    !isCurrentParameterDismissed() &&
+    productIdParam !== prevAutoOpenId &&
+    inventory.length > 0
+  ) {
     const targetId = Number(productIdParam)
     if (!isNaN(targetId)) {
       const found = inventory.find((p) => p.idProducto === targetId)
       if (found) {
-        const openDetailTimer = window.setTimeout(() => {
-          setSelectedProduct(found)
-          setOpenDetail(true)
-        }, 0)
-
-        return () => window.clearTimeout(openDetailTimer)
+        setPrevAutoOpenId(productIdParam)
+        setSelectedProduct(found)
+        setOpenDetail(true)
       }
     }
-  }, [inventory, isCurrentParameterDismissed, productIdParam])
+  }
+  if (!productIdParam && prevAutoOpenId !== null) {
+    setPrevAutoOpenId(null)
+  }
 
   const handleDetailOpenChange = (open: boolean) => {
     setOpenDetail(open)
@@ -161,16 +188,41 @@ export function ListInventory() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
+  const handleRetry = () => {
+    setIsLoading(true)
+    setLoadError(null)
+    setReloadKey((k) => k + 1)
+  }
+
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" aria-busy="true">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
+            <Skeleton
+              key={`skeleton-kpi-${index}`}
+              className="h-24 rounded-xl motion-reduce:animate-none"
+            />
           ))}
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl motion-reduce:animate-none" />
       </div>
+    )
+  }
+
+  if (loadError && inventory.length === 0) {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title="Error al cargar el inventario"
+        description={loadError}
+        action={
+          <Button variant="outline" onClick={handleRetry}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
+        }
+      />
     )
   }
 
@@ -441,7 +493,10 @@ export function ListInventory() {
               aria-label="Cargando proveedores"
             >
               {[...Array(3)].map((_, index) => (
-                <Skeleton key={index} className="h-16 rounded-lg" />
+                <Skeleton
+                  key={`skeleton-supplier-${index}`}
+                  className="h-16 rounded-lg motion-reduce:animate-none"
+                />
               ))}
             </div>
           ) : supplierLoadError ? (
@@ -520,7 +575,7 @@ export function ListInventory() {
             >
               {isSavingAssociation ? (
                 <>
-                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
                   Guardando...
                 </>
               ) : (

@@ -19,6 +19,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { DataField } from "@/components/common/DataField"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import { formatClientName } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
@@ -30,6 +31,7 @@ interface SaleDetailDialogProps {
   sale: SaleOperation | null
   onPayClick: (idVenta: number, total: number) => void
   onUpdateStatus: (idVenta: number, nextPago: string, nextVenta: string) => void
+  onCancelClick?: (op: SaleOperation) => void
 }
 
 export function SaleDetailDialog({
@@ -38,6 +40,7 @@ export function SaleDetailDialog({
   sale,
   onPayClick,
   onUpdateStatus,
+  onCancelClick,
 }: SaleDetailDialogProps) {
   if (!sale) return null
 
@@ -53,18 +56,21 @@ export function SaleDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader className="border-b border-slate-100 dark:border-slate-800 pb-2">
+        <DialogHeader className="border-b border-border pb-2">
           <DialogTitle className="flex items-center justify-between text-xl font-black">
             <span>Detalle de Venta #{sale.idPuntoVenta}</span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-bold tracking-wider ${
-              isAnulada
-                ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:text-red-400"
-                : sale.estadoPago === ESTADO_PAGO.PAGADA
-                  ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/40 dark:text-green-400"
-                  : "bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400"
-            }`}>
-              {isAnulada ? "Anulada" : getNombreEstadoPago(sale.estadoPago)}
-            </span>
+            <StatusBadge
+              status={
+                isAnulada
+                  ? "danger"
+                  : sale.estadoPago === ESTADO_PAGO.PAGADA
+                    ? "success"
+                    : sale.estadoPago === ESTADO_PAGO.PENDIENTE
+                      ? "warning"
+                      : "neutral"
+              }
+              label={isAnulada ? "Anulada" : getNombreEstadoPago(sale.estadoPago)}
+            />
           </DialogTitle>
           <DialogDescription>
             Resumen detallado de la venta en mostrador registrada
@@ -177,7 +183,13 @@ export function SaleDetailDialog({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => onUpdateStatus(sale.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
+                onClick={() => {
+                  if (onCancelClick) {
+                    onCancelClick(sale)
+                  } else {
+                    onUpdateStatus(sale.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)
+                  }
+                }}
               >
                 <Ban className="h-4 w-4 mr-1.5" />
                 Anular
