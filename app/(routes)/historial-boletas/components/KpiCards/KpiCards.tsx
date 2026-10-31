@@ -4,8 +4,8 @@ import { MetricCard } from "@/components/common/MetricCard"
 interface KpiCardsProps {
   total: string
   emitidos: number
-  neto?: string
-  iva?: string
+  neto: string
+  iva: string
 }
 
 export function KpiCards({ total, emitidos, neto, iva }: KpiCardsProps) {
@@ -23,22 +23,18 @@ export function KpiCards({ total, emitidos, neto, iva }: KpiCardsProps) {
         description="Documentos tributarios activos"
         icon={FileCheck}
       />
-      {neto && (
-        <MetricCard
-          title="Total Neto"
-          value={neto}
-          description="Base imponible acumulada"
-          icon={ReceiptText}
-        />
-      )}
-      {iva && (
-        <MetricCard
-          title="IVA Débito (19%)"
-          value={iva}
-          description="Impuesto fiscal retenido"
-          icon={Percent}
-        />
-      )}
+      <MetricCard
+        title="Total Neto"
+        value={neto}
+        description="Base imponible acumulada"
+        icon={ReceiptText}
+      />
+      <MetricCard
+        title="IVA Débito (19%)"
+        value={iva}
+        description="Impuesto fiscal retenido"
+        icon={Percent}
+      />
     </div>
   )
 }

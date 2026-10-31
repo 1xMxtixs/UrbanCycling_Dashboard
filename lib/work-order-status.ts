@@ -1,3 +1,5 @@
+import type { StatusType } from "@/components/common/StatusBadge"
+
 export const ESTADO_OT = {
   POR_REALIZAR: "POR_REALIZAR",
   EN_ESPERA: "EN_ESPERA",
@@ -87,4 +89,15 @@ export function getNombreEstadoOtVisible(
   return isOrdenTrabajoRetrasada(estado, fechaEntregaEstimada)
     ? `${nombreEstado} (retrasada)`
     : nombreEstado
+}
+
+/**
+ * Devuelve la variante semántica para StatusBadge asociada al estado de una orden de trabajo.
+ */
+export function getOtStatusBadgeVariant(estado: string): StatusType {
+  if (estado === ESTADO_OT.ENTREGADO) return "success"
+  if (estado === ESTADO_OT.EN_CURSO) return "info"
+  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR || estado === ESTADO_OT.EN_ESPERA) return "warning"
+  if (estado === ESTADO_OT.ANULADA) return "danger"
+  return "neutral"
 }

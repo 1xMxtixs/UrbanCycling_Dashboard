@@ -11,6 +11,7 @@ import {
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import type { StatusType } from "@/components/common/StatusBadge"
+import { normalizeSearchText } from "@/lib/search-normalization"
 
 import type { ProveedorListado } from "./types"
 
@@ -63,14 +65,16 @@ export function ListProveedores({
 }: ListProveedoresProps) {
   const [search, setSearch] = useState("")
 
+  // PR-08: Búsqueda normalizada tolerante a acentos y mayúsculas
   const proveedoresFiltrados = useMemo(() => {
-    const value = search.trim().toLowerCase()
+    const value = normalizeSearchText(search)
     if (!value) return proveedores
-    return proveedores.filter((proveedor) =>
-      proveedor.razonSocial.toLowerCase().includes(value) ||
-      proveedor.rut.toLowerCase().includes(value) ||
-      proveedor.giro.toLowerCase().includes(value) ||
-      proveedor.nombreFantasia?.toLowerCase().includes(value)
+    return proveedores.filter(
+      (proveedor) =>
+        normalizeSearchText(proveedor.razonSocial).includes(value) ||
+        normalizeSearchText(proveedor.rut).includes(value) ||
+        normalizeSearchText(proveedor.giro).includes(value) ||
+        normalizeSearchText(proveedor.nombreFantasia).includes(value)
     )
   }, [proveedores, search])
 
@@ -85,15 +89,52 @@ export function ListProveedores({
           : undefined
       }
     >
+      {/* PR-03: Skeleton estructurado de tabla para evitar layout shift */}
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-muted-foreground">
-          Cargando proveedores...
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Razón social</TableHead>
+              <TableHead>RUT</TableHead>
+              <TableHead className="hidden sm:table-cell">Giro</TableHead>
+              <TableHead className="hidden md:table-cell">Contacto</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="w-12 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...Array(5)].map((_, i) => (
+              <TableRow key={`proveedor-row-skeleton-${i}`}>
+                <TableCell>
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-40 rounded" />
+                    <Skeleton className="h-3 w-28 rounded" />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-24 rounded" />
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <Skeleton className="h-4 w-32 rounded" />
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <Skeleton className="h-4 w-28 rounded" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="h-8 w-8 rounded-lg ml-auto" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       ) : proveedoresFiltrados.length === 0 ? (
         <div className="p-6">
           <EmptyState
             icon={Store}
-            title="No se encontraron proveedores"
+            title={search ? "Sin resultados" : "No se encontraron proveedores"}
             description={
               search
                 ? "Prueba con otro criterio de búsqueda."
@@ -107,8 +148,9 @@ export function ListProveedores({
             <TableRow>
               <TableHead>Razón social</TableHead>
               <TableHead>RUT</TableHead>
-              <TableHead>Giro</TableHead>
-              <TableHead>Contacto</TableHead>
+              {/* PR-09: Clases responsivas en cabeceras */}
+              <TableHead className="hidden sm:table-cell">Giro</TableHead>
+              <TableHead className="hidden md:table-cell">Contacto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="w-12 text-right">Acciones</TableHead>
             </TableRow>
@@ -116,12 +158,10 @@ export function ListProveedores({
 
           <TableBody>
             {proveedoresFiltrados.map((proveedor) => (
-              <TableRow
-                key={proveedor.idProveedor}
-              >
+              <TableRow key={proveedor.idProveedor}>
                 <TableCell>
                   <div>
-                    <p className="font-medium">{proveedor.razonSocial}</p>
+                    <p className="font-medium text-foreground">{proveedor.razonSocial}</p>
                     {proveedor.nombreFantasia && (
                       <p className="text-xs text-muted-foreground">
                         {proveedor.nombreFantasia}
@@ -130,13 +170,14 @@ export function ListProveedores({
                   </div>
                 </TableCell>
 
-                <TableCell>{proveedor.rut}</TableCell>
+                <TableCell className="font-mono text-xs">{proveedor.rut}</TableCell>
 
-                <TableCell className="max-w-xs">
-                  <p className="truncate">{proveedor.giro}</p>
+                {/* PR-09: Ocultar columnas secundarias en móviles */}
+                <TableCell className="hidden sm:table-cell max-w-xs">
+                  <p className="truncate text-muted-foreground text-xs">{proveedor.giro}</p>
                 </TableCell>
 
-                <TableCell>
+                <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
                   {proveedor.nombreContacto || "Sin contacto"}
                 </TableCell>
 
@@ -150,24 +191,29 @@ export function ListProveedores({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Acciones del proveedor">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Acciones para ${proveedor.razonSocial}`}
+                        className="cursor-pointer"
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
 
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onView(proveedor)}>
+                    <DropdownMenuContent align="end" className="rounded-xl border-border/80">
+                      <DropdownMenuItem onClick={() => onView(proveedor)} className="cursor-pointer">
                         <Eye className="mr-2 h-4 w-4" />
                         Ver ficha
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => onEdit(proveedor)}>
+                      <DropdownMenuItem onClick={() => onEdit(proveedor)} className="cursor-pointer">
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
 
                       {canAssociateProducts && (
-                        <DropdownMenuItem onClick={() => onAssociateProducts(proveedor)}>
+                        <DropdownMenuItem onClick={() => onAssociateProducts(proveedor)} className="cursor-pointer">
                           <PackageCheck className="mr-2 h-4 w-4" />
                           Asociar productos
                         </DropdownMenuItem>
@@ -175,12 +221,13 @@ export function ListProveedores({
 
                       <DropdownMenuSeparator />
 
+                      {/* PR-13: Texto claro alineado con la acción de inactivación */}
                       <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
+                        className="text-destructive focus:text-destructive cursor-pointer"
                         onClick={() => onDelete(proveedor)}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Eliminar
+                        Inactivar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

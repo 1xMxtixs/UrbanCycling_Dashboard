@@ -37,11 +37,12 @@ export function DeleteProveedorDialog({
 
       if (!response.ok) {
         throw new Error(
-          data?.message || "No fue posible eliminar el proveedor.",
+          data?.message || "No fue posible inactivar el proveedor.",
         )
       }
 
-      toast.success("Proveedor eliminado correctamente.")
+      // PR-13: Texto claro y consistente con la acción de inactivación lógica
+      toast.success("Proveedor inactivado correctamente.")
 
       onDeleted(proveedor.idProveedor)
       onOpenChange(false)
@@ -49,7 +50,7 @@ export function DeleteProveedorDialog({
       const message =
         error instanceof Error
           ? error.message
-          : "No fue posible eliminar el proveedor."
+          : "No fue posible inactivar el proveedor."
 
       toast.error(message)
     } finally {

@@ -30,3 +30,18 @@ export function formatCurrency(value: number | string | null | undefined): strin
     maximumFractionDigits: 0,
   })
 }
+
+export type UserNombreInput = {
+  primerNombre?: string | null
+  apellidoPaterno?: string | null
+  apellidoMaterno?: string | null
+  correoElectronico?: string | null
+} | null | undefined
+
+/** Formatea el nombre completo de un usuario; cae en el correo o en un texto genérico si no hay datos. */
+export function formatUserName(user: UserNombreInput): string {
+  if (!user) return "Usuario sin nombre"
+  const parts = [user.primerNombre, user.apellidoPaterno, user.apellidoMaterno].filter(Boolean)
+  if (parts.length > 0) return parts.join(" ").trim()
+  return user.correoElectronico?.trim() || "Usuario sin nombre"
+}

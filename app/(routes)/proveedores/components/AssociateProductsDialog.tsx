@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { normalizeSearchText } from "@/lib/search-normalization"
 import type { ProveedorListado } from "./types"
 
 type InventoryProduct = {
@@ -105,21 +106,25 @@ export function AssociateProductsDialog({
     }
   }, [open, proveedor])
 
+  // PR-08: Búsqueda normalizada tolerante a acentos y mayúsculas
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase()
+    const query = normalizeSearchText(search)
     if (!query) return products
     return products.filter((product) =>
-      `${product.idProducto} ${product.nombre} ${product.tipoProducto}`
-        .toLocaleLowerCase()
-        .includes(query)
+      normalizeSearchText(
+        `${product.idProducto} ${product.nombre} ${product.tipoProducto}`
+      ).includes(query)
     )
   }, [products, search])
 
-  const hasChanges = products.some(
-    (product) =>
-      (product.codigoProveedor === proveedor?.rut) !==
-      selectedIds.includes(product.idProducto)
-  )
+  // PR-16: Memorizar el cálculo de hasChanges
+  const hasChanges = useMemo(() => {
+    return products.some(
+      (product) =>
+        (product.codigoProveedor === proveedor?.rut) !==
+        selectedIds.includes(product.idProducto)
+    )
+  }, [products, selectedIds, proveedor?.rut])
 
   const toggleProduct = (product: InventoryProduct) => {
     setSaveError("")
@@ -217,7 +222,8 @@ export function AssociateProductsDialog({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent className="w-[calc(100vw-2rem)] rounded-xl sm:max-w-[calc(100vw-3rem)] xl:max-w-[calc(100vw-20rem)]">
+      {/* PR-11: Ancho estandarizado para diálogos medianos/grandes */}
+      <DialogContent className="rounded-2xl border-border/80 shadow-2xl sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PackageCheck className="h-5 w-5 text-primary" />
@@ -230,26 +236,30 @@ export function AssociateProductsDialog({
         </DialogHeader>
 
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar por nombre o ID..."
-            aria-label="Buscar productos"
-            className="pl-9"
+            aria-label="Buscar productos por nombre o identificador"
+            className="pl-9 h-9.5 rounded-xl bg-background border-border/80 text-xs shadow-2xs focus-visible:ring-primary/30"
             disabled={isLoading || Boolean(loadError)}
           />
         </div>
 
-        <div className="max-h-[min(55vh,480px)] overflow-y-auto rounded-lg border border-border">
+        <div className="max-h-[min(55vh,480px)] overflow-y-auto rounded-xl border border-border/80">
           {isLoading ? (
             <div
               className="space-y-2 p-4"
               aria-busy="true"
               aria-label="Cargando productos"
             >
+              {/* PR-15: Clave semántica estable en skeletons */}
               {[...Array(5)].map((_, index) => (
-                <Skeleton key={index} className="h-14 rounded-lg" />
+                <Skeleton
+                  key={`associate-product-skeleton-${index}`}
+                  className="h-14 rounded-lg"
+                />
               ))}
             </div>
           ) : loadError ? (
@@ -301,7 +311,7 @@ export function AssociateProductsDialog({
                           #{product.idProducto} · {product.tipoProducto}
                         </p>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                         {product.stockActual} u
                       </TableCell>
                       <TableCell className="text-right">
@@ -353,6 +363,7 @@ export function AssociateProductsDialog({
             variant="outline"
             disabled={isSaving}
             onClick={() => onOpenChange(false)}
+            className="rounded-xl cursor-pointer"
           >
             Cancelar
           </Button>
@@ -362,6 +373,7 @@ export function AssociateProductsDialog({
               isLoading || Boolean(loadError) || !hasChanges || isSaving
             }
             onClick={() => void handleSave()}
+            className="rounded-xl cursor-pointer"
           >
             {isSaving ? (
               <>

@@ -1,5 +1,3 @@
-"use client"
-
 import { PageHeader } from "@/components/common/PageHeader"
 
 export function HeaderHistorialBoletas() {

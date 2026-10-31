@@ -1,24 +1,30 @@
 "use client";
 
-import { Bike, ClipboardList, UserRound, Wrench, Palette } from "lucide-react";
-import { StatusBadge, type StatusType } from "@/components/common/StatusBadge";
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Bike,
+  UserRound,
+  Wrench,
+  Palette,
+  ExternalLink,
+  ChevronDown,
+} from "lucide-react";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
+import { Button } from "@/components/ui/button";
 import { formatClientName } from "@/lib/formatters";
-import { ESTADO_OT, getNombreEstadoOtVisible } from "@/lib/work-order-status";
+import { getNombreEstadoOtVisible, getOtStatusBadgeVariant } from "@/lib/work-order-status";
+import { cn } from "@/lib/utils";
 import type { Bicicleta } from "../../types";
 
 type BikeCardProps = {
   bicicleta: Bicicleta;
 };
 
-function mapEstadoToStatusType(estado: string): StatusType {
-  if (estado === ESTADO_OT.ENTREGADO) return "success";
-  if (estado === ESTADO_OT.EN_CURSO) return "info";
-  if (estado === ESTADO_OT.LISTO_PARA_ENTREGAR || estado === ESTADO_OT.EN_ESPERA) return "warning";
-  return "neutral";
-}
-
 export function BikeCard({ bicicleta }: BikeCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
@@ -27,19 +33,22 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
     bicicleta.ordenDeTrabajo?.fechaEntregaEstimada,
     bicicleta.ordenDeTrabajo?.estadoOrdenNombre
   );
-  const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
-  const statusType = mapEstadoToStatusType(estadoOrden);
+  const descripcion = bicicleta.descripcion || "Sin observaciones de taller registradas.";
+  const statusType = getOtStatusBadgeVariant(estadoOrden);
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 flex flex-col justify-between">
+    <article className="group relative overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 motion-reduce:transition-none motion-reduce:hover:translate-y-0 flex flex-col justify-between">
       <div>
+        {/* Contenedor de Fotografía y Badge de Orden */}
         <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
           {bicicleta.imagenUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={bicicleta.imagenUrl}
               alt={`${bicicleta.marca} ${bicicleta.modelo}`}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -48,14 +57,22 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             </div>
           )}
 
-          <div className="absolute left-3 top-3 rounded-full bg-background/85 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground border border-border/80 shadow-2xs">
-            Orden #{bicicleta.idOrdenDeTrabajo}
-          </div>
+          {/* Badge de Orden accesible como enlace */}
+          <Link
+            href={`/punto-ventas/ordenes-trabajo?search=${bicicleta.idOrdenDeTrabajo}`}
+            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-foreground border border-border/80 shadow-2xs hover:bg-background hover:text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            title={`Ir a orden #${bicicleta.idOrdenDeTrabajo}`}
+            aria-label={`Ver orden de trabajo #${bicicleta.idOrdenDeTrabajo}`}
+          >
+            <span>Orden #{bicicleta.idOrdenDeTrabajo}</span>
+            <ExternalLink className="h-3 w-3 stroke-[2]" />
+          </Link>
         </div>
 
+        {/* Ficha Principal de la Bicicleta */}
         <div className="space-y-3 p-4">
           <div className="space-y-1">
-            <h3 className="line-clamp-1 text-base font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
+            <h3 className="line-clamp-1 text-base font-bold tracking-tight text-foreground">
               {bicicleta.marca} {bicicleta.modelo}
             </h3>
             <DataField
@@ -71,6 +88,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               variant="inline"
               icon={UserRound}
               value={nombreCliente}
+              secondaryValue={cliente?.rut ? `(${cliente.rut})` : undefined}
               className="min-w-0 flex-1"
               valueClassName="line-clamp-1 font-semibold"
             />
@@ -80,46 +98,57 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
               className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
             />
           </div>
+
+          {/* Diagnóstico & Observaciones expandible (soporte touch, móvil y teclado) */}
+          {showDetails && (
+            <div className="rounded-xl border border-border/70 bg-muted/30 p-3 text-xs animate-in fade-in slide-in-from-top-1 duration-200 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-foreground">
+                <Wrench className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>Diagnóstico & Taller</span>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                {descripcion}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Slide-up Drawer en Hover */}
-      <div className="absolute inset-x-0 bottom-0 h-[82%] translate-y-full rounded-t-2xl border-t border-border/80 bg-background/95 p-4.5 backdrop-blur-md transition-transform duration-300 ease-out group-hover:translate-y-0 flex flex-col justify-between shadow-2xl">
-        <div className="space-y-3 overflow-hidden flex flex-col h-full">
-          <div className="flex items-center gap-2 text-primary border-b border-border/60 pb-2">
-            <Wrench className="h-4 w-4 stroke-[2]" />
-            <span className="text-xs font-bold uppercase tracking-wider">
-              Diagnóstico & Taller
-            </span>
-          </div>
+      {/* Barra de Acciones Inferior */}
+      <div className="flex items-center justify-between border-t border-border/60 bg-muted/10 p-3 gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowDetails(!showDetails)}
+          className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer gap-1 px-2"
+          aria-expanded={showDetails}
+          aria-label={showDetails ? "Ocultar diagnóstico" : "Ver diagnóstico"}
+        >
+          <Wrench className="h-3.5 w-3.5 text-primary" />
+          <span>{showDetails ? "Ocultar notas" : "Diagnóstico"}</span>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform duration-200",
+              showDetails && "rotate-180"
+            )}
+          />
+        </Button>
 
-          <div className="flex-1 overflow-y-auto pr-1 text-xs text-muted-foreground leading-relaxed">
-            {descripcion}
-          </div>
-
-          <div className="border-t border-border/60 pt-2.5 space-y-2 text-xs">
-            <DataField
-              variant="inline"
-              icon={UserRound}
-              value={nombreCliente}
-              secondaryValue={cliente?.rut ? `(${cliente.rut})` : undefined}
-            />
-            <DataField
-              variant="inline"
-              icon={ClipboardList}
-              label="Orden"
-              value={`#${bicicleta.idOrdenDeTrabajo}`}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 text-foreground pt-0.5">
-              <span className="text-xs text-muted-foreground font-medium">Estado actual:</span>
-              <StatusBadge
-                status={statusType}
-                label={estadoOrdenNombre}
-                className="h-auto min-h-5 max-w-full whitespace-normal overflow-visible text-center leading-tight"
-              />
-            </div>
-          </div>
-        </div>
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs font-semibold rounded-xl border-border/80 hover:bg-primary/10 hover:text-primary hover:border-primary/40 cursor-pointer gap-1.5"
+        >
+          <Link
+            href={`/punto-ventas/ordenes-trabajo?search=${bicicleta.idOrdenDeTrabajo}`}
+            aria-label={`Ver orden #${bicicleta.idOrdenDeTrabajo}`}
+          >
+            <span>Ver orden</span>
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </Button>
       </div>
     </article>
   );

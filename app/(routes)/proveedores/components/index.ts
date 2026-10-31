@@ -1,15 +1,9 @@
-export { HeaderProveedores } from "./HeaderProveedores"
-export { ListProveedores } from "./ListProveedores"
-export { CreateProveedorDialog } from "./CreateProveedorDialog"
-export { EditProveedorDialog } from "./EditProveedorDialog"
-export { ProveedorDetailSheet } from "./ProveedorDetailSheet"
-export { DeleteProveedorDialog } from "./DeleteProveedorDialog"
-
-export type {
-  ProveedorListado,
-  ProveedorDetalle,
-  ProveedorFormData,
-  TelefonoProveedor,
-  CorreoProveedor,
-  DireccionProveedor,
-} from "./types"
+export * from "./types"
+export * from "./HeaderProveedores"
+export * from "./ListProveedores"
+export * from "./CreateProveedorDialog"
+export * from "./EditProveedorDialog"
+export * from "./DeleteProveedorDialog"
+export * from "./ProveedorDetailSheet"
+export * from "./AssociateProductsDialog"
+export * from "./ProveedorFormFields"

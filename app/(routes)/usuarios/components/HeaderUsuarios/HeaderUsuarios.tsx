@@ -1,7 +1,4 @@
-"use client";
-
 import { PageHeader } from "@/components/common/PageHeader";
-import { ShieldCheck } from "lucide-react";
 
 export function HeaderUsuarios() {
   return (
