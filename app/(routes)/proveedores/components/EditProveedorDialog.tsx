@@ -13,7 +13,7 @@ import {
   type ProveedorFormData,
   type ProveedorListado,
 } from "./types"
-import { ProveedorFormFields } from "./ProveedorFormFields"
+import { focusProveedorField, ProveedorFormFields } from "./ProveedorFormFields"
 
 interface EditProveedorDialogProps {
   open: boolean
@@ -111,17 +111,23 @@ export function EditProveedorDialog({
   }
 
   const validate = () => {
-    if (!form.razonSocial.trim()) return "La razón social es obligatoria."
-    if (!form.rut.trim()) return "El RUT es obligatorio."
-    if (!form.giro.trim()) return "El giro es obligatorio."
-    if (!form.telefono.trim()) return "El teléfono es obligatorio."
-    if (!form.correo.trim()) return "El correo electrónico es obligatorio."
-    if (!form.region.trim()) return "La región es obligatoria."
-    if (!form.ciudad.trim()) return "La ciudad es obligatoria."
-    if (!form.comuna.trim()) return "La comuna es obligatoria."
-    if (!form.calle.trim()) return "La calle es obligatoria."
-    if (!form.numero.trim()) return "El número de dirección es obligatorio."
-    return null
+    const requiredFields: Array<[keyof ProveedorFormData, string]> = [
+      ["razonSocial", "La razón social es obligatoria."],
+      ["rut", "El RUT es obligatorio."],
+      ["giro", "El giro es obligatorio."],
+      ["condicionesDePago", "Las condiciones de pago son obligatorias."],
+      ["telefono", "El teléfono es obligatorio."],
+      ["correo", "El correo electrónico es obligatorio."],
+      ["region", "La región es obligatoria."],
+      ["ciudad", "La ciudad es obligatoria."],
+      ["comuna", "La comuna es obligatoria."],
+      ["calle", "La calle es obligatoria."],
+      ["numero", "El número de dirección es obligatorio."],
+    ]
+    const missingField = requiredFields.find(([field]) => !form[field].trim())
+    return missingField
+      ? { field: missingField[0], message: missingField[1] }
+      : null
   }
 
   const handleSubmit = async () => {
@@ -131,7 +137,8 @@ export function EditProveedorDialog({
     const validationError = validate()
 
     if (validationError) {
-      setError(validationError)
+      setError(validationError.message)
+      focusProveedorField("edit-prov", validationError.field)
       return
     }
 
@@ -150,7 +157,7 @@ export function EditProveedorDialog({
             nombreFantasia: form.nombreFantasia.trim() || undefined,
             rut: form.rut.trim(),
             giro: form.giro.trim(),
-            condicionesDePago: form.condicionesDePago.trim() || undefined,
+            condicionesDePago: form.condicionesDePago.trim(),
             nombreContacto: form.nombreContacto.trim() || undefined,
             telefonos: [{ telefono: form.telefono.trim() }],
             correos: [{ correo: form.correo.trim() }],
@@ -207,7 +214,10 @@ export function EditProveedorDialog({
       ) : (
         <div className="space-y-6">
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
               {error}
             </div>
           )}
@@ -237,7 +247,9 @@ export function EditProveedorDialog({
               disabled={isSubmitting}
               className="cursor-pointer"
             >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {isSubmitting ? "Guardando..." : "Guardar cambios"}
             </Button>
           </div>

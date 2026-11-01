@@ -1,14 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Building2, CheckCircle2, RefreshCw, UserCheck } from "lucide-react"
+import { Building2, RefreshCw, Store, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MetricCard } from "@/components/common/MetricCard"
 import { useUserPermissions } from "@/components/providers"
-import { isRegistroActivo } from "@/lib/registro-status"
 
 import {
   CreateProveedorDialog,
@@ -163,16 +162,16 @@ export default function ProveedoresPage() {
   }
 
   // PR-12: Uso del helper estándar isRegistroActivo
-  const activosCount = proveedores.filter((p) =>
-    isRegistroActivo(p.estado)
-  ).length
   const conContactoCount = proveedores.filter((p) =>
     Boolean(p.nombreContacto && p.nombreContacto.trim())
+  ).length
+  const conNombreFantasiaCount = proveedores.filter((p) =>
+    Boolean(p.nombreFantasia && p.nombreFantasia.trim())
   ).length
 
   return (
     // PR-10: Padding externo delegado al dashboard layout + PR-14: motion-reduce
-    <div className="space-y-6 animate-in fade-in duration-300 motion-reduce:animate-none">
+    <div className="animate-in space-y-6 duration-300 fade-in motion-reduce:animate-none">
       <HeaderProveedores onCreate={() => setCreateOpen(true)} />
 
       {/* PR-03: Skeletons en KPIs durante carga */}
@@ -187,17 +186,10 @@ export default function ProveedoresPage() {
         ) : (
           <>
             <MetricCard
-              title="Proveedores registrados"
-              value={proveedores.length}
-              description="Total de distribuidores y empresas registradas"
-              icon={Building2}
-            />
-            <MetricCard
               title="Proveedores activos"
-              value={activosCount}
-              description="Habilitados para órdenes de compra y cotizaciones"
-              icon={CheckCircle2}
-              accentColor="emerald"
+              value={proveedores.length}
+              description="Proveedores habilitados que aparecen en este listado"
+              icon={Building2}
             />
             <MetricCard
               title="Con contacto directo"
@@ -205,6 +197,13 @@ export default function ProveedoresPage() {
               description="Fichas con ejecutivo o contacto registrado"
               icon={UserCheck}
               accentColor="cyan"
+            />
+            <MetricCard
+              title="Con nombre comercial"
+              value={conNombreFantasiaCount}
+              description="Proveedores con un nombre de fantasía registrado"
+              icon={Store}
+              accentColor="emerald"
             />
           </>
         )}
@@ -224,7 +223,7 @@ export default function ProveedoresPage() {
             variant="outline"
             size="sm"
             onClick={() => void cargarProveedores()}
-            className="cursor-pointer shrink-0 rounded-xl"
+            className="shrink-0 cursor-pointer rounded-xl"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Reintentar

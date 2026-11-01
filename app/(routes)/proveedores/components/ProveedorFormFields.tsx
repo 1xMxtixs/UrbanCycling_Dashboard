@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { validarYFormatearRut } from "@/lib/client-rut"
 import type { ProveedorFormData } from "./types"
 
 interface ProveedorFormFieldsProps {
@@ -7,6 +8,23 @@ interface ProveedorFormFieldsProps {
   updateField: (field: keyof ProveedorFormData, value: string) => void
   disabled?: boolean
   idPrefix?: string
+}
+
+export function focusProveedorField(
+  idPrefix: string,
+  field: keyof ProveedorFormData
+) {
+  const input = document.getElementById(`${idPrefix}-${field}`)
+  if (!(input instanceof HTMLInputElement)) return
+
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches
+  input.scrollIntoView({
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+    block: "nearest",
+  })
+  requestAnimationFrame(() => input.focus())
 }
 
 export function ProveedorFormFields({
@@ -44,13 +62,19 @@ export function ProveedorFormFields({
               id={`${idPrefix}-rut`}
               value={form.rut}
               onChange={(e) => updateField("rut", e.target.value)}
+              onBlur={(e) => {
+                const result = validarYFormatearRut(e.target.value)
+                if (result.valid) updateField("rut", result.formatted)
+              }}
               placeholder="Ej. 76.123.456-7"
               disabled={disabled}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-nombreFantasia`}>Nombre fantasía</Label>
+            <Label htmlFor={`${idPrefix}-nombreFantasia`}>
+              Nombre fantasía
+            </Label>
             <Input
               id={`${idPrefix}-nombreFantasia`}
               value={form.nombreFantasia}
@@ -74,7 +98,9 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-condicionesDePago`}>Condiciones de pago</Label>
+            <Label htmlFor={`${idPrefix}-condicionesDePago`}>
+              Condiciones de pago <span className="text-destructive">*</span>
+            </Label>
             <Input
               id={`${idPrefix}-condicionesDePago`}
               value={form.condicionesDePago}
@@ -85,7 +111,9 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor={`${idPrefix}-nombreContacto`}>Nombre de contacto</Label>
+            <Label htmlFor={`${idPrefix}-nombreContacto`}>
+              Nombre de contacto
+            </Label>
             <Input
               id={`${idPrefix}-nombreContacto`}
               value={form.nombreContacto}
@@ -98,7 +126,9 @@ export function ProveedorFormFields({
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Datos de contacto</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          Datos de contacto
+        </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -108,7 +138,16 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-telefono`}
               value={form.telefono}
-              onChange={(e) => updateField("telefono", e.target.value)}
+              inputMode="tel"
+              onChange={(e) =>
+                updateField(
+                  "telefono",
+                  e.target.value
+                    .replace(/[^\d+]/g, "")
+                    .replace(/(?!^)\+/g, "")
+                    .slice(0, 20)
+                )
+              }
               placeholder="+56 9 1234 5678"
               disabled={disabled}
             />
@@ -211,11 +250,15 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor={`${idPrefix}-direccionDescripcion`}>Descripción dirección</Label>
+            <Label htmlFor={`${idPrefix}-direccionDescripcion`}>
+              Descripción dirección
+            </Label>
             <Input
               id={`${idPrefix}-direccionDescripcion`}
               value={form.direccionDescripcion}
-              onChange={(e) => updateField("direccionDescripcion", e.target.value)}
+              onChange={(e) =>
+                updateField("direccionDescripcion", e.target.value)
+              }
               placeholder="Principal"
               disabled={disabled}
             />
@@ -225,4 +268,3 @@ export function ProveedorFormFields({
     </div>
   )
 }
-
