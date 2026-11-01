@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -39,17 +40,8 @@ import {
 } from "@/components/ui/dialog"
 
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
-
-interface Client {
-  idCliente: number
-  tipoCliente: string
-  rut: string
-  primerNombre: string | null
-  segundoNombre: string | null
-  apellidoPaterno: string | null
-  apellidoMaterno: string | null
-  razonSocial: string | null
-}
+import type { Client } from "@/app/(routes)/punto-ventas/types"
+import type { SaleCreationResult } from "../../types"
 
 interface Product {
   idProducto: number
@@ -75,6 +67,7 @@ export function FormCreateVenta({
   setOpenModalCreate,
 }: FormCreateVentaProps) {
   const router = useRouter()
+  const { data: session } = useSession()
 
   const [clients, setClients] = useState<Client[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
@@ -96,7 +89,7 @@ export function FormCreateVenta({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [saleResult, setSaleResult] = useState<any>(null)
+  const [saleResult, setSaleResult] = useState<SaleCreationResult | null>(null)
 
   const [openQuickCreateClient, setOpenQuickCreateClient] =
     useState(false)
@@ -369,7 +362,7 @@ export function FormCreateVenta({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            id_usuario: 1,
+            id_usuario: session?.user.idUsuario,
             id_cliente: selectedClientId
               ? Number(selectedClientId)
               : null,

@@ -67,3 +67,10 @@ export function formatDateCL(fecha: unknown): string {
     year: "numeric",
   })
 }
+
+/** Convierte una fecha ISO o Date al valor YYYY-MM-DD que aceptan los inputs date. */
+export function toDateInputValue(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return ""
+  if (typeof dateInput === "string") return dateInput.split("T")[0] ?? ""
+  return dateInput.toISOString().split("T")[0] ?? ""
+}

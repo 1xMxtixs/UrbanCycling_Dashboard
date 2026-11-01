@@ -490,15 +490,10 @@ export function AssignSuppliesDialog({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                isService
-                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              }`}
-            >
-              {isService ? "Servicio" : "Insumo / Repuesto"}
-            </span>
+            <StatusBadge
+              status={isService ? "info" : "warning"}
+              label={isService ? "Servicio" : "Insumo / Repuesto"}
+            />
             <span className="font-semibold text-foreground">
               {nombre}
             </span>
@@ -573,7 +568,7 @@ export function AssignSuppliesDialog({
               <Button
                 type="button"
                 size="sm"
-                className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer"
+                className="h-7 gap-1 text-xs cursor-pointer"
                 disabled={state.isSaving}
                 onClick={() => handleSaveLine(linea)}
               >
@@ -601,7 +596,7 @@ export function AssignSuppliesDialog({
           <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
             <span>Precio Unit.: {formatCLP(toNum(linea.precioUnitario))}</span>
             {toNum(linea.descuentoUnitario) > 0 && (
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-primary">
                 Desc.: -{formatCLP(toNum(linea.descuentoUnitario))}
               </span>
             )}
@@ -925,7 +920,7 @@ export function AssignSuppliesDialog({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 text-emerald-600 hover:bg-emerald-500/10"
+                        className="h-9 w-9 text-primary hover:bg-primary/10"
                         disabled={isSavingDescuento}
                         onClick={handleSaveDescuento}
                       >
@@ -1033,7 +1028,7 @@ export function AssignSuppliesDialog({
                     <span className="text-muted-foreground block text-[10px] uppercase font-bold">
                       Abonado / Pagado:
                     </span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="font-bold text-primary">
                       {formatCLP(totalPagado)}
                     </span>
                   </div>
@@ -1044,8 +1039,8 @@ export function AssignSuppliesDialog({
                     <span
                       className={`font-black ${
                         saldoPendiente > 0
-                          ? "text-rose-500"
-                          : "text-emerald-600 dark:text-emerald-400"
+                          ? "text-destructive"
+                          : "text-primary"
                       }`}
                     >
                       {formatCLP(saldoPendiente)}
@@ -1067,10 +1062,10 @@ export function AssignSuppliesDialog({
               {canEdit && (
                 <Button
                   type="button"
-                  variant="outline"
                   size="sm"
                   onClick={() => setShowCancelConfirm(true)}
-                  className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 dark:text-rose-400 border-rose-200 dark:border-rose-900 cursor-pointer"
+                  variant="destructive"
+                  className="gap-1.5 cursor-pointer"
                 >
                   <XCircle className="h-4 w-4" />
                   Anular Orden
@@ -1094,7 +1089,7 @@ export function AssignSuppliesDialog({
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-black text-rose-600 dark:text-rose-400">
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-destructive">
               <XCircle className="h-5 w-5" />
               Anular Orden de Trabajo
             </DialogTitle>
@@ -1104,7 +1099,7 @@ export function AssignSuppliesDialog({
           </DialogHeader>
 
           <div className="space-y-4 py-3">
-            <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs space-y-2">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs space-y-2">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Orden</span>
                 <span className="font-bold text-foreground">#{order.idOrdenDeTrabajo}</span>
@@ -1128,11 +1123,11 @@ export function AssignSuppliesDialog({
               </Button>
               <Button
                 type="button"
-                variant="default"
+                variant="destructive"
                 size="sm"
                 onClick={handleConfirmCancelOrder}
                 disabled={isCancellingOrder}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
+                className="font-bold cursor-pointer"
               >
                 {isCancellingOrder ? (
                   <span className="flex items-center gap-1.5">

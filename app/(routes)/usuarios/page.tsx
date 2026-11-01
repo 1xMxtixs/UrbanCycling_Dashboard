@@ -6,9 +6,7 @@ export default function UsuariosPage() {
       <HeaderUsuarios />
       <ListUsuarios />
 
-      <section aria-label="Matriz de Permisos por Rol">
-        <RolPermisoMatrix />
-      </section>
+      <RolPermisoMatrix />
     </div>
   );
 }

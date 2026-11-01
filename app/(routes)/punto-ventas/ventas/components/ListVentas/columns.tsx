@@ -1,6 +1,6 @@
 "use client"
 
-import { ColumnDef } from "@tanstack/react-table"
+import { ColumnDef, Row, Table } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
@@ -18,9 +18,18 @@ import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
 
-const CellActions = ({ row, table }: { row: any; table: any }) => {
-  const op = row.original as SaleOperation
-  const meta = table.options.meta as any
+interface VentaTableMeta {
+  updatingId?: number | null
+  onViewDetails?: (sale: SaleOperation) => void
+  onUpdateStatus?: (idVenta: number, nextStatus: string, estadoVenta: string) => void
+  onPayClick?: (idVenta: number, total: number) => void
+  onGenerateReceipt?: (sale: SaleOperation) => void
+  onCancelClick?: (sale: SaleOperation) => void
+}
+
+const CellActions = ({ row, table }: { row: Row<SaleOperation>; table: Table<SaleOperation> }) => {
+  const op = row.original
+  const meta = table.options.meta as VentaTableMeta | undefined
   const isPending = op.estadoPago === ESTADO_PAGO.PENDIENTE
   const isAnulada = isVentaAnulada(op.estadoVenta)
   const isPaid =
@@ -42,7 +51,7 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
 
         <DropdownMenuItem
-          onClick={() => meta?.onViewDetails(op)}
+          onClick={() => meta?.onViewDetails?.(op)}
           className="flex cursor-pointer items-center gap-2"
         >
           <Eye className="h-4 w-4" />
@@ -70,8 +79,8 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
               <DropdownMenuItem
                 onClick={() =>
                   meta?.onPayClick
-                    ? meta.onPayClick(op.venta.idVenta, op.total)
-                    : meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta)
+                    ? meta.onPayClick(op.venta.idVenta, Number(op.total))
+                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta)
                 }
                 className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
               >
@@ -83,8 +92,8 @@ const CellActions = ({ row, table }: { row: any; table: any }) => {
             <DropdownMenuItem
               onClick={() =>
                 meta?.onCancelClick
-                  ? meta.onCancelClick(op)
-                  : meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)
+                ? meta.onCancelClick(op)
+                : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)
               }
               className="flex cursor-pointer items-center gap-2 text-destructive font-semibold"
             >

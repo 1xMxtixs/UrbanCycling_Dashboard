@@ -3,6 +3,7 @@
 import React from "react"
 import { CheckCircle2, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { SaleCreationResult } from "../../types"
 
 interface Product {
   idProducto: number
@@ -20,7 +21,7 @@ interface SelectedProduct {
 }
 
 interface SaleSuccessReceiptProps {
-  saleResult: any
+  saleResult: SaleCreationResult
   clientLabel: string
   clientRut?: string
   selectedProducts: SelectedProduct[]
@@ -50,7 +51,7 @@ export function SaleSuccessReceipt({
   estadoPago,
   onClose,
 }: SaleSuccessReceiptProps) {
-  const saleData = saleResult?.venta || {}
+  const saleData = saleResult.venta
 
   return (
     <div className="space-y-6 py-4 animate-in fade-in duration-300">
@@ -80,7 +81,7 @@ export function SaleSuccessReceipt({
           <p className="text-[10px] text-muted-foreground mt-1">
             Ref:{" "}
             {saleResult.idPuntoVenta ||
-              `venta-${saleData.idVenta}`}
+              `venta-${saleData?.idVenta}`}
           </p>
         </div>
 

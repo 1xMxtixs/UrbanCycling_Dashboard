@@ -5,15 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FormDialog } from "@/components/forms/FormDialog"
+import { toDateInputValue } from "@/lib/formatters"
 import { WorkOrder } from "../../types"
-
-function toDateInputValue(dateInput: string | Date | null | undefined) {
-  if (!dateInput) return ""
-  if (typeof dateInput === "string") {
-    return dateInput.split("T")[0] ?? ""
-  }
-  return dateInput.toISOString().split("T")[0] ?? ""
-}
 
 interface RescheduleDialogProps {
   open: boolean

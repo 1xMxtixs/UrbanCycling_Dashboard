@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
   Loader2,
-  MoreHorizontal,
   RotateCcw,
   Shield,
   Trash2,
@@ -30,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { isRegistroActivo } from "@/lib/registro-status";
+import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,12 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -62,7 +56,7 @@ import { User, Role, PENDING_ROLE_NAME } from "../../types";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(date: string | null) {
-  if (!date) return "Sin registro";
+  if (!date) return null;
   return new Intl.DateTimeFormat("es-CL", {
     day: "2-digit",
     month: "2-digit",
@@ -110,31 +104,29 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
       </TableCell>
 
       <TableCell>
-        <span className="text-xs font-mono font-semibold text-foreground bg-muted/50 px-2 py-1 rounded-lg border border-border/60">
+        <span className="font-mono text-xs tabular-nums text-foreground/80">
           {user.rut}
-        </span>
-      </TableCell>
-
-      <TableCell>
-        <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${style.bg} ${style.text}`}>
-          {user.rol.nombre}
         </span>
       </TableCell>
 
       <TableCell>
         <StatusBadge
           status={active ? "success" : "neutral"}
-          label={active ? "Activo" : "Inactivo"}
+          label={getNombreEstadoRegistro(user.estado)}
           showDot={false}
         />
       </TableCell>
 
       {/* U-04: ocultar columnas secundarias en pantallas pequeñas */}
-      <TableCell className="hidden md:table-cell">
-        <span className="text-xs text-muted-foreground font-medium">{formatDate(user.fechaCreacion)}</span>
+      <TableCell className="hidden lg:table-cell">
+        <span className={`text-xs font-medium ${user.fechaCreacion ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
+          {formatDate(user.fechaCreacion) ?? "Nunca"}
+        </span>
       </TableCell>
-      <TableCell className="hidden md:table-cell">
-        <span className="text-xs text-muted-foreground font-medium">{formatDate(user.ultimoAcceso)}</span>
+      <TableCell className="hidden xl:table-cell">
+        <span className={`text-xs font-medium ${user.ultimoAcceso ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
+          {formatDate(user.ultimoAcceso) ?? "Nunca"}
+        </span>
       </TableCell>
 
       <TableCell>
@@ -145,7 +137,7 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
             disabled={isSaving}
           >
             <SelectTrigger
-              className="w-36 h-9 rounded-xl bg-background border-border/80 text-xs font-medium cursor-pointer"
+              className={`h-9 w-40 rounded-xl border text-xs font-semibold cursor-pointer ${hasRoleChanged ? "bg-background border-border" : `${style.bg} ${style.text}`}`}
               aria-label={`Seleccionar nuevo rol para ${fullName}`}
             >
               <SelectValue placeholder="Seleccionar rol" />
@@ -158,46 +150,42 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
               ))}
             </SelectContent>
           </Select>
-          <Button
-            size="icon"
-            onClick={() => onSave(user)}
-            disabled={!hasRoleChanged || isSaving}
-            aria-label={`Guardar nuevo rol para ${fullName}`}
-            className="rounded-xl h-9 w-9 shrink-0 cursor-pointer"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Check className="h-4 w-4" aria-hidden="true" />
+          <span className="w-9 shrink-0">
+            {hasRoleChanged && (
+              <Button
+                size="icon"
+                onClick={() => onSave(user)}
+                disabled={isSaving}
+                aria-label={`Guardar nuevo rol para ${fullName}`}
+                className="h-9 w-9 cursor-pointer animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                )}
+              </Button>
             )}
-          </Button>
+          </span>
         </div>
       </TableCell>
 
       <TableCell className="text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-xl cursor-pointer"
-              aria-label={`Acciones para ${fullName}`}
-              disabled={isSaving}
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-xl border-border/80 w-44">
-            <DropdownMenuItem
-              className="gap-2 text-destructive focus:text-destructive cursor-pointer rounded-lg"
+              className="h-8 w-8 rounded-xl cursor-pointer text-muted-foreground hover:text-destructive"
+              aria-label={`Quitar rol a ${fullName}`}
               disabled={isPending || isSaving}
               onClick={() => onRevoke(user)}
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Quitar rol
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Quitar rol</TooltipContent>
+        </Tooltip>
       </TableCell>
     </TableRow>
   );
@@ -440,7 +428,7 @@ export function ListUsuarios() {
         </div>
 
         <DataTableContainer
-          title="Gestión de Roles y Accesos"
+          title="Usuarios registrados"
           description={`${filteredUsers.length} ${filteredUsers.length === 1 ? "usuario encontrado" : "usuarios encontrados"}`}
           searchPlaceholder="Buscar por nombre, correo, RUT o rol..."
           searchValue={search}
@@ -452,12 +440,11 @@ export function ListUsuarios() {
               <TableRow>
                 <TableHead>Usuario</TableHead>
                 <TableHead>RUT</TableHead>
-                <TableHead>Rol Actual</TableHead>
                 <TableHead>Estado</TableHead>
                 {/* U-04: ocultar columnas secundarias en pantallas chicas */}
-                <TableHead className="hidden md:table-cell">Registro</TableHead>
-                <TableHead className="hidden md:table-cell">Último Acceso</TableHead>
-                <TableHead>Cambiar Rol</TableHead>
+                <TableHead className="hidden lg:table-cell">Registro</TableHead>
+                <TableHead className="hidden xl:table-cell">Último Acceso</TableHead>
+                <TableHead>Rol</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -477,7 +464,7 @@ export function ListUsuarios() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32 p-0">
+                  <TableCell colSpan={7} className="h-32 p-0">
                     <EmptyState
                       icon={Users}
                       title={search ? "Sin resultados" : "No hay usuarios registrados"}

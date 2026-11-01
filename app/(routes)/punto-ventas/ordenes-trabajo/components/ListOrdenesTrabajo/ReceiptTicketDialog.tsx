@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import type { DocumentoTributario } from "@/app/(routes)/punto-ventas/ventas/types"
 import {
   Dialog,
   DialogContent,
@@ -8,16 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-
-export interface ReceiptData {
-  rutEmisor?: string
-  numeroFolio?: number | string
-  fechaEmision?: string | Date
-  rutReceptor?: string
-  montoNeto?: number | string
-  montoIva?: number | string
-  montoTotal?: number | string
-}
 
 function formatDocDate(dateInput: string | Date | null | undefined) {
   if (!dateInput) return ""
@@ -40,7 +31,7 @@ function formatDocDate(dateInput: string | Date | null | undefined) {
 interface ReceiptTicketDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  activeReceipt: ReceiptData | null
+  activeReceipt: DocumentoTributario | null
   onPrint: () => void
   isGeneratingReceipt: boolean
 }

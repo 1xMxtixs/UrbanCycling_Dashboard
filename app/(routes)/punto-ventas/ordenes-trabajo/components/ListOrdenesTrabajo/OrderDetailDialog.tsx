@@ -340,16 +340,16 @@ export function OrderDetailDialog({
                 <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">
                   Estado de Pago
                 </span>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold tracking-wider ${isPaid
-                    ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
-                    : order.estadoPago === ESTADO_PAGO.PARCIAL
-                      ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-700 dark:text-cyan-300"
-                      : "bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300"
-                    }`}
-                >
-                  {isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
-                </span>
+                <StatusBadge
+                  status={
+                    isPaid
+                      ? "success"
+                      : order.estadoPago === ESTADO_PAGO.PARCIAL
+                        ? "info"
+                        : "warning"
+                  }
+                  label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
+                />
               </div>
               <div>
                 <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">

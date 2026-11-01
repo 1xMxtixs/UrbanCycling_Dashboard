@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import type { DocumentoTributario } from "../../types"
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 
-function formatDocDate(dateInput: any) {
+function formatDocDate(dateInput: string | Date | null | undefined) {
   if (!dateInput) return ""
   let dateStr = ""
   if (typeof dateInput === "string") {
@@ -19,8 +20,6 @@ function formatDocDate(dateInput: any) {
     const month = String(dateInput.getMonth() + 1).padStart(2, "0")
     const year = dateInput.getFullYear()
     return `${day}-${month}-${year}`
-  } else {
-    dateStr = new Date(dateInput).toISOString()
   }
   const datePart = dateStr.split("T")[0]
   const parts = datePart.split("-")
@@ -30,7 +29,7 @@ function formatDocDate(dateInput: any) {
 interface SaleReceiptTicketDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  activeReceipt: any | null
+  activeReceipt: DocumentoTributario | null
   onPrint: () => void
   isGeneratingReceipt: boolean
 }

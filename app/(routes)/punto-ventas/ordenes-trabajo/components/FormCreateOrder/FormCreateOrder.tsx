@@ -44,17 +44,7 @@ import {
   Service,
 } from "./OrderLinesSection"
 import { PaymentInitialSection } from "./PaymentInitialSection"
-
-interface Client {
-  idCliente: number
-  tipoCliente: string
-  rut: string
-  primerNombre: string | null
-  segundoNombre: string | null
-  apellidoPaterno: string | null
-  apellidoMaterno: string | null
-  razonSocial: string | null
-}
+import type { Client } from "@/app/(routes)/punto-ventas/types"
 
 interface FormCreateOrderProps {
   setOpenModalCreate: (open: boolean) => void

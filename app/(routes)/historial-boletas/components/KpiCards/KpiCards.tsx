@@ -12,27 +12,27 @@ export function KpiCards({ total, emitidos, neto, iva }: KpiCardsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <MetricCard
-        title="Monto Facturado Bruto"
+        title="Total facturado"
         value={total}
-        description="Total acumulado en boletas"
+        description="Suma de boletas emitidas"
         icon={DollarSign}
       />
       <MetricCard
         title="Boletas Emitidas"
         value={emitidos}
-        description="Documentos tributarios activos"
+        description="Documentos con estado emitido"
         icon={FileCheck}
       />
       <MetricCard
         title="Total Neto"
         value={neto}
-        description="Base imponible acumulada"
+        description="Base imponible"
         icon={ReceiptText}
       />
       <MetricCard
         title="IVA Débito (19%)"
         value={iva}
-        description="Impuesto fiscal retenido"
+        description="IVA incluido en las boletas"
         icon={Percent}
       />
     </div>

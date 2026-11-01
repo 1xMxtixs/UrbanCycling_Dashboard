@@ -1,8 +1,9 @@
 "use client"
 
-import { Clock, AlertTriangle, AlertCircle, Calendar } from "lucide-react"
+import { AlertTriangle, Calendar } from "lucide-react"
 import { WorkOrder } from "../../types"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
+import { StatusBadge } from "@/components/common/StatusBadge"
 
 interface UpcomingDeadlinesProps {
   orders: WorkOrder[]
@@ -40,14 +41,14 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
         label: `Retrasada por ${Math.abs(diffHours)} ${Math.abs(diffHours) === 1 ? "hora" : "horas"}`,
         colorClass: "bg-destructive/10 text-destructive border-destructive/20",
         indicatorColor: "bg-destructive",
-        icon: AlertTriangle,
+        status: "danger" as const,
       }
     } else if (diffHours <= 24) {
       return {
         label: diffHours === 0 ? "Vence ahora" : `Vence en ${diffHours} h (¡Hoy!)`,
-        colorClass: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25",
-        indicatorColor: "bg-amber-500",
-        icon: AlertCircle,
+        colorClass: "bg-primary/10 text-primary border-primary/25",
+        indicatorColor: "bg-primary",
+        status: "warning" as const,
       }
     } else {
       const days = Math.round(diffHours / 24)
@@ -55,7 +56,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
         label: `Vence en ${diffHours} h (${days} ${days === 1 ? "día" : "días"})`,
         colorClass: "bg-muted/40 text-foreground border-border",
         indicatorColor: "bg-muted-foreground",
-        icon: Clock,
+        status: "neutral" as const,
       }
     }
   }
@@ -83,7 +84,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {upcomingOrders.map((order) => {
-          const { label, colorClass, indicatorColor, icon: Icon } = getUrgencyDetails(order.fechaEntregaEstimada)
+          const { label, colorClass, indicatorColor, status } = getUrgencyDetails(order.fechaEntregaEstimada)
           
           const formattedDate = new Date(order.fechaEntregaEstimada).toLocaleDateString("es-ES", {
             day: "2-digit",
@@ -112,10 +113,7 @@ export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
                   <span className="text-xs font-bold text-muted-foreground">
                     Orden #{order.idOrdenDeTrabajo}
                   </span>
-                  <div className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-tight bg-background/80 border border-current shadow-xs">
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{label}</span>
-                  </div>
+                  <StatusBadge status={status} label={label} />
                 </div>
 
                 <div>

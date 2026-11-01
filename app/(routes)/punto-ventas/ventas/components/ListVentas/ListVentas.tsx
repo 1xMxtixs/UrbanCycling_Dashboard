@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { formatClientName } from "@/lib/formatters"
+import { printReceipt } from "@/lib/print-receipt"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,7 +16,7 @@ import { columns } from "./columns"
 import { SaleDetailDialog } from "./SaleDetailDialog"
 import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
-import { SaleOperation } from "../../types"
+import { SaleOperation, type DocumentoTributario } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
@@ -42,7 +43,7 @@ export function ListVentas() {
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
   const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
-  const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
+  const [activeReceipt, setActiveReceipt] = useState<DocumentoTributario | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
@@ -224,92 +225,6 @@ export function ListVentas() {
     }
   }
 
-  const handlePrintReceipt = (dte: any, sale: SaleOperation | null) => {
-    const clientLabel = formatClientName(sale?.cliente)
-    const lineas = sale?.venta?.lineasDeVenta || []
-
-    const content = `
-      <html>
-        <head>
-          <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
-            .text-center { text-align: center; }
-            .bold { font-weight: bold; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .header-title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-            .receipt-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; }
-            .footer { font-size: 10px; margin-top: 25px; text-align: center; color: #555; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center header-title">URBAN CYCLING</div>
-          <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
-          <div class="divider"></div>
-          <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-          <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
-          <div class="divider"></div>
-          <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${sale?.cliente?.rut ? `<div>RUT Receptor: ${sale.cliente.rut}</div>` : ""}
-          <div class="divider"></div>
-          <div class="bold" style="margin-bottom: 5px;">DETALLE DE PRODUCTOS:</div>
-          ${lineas.map((line: any) => `
-            <div class="flex">
-              <span>${line.cantidad}x ${line.producto?.nombre || "Producto"}</span>
-              <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
-            </div>
-          `).join("")}
-          <div class="divider"></div>
-          <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
-          <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
-          <div class="divider"></div>
-          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>¡Gracias por su compra en Urban Cycling!</div>
-        </body>
-      </html>
-    `
-
-    const iframe = document.createElement("iframe")
-    iframe.style.position = "fixed"
-    iframe.style.right = "0"
-    iframe.style.bottom = "0"
-    iframe.style.width = "0"
-    iframe.style.height = "0"
-    iframe.style.border = "0"
-    document.body.appendChild(iframe)
-
-    const iframeDoc = iframe.contentWindow?.document
-    if (!iframeDoc) {
-      toast.error("No se pudo preparar la impresión.")
-      document.body.removeChild(iframe)
-      return
-    }
-
-    iframeDoc.open()
-    iframeDoc.write(content)
-    iframeDoc.close()
-
-    iframe.onload = () => {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
-    }
-
-    const cleanup = () => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe)
-      }
-    }
-
-    if (iframe.contentWindow) {
-      iframe.contentWindow.onafterprint = cleanup
-    }
-    // Red de seguridad: si `onafterprint` no se dispara en algún navegador, igual se limpia solo a los 60s.
-    setTimeout(cleanup, 60000)
-  }
-
   // Cálculos de KPIs
   const totalSalesCount = sales.length
   const totalRevenue = sales
@@ -406,7 +321,19 @@ export function ListVentas() {
         open={receiptModalOpen}
         onOpenChange={setReceiptModalOpen}
         activeReceipt={activeReceipt}
-        onPrint={() => handlePrintReceipt(activeReceipt, selectedSale)}
+        onPrint={() => {
+          if (!activeReceipt) return
+          printReceipt({
+            dte: activeReceipt,
+            clientLabel: formatClientName(selectedSale?.cliente),
+            clientRut: selectedSale?.cliente?.rut,
+            lines: selectedSale?.venta?.lineasDeVenta || [],
+            detailLabel: "DETALLE DE PRODUCTOS:",
+            lineFallback: "Producto",
+            thanksMessage: "¡Gracias por su compra en Urban Cycling!",
+            onError: () => toast.error("No se pudo preparar la impresión."),
+          })
+        }}
         isGeneratingReceipt={isGeneratingReceipt}
       />
 

@@ -24,6 +24,9 @@ import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
 import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
+import { toDateInputValue } from "@/lib/formatters"
+import { printReceipt } from "@/lib/print-receipt"
+import type { DocumentoTributario } from "@/app/(routes)/punto-ventas/ventas/types"
 
 type PeriodFilter = {
   fechaInicio: string
@@ -31,16 +34,6 @@ type PeriodFilter = {
 }
 
 type PeriodErrors = Partial<Record<keyof PeriodFilter, string>>
-
-function toDateInputValue(dateInput: string | Date | null | undefined) {
-  if (!dateInput) return ""
-
-  if (typeof dateInput === "string") {
-    return dateInput.split("T")[0] ?? ""
-  }
-
-  return dateInput.toISOString().split("T")[0] ?? ""
-}
 
 export function ListOrdenesTrabajo() {
   const router = useRouter()
@@ -75,7 +68,7 @@ export function ListOrdenesTrabajo() {
   const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
-  const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
+  const [activeReceipt, setActiveReceipt] = useState<DocumentoTributario | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
@@ -441,94 +434,6 @@ export function ListOrdenesTrabajo() {
     }
   }
 
-  const handlePrintReceipt = (dte: any, order: WorkOrder | null) => {
-    const clientLabel = order?.cliente
-      ? order.cliente.razonSocial || `${order.cliente.primerNombre || ""} ${order.cliente.apellidoPaterno || ""}`.trim()
-      : "Cliente General"
-    const lineas = order?.lineasDeOrdenDeTrabajo || []
-
-    const content = `
-      <html>
-        <head>
-          <title>Comprobante de Compra NÂ° ${dte.numeroFolio}</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
-            .text-center { text-align: center; }
-            .bold { font-weight: bold; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .header-title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-            .receipt-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; }
-            .footer { font-size: 10px; margin-top: 25px; text-align: center; color: #555; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center header-title">URBAN CYCLING</div>
-          <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
-          <div class="divider"></div>
-          <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-          <div class="text-center bold">NÂ° Folio: ${dte.numeroFolio}</div>
-          <div class="divider"></div>
-          <div>Fecha EmisiÃ³n: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${order?.cliente?.rut ? `<div>RUT Receptor: ${order.cliente.rut}</div>` : ""}
-          <div class="divider"></div>
-          <div class="bold" style="margin-bottom: 5px;">DETALLE DE COMPRA / SERVICIO:</div>
-          ${lineas.map((line: any) => `
-            <div class="flex">
-              <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || "Servicio/Producto"}</span>
-              <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
-            </div>
-          `).join("")}
-          <div class="divider"></div>
-          <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
-          <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
-          <div class="divider"></div>
-          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>Â¡Gracias por su preferencia en Urban Cycling!</div>
-        </body>
-      </html>
-    `
-
-    const iframe = document.createElement("iframe")
-    iframe.style.position = "fixed"
-    iframe.style.right = "0"
-    iframe.style.bottom = "0"
-    iframe.style.width = "0"
-    iframe.style.height = "0"
-    iframe.style.border = "0"
-    document.body.appendChild(iframe)
-
-    const iframeDoc = iframe.contentWindow?.document
-    if (!iframeDoc) {
-      toast.error("No se pudo preparar la impresiÃ³n.")
-      document.body.removeChild(iframe)
-      return
-    }
-
-    iframeDoc.open()
-    iframeDoc.write(content)
-    iframeDoc.close()
-
-    iframe.onload = () => {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
-    }
-
-    const cleanup = () => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe)
-      }
-    }
-
-    if (iframe.contentWindow) {
-      iframe.contentWindow.onafterprint = cleanup
-    }
-    // Red de seguridad: si `onafterprint` no se dispara en algÃºn navegador, igual se limpia solo a los 60s.
-    setTimeout(cleanup, 60000)
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-4" aria-busy="true">
@@ -630,7 +535,22 @@ export function ListOrdenesTrabajo() {
         open={receiptModalOpen}
         onOpenChange={setReceiptModalOpen}
         activeReceipt={activeReceipt}
-        onPrint={() => handlePrintReceipt(activeReceipt, selectedOrder)}
+        onPrint={() => {
+          if (!activeReceipt) return
+          const client = selectedOrder?.cliente
+          printReceipt({
+            dte: activeReceipt,
+            clientLabel: client
+              ? client.razonSocial || `${client.primerNombre || ""} ${client.apellidoPaterno || ""}`.trim()
+              : "Cliente General",
+            clientRut: client?.rut,
+            lines: selectedOrder?.lineasDeOrdenDeTrabajo || [],
+            detailLabel: "DETALLE DE COMPRA / SERVICIO:",
+            lineFallback: "Servicio/Producto",
+            thanksMessage: "¡Gracias por su preferencia en Urban Cycling!",
+            onError: () => toast.error("No se pudo preparar la impresión."),
+          })
+        }}
         isGeneratingReceipt={isGeneratingReceipt}
       />
 
