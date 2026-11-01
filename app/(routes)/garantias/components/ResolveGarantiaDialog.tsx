@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import type { Garantia } from "../types";
 
@@ -416,7 +417,7 @@ export function ResolveGarantiaDialog({
             <div
               className="grid grid-cols-2 gap-4"
               role="radiogroup"
-              aria-label="Seleccionar veredicto"
+              aria-label="Veredicto"
             >
 
               {/* APROBAR */}
@@ -431,28 +432,12 @@ export function ResolveGarantiaDialog({
                     "APROBADA"
                   )
                 }
-                className={`
-                  flex
-                  items-center
-                  gap-3
-                  rounded-xl
-                  border
-                  p-4
-                  text-left
-                  transition-all
-                  motion-reduce:transition-none
-                  cursor-pointer
-                  focus-visible:outline-none
-                  focus-visible:ring-2
-                  focus-visible:ring-ring
-                  focus-visible:ring-offset-2
-                  ${
-                    veredicto ===
-                    "APROBADA"
-                      ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                      : "border-border hover:border-primary/50 hover:bg-muted/30"
-                  }
-                `}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4 text-left transition-all motion-reduce:transition-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  veredicto === "APROBADA"
+                    ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                    : "border-border hover:border-primary/50 hover:bg-muted/30"
+                )}
               >
 
                 <div
@@ -514,28 +499,12 @@ export function ResolveGarantiaDialog({
                     "RECHAZADA"
                   )
                 }
-                className={`
-                  flex
-                  items-center
-                  gap-3
-                  rounded-xl
-                  border
-                  p-4
-                  text-left
-                  transition-all
-                  motion-reduce:transition-none
-                  cursor-pointer
-                  focus-visible:outline-none
-                  focus-visible:ring-2
-                  focus-visible:ring-ring
-                  focus-visible:ring-offset-2
-                  ${
-                    veredicto ===
-                    "RECHAZADA"
-                      ? "border-destructive bg-destructive/10 shadow-xs ring-1 ring-destructive/40"
-                      : "border-border hover:border-destructive/50 hover:bg-muted/30"
-                  }
-                `}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4 text-left transition-all motion-reduce:transition-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  veredicto === "RECHAZADA"
+                    ? "border-destructive bg-destructive/10 shadow-xs ring-1 ring-destructive/40"
+                    : "border-border hover:border-destructive/50 hover:bg-muted/30"
+                )}
               >
 
                 <div
@@ -588,6 +557,10 @@ export function ResolveGarantiaDialog({
             </div>
 
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            La resoluciÃ³n es definitiva: una vez registrada no podrÃ¡ modificarse.
+          </p>
 
           {/* ==================================================
               OBSERVACIONES

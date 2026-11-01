@@ -193,7 +193,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
 
   const handleQuickClientSuccess = () => {
     setOpenQuickCreateClient(false)
-    toast.success("Cliente creado correctamente.")
     fetchClients(true) // Re-fetch y auto-selecciona el más nuevo
   }
 

@@ -35,7 +35,7 @@ import {
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react"
-import { includesNormalizedText } from "@/lib/search-normalization"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 
 interface DataTableProps<TData, Tvalue> {
   columns: ColumnDef<TData, Tvalue>[]
@@ -45,6 +45,7 @@ interface DataTableProps<TData, Tvalue> {
   onEdit?: (id: number) => void
   onInactivate?: (id: number) => Promise<string>
   initialSearch?: string
+  title?: string
 }
 
 export function DataTable<TData, Tvalue>({
@@ -55,6 +56,7 @@ export function DataTable<TData, Tvalue>({
   onEdit,
   onInactivate,
   initialSearch = "",
+  title = "Directorio de Clientes",
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
@@ -91,13 +93,18 @@ export function DataTable<TData, Tvalue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _columnId, filterValue) =>
-      row
-        .getAllCells()
-        .some((cell) =>
-          includesNormalizedText(String(cell.getValue() ?? ""), String(filterValue ?? "")),
-        ),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const filter = String(filterValue ?? "")
+      const compactFilter = normalizeSearchText(filter).replace(/[.\-\s]/g, "")
+      return Object.values(row.original as Record<string, unknown>).some((value) => {
+        const text = String(value ?? "")
+        if (includesNormalizedText(text, filter)) return true
+        const compactValue = normalizeSearchText(text).replace(/[.\-\s]/g, "")
+        return compactFilter.length >= 3 && compactValue.includes(compactFilter)
+      })
+    },
     getFilteredRowModel: getFilteredRowModel(),
+    autoResetPageIndex: false,
     state: {
       sorting,
       columnFilters,
@@ -113,7 +120,7 @@ export function DataTable<TData, Tvalue>({
 
   return (
     <DataTableContainer
-      title="Directorio de Clientes"
+      title={title}
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "cliente encontrado" : "clientes encontrados"}`}
       toolbar={
         <div className="space-y-3">
@@ -124,16 +131,20 @@ export function DataTable<TData, Tvalue>({
                 placeholder="Buscar por nombre, razón social o RUT..."
                 aria-label="Buscar por nombre, razón social o RUT"
                 value={globalFilter ?? ""}
-                onChange={(event) => setGlobalFilter(event.target.value)}
+                onChange={(event) => {
+                  setGlobalFilter(event.target.value)
+                  table.setPageIndex(0)
+                }}
                 className="pl-9"
               />
             </div>
 
             <Select
               value={(table.getColumn("estado")?.getFilterValue() as string) ?? ESTADO_REGISTRO.ACTIVO}
-              onValueChange={(value) =>
+              onValueChange={(value) => {
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
-              }
+                table.setPageIndex(0)
+              }}
             >
               <SelectTrigger className="h-9 w-full sm:w-40" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Solo Activos" />
@@ -206,7 +217,18 @@ export function DataTable<TData, Tvalue>({
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow
+                    key={row.id}
+                    className={onViewDetails ? "cursor-pointer" : undefined}
+                    tabIndex={onViewDetails ? 0 : undefined}
+                    onClick={() => onViewDetails?.((row.original as { id: number }).id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        onViewDetails?.((row.original as { id: number }).id)
+                      }
+                    }}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

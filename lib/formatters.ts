@@ -1,9 +1,17 @@
+import { validarYFormatearRut } from "@/lib/client-rut"
+
 export type ClienteNombreInput = {
   razonSocial?: string | null
   primerNombre?: string | null
   apellidoPaterno?: string | null
   apellidoMaterno?: string | null
 } | null | undefined
+
+export function formatRut(value?: string | null): string {
+  if (!value?.trim()) return ""
+  const result = validarYFormatearRut(value)
+  return result.valid ? result.formatted : value
+}
 
 export function formatClientName(cliente: ClienteNombreInput): string {
   if (!cliente) return "Sin cliente"

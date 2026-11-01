@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
 import { formatClientName, formatCLP, formatDateCL } from "@/lib/formatters";
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
+import { esClienteJuridico } from "@/lib/client-type";
 import { getNombreEstadoOtVisible, getOtStatusBadgeVariant } from "@/lib/work-order-status";
 import {
   User,
@@ -43,7 +44,7 @@ export function ClientDetailDialog({
 }: ClientDetailDialogProps) {
   if (!cliente) return null;
 
-  const isNatural = cliente.tipoCliente === "natural";
+  const isNatural = !esClienteJuridico(cliente.tipoCliente);
   const fullName = formatClientName(cliente);
 
   const initials = isNatural

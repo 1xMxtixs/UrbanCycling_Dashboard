@@ -46,6 +46,7 @@ export function InactivateClientDialog({
       entityLabel="cliente"
       entityName={clientName}
       isActive={true}
+      description="El cliente pasará a estado inactivo y no aparecerá en el listado principal. Podrás verlo con el filtro «Solo Inactivos»."
       onConfirm={handleConfirm}
       isSubmitting={isSubmitting}
     />

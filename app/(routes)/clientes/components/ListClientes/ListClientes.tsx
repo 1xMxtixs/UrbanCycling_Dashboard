@@ -8,14 +8,7 @@ import { MetricCard } from "@/components/common/MetricCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import {
-  User,
-  Building2,
-  Users,
-  Wrench,
-  AlertCircle,
-  RotateCcw,
-} from "lucide-react";
+import { Users, UserCheck, UserX, ClipboardList, AlertCircle, RotateCcw } from "lucide-react";
 import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import { ClientDetailDialog } from "../ClientDetailDialog";
 import { FormCreateCliente } from "../FormCreateCliente";
@@ -23,10 +16,12 @@ import { FormDialog } from "@/components/forms/FormDialog";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param";
+import { esClienteJuridico } from "@/lib/client-type";
+import { isRegistroActivo } from "@/lib/registro-status";
 
 function parseClientesData(dbClientes: DBCliente[]) {
   const naturales: ClienteNatural[] = dbClientes
-    .filter((c) => c.tipoCliente === "natural")
+    .filter((c) => !esClienteJuridico(c.tipoCliente))
     .map((c) => {
       const nombreComp = [c.primerNombre, c.segundoNombre].filter(Boolean).join(" ");
       const apellidoComp = [c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(" ");
@@ -43,7 +38,7 @@ function parseClientesData(dbClientes: DBCliente[]) {
     });
 
   const juridicas: ClienteJuridica[] = dbClientes
-    .filter((c) => c.tipoCliente === "juridica")
+    .filter((c) => esClienteJuridico(c.tipoCliente))
     .map((c) => {
       const telefonoComp = c.telefonos[0]?.telefono || "No especificado";
 
@@ -82,8 +77,8 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchClientes = useCallback(async () => {
-    setIsLoading(true);
+  const fetchClientes = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     setError(null);
     try {
       const response = await fetch("/api/clientes", { cache: "no-store" });
@@ -101,11 +96,13 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo cargar la información de clientes.";
       setError(message);
-      setClientesNaturales([]);
-      setClientesJuridicas([]);
-      setRawClientes([]);
+      if (showLoading) {
+        setClientesNaturales([]);
+        setClientesJuridicas([]);
+        setRawClientes([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   }, []);
 
@@ -140,15 +137,12 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
 
     void runInitialFetch();
 
-    const handleRefresh = () => {
-      void fetchClientes();
-    };
-
-    window.addEventListener("clientes:refresh", handleRefresh);
+    const refresh = () => void fetchClientes(false);
+    window.addEventListener("clientes:refresh", refresh);
 
     return () => {
       mounted = false;
-      window.removeEventListener("clientes:refresh", handleRefresh);
+      window.removeEventListener("clientes:refresh", refresh);
     };
   }, [fetchClientes]);
 
@@ -221,7 +215,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
       );
     }
 
-    await fetchClientes();
+    await fetchClientes(false);
 
     return data?.message || "Cliente inactivado correctamente";
   };
@@ -242,6 +236,8 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
   const selectedCliente = rawClientes.find((c) => c.idCliente === selectedClienteId);
 
   const totalClientes = rawClientes.length;
+  const clientesActivos = rawClientes.filter((cliente) => isRegistroActivo(cliente.estado)).length;
+  const clientesInactivos = totalClientes - clientesActivos;
   const totalOrdenesAsociadas = rawClientes.reduce(
     (acc, c) => acc + (c.ordenesDeTrabajo?.length || 0),
     0
@@ -280,26 +276,26 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
             <MetricCard
               title="Total Clientes"
               value={totalClientes}
-              description="Clientes registrados"
+              description="Registrados en el sistema"
               icon={Users}
             />
             <MetricCard
-              title="Personas Naturales"
-              value={clientesNaturales.length}
-              description="Ciclistas y particulares"
-              icon={User}
+              title="Clientes Activos"
+              value={clientesActivos}
+              description="Visibles en el directorio"
+              icon={UserCheck}
             />
             <MetricCard
-              title="Personas Jurídicas"
-              value={clientesJuridicas.length}
-              description="Empresas y convenios"
-              icon={Building2}
+              title="Clientes Inactivos"
+              value={clientesInactivos}
+              description="Ocultos por defecto en el listado"
+              icon={UserX}
             />
             <MetricCard
-              title="Historial de Órdenes"
+              title="Órdenes Asociadas"
               value={totalOrdenesAsociadas}
-              description="Servicios acumulados"
-              icon={Wrench}
+              description="Órdenes de trabajo vinculadas"
+              icon={ClipboardList}
             />
           </div>
 

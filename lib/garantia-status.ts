@@ -77,16 +77,17 @@ export function normalizarCodigoEstado(
   }
 }
 
-export function resolveGarantiaStatusType(codigo: EstadoGarantiaCodigo): StatusType {
+export function getEstadoGarantiaStatus(codigo: EstadoGarantiaCodigo): StatusType {
   switch (codigo) {
     case "APROBADO":
       return "success";
     case "RECHAZADO":
       return "danger";
     case "EN_REVISION":
+      return "info";
+    case "EN_ESPERA":
       return "warning";
     case "INGRESADO":
-    case "EN_ESPERA":
     default:
       return "neutral";
   }

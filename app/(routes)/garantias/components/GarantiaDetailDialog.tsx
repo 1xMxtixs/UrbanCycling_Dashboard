@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Calendar,
   ClipboardList,
   FileText,
   Gavel,
@@ -20,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
-import { resolveGarantiaStatusType } from "@/lib/garantia-status";
+import { getEstadoGarantiaStatus } from "@/lib/garantia-status";
 import { formatDateCL } from "@/lib/formatters";
 
 import type { Garantia } from "../types";
@@ -38,7 +37,7 @@ export function GarantiaDetailDialog({
 }: GarantiaDetailDialogProps) {
   if (!garantia) return null;
 
-  const status = resolveGarantiaStatusType(garantia.estadoCodigo);
+  const status = getEstadoGarantiaStatus(garantia.estadoCodigo);
 
   // Solo las garantías con veredicto tienen información de resolución.
   const estaResuelta =
@@ -90,41 +89,43 @@ export function GarantiaDetailDialog({
             <ShieldCheck className="h-8 w-8 text-primary/40" />
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
-            <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              <ClipboardList className="h-4 w-4 text-primary" />
-              Orden de Trabajo
-            </h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
+              <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                Orden de Trabajo
+              </h3>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <DataField
-                label="Orden de Trabajo"
-                value={`#${garantia.idOrdenDeTrabajo}`}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DataField
+                  label="Orden de Trabajo"
+                  value={`#${garantia.idOrdenDeTrabajo}`}
+                />
 
-              <DataField
-                label="Fecha de Ingreso"
-                value={formatDateCL(garantia.fechaIngreso)}
-              />
+                <DataField
+                  label="Fecha de Ingreso"
+                  value={formatDateCL(garantia.fechaIngreso)}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
-            <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              <User className="h-4 w-4 text-primary" />
-              Cliente
-            </h3>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
+              <h3 className="flex items-center gap-2 border-b border-border/40 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <User className="h-4 w-4 text-primary" />
+                Cliente
+              </h3>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <DataField
-                label="Nombre"
-                value={garantia.cliente.nombre}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DataField
+                  label="Nombre"
+                  value={garantia.cliente.nombre || "—"}
+                />
 
-              <DataField
-                label="RUT"
-                value={garantia.cliente.rut}
-              />
+                <DataField
+                  label="RUT"
+                  value={garantia.cliente.rut || "—"}
+                />
+              </div>
             </div>
           </div>
 
@@ -183,15 +184,6 @@ export function GarantiaDetailDialog({
               </div>
             </div>
           )}
-
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" />
-
-            <span>
-              Solicitud registrada el{" "}
-              {formatDateCL(garantia.fechaIngreso)}
-            </span>
-          </div>
 
           <div className="flex justify-end border-t border-border/60 pt-4">
             <Button

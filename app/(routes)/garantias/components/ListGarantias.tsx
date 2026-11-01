@@ -5,8 +5,6 @@ import { useUserPermissions } from "@/components/providers";
 import {
   CheckCircle2,
   Clock3,
-  FileCheck2,
-  PauseCircle,
   RotateCcw,
   ShieldCheck,
   XCircle,
@@ -57,8 +55,8 @@ function parseGarantiasBackend(data: unknown): Garantia[] {
 
       const cliente = garantia.cliente ?? {
         idCliente: 0,
-        nombre: "Cliente sin nombre",
-        rut: "Sin RUT",
+        nombre: "",
+        rut: "",
       };
 
       const estadoCodigo = normalizarCodigoEstado(garantia.estado);
@@ -609,9 +607,9 @@ export function ListGarantias() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ...Array(6),
+            ...Array(4),
           ].map(
             (_, index) => (
               <Skeleton
@@ -634,7 +632,7 @@ export function ListGarantias() {
    */
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 motion-reduce:animate-none">
+    <div className="space-y-6 animate-in fade-in duration-200 motion-reduce:animate-none">
       {/* Banner de error no destructivo con reintento */}
       {error && (
         <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -660,7 +658,7 @@ export function ListGarantias() {
           KPIs
       ====================================================== */}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
         <MetricCard
           title="Total Solicitudes"
@@ -670,24 +668,10 @@ export function ListGarantias() {
         />
 
         <MetricCard
-          title="Ingresadas"
-          value={ingresadas}
-          description="Solicitudes ingresadas"
-          icon={FileCheck2}
-        />
-
-        <MetricCard
-          title="En Revisión"
-          value={enRevision}
-          description="Solicitudes en evaluación"
+          title="Pendientes"
+          value={ingresadas + enRevision + enEspera}
+          description={`${ingresadas} ingresadas · ${enRevision} en revisión · ${enEspera} en espera`}
           icon={Clock3}
-        />
-
-        <MetricCard
-          title="En espera"
-          value={enEspera}
-          description="Solicitudes pausadas"
-          icon={PauseCircle}
         />
 
         <MetricCard

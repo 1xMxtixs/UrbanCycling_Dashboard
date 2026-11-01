@@ -15,7 +15,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { resolveGarantiaStatusType } from "@/lib/garantia-status";
+import { getEstadoGarantiaStatus } from "@/lib/garantia-status";
 
 import {
   DropdownMenu,
@@ -213,7 +213,7 @@ export const columns: ColumnDef<Garantia>[] = [
               column.getIsSorted() === "asc"
             )
           }
-          className="cursor-pointer"
+          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
         >
           ID
 
@@ -223,7 +223,7 @@ export const columns: ColumnDef<Garantia>[] = [
     },
 
     cell: ({ row }) => (
-      <span className="font-bold text-foreground">
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
         GAR-
         {String(
           row.original.idGarantia
@@ -242,7 +242,7 @@ export const columns: ColumnDef<Garantia>[] = [
     header: "Orden de Trabajo",
 
     cell: ({ row }) => (
-      <span className="font-semibold">
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
         #{row.original.idOrdenDeTrabajo}
       </span>
     ),
@@ -260,17 +260,38 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Cliente",
 
-    cell: ({ row }) => (
-      <div className="space-y-0.5">
-        <p className="font-semibold text-foreground">
-          {row.original.cliente.nombre}
-        </p>
+    cell: ({ row }) => {
+      const nombre = row.original.cliente.nombre?.trim();
+      const rut = row.original.cliente.rut?.trim();
+      const nombreVisible =
+        nombre && nombre.toLocaleLowerCase("es-CL") !== "cliente sin nombre"
+          ? nombre
+          : "—";
+      const rutVisible = rut && rut.toLocaleLowerCase("es-CL") !== "sin rut";
 
-        <p className="text-[11px] text-muted-foreground">
-          RUT:{" "}
-          {row.original.cliente.rut}
-        </p>
-      </div>
+      return (
+        <div className="space-y-0.5">
+          <p className={nombreVisible === "—" ? "text-muted-foreground/60" : "font-semibold text-foreground"}>
+            {nombreVisible}
+          </p>
+          {rutVisible && (
+            <p className="text-[11px] text-muted-foreground">RUT: {rut}</p>
+          )}
+        </div>
+      );
+    },
+  },
+
+  {
+    accessorKey: "motivoReclamo",
+    header: "Motivo",
+    cell: ({ row }) => (
+      <span
+        className="block max-w-[260px] truncate text-sm text-muted-foreground"
+        title={row.original.motivoReclamo}
+      >
+        {row.original.motivoReclamo}
+      </span>
     ),
   },
 
@@ -280,11 +301,12 @@ export const columns: ColumnDef<Garantia>[] = [
 
   {
     accessorKey: "fechaIngreso",
+    enableSorting: false,
 
     header: "Fecha de Ingreso",
 
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
+      <span className="text-sm text-muted-foreground">
         {row.original.fechaIngreso}
       </span>
     ),
@@ -299,30 +321,12 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Estado",
 
-    filterFn: (
-      row,
-      columnId,
-      filterValue
-    ) => {
-      if (!filterValue) {
-        return true;
-      }
-
-      return (
-        String(
-          row.getValue(columnId)
-        )
-          .trim()
-          .toLowerCase() ===
-        String(filterValue)
-          .trim()
-          .toLowerCase()
-      );
-    },
+    filterFn: (row, _columnId, filterValue) =>
+      !filterValue || row.original.estadoCodigo === filterValue,
 
     cell: ({ row }) => (
       <StatusBadge
-        status={resolveGarantiaStatusType(row.original.estadoCodigo)}
+        status={getEstadoGarantiaStatus(row.original.estadoCodigo)}
         label={row.original.estado}
       />
     ),
@@ -337,14 +341,10 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Acciones",
 
-    cell: ({
-      row,
-      table,
-    }) => (
-      <CellActions
-        row={row}
-        table={table}
-      />
+    cell: ({ row, table }) => (
+      <div className="flex justify-end">
+        <CellActions row={row} table={table} />
+      </div>
     ),
   },
 ];

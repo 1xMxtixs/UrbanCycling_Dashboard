@@ -138,9 +138,12 @@ export function CreateGarantiasDialog({
    * =====================================================
    */
 
-  const fechaIngreso = new Date()
-    .toISOString()
-    .split("T")[0];
+  const hoy = new Date();
+  const anioLocal = hoy.getFullYear();
+  const mesLocal = String(hoy.getMonth() + 1).padStart(2, "0");
+  const diaLocal = String(hoy.getDate()).padStart(2, "0");
+  const fechaIngreso = `${anioLocal}-${mesLocal}-${diaLocal}`;
+  const fechaParaBackend = `${diaLocal}-${mesLocal}-${anioLocal}`;
 
   /*
    * =====================================================
@@ -238,14 +241,6 @@ export function CreateGarantiasDialog({
        * fechaIngreso -> DD-MM-YYYY
        * motivo
        */
-
-      const fechaParaBackend = new Date(
-        `${fechaIngreso}T00:00:00`
-      ).toLocaleDateString("es-CL", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
 
       const response = await fetch(
         "/api/garantias",
@@ -362,7 +357,7 @@ export function CreateGarantiasDialog({
         </span>
       }
       description="Ingresa la orden de trabajo asociada y los antecedentes del reclamo."
-      size="4xl"
+      size="2xl"
     >
       <div className="space-y-6 py-2">
 

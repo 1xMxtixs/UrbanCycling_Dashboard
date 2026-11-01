@@ -58,7 +58,7 @@ export function StatusBadge({ status, label, className, showDot = true }: Status
       )}
     >
       {showDot && (
-        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0 animate-pulse", config.dot)} />
+        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", config.dot)} />
       )}
       <span>{displayLabel}</span>
     </Badge>

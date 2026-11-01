@@ -270,7 +270,6 @@ export function FormCreateVenta({
   const handleQuickClientSuccess = () => {
     setOpenQuickCreateClient(false)
 
-    toast.success("Cliente creado correctamente.")
 
     fetchClients(true)
   }
