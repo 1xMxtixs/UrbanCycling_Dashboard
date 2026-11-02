@@ -135,18 +135,28 @@ export function PurchaseOrderDetail({
 
   return (
     <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[96vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-6rem)]"
+        style={{ width: "min(1600px, calc(100vw - 2rem))" }}
+      >
         <DialogHeader>
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
         </DialogHeader>
         {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
           <div className="space-y-5">
-            <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-4">
+            <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-[1.4fr_1fr_1fr_1.1fr] sm:items-end">
               <div><p className="text-xs text-muted-foreground">Proveedor</p><p className="mt-1 font-semibold">{order.proveedor.razonSocial}</p></div>
               <div><p className="text-xs text-muted-foreground">Emisión</p><p className="mt-1 font-medium">{date(order.fechaRegistro)}</p></div>
               <div><p className="text-xs text-muted-foreground">Entrega estimada</p><p className="mt-1 font-medium">{date(order.fechaEntregaEstimada)}</p></div>
-              <div className="flex flex-wrap content-start gap-2"><StatePill value={order.estado} /><StatePill value={order.estadoPago} /><StatePill value={order.estadoRecepcion} /></div>
+              <div className="flex flex-col items-start justify-end gap-2">
+                <p className="text-xs text-muted-foreground">Estados</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatePill value={order.estado} />
+                  <StatePill value={order.estadoPago} />
+                  <StatePill value={order.estadoRecepcion} />
+                </div>
+              </div>
             </div>
 
             <section className="overflow-hidden rounded-xl border border-border"><div className="border-b border-border/70 px-4 py-3"><h3 className="font-semibold">Productos</h3></div><div className="divide-y divide-border/60">{order.lineas.map((line) => <div key={line.idLineaDeOrdenDeCompra} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_100px_130px_130px]"><div className="min-w-0"><p className="truncate text-sm font-medium">{line.producto.nombre}</p><p className="text-xs text-muted-foreground">Costo unitario {currency.format(Number(line.precioCostoUnitario))}</p></div><p className="text-sm">Pedido: {line.cantidadOrdenada}</p><p className="text-sm">Recibido: {line.cantidadRecibida}</p><p className="text-right text-sm font-semibold">{currency.format(line.cantidadOrdenada * Number(line.precioCostoUnitario))}</p></div>)}</div><div className="flex justify-between border-t border-border/70 bg-muted/30 px-4 py-3 text-sm"><span>Total de la orden</span><strong>{currency.format(total)}</strong></div></section>
