@@ -334,6 +334,7 @@ export const columns: ColumnDef<Garantia>[] = [
         estado === ESTADO_GARANTIA_CODIGO.RECHAZADO;
       const esEstadoAnimado =
         estado === ESTADO_GARANTIA_CODIGO.INGRESADO ||
+        estado === ESTADO_GARANTIA_CODIGO.EN_REVISION ||
         estado === ESTADO_GARANTIA_CODIGO.EN_ESPERA;
 
       return (

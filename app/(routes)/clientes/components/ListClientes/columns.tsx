@@ -114,7 +114,14 @@ function PhoneCell({ value }: { value: unknown }) {
 
 function StatusCell({ estado }: { estado: string }) {
   const isActivo = isRegistroActivo(estado);
-  return <StatusBadge status={isActivo ? "success" : "danger"} label={getNombreEstadoRegistro(estado)} showDot={false} />;
+  return (
+    <StatusBadge
+      status={isActivo ? "success" : "danger"}
+      label={getNombreEstadoRegistro(estado)}
+      showDot={isActivo}
+      animateDot={isActivo}
+    />
+  );
 }
 
 const actionColumn = <TData extends { id: number }>(): ColumnDef<TData> => ({

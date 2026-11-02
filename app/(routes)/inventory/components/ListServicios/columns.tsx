@@ -81,7 +81,8 @@ export function getColumns({
           <StatusBadge
             status={isActivo ? "success" : "danger"}
             label={getNombreEstadoRegistro(estado)}
-            showDot={false}
+            showDot={isActivo}
+            animateDot={isActivo}
           />
         )
       },

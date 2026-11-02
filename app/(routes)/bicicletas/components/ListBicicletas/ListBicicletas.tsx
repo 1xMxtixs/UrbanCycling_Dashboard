@@ -7,12 +7,21 @@ import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Bike, Wrench, CheckCircle2, Tag, RefreshCw } from "lucide-react";
+import { Bike, Wrench, CheckCircle2, Tag, RefreshCw, Search } from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Bicicleta } from "../../types";
 import {
   ESTADO_OT,
   ESTADOS_OT_FINALIZADOS,
+  NOMBRES_ESTADO_OT,
   getNombreEstadoOtVisible,
   type EstadoOt,
 } from "@/lib/work-order-status";
@@ -22,6 +31,7 @@ export function ListBicicletas() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState("all");
 
   const fetchBicicletas = useCallback(async () => {
     setIsLoading(true);
@@ -91,8 +101,13 @@ export function ListBicicletas() {
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredBicicletas = useMemo(() => {
-    if (!normalizedSearch) return bicicletas;
     return bicicletas.filter((bicicleta) => {
+      const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden;
+      const matchesStatus =
+        estadoFiltro === "all" || estadoOrden === estadoFiltro;
+      if (!matchesStatus) return false;
+      if (!normalizedSearch) return true;
+
       const cliente = bicicleta.ordenDeTrabajo?.cliente;
       const estadoVisible = bicicleta.ordenDeTrabajo
         ? getNombreEstadoOtVisible(
@@ -119,7 +134,7 @@ export function ListBicicletas() {
 
       return searchableText.includes(normalizedSearch);
     });
-  }, [bicicletas, normalizedSearch]);
+  }, [bicicletas, normalizedSearch, estadoFiltro]);
 
   // Métricas
   const totalBikes = bicicletas.length;
@@ -158,7 +173,7 @@ export function ListBicicletas() {
                 <Skeleton className="h-4 w-36 rounded-md" />
               </div>
             </div>
-            <Skeleton className="h-9.5 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
           </div>
 
           <div className="p-4 md:p-6">
@@ -241,9 +256,40 @@ export function ListBicicletas() {
       <DataTableContainer
         title="Catálogo de Bicicletas"
         description={`${filteredBicicletas.length} ${filteredBicicletas.length === 1 ? "bicicleta encontrada" : "bicicletas encontradas"}`}
-        searchPlaceholder="Buscar por marca, modelo, cliente u orden..."
-        searchValue={search}
-        onSearchChange={setSearch}
+        toolbar={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                aria-label="Buscar bicicletas por marca, modelo, cliente u orden"
+                placeholder="Buscar por marca, modelo, cliente u orden..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
+              />
+            </div>
+            <div className="w-full shrink-0 sm:w-56">
+              <Select value={estadoFiltro} onValueChange={setEstadoFiltro}>
+                <SelectTrigger
+                  aria-label="Filtrar bicicletas por estado de la orden"
+                  className="h-10 data-[size=default]:h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"
+                >
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {Object.values(ESTADO_OT).map((estado) => (
+                    <SelectItem key={estado} value={estado}>
+                      {estado === ESTADO_OT.LISTO_PARA_ENTREGAR
+                        ? "Por entregar"
+                        : NOMBRES_ESTADO_OT[estado]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        }
       >
         <div className="p-4 md:p-6">
           {error && bicicletas.length === 0 ? (
@@ -267,7 +313,7 @@ export function ListBicicletas() {
               icon={Bike}
               title="No se encontraron bicicletas"
               description={
-                search
+                search || estadoFiltro !== "all"
                   ? "No hay resultados que coincidan con tu criterio de búsqueda."
                   : "Aún no hay bicicletas registradas en el sistema."
               }

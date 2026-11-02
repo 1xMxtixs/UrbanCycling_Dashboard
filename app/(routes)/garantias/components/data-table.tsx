@@ -112,11 +112,11 @@ export function DataTable<TData extends { idGarantia: number }, TValue>({
             >
               <SelectTrigger
                 aria-label="Filtrar solicitudes por estado"
-                className="h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background shadow-2xs"
+                className="h-10 data-[size=default]:h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"
               >
-                <SelectValue placeholder="Estado: Todos" />
+                <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
-              <SelectContent position="popper" className="rounded-xl border-border/80">
+              <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
                 {estados.map((estado) => (
                   <SelectItem key={estado} value={estado}>

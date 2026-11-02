@@ -67,30 +67,31 @@ export function DataTable({ columns, data }: DataTableProps) {
       title="Historial de Movimientos"
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "movimiento encontrado" : "movimientos encontrados"}`}
       toolbar={
-        <div className="space-y-3">
-          <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 placeholder="Buscar por producto, motivo, orden o usuario..."
+                aria-label="Buscar movimientos por producto, motivo, orden o usuario"
                 value={searchValue}
                 onChange={(e) => table.setGlobalFilter(e.target.value)}
-                className="pl-9"
+                className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
               />
             </div>
+            <div className="w-full shrink-0 sm:w-56">
             <Select
               value={(table.getColumn("tipoMovimiento")?.getFilterValue() as string) || "all"}
               onValueChange={(val) => table.getColumn("tipoMovimiento")?.setFilterValue(val === "all" ? "" : val)}
             >
-              <SelectTrigger className="h-9 w-full sm:w-56"><SelectValue placeholder="Todas las operaciones" /></SelectTrigger>
+              <SelectTrigger aria-label="Filtrar movimientos por tipo" className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"><SelectValue placeholder="Todas las operaciones" /></SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todas las operaciones</SelectItem>
                 <SelectItem value="ENTRADA">Solo Entradas</SelectItem>
                 <SelectItem value="SALIDA">Solo Salidas</SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
-        </div>
       }
       footer={
         filteredRowCount > 0 ? (

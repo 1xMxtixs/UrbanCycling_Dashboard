@@ -102,18 +102,19 @@ export function DataTable<TData extends ServiceColumn, TValue>({
         title="Catálogo de Servicios"
         description={`${filteredRowCount} ${filteredRowCount === 1 ? "servicio encontrado" : "servicios encontrados"}`}
         toolbar={
-          <div className="space-y-3">
-            <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
                   placeholder="Buscar por nombre, código o labor..."
+                  aria-label="Buscar servicios por nombre, código o labor"
                   value={serviceSearch}
                   onChange={(event) => setServiceSearch(event.target.value)}
-                  className="pl-9 h-9 rounded-lg"
+                  className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
                 />
               </div>
 
+              <div className="w-full shrink-0 sm:w-56">
               <Select
                 value={
                   (table.getColumn("estado")?.getFilterValue() as string) || "all"
@@ -122,7 +123,7 @@ export function DataTable<TData extends ServiceColumn, TValue>({
                   table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
                 }
               >
-                <SelectTrigger className="h-9 w-full sm:w-44 rounded-lg">
+                <SelectTrigger aria-label="Filtrar servicios por estado" className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56">
                   <SelectValue placeholder="Solo Activos" />
                 </SelectTrigger>
                 <SelectContent position="popper">
@@ -131,8 +132,7 @@ export function DataTable<TData extends ServiceColumn, TValue>({
                   <SelectItem value="all">Todos los estados</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
+              </div>
           </div>
         }
         footer={

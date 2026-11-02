@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useUserPermissions } from "@/components/providers"
 import { PERMISSIONS } from "@/lib/permissions"
@@ -9,11 +8,9 @@ import {
   Dialog,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Tabs } from "@/components/ui/tabs"
 import { FormDialog } from "@/components/forms/FormDialog"
-import { SegmentedTabs, type SegmentedTabItem } from "@/components/forms/SegmentedTabs"
 import { PageHeader } from "@/components/common/PageHeader"
-import { Plus, Package, Wrench, ArrowLeftRight } from "lucide-react"
+import { Plus } from "lucide-react"
 import { FormCreateInventory } from "../FormCreateInventory"
 import { FormCreateServicio } from "../FormCreateServicio"
 
@@ -22,17 +19,10 @@ interface HeaderInventoryProps {
   onServiceCreated?: () => void
 }
 
-const INVENTORY_TABS: SegmentedTabItem[] = [
-  { value: "productos", label: "Productos", icon: Package },
-  { value: "servicios", label: "Servicios", icon: Wrench },
-  { value: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
-]
-
 export function HeaderInventory({
   activeTab = "productos",
   onServiceCreated,
 }: HeaderInventoryProps) {
-  const router = useRouter()
   const { hasPermission } = useUserPermissions()
   const canCreate = hasPermission(PERMISSIONS.INVENTORY_CREATE)
   const [openModalProduct, setOpenModalProduct] = useState(false)
@@ -97,13 +87,6 @@ export function HeaderInventory({
         )}
       </PageHeader>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) => router.push(`/inventory/${tab}`)}
-        className="w-full"
-      >
-        <SegmentedTabs items={INVENTORY_TABS} className="justify-start" />
-      </Tabs>
     </div>
   )
 }
