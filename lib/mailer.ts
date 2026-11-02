@@ -6,6 +6,15 @@ type PasswordResetEmailParams = {
   expiresInMinutes?: number
 }
 
+type UserInvitationEmailParams = {
+  /** Correo que fue autorizado por el administrador. */
+  to: string
+  /** Enlace firmado que abrirá el formulario público de autorregistro. */
+  invitationUrl: string
+  /** Tiempo visible para informar al destinatario sobre la vigencia. */
+  expiresInHours?: number
+}
+
 type WorkOrderPdfEmailParams = {
   /** Correo registrado para el cliente propietario de la orden. */
   to: string
@@ -75,6 +84,46 @@ export async function sendPasswordResetEmail({
 
   if (error) {
     throw new Error("No se pudo enviar el correo de recuperación")
+  }
+}
+
+/**
+ * Envía una invitación de registro al único correo autorizado por el
+ * administrador. El correo no recibe ni almacena contraseñas temporales.
+ */
+export async function sendUserInvitationEmail({
+  to,
+  invitationUrl,
+  expiresInHours = 48,
+}: UserInvitationEmailParams) {
+  const { error } = await getResendClient().emails.send({
+    from: getRequiredEnv("MAIL_FROM"),
+    to: [to],
+    subject: "Invitación a Urban Cycling",
+    text: [
+      "Has sido invitado a crear una cuenta en Urban Cycling.",
+      "",
+      `Completa tu registro aquí: ${invitationUrl}`,
+      `La invitación expirará en ${expiresInHours} horas.`,
+      "",
+      "Si no esperabas esta invitación, puedes ignorar el correo.",
+    ].join("\n"),
+    html: `
+      <main>
+        <h1>Invitación a Urban Cycling</h1>
+        <p>Has sido invitado a crear una cuenta en Urban Cycling.</p>
+        <p>
+          <a href="${invitationUrl}">Completar mi registro</a>
+        </p>
+        <p>La invitación expirará en ${expiresInHours} horas.</p>
+        <p>Si no esperabas esta invitación, puedes ignorar el correo.</p>
+      </main>
+    `,
+  })
+
+  if (error) {
+    console.error("[RESEND_USER_INVITATION]", error)
+    throw new Error("No se pudo enviar la invitación")
   }
 }
 
