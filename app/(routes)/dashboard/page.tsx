@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useEffect, useState, useSyncExternalStore } from "react"
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { useUserPermissions } from "@/components/providers"
 import { PageHeader } from "@/components/common/PageHeader"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
-import { formatDateCL } from "@/lib/formatters"
+import { formatTipoProducto } from "@/lib/product-types"
+import { cn } from "@/lib/utils"
 import {
   DateRangeFilter,
   ChartRentabilidadOrdenesTrabajo,
@@ -79,6 +80,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const requestRef = useRef(0)
 
   const hasAccess = hasPermission("reports:read")
   const welcome = isClient ? getWelcome(session?.user?.name) : null
@@ -86,21 +88,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status !== "authenticated" || !hasAccess) return
 
+    const id = ++requestRef.current
     let isMounted = true
 
     getDashboardData(dateRange)
       .then((data) => {
-        if (isMounted) {
-          setReportsData(data)
-          setIsLoading(false)
-        }
+        if (!isMounted || id !== requestRef.current) return
+        setReportsData(data)
       })
       .catch((loadError) => {
-        if (isMounted) {
-          setReportsData(null)
-          setError(loadError instanceof Error ? loadError.message : "No fue posible cargar los datos del dashboard.")
-          setIsLoading(false)
-        }
+        if (!isMounted || id !== requestRef.current) return
+        setReportsData(null)
+        setError(loadError instanceof Error ? loadError.message : "No fue posible cargar los datos del dashboard.")
+      })
+      .finally(() => {
+        if (isMounted && id === requestRef.current) setIsLoading(false)
       })
 
     return () => {
@@ -108,7 +110,7 @@ export default function DashboardPage() {
     }
   }, [dateRange, hasAccess, status, reloadKey])
 
-  const handleApplyDateRange = async (newRange: import("react-day-picker").DateRange) => {
+  const handleApplyDateRange = (newRange: import("react-day-picker").DateRange) => {
     if (!newRange.from || !newRange.to) return
     setIsLoading(true)
     setError(null)
@@ -120,6 +122,8 @@ export default function DashboardPage() {
     setError(null)
     setReloadKey((k) => k + 1)
   }
+
+  const isRefreshing = isLoading && reportsData !== null
 
   if (status === "loading") return <DashboardLoading />
 
@@ -156,24 +160,23 @@ export default function DashboardPage() {
         title={welcome?.title ?? "Bienvenido"}
         description={welcome?.phrase ?? "Panel de control general y análisis de operaciones."}
       />
-      <DateRangeFilter onApply={handleApplyDateRange} />
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">Resumen financiero y operativo</h2>
-          <span className="text-xs text-muted-foreground">
-            Período: {formatDateCL(dateRange.from)} al {formatDateCL(dateRange.to)}
-          </span>
-        </div>
-        {isLoading || !reportsData ? <FinancialSummarySkeleton /> : <FinancialSummaryCards data={reportsData.financialSummary} />}
-      </div>
-      {!isLoading && reportsData && <TodaySalesDetail sales={reportsData.todaySales} />}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">Análisis comparativo</h2>
-        {isLoading || !reportsData ? <ChartsSkeleton /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><ChartRentabilidadOrdenesTrabajo data={reportsData.workOrderProfitability.series.map((item) => ({ date: item.date, ingresosOrdenesTrabajo: item.workOrderRevenue, costosRepuestos: item.partsCost })) satisfies RentabilidadOrdenTrabajoPoint[]} /><ChartVentasPorMetodoPago data={reportsData.paymentMethods.map((item) => ({ metodo: item.method, label: item.label, monto: item.amount, pagos: item.count })) satisfies MetodoPagoDatum[]} /></div>}
-      </div>
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">Detalle de operaciones e inventario</h2>
-        {isLoading || !reportsData ? <TableSkeleton /> : <DetalleOperacionesInventario productosDestacados={reportsData.topProducts.map((item) => ({ ranking: item.ranking, nombre: item.name, tipo: item.type, unidades: item.quantityDispatched, totalRecaudado: item.totalRevenue })) satisfies ProductoDestacado[]} consumoInsumos={reportsData.supplyConsumption.map((item) => ({ nombre: item.name, tipo: item.type, cantidadUsada: item.quantityUsed, ordenesAsociadas: item.associatedOrdersCount, costoTotal: item.totalCost })) satisfies ConsumoInsumo[]} onExportCSV={() => exportSupplyConsumption(reportsData, dateRange)} />}
+      <div className={cn("space-y-6 transition-opacity duration-200 motion-reduce:transition-none", isRefreshing && "opacity-60")} aria-busy={isRefreshing}>
+        <section className="space-y-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Resumen financiero y operativo</h2>
+            <DateRangeFilter value={dateRange} onApply={handleApplyDateRange} />
+          </div>
+          {reportsData === null ? <FinancialSummarySkeleton /> : <FinancialSummaryCards data={reportsData.financialSummary} />}
+        </section>
+        {reportsData && <TodaySalesDetail sales={reportsData.todaySales} />}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Análisis comparativo</h2>
+          {reportsData === null ? <ChartsSkeleton /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><ChartRentabilidadOrdenesTrabajo data={reportsData.workOrderProfitability.series.map((item) => ({ date: item.date, ingresosOrdenesTrabajo: item.workOrderRevenue, costosRepuestos: item.partsCost })) satisfies RentabilidadOrdenTrabajoPoint[]} /><ChartVentasPorMetodoPago data={reportsData.paymentMethods.map((item) => ({ metodo: item.method, label: item.label, monto: item.amount, pagos: item.count })) satisfies MetodoPagoDatum[]} /></div>}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Detalle de operaciones e inventario</h2>
+          {reportsData === null ? <TableSkeleton /> : <DetalleOperacionesInventario productosDestacados={reportsData.topProducts.map((item) => ({ ranking: item.ranking, nombre: item.name, tipo: item.type, unidades: item.quantityDispatched, totalRecaudado: item.totalRevenue })) satisfies ProductoDestacado[]} consumoInsumos={reportsData.supplyConsumption.map((item) => ({ nombre: item.name, tipo: item.type, cantidadUsada: item.quantityUsed, ordenesAsociadas: item.associatedOrdersCount, costoTotal: item.totalCost })) satisfies ConsumoInsumo[]} onExportProductsCSV={() => exportTopProducts(reportsData, dateRange)} onExportCSV={() => exportSupplyConsumption(reportsData, dateRange)} />}
+        </section>
       </div>
     </div>
   )
@@ -201,6 +204,29 @@ function exportSupplyConsumption(data: ReportsData, dateRange: DateRange) {
   link.remove()
   URL.revokeObjectURL(link.href)
   toast.success("Consumo de insumos exportado correctamente.")
+}
+
+function exportTopProducts(data: ReportsData, dateRange: DateRange) {
+  if (!data.topProducts.length) {
+    toast.error("No hay productos destacados para exportar.")
+    return
+  }
+  const headers = "Ranking,Producto,Tipo,Unidades despachadas,Total recaudado CLP\n"
+  const rows = data.topProducts
+    .map((item) =>
+      `${item.ranking},"${item.name.replaceAll('"', '""')}","${formatTipoProducto(item.type).replaceAll('"', '""')}",${item.quantityDispatched},${item.totalRevenue}`
+    )
+    .join("\n")
+  const link = document.createElement("a")
+  link.href = URL.createObjectURL(
+    new Blob(["\uFEFF" + headers + rows], { type: "text/csv;charset=utf-8;" })
+  )
+  link.download = `productos_destacados_${dateRange.from}_a_${dateRange.to}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(link.href)
+  toast.success("Productos destacados exportados correctamente.")
 }
 
 function DashboardLoading() {

@@ -47,6 +47,7 @@ export function TodaySalesDetail({ sales }: TodaySalesDetailProps) {
                 columns={todaySalesColumns}
                 data={sales}
                 emptyMessage="No hubo ventas registradas en la jornada de hoy."
+                bordered={false}
               />
             )}
           </CardContent>

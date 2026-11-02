@@ -21,16 +21,25 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
+    align?: "left" | "right"
+  }
+}
+
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[]
   data: TData[]
   emptyMessage?: string
+  bordered?: boolean
 }
 
 export function DataTable<TData>({
   columns,
   data,
   emptyMessage = "No hay datos para mostrar.",
+  bordered = true,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
 
@@ -46,7 +55,7 @@ export function DataTable<TData>({
   })
 
   return (
-    <div className="w-full overflow-hidden rounded-md border border-border">
+    <div className={cn("w-full overflow-hidden", bordered && "rounded-md border border-border")}>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -55,6 +64,7 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
                   const sortDir = header.column.getIsSorted()
+                  const right = header.column.columnDef.meta?.align === "right"
                   const headerTitle =
                     typeof header.column.columnDef.header === "string"
                       ? header.column.columnDef.header
@@ -65,7 +75,7 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
-                      className="h-10 text-xs font-semibold text-muted-foreground"
+                      className={cn("h-10 text-xs font-semibold text-muted-foreground", right && "text-right")}
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -74,7 +84,7 @@ export function DataTable<TData>({
                             header.column.toggleSorting(sortDir === "asc")
                           }
                           aria-label={`Ordenar por ${headerTitle} en orden ${nextSortDirection}`}
-                          className="flex items-center gap-1 transition-colors duration-150 motion-reduce:transition-none hover:text-foreground"
+                          className={cn("flex items-center gap-1 text-xs font-medium uppercase tracking-wide transition-colors duration-150 motion-reduce:transition-none hover:text-foreground", right && "ml-auto")}
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -115,7 +125,7 @@ export function DataTable<TData>({
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-2.5">
+                    <TableCell key={cell.id} className={cn("py-2.5", cell.column.columnDef.meta?.align === "right" && "text-right")}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

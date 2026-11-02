@@ -11,6 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 export interface DateRangeFilterProps {
+  value: { from: string; to: string }
   onApply: (range: DateRange) => Promise<void> | void
 }
 
@@ -28,12 +29,18 @@ function getPresetRange(preset: PresetKey): DateRange {
   return { from, to: today }
 }
 
-export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function DateRangeFilter({ value, onApply }: DateRangeFilterProps) {
   const isMobile = useIsMobile()
   const [preset, setPreset] = React.useState<string>("mes")
-  const [range, setRange] = React.useState<DateRange | undefined>(
-    getPresetRange("mes")
-  )
+  const range = React.useMemo<DateRange>(() => ({
+    from: parseLocalDate(value.from),
+    to: parseLocalDate(value.to),
+  }), [value.from, value.to])
   const [pendingRange, setPendingRange] = React.useState<DateRange | undefined>(range)
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false)
   const [showIncompleteWarning, setShowIncompleteWarning] = React.useState(false)
@@ -44,7 +51,6 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
     const key = value as PresetKey
     setPreset(key)
     const newRange = getPresetRange(key)
-    setRange(newRange)
     setPendingRange(newRange)
     void onApply(newRange)
   }
@@ -54,7 +60,6 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
     setPreset("")
     if (newRange?.from && newRange?.to) {
       setShowIncompleteWarning(false)
-      setRange(newRange)
       setIsPopoverOpen(false)
       void onApply(newRange)
     }
@@ -62,7 +67,9 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
 
   function handlePopoverOpenChange(open: boolean) {
     setIsPopoverOpen(open)
-    if (!open) {
+    if (open) {
+      setPendingRange(range)
+    } else {
       const incomplete = !!pendingRange?.from && !pendingRange?.to
       if (incomplete) {
         setPendingRange(range)
@@ -82,7 +89,7 @@ export function DateRangeFilter({ onApply }: DateRangeFilterProps) {
   }, [])
 
   return (
-    <div className="flex flex-col gap-2 py-4">
+    <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs font-semibold text-muted-foreground">
           Período:
