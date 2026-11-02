@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useUserPermissions } from "@/components/providers"
+import { PERMISSIONS } from "@/lib/permissions"
 import {
   Dialog,
   DialogTrigger,
@@ -31,19 +33,26 @@ export function HeaderInventory({
   onServiceCreated,
 }: HeaderInventoryProps) {
   const router = useRouter()
+  const { hasPermission } = useUserPermissions()
+  const canCreate = hasPermission(PERMISSIONS.INVENTORY_CREATE)
   const [openModalProduct, setOpenModalProduct] = useState(false)
   const [openModalService, setOpenModalService] = useState(false)
 
   const isServicios = activeTab === "servicios"
   const isMovimientos = activeTab === "movimientos"
+  const descriptions = {
+    productos: "Control de existencias, precios y niveles de stock de repuestos y accesorios.",
+    servicios: "Catálogo de labores mecánicas y sus tarifas de mano de obra.",
+    movimientos: "Registro de entradas y salidas de bodega, con el stock antes y después.",
+  } as const
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Inventario y Catálogo"
-        description="Control de existencias de repuestos, catálogo de servicios mecánicos y registro de movimientos de taller."
+        description={descriptions[activeTab]}
       >
-        {!isMovimientos && (
+        {canCreate && !isMovimientos && (
           <>
             {isServicios ? (
               <Dialog open={openModalService} onOpenChange={setOpenModalService}>
@@ -93,7 +102,7 @@ export function HeaderInventory({
         onValueChange={(tab) => router.push(`/inventory/${tab}`)}
         className="w-full"
       >
-        <SegmentedTabs items={INVENTORY_TABS} />
+        <SegmentedTabs items={INVENTORY_TABS} className="justify-start" />
       </Tabs>
     </div>
   )

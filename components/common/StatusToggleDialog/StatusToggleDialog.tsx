@@ -27,6 +27,7 @@ export interface StatusToggleDialogProps {
   title?: React.ReactNode
   description?: React.ReactNode
   confirmLabel?: string
+  submittingLabel?: string
   actionVariant?: "default" | "destructive"
 }
 
@@ -41,6 +42,7 @@ export function StatusToggleDialog({
   title,
   description,
   confirmLabel,
+  submittingLabel,
   actionVariant,
 }: StatusToggleDialogProps) {
   const isDestructive = actionVariant ? actionVariant === "destructive" : isActive
@@ -53,6 +55,8 @@ export function StatusToggleDialog({
       : `El ${entityLabel} volverá a estado activo.`)
   const finalConfirmLabel =
     confirmLabel ?? (isActive ? "Inactivar" : "Reactivar")
+  const finalSubmittingLabel =
+    submittingLabel ?? (isActive ? "Inactivando..." : "Actualizando...")
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -85,7 +89,7 @@ export function StatusToggleDialog({
             {isSubmitting ? (
               <>
                 <Spinner data-icon="inline-start" />
-                {isActive ? "Inactivando..." : "Actualizando..."}
+                {finalSubmittingLabel}
               </>
             ) : (
               finalConfirmLabel

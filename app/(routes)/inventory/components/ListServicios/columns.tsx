@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, PowerOff, Wrench } from "lucide-react"
+import { MoreHorizontal, Eye, Pencil, Power, PowerOff, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
+import { SortableHeader } from "@/components/common/SortableHeader"
 
 interface GetColumnsOptions {
   canUpdate?: boolean
@@ -35,7 +36,7 @@ export function getColumns({
       accessorKey: "codigo",
       header: "Código",
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-semibold text-primary">
+        <span className="font-mono text-xs font-semibold text-muted-foreground">
           {row.getValue("codigo")}
         </span>
       ),
@@ -62,20 +63,9 @@ export function getColumns({
     },
     {
       accessorKey: "precioVenta",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-          >
-            Precio (Mano de Obra)
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
+      header: ({ column }) => <SortableHeader column={column}>Mano de obra</SortableHeader>,
       cell: ({ row }) => (
-        <span className="font-semibold text-sm text-foreground">
+        <span className="font-semibold text-sm tabular-nums text-foreground">
           {formatCurrency(row.original.precioVenta)}
         </span>
       ),
@@ -91,6 +81,7 @@ export function getColumns({
           <StatusBadge
             status={isActivo ? "success" : "danger"}
             label={getNombreEstadoRegistro(estado)}
+            showDot={false}
           />
         )
       },

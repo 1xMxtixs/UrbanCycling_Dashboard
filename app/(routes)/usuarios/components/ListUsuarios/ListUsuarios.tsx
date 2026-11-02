@@ -30,16 +30,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +37,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { formatUserName } from "@/lib/formatters";
 import { normalizeSearchText } from "@/lib/search-normalization";
@@ -482,17 +473,15 @@ export function ListUsuarios() {
         </DataTableContainer>
       </div>
 
-      <AlertDialog
+      <StatusToggleDialog
         open={!!userToRevoke}
         onOpenChange={(open) => { if (!open && !isRevoking) setUserToRevoke(null); }}
-      >
-        <AlertDialogContent className="rounded-2xl border-border/80 shadow-2xl sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
-              Quitar rol asignado
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+        onConfirm={confirmRemoveUserRole}
+        isSubmitting={isRevoking}
+        actionVariant="destructive"
+        title="Quitar rol asignado"
+        description={
+          <>
               ¿Estás seguro de quitar el rol{" "}
               <strong className="text-foreground">{userToRevoke?.rol.nombre}</strong>{" "}
               de{" "}
@@ -500,28 +489,11 @@ export function ListUsuarios() {
                 {userToRevoke ? formatUserName(userToRevoke) : ""}
               </strong>
               ? El usuario quedará sin acceso hasta que se le asigne un nuevo rol.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl cursor-pointer" disabled={isRevoking}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                void confirmRemoveUserRole();
-              }}
-              disabled={isRevoking}
-            >
-              {isRevoking ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden="true" />
-              ) : null}
-              {isRevoking ? "Quitando..." : "Sí, quitar rol"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </>
+        }
+        confirmLabel="Sí, quitar rol"
+        submittingLabel="Quitando..."
+      />
     </>
   );
 }

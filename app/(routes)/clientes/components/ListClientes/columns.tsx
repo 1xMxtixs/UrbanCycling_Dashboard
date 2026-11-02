@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
+import type { ColumnDef, Row, Table } from "@tanstack/react-table";
 import {
-  ArrowUpDown,
   MoreHorizontal,
   Eye,
   ClipboardList,
@@ -27,6 +26,7 @@ import { InactivateClientDialog } from "./InactivateClientDialog";
 import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
 import { formatRut } from "@/lib/formatters";
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status";
+import { SortableHeader } from "@/components/common/SortableHeader";
 
 export type { ClienteNatural, ClienteJuridica };
 
@@ -103,25 +103,6 @@ const CellActions = <TData extends { id: number }>({
     </div>
   );
 };
-
-function SortableHeader<TData, TValue>({
-  column,
-  children,
-}: {
-  column: Column<TData, TValue>;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      className="h-auto cursor-pointer p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 hover:bg-transparent hover:text-foreground"
-      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-    >
-      {children}
-      <ArrowUpDown aria-hidden="true" className="ml-1.5 h-3.5 w-3.5 opacity-60" />
-    </Button>
-  );
-}
 
 function PhoneCell({ value }: { value: unknown }) {
   const phone = String(value ?? "").trim();

@@ -174,6 +174,10 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
     setOpenDetailsModal(true);
   };
 
+  const handleViewWorkOrder = (id: number) => {
+    router.push(`/punto-ventas/ordenes-trabajo?ordenId=${id}`);
+  };
+
   const handleDetailsOpenChange = (open: boolean) => {
     setOpenDetailsModal(open);
 
@@ -315,6 +319,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
           <ClientHistoryView
             clientes={rawClientes}
             selectedIdInitial={selectedClienteId}
+            onViewWorkOrder={handleViewWorkOrder}
           />
         </TabsContent>
       </Tabs>
@@ -324,6 +329,7 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
         open={openHistoryModal}
         onOpenChange={setOpenHistoryModal}
         cliente={historyCliente}
+        onViewWorkOrder={handleViewWorkOrder}
       />
 
       {/* Modal de Detalles del Cliente */}

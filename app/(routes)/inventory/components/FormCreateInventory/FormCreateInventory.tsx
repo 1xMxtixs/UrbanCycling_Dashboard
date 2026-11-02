@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +29,9 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
+import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
+
+const DESCRIPTION_MAX_LENGTH = 50;
 
 const numericField = (fieldName: string) =>
   z
@@ -49,7 +52,7 @@ const integerField = (fieldName: string) =>
 const formSchema = z.object({
   tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
-  descripcion: z.string().optional(),
+  descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
   precioVenta: numericField("El precio"),
   stockActual: integerField("El stock actual"),
   stockMinimo: integerField("El stock mínimo"),
@@ -82,6 +85,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   });
 
   const { isSubmitting, isValid } = form.formState;
+  const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
 
   useEffect(() => {
     let isMounted = true;
@@ -151,6 +155,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
         },
         body: JSON.stringify({
           ...values,
+          tipoProducto: canonicalTipoProducto(values.tipoProducto),
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
           stockActual: Number(values.stockActual),
@@ -197,8 +202,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    <SelectItem value="Repuesto">Repuesto</SelectItem>
-                    <SelectItem value="Accesorio">Accesorio</SelectItem>
+                    {getTipoProductoOptions().map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -243,9 +249,11 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               <FormControl>
                 <Textarea
                   placeholder="Descripción opcional del producto"
+                  maxLength={DESCRIPTION_MAX_LENGTH}
                   {...field}
                 />
               </FormControl>
+              <p className="text-right text-xs text-muted-foreground">{description.length}/{DESCRIPTION_MAX_LENGTH}</p>
               <FormMessage />
             </FormItem>
           )}

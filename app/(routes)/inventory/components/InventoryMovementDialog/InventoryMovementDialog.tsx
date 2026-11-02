@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -50,6 +50,12 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
     mode: "onChange",
     defaultValues: { tipoMovimiento: "ENTRADA", cantidad: "", fechaOperacion: getNowLocalString(), motivo: "", observacion: "" },
   })
+  const movementType = useWatch({ control: form.control, name: "tipoMovimiento" })
+  const movementQuantity = Number(useWatch({ control: form.control, name: "cantidad" }))
+  const hasValidPreviewQuantity = Number.isInteger(movementQuantity) && movementQuantity > 0
+  const resultingStock = movementType === "ENTRADA"
+    ? stockActual + movementQuantity
+    : stockActual - movementQuantity
 
   useEffect(() => {
     if (open) {
@@ -145,6 +151,14 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
                     </FormItem>
                   )} />
                 </div>
+                {hasValidPreviewQuantity && (
+                  <p className="text-xs text-muted-foreground">
+                    Stock resultante:{" "}
+                    <span className={`font-semibold tabular-nums ${resultingStock < 0 ? "text-destructive" : "text-foreground"}`}>
+                      {stockActual} → {resultingStock} u
+                    </span>
+                  </p>
+                )}
 
                 <FormField control={form.control} name="fechaOperacion" render={({ field }) => (
                   <FormItem>

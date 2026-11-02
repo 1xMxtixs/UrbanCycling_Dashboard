@@ -36,6 +36,7 @@ import { EmptyState } from "@/components/common/EmptyState"
 import { Search, Wrench, ChevronLeft, ChevronRight } from "lucide-react"
 import { ServiceKpiCards } from "./service-kpi-cards"
 import { type ServiceColumn } from "../../types"
+import { includesNormalizedText } from "@/lib/search-normalization"
 
 interface DataTableProps<TData extends ServiceColumn, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -58,16 +59,15 @@ export function DataTable<TData extends ServiceColumn, TValue>({
     setServiceSearch(initialSearch)
   }, [initialSearch])
 
-  // Filtrado de búsqueda exactamente como en productos
   const filteredData = React.useMemo(() => {
-    const q = serviceSearch.trim().toLowerCase()
+    const q = serviceSearch.trim()
     if (!q) return data
 
     return data.filter(
       (service) =>
-        service.nombre.toLowerCase().includes(q) ||
-        service.codigo.toLowerCase().includes(q) ||
-        (service.descripcion && service.descripcion.toLowerCase().includes(q))
+        includesNormalizedText(service.nombre, q) ||
+        includesNormalizedText(service.codigo, q) ||
+        includesNormalizedText(service.descripcion, q)
     )
   }, [data, serviceSearch])
 

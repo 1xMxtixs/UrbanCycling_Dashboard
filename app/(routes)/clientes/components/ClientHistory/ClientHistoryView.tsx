@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/common/EmptyState";
-import { Search, User, ChevronRight, X, History } from "lucide-react";
-import { formatClientName } from "@/lib/formatters";
+import { Search, User, ChevronRight, X, Users } from "lucide-react";
+import { formatClientName, formatRut } from "@/lib/formatters";
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization";
+import { esClienteJuridico } from "@/lib/client-type";
+import { isRegistroActivo } from "@/lib/registro-status";
 import type { DBCliente } from "../../types";
 import { ClientHistoryContent } from "./ClientHistoryContent";
 
@@ -22,11 +25,16 @@ export function ClientHistoryView({
   selectedIdInitial = null,
   onViewWorkOrder,
 }: ClientHistoryViewProps) {
+  const sortedClientes = useMemo(
+    () => [...clientes].sort((a, b) => formatClientName(a).localeCompare(formatClientName(b), "es")),
+    [clientes]
+  );
   const [prevInitialId, setPrevInitialId] = useState<number | null>(selectedIdInitial);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(
-    selectedIdInitial || (clientes.length > 0 ? clientes[0].idCliente : null)
+    selectedIdInitial ?? sortedClientes[0]?.idCliente ?? null
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const detailRef = useRef<HTMLDivElement>(null);
 
   if (selectedIdInitial !== prevInitialId) {
     setPrevInitialId(selectedIdInitial);
@@ -36,124 +44,129 @@ export function ClientHistoryView({
   }
 
   const filteredClientes = useMemo(() => {
-    if (!searchQuery.trim()) return clientes;
-    const q = searchQuery.toLowerCase().trim();
-    return clientes.filter((c) => {
-      const name = formatClientName(c).toLowerCase();
-      const rut = c.rut.toLowerCase();
-      return name.includes(q) || rut.includes(q);
+    const query = searchQuery.trim();
+    if (!query) return sortedClientes;
+    const rutQuery = normalizeSearchText(query).replace(/[.\-\s]/g, "");
+    return sortedClientes.filter((cliente) => {
+      const matchesName = includesNormalizedText(formatClientName(cliente), query);
+      const matchesRut = includesNormalizedText(cliente.rut, query);
+      const rut = normalizeSearchText(cliente.rut).replace(/[.\-\s]/g, "");
+      return matchesName || matchesRut || (rutQuery.length >= 3 && rut.includes(rutQuery));
     });
-  }, [clientes, searchQuery]);
+  }, [sortedClientes, searchQuery]);
 
   const selectedCliente = useMemo(() => {
     if (!selectedClienteId) return null;
-    return clientes.find((c) => c.idCliente === selectedClienteId) || null;
-  }, [clientes, selectedClienteId]);
+    return sortedClientes.find((cliente) => cliente.idCliente === selectedClienteId) || null;
+  }, [sortedClientes, selectedClienteId]);
+
+  const handleSelectCliente = (id: number) => {
+    setSelectedClienteId(id);
+    onSelectClienteId?.(id);
+
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      window.requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior, block: "start" }));
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* Panel Izquierdo: Lista de Clientes */}
-      <div className="lg:col-span-4 rounded-2xl border border-border/80 bg-card p-4 space-y-4 shadow-xs">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <aside className="space-y-4 rounded-2xl border border-border/80 bg-card p-4 shadow-xs lg:sticky lg:top-24 lg:col-span-4 lg:self-start">
         <div className="space-y-1">
-          <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-            <History className="h-4 w-4 text-primary" /> Búsqueda de Cliente
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Users aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> Clientes
           </h3>
           <p className="text-xs text-muted-foreground">Busca por nombre, razón social o RUT.</p>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por RUT o Nombre..."
-            aria-label="Buscar cliente por RUT o Nombre"
+            placeholder="Buscar cliente..."
+            aria-label="Buscar clientes por nombre o RUT"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-xs"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="h-9 pl-9 text-xs"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
               aria-label="Limpiar búsqueda"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-3.5 w-3.5" />
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
+        <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1 lg:max-h-[calc(100vh-17rem)]">
           {filteredClientes.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
               No se encontraron clientes para &quot;{searchQuery}&quot;
             </div>
           ) : (
-            filteredClientes.map((cli) => {
-              const isSelected = cli.idCliente === selectedClienteId;
-              const isNat = cli.tipoCliente === "natural";
-              const cName = formatClientName(cli);
-              const init = isNat
-                ? `${cli.primerNombre?.[0] || ""}${cli.apellidoPaterno?.[0] || ""}`.toUpperCase()
-                : (cli.razonSocial?.slice(0, 2) || "PJ").toUpperCase();
-              const cantOrdenes = cli.ordenesDeTrabajo?.length || 0;
+            filteredClientes.map((cliente) => {
+              const isSelected = cliente.idCliente === selectedClienteId;
+              const isNatural = !esClienteJuridico(cliente.tipoCliente);
+              const name = formatClientName(cliente);
+              const initials = isNatural
+                ? `${cliente.primerNombre?.[0] || ""}${cliente.apellidoPaterno?.[0] || ""}`.toUpperCase()
+                : (cliente.razonSocial?.slice(0, 2) || "PJ").toUpperCase();
+              const orderCount = cliente.ordenesDeTrabajo?.length || 0;
+              const isActive = isRegistroActivo(cliente.estado);
 
               return (
                 <button
-                  key={cli.idCliente}
+                  key={cliente.idCliente}
                   type="button"
-                  onClick={() => {
-                    setSelectedClienteId(cli.idCliente);
-                    onSelectClienteId?.(cli.idCliente);
-                  }}
-                  className={`w-full text-left p-2.5 rounded-xl transition-all duration-200 flex items-center justify-between gap-3 border cursor-pointer ${
+                  aria-pressed={isSelected}
+                  onClick={() => handleSelectCliente(cliente.idCliente)}
+                  className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition-colors duration-150 motion-reduce:transition-none ${!isActive ? "opacity-70" : ""} ${
                     isSelected
-                      ? "bg-primary/10 border-primary/40 shadow-xs ring-1 ring-primary/20"
-                      : "bg-muted/30 border-border/60 hover:bg-muted/60 hover:border-border"
+                      ? "border-primary/40 bg-primary/10"
+                      : "border-border/60 bg-muted/30 hover:border-border hover:bg-muted/60"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar className="h-9 w-9 rounded-xl border border-border/80 shrink-0">
-                      <AvatarFallback className="rounded-xl text-xs font-bold bg-muted text-foreground">
-                        {init}
-                      </AvatarFallback>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <Avatar className="h-9 w-9 shrink-0 rounded-xl border border-border/80">
+                      <AvatarFallback className="rounded-xl bg-muted text-xs font-bold text-foreground">{initials}</AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0 space-y-0.5">
-                      <span className="font-semibold text-xs text-foreground truncate block">{cName}</span>
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1.5 block">
-                        <span>{cli.rut}</span>
-                        <span>•</span>
-                        <span>{isNat ? "Natural" : "Jurídica"}</span>
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block truncate text-xs font-semibold text-foreground" title={name}>{name}</span>
+                      <span className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                        <span className="font-mono tabular-nums">{formatRut(cliente.rut)}</span>
+                        <span>{isNatural ? "Natural" : "Jurídica"}</span>
+                        {!isActive && <span>· Inactivo</span>}
                       </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        cantOrdenes > 0
-                          ? "bg-primary/10 text-primary border-primary/20"
-                          : "bg-muted text-muted-foreground border-border/60"
-                      }`}
-                    >
-                      {cantOrdenes} OT
                     </span>
-                    <ChevronRight className={`h-4 w-4 ${isSelected ? "text-primary" : "text-muted-foreground/50"}`} />
-                  </div>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {orderCount > 0 ? (
+                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                        {orderCount} OT
+                      </span>
+                    ) : (
+                      <span className="text-[10.5px] font-medium text-muted-foreground/60">0 OT</span>
+                    )}
+                    <ChevronRight aria-hidden="true" className={`h-4 w-4 ${isSelected ? "text-primary" : "text-muted-foreground/50"}`} />
+                  </span>
                 </button>
               );
             })
           )}
         </div>
-      </div>
+      </aside>
 
-      {/* Panel Derecho: Historial y Órdenes */}
-      <div className="lg:col-span-8">
+      <div ref={detailRef} className="min-w-0 scroll-mt-24 lg:col-span-8">
         {selectedCliente ? (
-          <ClientHistoryContent cliente={selectedCliente} onViewWorkOrder={onViewWorkOrder} />
+          <ClientHistoryContent key={selectedCliente.idCliente} cliente={selectedCliente} onViewWorkOrder={onViewWorkOrder} />
         ) : (
           <EmptyState
             icon={User}
             title="Selecciona un cliente"
-            description="Elige un cliente del listado de la izquierda para ver su historial."
+            description="Elige un cliente del listado para consultar su historial."
             className="py-20"
           />
         )}

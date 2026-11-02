@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
 import {
   ArrowLeftRight,
-  ArrowUpDown,
   Eye,
   MoreHorizontal,
   Package,
@@ -26,6 +25,8 @@ import {
 } from "@/lib/registro-status"
 import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
+import { SortableHeader } from "@/components/common/SortableHeader"
+import { formatTipoProducto } from "@/lib/product-types"
 import type { InventoryCategory } from "../../types"
 
 export type { InventoryCategory } from "../../types"
@@ -62,7 +63,7 @@ export function getColumns(
       accessorKey: "idProducto",
       header: "ID",
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-semibold text-muted-foreground">
+        <span className="font-mono text-xs font-semibold tabular-nums text-muted-foreground">
           #{row.original.idProducto}
         </span>
       ),
@@ -91,7 +92,7 @@ export function getColumns(
             <DataField
               variant="table-cell"
               value={p.nombre}
-              secondaryValue={p.tipoProducto}
+              secondaryValue={formatTipoProducto(p.tipoProducto)}
             />
           </div>
         )
@@ -99,73 +100,32 @@ export function getColumns(
     },
     {
       accessorKey: "stockActual",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-          >
-            Stock Actual
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
+      header: ({ column }) => <SortableHeader column={column}>Stock</SortableHeader>,
       cell: ({ row }) => {
-        const stockActual = row.original.stockActual
+        const { stockActual, stockMinimo } = row.original
+        const badge = stockActual === 0 ? (
+          <StatusBadge status="danger" label="Sin stock" showDot={false} />
+        ) : stockActual <= stockMinimo ? (
+          <StatusBadge status="warning" label="Stock bajo" showDot={false} />
+        ) : null
 
         return (
-          <span className="text-sm font-semibold text-foreground">
-            {stockActual} u
-          </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold tabular-nums text-foreground">{stockActual} u</span>
+              {badge}
+            </div>
+            <span className="text-[11px] tabular-nums text-muted-foreground">Mín. {stockMinimo} u</span>
+          </div>
         )
       },
-    },
-    {
-      id: "stockStatus",
-      header: "Disponibilidad",
-      cell: ({ row }) => {
-        const p = row.original
-        const statusKey =
-          p.stockActual === 0
-            ? "danger"
-            : p.stockActual <= p.stockMinimo
-              ? "warning"
-              : "success"
-        const label =
-          p.stockActual === 0
-            ? "Sin stock"
-            : p.stockActual <= p.stockMinimo
-              ? "Stock bajo"
-              : "Disponible"
-
-        return <StatusBadge status={statusKey} label={label} />
-      },
-    },
-    {
-      accessorKey: "stockMinimo",
-      header: "Mínimo",
-      cell: ({ row }) => (
-        <span className="text-xs font-medium text-muted-foreground">
-          {row.original.stockMinimo} u
-        </span>
-      ),
     },
     {
       accessorKey: "precioVenta",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-        >
-          Precio Venta
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
+      header: ({ column }) => <SortableHeader column={column}>Precio venta</SortableHeader>,
       cell: ({ row }) => {
         return (
-          <span className="text-sm font-bold text-foreground">
+          <span className="text-sm font-bold tabular-nums text-foreground">
             {formatCurrency(row.original.precioVenta)}
           </span>
         )
