@@ -279,6 +279,7 @@ model Proveedor{
   correos         CorreoProveedor[]
   direcciones     DireccionProveedor[]
   ordenesDeCompra OrdenDeCompra[]
+  productos       ProductoProveedor[]
 
   @@map("proveedores")
 }
@@ -319,6 +320,18 @@ model DireccionProveedor{
   proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
 
   @@map("direcciones_proveedores")
+}
+
+model ProductoProveedor{
+  idProductoProveedor Int @id @default(autoincrement()) @db.UnsignedInt @map("id_producto_proveedor")
+  idProducto          Int @db.UnsignedInt @map("id_producto")
+  idProveedor         Int @db.UnsignedInt @map("id_proveedor")
+  fechaCreacion       DateTime @default(now()) @db.Timestamp(0) @map("fecha_registro")
+
+  producto  Producto  @relation(fields: [idProducto], references:[idProducto])
+  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedor])
+
+  @@map("producto_proveedor")
 }
 
 //    --------------------------------------------------------------------
@@ -393,6 +406,7 @@ model Producto {
   lineasDeOrdenDeTrabajo LineaDeOrdenDeTrabajo[]
   lineasDeOrdenDeCompra  LineaDeOrdenDeCompra[]
   lineasDeAjuste         LineaDeAjuste[]
+  Proveedores            ProductoProveedor[]
 
   @@map("productos")
 }
