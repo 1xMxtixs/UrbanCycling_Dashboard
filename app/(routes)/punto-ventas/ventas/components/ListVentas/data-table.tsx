@@ -27,6 +27,8 @@ import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
 import { ESTADO_PAGO } from "@/lib/payment-status"
+import { formatClientName } from "@/lib/formatters"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 import {
   Select,
   SelectContent,
@@ -86,7 +88,7 @@ export function DataTable<TData, TValue>({
       pagination: {
         pageSize: 8,
       },
-    } as any,
+    },
     meta: {
       onViewDetails,
       onUpdateStatus,
@@ -102,6 +104,28 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const query = String(filterValue ?? "").trim().replace(/^#/, "").trim()
+      if (!query) return true
+
+      const sale = row.original as SaleOperation
+      const clientName = sale.cliente
+        ? formatClientName(sale.cliente)
+        : "Cliente general"
+      const productNames = sale.venta?.lineasDeVenta?.map((line) => line.producto?.nombre ?? "") ?? []
+      const matchesText = [
+        String(sale.venta?.idVenta ?? ""),
+        clientName,
+        sale.cliente?.rut ?? "",
+        ...productNames,
+      ].some((value) => includesNormalizedText(value, query))
+
+      const normalizedQuery = normalizeSearchText(query).replace(/[.\-\s]/g, "")
+      const normalizedRut = normalizeSearchText(sale.cliente?.rut).replace(/[.\-\s]/g, "")
+      const matchesRut = normalizedQuery.length >= 3 && normalizedRut.includes(normalizedQuery)
+
+      return matchesText || matchesRut
+    },
     state: {
       sorting,
       columnFilters,
@@ -125,9 +149,10 @@ export function DataTable<TData, TValue>({
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por ID o Cliente..."
+                placeholder="Buscar por N.º de venta, cliente o producto…"
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(event.target.value)}
+                aria-label="Buscar ventas por número, cliente o producto"
                 className="pl-9"
               />
             </div>
@@ -140,11 +165,11 @@ export function DataTable<TData, TValue>({
                 table.getColumn("estadoPago")?.setFilterValue(value === "all" ? "" : value)
               }
             >
-              <SelectTrigger className="h-9 w-full sm:w-48">
-                <SelectValue placeholder="Todos los estados de pago" />
+              <SelectTrigger className="h-9 w-full sm:w-52" aria-label="Filtrar por estado de pago">
+                <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="all">Todos los estados de pago</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PAGADA}>Pagadas</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendientes</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PARCIAL}>Parciales</SelectItem>
@@ -153,10 +178,6 @@ export function DataTable<TData, TValue>({
               </SelectContent>
             </Select>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            {filteredRowCount} {filteredRowCount === 1 ? "venta encontrada" : "ventas encontradas"}
-          </p>
         </div>
       }
       footer={
@@ -218,7 +239,22 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                key={row.id}
+                className="cursor-pointer"
+                tabIndex={0}
+                aria-label={`Ver detalle de venta #${(row.original as SaleOperation).venta.idVenta}`}
+                onClick={() => onViewDetails(row.original as SaleOperation)}
+                onKeyDown={(event) => {
+                  if (
+                    event.target === event.currentTarget &&
+                    (event.key === "Enter" || event.key === " ")
+                  ) {
+                    event.preventDefault()
+                    onViewDetails(row.original as SaleOperation)
+                  }
+                }}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

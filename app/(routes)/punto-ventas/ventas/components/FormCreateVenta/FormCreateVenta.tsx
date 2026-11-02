@@ -279,6 +279,11 @@ export function FormCreateVenta({
   ) => {
     e.preventDefault()
 
+    if (!session?.user?.idUsuario) {
+      toast.error("Tu sesión expiró. Vuelve a iniciar sesión.")
+      return
+    }
+
     if (selectedProducts.length === 0) {
       toast.error(
         "Debe agregar al menos un producto a la venta."
@@ -361,7 +366,7 @@ export function FormCreateVenta({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            id_usuario: session?.user.idUsuario,
+            id_usuario: session.user.idUsuario,
             id_cliente: selectedClientId
               ? Number(selectedClientId)
               : null,
@@ -386,6 +391,8 @@ export function FormCreateVenta({
               })),
 
             metodo_pago: metodoPago,
+            // El POST rechaza monto 0 junto con metodo_pago y crea un pago con este importe.
+            // Por eso no se cambia a 0 aquí; el backend puede finalizar como pagada una venta pendiente.
             monto_pagado: finalTotal,
             estado_venta: ESTADO_VENTA.COMPLETADA,
           }),
@@ -400,9 +407,10 @@ export function FormCreateVenta({
           responseData.code ===
           "STOCK_INSUFICIENTE"
         ) {
-          toast.error(
-            `ExcepciÃ³n 1: Stock insuficiente. ${responseData.message} (Disponibles: ${responseData.cantidadDisponible})`
-          )
+          const availableSuffix = responseData.cantidadDisponible !== undefined
+            ? ` (disponibles: ${responseData.cantidadDisponible})`
+            : ""
+          toast.error(`Stock insuficiente. ${responseData.message}${availableSuffix}`)
         } else {
           toast.error(
             responseData.message ||
@@ -455,7 +463,7 @@ export function FormCreateVenta({
         : `${clientData.primerNombre} ${
             clientData.apellidoPaterno || ""
           }`.trim()
-      : "Cliente General"
+      : "Cliente general"
 
     return (
       <SaleSuccessReceipt
@@ -474,6 +482,7 @@ export function FormCreateVenta({
         finalTotal={finalTotal}
         metodoPago={metodoPago}
         estadoPago={estadoPago}
+        vendedor={session?.user?.name ?? "—"}
         onClose={handleCloseSuccess}
       />
     )
@@ -829,8 +838,7 @@ export function FormCreateVenta({
                       {/* Stock */}
                       {isOut && (
                         <div className="w-full text-[10px] text-destructive font-bold px-1.5 py-0.5 rounded bg-destructive/10 border border-destructive/20 animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
-                          Stock insuficiente para este producto. (Disponible:{" "}
-                          {maxStock})
+                          Stock insuficiente. Máximo disponible: {maxStock}
                         </div>
                       )}
                     </div>

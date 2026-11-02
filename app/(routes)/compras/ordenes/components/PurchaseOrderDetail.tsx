@@ -18,6 +18,7 @@ import { formatCLP, formatDateCL } from "@/lib/formatters"
 import { getNombreEstadoPago, getPaymentStatusBadgeVariant } from "@/lib/payment-status"
 import { StatePill } from "./OrdenesCompra"
 import type { OrderDetail, PurchaseOrder } from "../types"
+import { ESTADO_COMPRA, ESTADO_PAGO_COMPRA } from "../purchase-status"
 
 export function PurchaseOrderDetail({
   orderSummary,
@@ -165,7 +166,7 @@ export function PurchaseOrderDetail({
 
   return (
     <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl min-w-0 overflow-x-hidden overflow-y-auto sm:w-full">
         <DialogHeader>
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
@@ -177,8 +178,8 @@ export function PurchaseOrderDetail({
             <Skeleton className="h-32 w-full rounded-xl" />
           </div>
         ) : order ? (
-          <div className="space-y-5">
-            <div className="grid gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 sm:grid-cols-4">
+          <div className="min-w-0 space-y-5">
+            <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 sm:grid-cols-2">
               <DataField label="Proveedor" value={order.proveedor.razonSocial} />
               <DataField label="Emisión" value={formatDateCL(order.fechaRegistro)} />
               <DataField label="Entrega estimada" value={formatDateCL(order.fechaEntregaEstimada)} />
@@ -193,7 +194,7 @@ export function PurchaseOrderDetail({
               </div>
             </div>
 
-            <section className="overflow-hidden rounded-xl border border-border">
+            <section className="min-w-0 overflow-hidden rounded-xl border border-border">
               <div className="border-b border-border/70 px-4 py-3">
                 <h3 className="font-semibold">Productos</h3>
               </div>
@@ -201,17 +202,17 @@ export function PurchaseOrderDetail({
                 {order.lineas.map((line) => (
                   <div
                     key={line.idLineaDeOrdenDeCompra}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_100px_130px_130px]"
+                    className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_100px_130px_130px] sm:items-center"
                   >
-                    <div className="min-w-0">
+                    <div className="col-span-2 min-w-0 sm:col-span-1">
                       <p className="truncate text-sm font-medium">{line.producto.nombre}</p>
                       <p className="text-xs text-muted-foreground">
                         Costo unitario {formatCLP(Number(line.precioCostoUnitario))}
                       </p>
                     </div>
-                    <p className="text-sm">Pedido: {line.cantidadOrdenada}</p>
-                    <p className="text-sm">Recibido: {line.cantidadRecibida}</p>
-                    <p className="text-right text-sm font-semibold">
+                    <p className="min-w-0 text-xs sm:text-sm">Pedido: {line.cantidadOrdenada}</p>
+                    <p className="min-w-0 text-xs sm:text-sm">Recibido: {line.cantidadRecibida}</p>
+                    <p className="col-span-2 min-w-0 text-right text-sm font-semibold sm:col-span-1">
                       {formatCLP(line.cantidadOrdenada * Number(line.precioCostoUnitario))}
                     </p>
                   </div>
@@ -223,7 +224,7 @@ export function PurchaseOrderDetail({
               </div>
             </section>
 
-            <section className="rounded-xl border border-border p-4">
+            <section className="min-w-0 rounded-xl border border-border p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-semibold">Pagos</h3>
                 <span className="text-sm text-muted-foreground">Saldo {formatCLP(balance)}</span>
@@ -233,8 +234,8 @@ export function PurchaseOrderDetail({
               ) : (
                 <div className="mb-4 divide-y divide-border/60">
                   {order.asignacionesPago.map((assignment) => (
-                    <div key={assignment.idAsignacionPago} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
-                      <span>
+                    <div key={assignment.idAsignacionPago} className="flex min-w-0 flex-wrap justify-between gap-2 py-2 text-sm">
+                      <span className="min-w-0 break-words">
                         {getNombreMetodoPago(assignment.pago.metodoPago)} · {formatDateCL(assignment.pago.fechaRegistro)}
                       </span>
                       <span className="font-medium">
@@ -245,7 +246,7 @@ export function PurchaseOrderDetail({
                   ))}
                 </div>
               )}
-              {canUpdate && order.estado === "ENVIADA" && balance > 0 && (
+              {canUpdate && order.estado === ESTADO_COMPRA.ENVIADA && balance > 0 && (
                 <form
                   onSubmit={registerPayment}
                   className="grid gap-3 border-t border-border/60 pt-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
@@ -306,13 +307,13 @@ export function PurchaseOrderDetail({
 
             {canUpdate && (
               <div className="flex flex-col gap-2 border-t border-border/60 pt-4 sm:flex-row sm:justify-end">
-                {order.estado === "BORRADOR" && (
+                {order.estado === ESTADO_COMPRA.BORRADOR && (
                   <Button onClick={() => void runTransition("ENVIAR")} disabled={busy}>
                     {busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Send className="mr-2 h-4 w-4" />}
                     Marcar como enviada
                   </Button>
                 )}
-                {order.estado === "ENVIADA" && order.estadoPago === "PAGADA" && (
+                {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago === ESTADO_PAGO_COMPRA.PAGADA && (
                   <Button
                     type="button"
                     onClick={() => setConfirmReceiveOpen(true)}
@@ -322,12 +323,12 @@ export function PurchaseOrderDetail({
                     Completar y recibir en inventario
                   </Button>
                 )}
-                {order.estado === "ENVIADA" && order.estadoPago !== "PAGADA" && (
+                {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago !== ESTADO_PAGO_COMPRA.PAGADA && (
                   <p className="text-sm text-muted-foreground">Completa todos los pagos antes de cerrar y recibir la orden.</p>
                 )}
               </div>
             )}
-            {order.estado === "ENVIADA" && order.estadoPago === "PAGADA" && (
+            {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago === ESTADO_PAGO_COMPRA.PAGADA && (
               <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 Al completar, la API registra en inventario las unidades que aún no consten como recibidas. No hay una operación disponible para registrar recepciones parciales desde esta pantalla.
               </p>

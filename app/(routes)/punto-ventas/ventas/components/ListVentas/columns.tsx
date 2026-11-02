@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
+import { MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
@@ -13,7 +13,8 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
+import { SortableHeader } from "@/components/common/SortableHeader"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
@@ -36,9 +37,10 @@ const CellActions = ({ row, table }: { row: Row<SaleOperation>; table: Table<Sal
     op.estadoPago === ESTADO_PAGO.PAGADA
 
   return (
+    <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label={`Abrir acciones de venta #${op.venta.idVenta}`}>
           {meta?.updatingId === op.venta.idVenta ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : (
@@ -104,22 +106,26 @@ const CellActions = ({ row, table }: { row: Row<SaleOperation>; table: Table<Sal
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   )
 }
 
 export const columns: ColumnDef<SaleOperation>[] = [
   {
-    accessorKey: "idPuntoVenta",
+    id: "idVenta",
     header: "ID Venta",
+    accessorFn: (row) => row.venta.idVenta,
     cell: ({ row }) => (
-      <DataField variant="table-cell" value={`#${row.getValue("idPuntoVenta")}`} />
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+        #{row.original.venta.idVenta}
+      </span>
     ),
   },
   {
     id: "cliente",
     header: "Cliente",
     accessorFn: (row) => {
-      if (!row.cliente) return "Cliente General"
+      if (!row.cliente) return "Cliente general"
       return (
         row.cliente.razonSocial ||
         `${row.cliente.primerNombre} ${row.cliente.apellidoPaterno || ""}`.trim()
@@ -127,7 +133,7 @@ export const columns: ColumnDef<SaleOperation>[] = [
     },
     cell: ({ row }) => {
       const op = row.original
-      const clientName = formatClientName(op.cliente)
+      const clientName = op.cliente ? formatClientName(op.cliente) : "Cliente general"
 
       return (
         <DataField
@@ -176,44 +182,34 @@ export const columns: ColumnDef<SaleOperation>[] = [
       const isAnulada = isVentaAnulada(op.estadoVenta)
 
       if (isAnulada) {
-        return <StatusBadge status="danger" label="Anulada" />
+        return <StatusBadge status="danger" label="Anulada" showDot={false} />
       }
 
       switch (op.estadoPago) {
         case ESTADO_PAGO.PAGADA:
-          return <StatusBadge status="success" label="Pagada" />
+          return <StatusBadge status="success" label="Pagada" showDot={false} />
         case ESTADO_PAGO.PENDIENTE:
-          return <StatusBadge status="warning" label="Pendiente" />
+          return <StatusBadge status="warning" label="Pendiente" showDot={false} />
         default:
-          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} />
+          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} showDot={false} />
       }
     },
   },
   {
     accessorKey: "total",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-      >
-        Monto Total
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Monto total</SortableHeader>,
+    sortingFn: (rowA, rowB, columnId) =>
+      Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
     cell: ({ row }) => {
       const total = Number(row.getValue("total"))
       return (
-        <DataField
-          variant="table-cell"
-          value={`$${total.toLocaleString("es-CL")}`}
-        />
+        <span className="text-sm font-semibold tabular-nums">{formatCLP(total)}</span>
       )
     },
   },
   {
     id: "acciones",
-    header: "Acciones",
+    header: () => <div className="text-right">Acciones</div>,
     cell: CellActions,
   },
 ]

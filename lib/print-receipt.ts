@@ -1,4 +1,5 @@
 import type { DocumentoTributario, ReceiptLine } from "@/app/(routes)/punto-ventas/ventas/types"
+import { escapeHtml } from "@/components/common/WorkOrderDocument"
 
 interface PrintReceiptOptions {
   dte: DocumentoTributario
@@ -25,7 +26,7 @@ export function printReceipt({
   const content = `
     <html>
       <head>
-        <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
+        <title>Comprobante de Compra N° ${escapeHtml(dte.numeroFolio)}</title>
         <style>
           body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
           .text-center { text-align: center; }
@@ -40,19 +41,19 @@ export function printReceipt({
       <body>
         <div class="text-center header-title">URBAN CYCLING</div>
         <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-        <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
+        <div class="text-center">RUT Emisor: ${escapeHtml(dte.rutEmisor)}</div>
         <div class="divider"></div>
         <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-        <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
+        <div class="text-center bold">N° Folio: ${escapeHtml(dte.numeroFolio)}</div>
         <div class="divider"></div>
         <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-        <div>Cliente: ${clientLabel}</div>
-        ${clientRut ? `<div>RUT Receptor: ${clientRut}</div>` : ""}
+        <div>Cliente: ${escapeHtml(clientLabel)}</div>
+        ${clientRut ? `<div>RUT Receptor: ${escapeHtml(clientRut)}</div>` : ""}
         <div class="divider"></div>
-        <div class="bold" style="margin-bottom: 5px;">${detailLabel}</div>
+        <div class="bold" style="margin-bottom: 5px;">${escapeHtml(detailLabel)}</div>
         ${lines.map((line) => `
           <div class="flex">
-            <span>${line.cantidad}x ${line.servicio?.nombre || line.producto?.nombre || lineFallback}</span>
+            <span>${line.cantidad}x ${escapeHtml(line.servicio?.nombre || line.producto?.nombre || lineFallback)}</span>
             <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
           </div>
         `).join("")}
@@ -61,7 +62,7 @@ export function printReceipt({
         <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
         <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
         <div class="divider"></div>
-        <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>${thanksMessage}</div>
+        <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>${escapeHtml(thanksMessage)}</div>
       </body>
     </html>
   `

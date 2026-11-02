@@ -9,6 +9,7 @@ export type PurchaseOrder = {
   montoTotal: number | string
   proveedor: { idProveedor: number; razonSocial: string }
   _count?: { lineas: number }
+  lineas?: PurchaseOrderLineDetail[]
 }
 
 export type PurchaseOrderLineDetail = {

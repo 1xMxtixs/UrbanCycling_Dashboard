@@ -3,6 +3,9 @@
 import React from "react"
 import { CheckCircle2, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { formatCLP } from "@/lib/formatters"
+import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
+import { getNombreMetodoPago } from "@/lib/payment-methods"
 import type { SaleCreationResult } from "../../types"
 
 interface Product {
@@ -33,6 +36,7 @@ interface SaleSuccessReceiptProps {
   finalTotal: number
   metodoPago: string
   estadoPago: string
+  vendedor: string
   onClose: () => void
 }
 
@@ -49,6 +53,7 @@ export function SaleSuccessReceipt({
   finalTotal,
   metodoPago,
   estadoPago,
+  vendedor,
   onClose,
 }: SaleSuccessReceiptProps) {
   const saleData = saleResult.venta
@@ -78,11 +83,11 @@ export function SaleSuccessReceipt({
             Boleta de Venta Directa
           </p>
 
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Ref:{" "}
-            {saleResult.idPuntoVenta ||
-              `venta-${saleData?.idVenta}`}
-          </p>
+          {saleData?.idVenta != null && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Venta #{saleData.idVenta}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -122,11 +127,11 @@ export function SaleSuccessReceipt({
 
           <div>
             <span className="text-muted-foreground">
-              Vendedor ID:{" "}
+              Vendedor:{" "}
             </span>
 
             <span className="font-semibold">
-              1
+              {vendedor}
             </span>
           </div>
         </div>
@@ -181,10 +186,7 @@ export function SaleSuccessReceipt({
                       </td>
 
                       <td className="py-1 text-right font-bold">
-                        $
-                        {subtotalLinea.toLocaleString(
-                          "es-CL"
-                        )}
+                        {formatCLP(subtotalLinea)}
                       </td>
                     </tr>
                   )
@@ -200,12 +202,7 @@ export function SaleSuccessReceipt({
               SUBTOTAL:
             </span>
 
-            <span>
-              $
-              {subtotal.toLocaleString(
-                "es-CL"
-              )}
-            </span>
+            <span>{formatCLP(subtotal)}</span>
           </div>
 
           {descuento > 0 && (
@@ -214,48 +211,26 @@ export function SaleSuccessReceipt({
                 DESCUENTO:
               </span>
 
-              <span>
-                -$
-                {descuento.toLocaleString(
-                  "es-CL"
-                )}
-              </span>
+              <span>-{formatCLP(descuento)}</span>
             </div>
           )}
 
           <div className="flex justify-between text-[10px] text-muted-foreground font-normal">
             <span>NETO:</span>
 
-            <span>
-              $
-              {neto.toLocaleString(
-                "es-CL"
-              )}
-            </span>
+            <span>{formatCLP(neto)}</span>
           </div>
 
           <div className="flex justify-between text-[10px] text-muted-foreground font-normal">
             <span>IVA (19%):</span>
 
-            <span>
-              $
-              {iva.toLocaleString(
-                "es-CL"
-              )}
-            </span>
+            <span>{formatCLP(iva)}</span>
           </div>
 
           <div className="flex justify-between text-sm font-bold border-t border-dashed border-border pt-1.5">
-            <span>
-              TOTAL PAGADO:
-            </span>
+            <span>{estadoPago === ESTADO_PAGO.PAGADA ? "TOTAL PAGADO:" : "TOTAL A PAGAR:"}</span>
 
-            <span>
-              $
-              {finalTotal.toLocaleString(
-                "es-CL"
-              )}
-            </span>
+            <span>{formatCLP(finalTotal)}</span>
           </div>
         </div>
 
@@ -263,11 +238,11 @@ export function SaleSuccessReceipt({
           <p className="text-[10px] font-semibold uppercase">
             Método:{" "}
             <strong className="text-primary">
-              {metodoPago}
+              {getNombreMetodoPago(metodoPago)}
             </strong>{" "}
             | Estado:{" "}
             <strong className="text-primary">
-              {estadoPago}
+              {getNombreEstadoPago(estadoPago)}
             </strong>
           </p>
 

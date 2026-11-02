@@ -24,6 +24,7 @@ import { useSession } from "next-auth/react"
 import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { WorkOrderStatusBadge } from "@/components/common/WorkOrderStatusBadge"
 import {
   Table,
   TableBody,
@@ -47,11 +48,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
-import { WorkOrder, WorkOrderPayment } from "../../types"
+import { WorkOrder, WorkOrderPayment, WorkOrderServiceLine } from "../../types"
 import {
   buildWorkOrderContent,
   buildWorkOrderHtml,
@@ -106,16 +107,19 @@ export function OrderDetailDialog({
 
   if (!order) return null
 
+  const efectivo = (line: WorkOrderServiceLine) =>
+    Math.max(0, Number(line.precioUnitario || 0) - Number(line.descuentoUnitario || 0))
+
   const laborCost = (order.lineasDeOrdenDeTrabajo || [])
     .filter((l) => l.idServicio !== null && l.idServicio !== undefined)
-    .reduce((sum, l) => sum + Number(l.precioUnitario || 0) * Number(l.cantidad || 1), 0)
+    .reduce((sum, l) => sum + efectivo(l) * Number(l.cantidad || 1), 0)
 
   const productLines = (order.lineasDeOrdenDeTrabajo || []).filter(
     (l) => l.idProducto !== null && l.idProducto !== undefined
   )
 
   const productsCost = productLines.reduce(
-    (sum, l) => sum + l.cantidad * Number(l.precioUnitario),
+    (sum, l) => sum + efectivo(l) * Number(l.cantidad || 1),
     0
   )
 
@@ -128,38 +132,15 @@ export function OrderDetailDialog({
     order.estadoPago === ESTADO_PAGO.PAGADA ||
     Math.max(0, total - totalPagado) === 0
 
-  const renderStatusBadge = (ord: WorkOrder) => {
-    const label = getNombreEstadoOtVisible(
-      ord.estadoOrden,
-      ord.fechaEntregaEstimada,
-      ord.estadoOrdenNombre
-    )
-
-    switch (ord.estadoOrden) {
-      case ESTADO_OT.POR_REALIZAR:
-        return <StatusBadge status="neutral" label={label} />
-      case ESTADO_OT.EN_CURSO:
-        return <StatusBadge status="info" label={label} />
-      case ESTADO_OT.EN_ESPERA:
-        return <StatusBadge status="warning" label={label} />
-      case ESTADO_OT.LISTO_PARA_ENTREGAR:
-        return <StatusBadge status="warning" label={label} />
-      case ESTADO_OT.ENTREGADO:
-        return <StatusBadge status="success" label={label} />
-      case ESTADO_OT.ANULADA:
-        return <StatusBadge status="danger" label={label} />
-      default:
-        return <StatusBadge status="neutral" label={label} />
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between border-b border-border pb-2 text-xl font-black">
             <span>Orden de Trabajo #{order.idOrdenDeTrabajo}</span>
-            <div className="mr-6">{renderStatusBadge(order)}</div>
+            <div className="mr-6">
+              <WorkOrderStatusBadge estado={order.estadoOrden} nombre={order.estadoOrdenNombre} fechaEntregaEstimada={order.fechaEntregaEstimada} />
+            </div>
           </DialogTitle>
           <DialogDescription>
             Detalles completos de la orden cargada en el sistema
@@ -279,7 +260,9 @@ export function OrderDetailDialog({
                     </TableHeader>
                     <TableBody>
                       {productLines.map((line) => {
-                        const subtotal = line.cantidad * Number(line.precioUnitario)
+                        const subtotal = efectivo(line) * Number(line.cantidad || 1)
+                        const unitPrice = Number(line.precioUnitario || 0)
+                        const lineDiscount = Number(line.descuentoUnitario || 0)
                         return (
                           <TableRow key={line.idLineaDeOrdenDeTrabajo}>
                             <TableCell className="px-3 py-2 font-medium text-foreground">
@@ -289,10 +272,11 @@ export function OrderDetailDialog({
                               {line.cantidad}
                             </TableCell>
                             <TableCell className="px-3 py-2 text-right text-foreground font-mono">
-                              ${Number(line.precioUnitario).toLocaleString("es-CL")}
+                              <span className="block">{formatCLP(unitPrice)}</span>
+                              {lineDiscount > 0 && <span className="block text-[10px] text-muted-foreground">−{formatCLP(lineDiscount)}</span>}
                             </TableCell>
                             <TableCell className="px-3 py-2 text-right font-bold text-foreground font-mono">
-                              ${subtotal.toLocaleString("es-CL")}
+                              {formatCLP(subtotal)}
                             </TableCell>
                           </TableRow>
                         )
@@ -309,22 +293,23 @@ export function OrderDetailDialog({
 
             <Separator className="my-3" />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            <div className={`grid grid-cols-2 gap-3 pt-1 ${Number(order.descuento) > 0 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
               <DataField
                 label="Total Repuestos"
-                value={`$${productsCost.toLocaleString("es-CL")}`}
+                value={formatCLP(productsCost)}
               />
               <DataField
                 label="Monto Servicio"
-                value={`$${laborCost.toLocaleString("es-CL")}`}
+                value={formatCLP(laborCost)}
               />
               <DataField
                 label="Monto Neto"
-                value={`$${montoNeto.toLocaleString("es-CL")}`}
+                value={formatCLP(montoNeto)}
               />
+              {Number(order.descuento) > 0 && <DataField label="Descuento global" value={formatCLP(Number(order.descuento))} />}
               <DataField
                 label="Monto Total"
-                value={<span className="text-primary font-black">{`${Number(order.total).toLocaleString("es-CL")}`}</span>}
+                value={<span className="font-black text-primary">{formatCLP(Number(order.total))}</span>}
               />
             </div>
           </div>
@@ -349,6 +334,7 @@ export function OrderDetailDialog({
                         : "warning"
                   }
                   label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
+                  showDot={false}
                 />
               </div>
               <div>
@@ -356,18 +342,9 @@ export function OrderDetailDialog({
                   Saldo Restante
                 </span>
                 <span
-                  className={`font-bold text-sm ${isPaid
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : total - totalPagado > 0
-                      ? "text-rose-500"
-                      : "text-emerald-600 dark:text-emerald-400"
-                    }`}
+                  className={`text-sm font-bold ${isPaid ? "text-primary" : "text-destructive"}`}
                 >
-                  $
-                  {(isPaid
-                    ? 0
-                    : Math.max(0, total - totalPagado)
-                  ).toLocaleString("es-CL")}
+                  {formatCLP(isPaid ? 0 : Math.max(0, total - totalPagado))}
                 </span>
               </div>
             </div>
@@ -390,8 +367,8 @@ export function OrderDetailDialog({
                         {new Date(pago.fechaRegistro).toLocaleString("es-CL")}
                       </span>
                     </div>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      +${Number(pago.monto).toLocaleString("es-CL")}
+                    <span className="font-bold text-primary">
+                      +{formatCLP(Number(pago.monto))}
                     </span>
                   </div>
                 ))}
@@ -414,7 +391,7 @@ export function OrderDetailDialog({
               {order.bicicletas?.map((bike) => (
                 <div
                   key={bike.idBicicleta}
-                  className="rounded-xl border border-border bg-muted/30 p-4 transition-all"
+                  className="rounded-xl border border-border bg-muted/30 p-4 transition-colors duration-200 motion-reduce:transition-none"
                 >
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -489,10 +466,10 @@ export function OrderDetailDialog({
                               <img
                                 src={bike.imagenes[0]}
                                 alt={`${bike.marca} ${bike.modelo} - fotografía 1`}
-                                className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105 motion-reduce:transform-none"
+                                className="object-cover w-full h-full"
                               />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-3">
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-150 group-hover:bg-black/40 motion-reduce:transition-none">
+                                <div className="rounded-full bg-black/60 p-3 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 motion-reduce:transition-none">
                                   <Maximize2 className="h-5 w-5" />
                                 </div>
                               </div>
@@ -511,12 +488,12 @@ export function OrderDetailDialog({
                                         title: `${bike.marca} ${bike.modelo}`,
                                       })
                                     }
-                                    className="group relative shrink-0 w-20 h-16 rounded-md overflow-hidden border border-border bg-background cursor-pointer hover:border-primary transition-colors"
+                                    className="group relative h-16 w-20 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border bg-background transition-colors duration-150 hover:border-primary motion-reduce:transition-none"
                                   >
                                     <img
                                       src={image}
                                       alt={`${bike.marca} ${bike.modelo} - fotografía ${imageIndex + 1}`}
-                                      className="object-cover w-full h-full transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
+                                      className="h-full w-full object-cover"
                                     />
                                     <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white">
                                       {imageIndex + 1}
@@ -687,7 +664,7 @@ export function OrderDetailDialog({
                     <button
                       type="button"
                       onClick={() => showImage(-1)}
-                      className="absolute left-2 z-10 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 cursor-pointer"
+                      className="absolute left-2 z-10 cursor-pointer rounded-full bg-white/10 p-3 text-white transition-colors duration-150 hover:bg-white/20 motion-reduce:transition-none"
                       aria-label="FotografÃ­a anterior"
                     >
                       <ChevronLeft className="h-7 w-7" />
@@ -702,7 +679,7 @@ export function OrderDetailDialog({
                     <button
                       type="button"
                       onClick={() => showImage(1)}
-                      className="absolute right-2 z-10 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 cursor-pointer"
+                      className="absolute right-2 z-10 cursor-pointer rounded-full bg-white/10 p-3 text-white transition-colors duration-150 hover:bg-white/20 motion-reduce:transition-none"
                       aria-label="FotografÃ­a siguiente"
                     >
                       <ChevronRight className="h-7 w-7" />

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { DataField } from "@/components/common/DataField"
 import { StatusBadge } from "@/components/common/StatusBadge"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
@@ -51,25 +51,27 @@ export function SaleDetailDialog({
   const neto = Math.round(total / 1.19)
   const iva = total - neto
   const isAnulada = isVentaAnulada(sale.estadoVenta)
-  const clientLabel = formatClientName(sale.cliente)
+  const clientLabel = sale.cliente ? formatClientName(sale.cliente) : "Cliente general"
+  const sellerName = [sale.usuario?.primerNombre, sale.usuario?.apellidoPaterno]
+    .filter(Boolean)
+    .join(" ") || "—"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader className="border-b border-border pb-2">
           <DialogTitle className="flex items-center justify-between text-xl font-black">
-            <span>Detalle de Venta #{sale.idPuntoVenta}</span>
+            <span>Detalle de Venta #{sale.venta.idVenta}</span>
             <StatusBadge
               status={
                 isAnulada
                   ? "danger"
                   : sale.estadoPago === ESTADO_PAGO.PAGADA
                     ? "success"
-                    : sale.estadoPago === ESTADO_PAGO.PENDIENTE
-                      ? "warning"
-                      : "neutral"
+                    : "warning"
               }
               label={isAnulada ? "Anulada" : getNombreEstadoPago(sale.estadoPago)}
+              showDot={false}
             />
           </DialogTitle>
           <DialogDescription>
@@ -101,8 +103,8 @@ export function SaleDetailDialog({
                 icon={Calendar}
               />
               <DataField
-                label="Vendedor Responsable"
-                value="ID #1 (Admin)"
+                label="Vendedor"
+                value={sellerName}
               />
             </div>
           </div>
@@ -135,10 +137,10 @@ export function SaleDetailDialog({
                           {line.cantidad}
                         </TableCell>
                         <TableCell className="text-right">
-                          ${Number(line.precioUnitario).toLocaleString("es-CL")}
+                          {formatCLP(Number(line.precioUnitario))}
                         </TableCell>
                         <TableCell className="text-right font-bold">
-                          ${lineSubtotal.toLocaleString("es-CL")}
+                          {formatCLP(lineSubtotal)}
                         </TableCell>
                       </TableRow>
                     )
@@ -152,13 +154,13 @@ export function SaleDetailDialog({
 
           {/* Totales */}
           <div className="grid gap-3 pt-1 sm:grid-cols-2">
-            <DataField label="Subtotal bruto" value={`$${subtotal.toLocaleString("es-CL")}`} />
+            <DataField label="Subtotal bruto" value={formatCLP(subtotal)} />
             {descuento > 0 && (
-              <DataField label="Descuento" value={`-$${descuento.toLocaleString("es-CL")}`} />
+              <DataField label="Descuento" value={`-${formatCLP(descuento)}`} />
             )}
-            <DataField label="Neto estimado" value={`$${neto.toLocaleString("es-CL")}`} />
-            <DataField label="IVA (19%)" value={`$${iva.toLocaleString("es-CL")}`} />
-            <DataField label="Total de la venta" value={`$${total.toLocaleString("es-CL")}`} />
+            <DataField label="Neto estimado" value={formatCLP(neto)} />
+            <DataField label="IVA (19%)" value={formatCLP(iva)} />
+            <DataField label="Total de la venta" value={formatCLP(total)} />
           </div>
         </div>
 

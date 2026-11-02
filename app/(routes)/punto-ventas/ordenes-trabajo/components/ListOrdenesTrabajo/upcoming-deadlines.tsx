@@ -1,146 +1,101 @@
 "use client"
 
-import { AlertTriangle, Calendar } from "lucide-react"
+import { useState } from "react"
+import { AlertTriangle, ChevronDown } from "lucide-react"
+
+import { WorkOrderStatusBadge } from "@/components/common/WorkOrderStatusBadge"
+import { Button } from "@/components/ui/button"
+import { formatClientName } from "@/lib/formatters"
+import { ESTADOS_OT_CERRADOS, type EstadoOt } from "@/lib/work-order-status"
 import { WorkOrder } from "../../types"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
-import { StatusBadge } from "@/components/common/StatusBadge"
 
 interface UpcomingDeadlinesProps {
   orders: WorkOrder[]
+  onViewDetails: (order: WorkOrder) => void
 }
 
-export function UpcomingDeadlines({ orders }: UpcomingDeadlinesProps) {
-  const now = new Date()
-  const limit = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+const VISIBLE_LIMIT = 5
+const DAY_MS = 86_400_000
 
-  // Filter uncompleted orders that are due or overdue
+function getCalendarDayDifference(order: WorkOrder, today: Date) {
+  const raw = new Date(order.fechaEntregaEstimada)
+  if (Number.isNaN(raw.getTime())) return null
+  const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const delivery0 = new Date(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate())
+  return Math.round((delivery0.getTime() - today0.getTime()) / DAY_MS)
+}
+
+function getDeadlineLabel(days: number) {
+  if (days < 0) {
+    const lateDays = -days
+    return { label: `Retrasada ${lateDays} ${lateDays === 1 ? "día" : "días"}`, className: "text-destructive" }
+  }
+  if (days === 0) return { label: "Vence hoy", className: "text-foreground" }
+  if (days === 1) return { label: "Vence mañana", className: "text-foreground" }
+  return { label: "Vence en 2 días", className: "text-foreground" }
+}
+export function UpcomingDeadlines({ orders, onViewDetails }: UpcomingDeadlinesProps) {
+  const [showAll, setShowAll] = useState(false)
+  const today = new Date()
   const upcomingOrders = orders
-    .filter((o) => {
-      const isCompleted = ESTADOS_OT_CERRADOS.includes(o.estadoOrden as never) || o.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
-      if (isCompleted) return false
-      const rawDate = new Date(o.fechaEntregaEstimada)
-      const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())
-      return dEstimada <= limit
-    })
-    .sort((a, b) => {
-      const rawA = new Date(a.fechaEntregaEstimada)
-      const rawB = new Date(b.fechaEntregaEstimada)
-      const dateA = new Date(rawA.getUTCFullYear(), rawA.getUTCMonth(), rawA.getUTCDate())
-      const dateB = new Date(rawB.getUTCFullYear(), rawB.getUTCMonth(), rawB.getUTCDate())
-      return dateA.getTime() - dateB.getTime()
-    })
+    .map((order) => ({ order, days: getCalendarDayDifference(order, today) }))
+    .filter(({ order, days }) => days !== null && days <= 2 && !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as EstadoOt))
+    .sort((a, b) => a.days! - b.days!)
 
-  const getUrgencyDetails = (date: Date | string) => {
-    const rawDate = new Date(date)
-    const dEstimada = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate())
-    const diffMs = dEstimada.getTime() - now.getTime()
-    const diffHours = Math.round(diffMs / (1000 * 60 * 60))
+  if (upcomingOrders.length === 0) return null
 
-    if (diffMs < 0) {
-      return {
-        label: `Retrasada por ${Math.abs(diffHours)} ${Math.abs(diffHours) === 1 ? "hora" : "horas"}`,
-        colorClass: "bg-destructive/10 text-destructive border-destructive/20",
-        indicatorColor: "bg-destructive",
-        status: "danger" as const,
-      }
-    } else if (diffHours <= 24) {
-      return {
-        label: diffHours === 0 ? "Vence ahora" : `Vence en ${diffHours} h (¡Hoy!)`,
-        colorClass: "bg-primary/10 text-primary border-primary/25",
-        indicatorColor: "bg-primary",
-        status: "warning" as const,
-      }
-    } else {
-      const days = Math.round(diffHours / 24)
-      return {
-        label: `Vence en ${diffHours} h (${days} ${days === 1 ? "día" : "días"})`,
-        colorClass: "bg-muted/40 text-foreground border-border",
-        indicatorColor: "bg-muted-foreground",
-        status: "neutral" as const,
-      }
-    }
-  }
-
-  if (upcomingOrders.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-6 text-center text-muted-foreground shadow-sm">
-        <Calendar className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-        No hay órdenes de trabajo con vencimientos cercanos en las próximas 48 horas.
-      </div>
-    )
-  }
+  const visibleOrders = showAll ? upcomingOrders : upcomingOrders.slice(0, VISIBLE_LIMIT)
+  const hiddenCount = upcomingOrders.length - VISIBLE_LIMIT
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-5 w-5 text-destructive" />
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Vencimientos Próximos (24-48 h)
-        </h2>
-        <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
-          {upcomingOrders.length}
-        </span>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {upcomingOrders.map((order) => {
-          const { label, colorClass, indicatorColor, status } = getUrgencyDetails(order.fechaEntregaEstimada)
-          
-          const formattedDate = new Date(order.fechaEntregaEstimada).toLocaleDateString("es-ES", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "UTC",
-          })
-
-          const clientName = order.cliente
-            ? order.cliente.razonSocial || 
-              `${order.cliente.primerNombre} ${order.cliente.apellidoPaterno || ""}`.trim()
-            : "Cliente Desconocido"
-
-          const bikeInfo = order.bicicletas && order.bicicletas.length > 0
-            ? `${order.bicicletas[0].marca} ${order.bicicletas[0].modelo}`
-            : "Sin bicicleta"
-
-          return (
-            <div
-              key={order.idOrdenDeTrabajo}
-              className={`flex flex-col justify-between overflow-hidden rounded-xl border p-4 shadow-xs transition-all duration-300 hover:shadow-md hover:border-primary/50 bg-background ${colorClass}`}
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-muted-foreground">
-                    Orden #{order.idOrdenDeTrabajo}
-                  </span>
-                  <StatusBadge status={status} label={label} />
-                </div>
-
-                <div>
-                  <h4 className="font-bold text-foreground leading-tight">
-                    {clientName}
-                  </h4>
-                  <p className="text-xs font-semibold text-muted-foreground mt-0.5">
-                    {bikeInfo} {order.bicicletas && order.bicicletas.length > 1 && `(+${order.bicicletas.length - 1} más)`}
-                  </p>
-                </div>
-
-                <div className="text-xs italic text-muted-foreground bg-muted/30 p-2 rounded-lg border border-border line-clamp-2 mt-2">
-                  &ldquo;{order.observacionesIngreso || "Sin descripción de trabajo"}&rdquo;
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-xs font-medium text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className={`h-1.5 w-1.5 rounded-full ${indicatorColor}`} />
-                  {getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)}
-                </span>
-                <span>Entrega: {formattedDate}</span>
-              </div>
+    <section className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-bold text-foreground">Atención requerida</h2>
+              <span className="rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-destructive">{upcomingOrders.length}</span>
             </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">Órdenes vencidas o que vencen en las próximas 48 horas.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        {visibleOrders.map(({ order, days }) => {
+          const deadline = getDeadlineLabel(days!)
+          const bike = order.bicicletas?.[0]
+          const bikeName = bike ? `${bike.marca} ${bike.modelo}`.trim() : "Sin bicicleta"
+          return (
+            <button
+              key={order.idOrdenDeTrabajo}
+              type="button"
+              className="flex w-full items-center justify-between gap-3 border-t border-destructive/15 px-4 py-2.5 text-left transition-colors hover:bg-destructive/10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring motion-reduce:transition-none"
+              onClick={() => onViewDetails(order)}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-foreground">#{order.idOrdenDeTrabajo}</span>
+                <span className="min-w-0">
+                  <span className="block line-clamp-1 text-sm font-semibold text-foreground">{formatClientName(order.cliente)}</span>
+                  <span className="block line-clamp-1 text-xs text-muted-foreground">{bikeName}</span>
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <span className={`text-xs font-semibold tabular-nums ${deadline.className}`}>{deadline.label}</span>
+                <WorkOrderStatusBadge estado={order.estadoOrden} nombre={order.estadoOrdenNombre} fechaEntregaEstimada={order.fechaEntregaEstimada} />
+              </span>
+            </button>
           )
         })}
       </div>
-    </div>
+      {hiddenCount > 0 && (
+        <div className="flex justify-center border-t border-destructive/15 p-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setShowAll((current) => !current)}>
+            {showAll ? "Ver menos" : `Ver las ${hiddenCount} órdenes`}
+            <ChevronDown className="ml-1 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </section>
   )
 }

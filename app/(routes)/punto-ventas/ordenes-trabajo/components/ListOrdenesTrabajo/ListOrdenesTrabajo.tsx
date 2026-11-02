@@ -165,7 +165,7 @@ export function ListOrdenesTrabajo() {
     setPeriodErrors((current) => ({ ...current, [field]: undefined }))
   }
 
-  const applyPeriodFilter = async () => {
+  const applyPeriodFilter = async (): Promise<boolean> => {
     const errors: PeriodErrors = {}
     const { fechaInicio, fechaFin } = periodDraft
 
@@ -176,13 +176,15 @@ export function ListOrdenesTrabajo() {
     }
 
     setPeriodErrors(errors)
-    if (Object.keys(errors).length > 0) return
+    if (Object.keys(errors).length > 0) return false
 
     setIsFilteringByPeriod(true)
     try {
-      if (await getOrders(periodDraft)) {
+      const applied = await getOrders(periodDraft)
+      if (applied) {
         setAppliedPeriod(periodDraft)
       }
+      return applied
     } finally {
       setIsFilteringByPeriod(false)
     }
@@ -448,10 +450,9 @@ export function ListOrdenesTrabajo() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-150 motion-reduce:animate-none">
       {/* 1. Panel de KPIs */}
       <KpiCards orders={orders} />
-
       {/* 2. Tabla Principal de Ã“rdenes */}
       <DataTable
         columns={columns}
@@ -486,9 +487,9 @@ export function ListOrdenesTrabajo() {
         onModifyServiceClick={handleModifyServiceClick}
       />
 
-      {/* 3. PrÃ³ximos Vencimientos */}
-      <UpcomingDeadlines orders={orders} />
+      <UpcomingDeadlines orders={orders} onViewDetails={handleViewDetails} />
 
+      {/* 3. PrÃ³ximos Vencimientos */}
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}

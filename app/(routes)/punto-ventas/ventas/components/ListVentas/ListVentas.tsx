@@ -1,15 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
 import { printReceipt } from "@/lib/print-receipt"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { MetricCard } from "@/components/common/MetricCard"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
+import { EmptyState } from "@/components/common/EmptyState"
 
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
@@ -29,6 +31,7 @@ export function ListVentas() {
   const searchParam = searchParams.get("search") ?? ""
   const [sales, setSales] = useState<SaleOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [hasLoadError, setHasLoadError] = useState(false)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
 
   const {
@@ -52,6 +55,8 @@ export function ListVentas() {
   const [isCancelling, setIsCancelling] = useState(false)
 
   const getSales = useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
     try {
       const response = await fetch("/api/punto-venta", {
         cache: "no-store",
@@ -59,6 +64,7 @@ export function ListVentas() {
 
       if (!response.ok) {
         setSales([])
+        setHasLoadError(true)
         toast.error("No fue posible consultar las ventas en mostrador.")
         return
       }
@@ -73,6 +79,8 @@ export function ListVentas() {
       setSales(ventas)
     } catch (err) {
       console.error("Error fetching sales:", err)
+      setHasLoadError(true)
+      setSales([])
       toast.error("No fue posible consultar las ventas en mostrador.")
     } finally {
       setIsLoading(false)
@@ -121,9 +129,9 @@ export function ListVentas() {
 
       getSales()
       router.refresh()
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo actualizar el estado de la venta")
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado de la venta")
     } finally {
       setUpdatingId(null)
     }
@@ -181,9 +189,9 @@ export function ListVentas() {
       closeSaleDetail()
       getSales()
       router.refresh()
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo registrar el pago")
+      toast.error(err instanceof Error ? err.message : "No se pudo registrar el pago")
     } finally {
       setIsConfirmingPayment(false)
     }
@@ -217,9 +225,9 @@ export function ListVentas() {
         const errorData = await res.json()
         throw new Error(errorData.message || "Error al generar comprobante")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo generar el comprobante.")
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el comprobante.")
     } finally {
       setIsGeneratingReceipt(false)
     }
@@ -236,6 +244,10 @@ export function ListVentas() {
   const canceledCount = sales
     .filter((s) => isVentaAnulada(s.estadoVenta))
     .length
+  const sortedSales = useMemo(
+    () => [...sales].sort((a, b) => Number(b.venta.idVenta) - Number(a.venta.idVenta)),
+    [sales]
+  )
 
   if (isLoading) {
     return (
@@ -246,6 +258,21 @@ export function ListVentas() {
           ))}
         </div>
         <Skeleton className="h-96 rounded-xl motion-reduce:animate-none" />
+      </div>
+    )
+  }
+
+  if (hasLoadError) {
+    return (
+      <div className="space-y-4 rounded-xl border border-border bg-card p-6">
+        <EmptyState
+          icon={ShoppingBag}
+          title="No se pudieron cargar las ventas"
+          description="Revisa la conexión e intenta cargar el listado nuevamente."
+        />
+        <div className="flex justify-center">
+          <Button onClick={() => void getSales()}>Reintentar carga</Button>
+        </div>
       </div>
     )
   }
@@ -261,13 +288,13 @@ export function ListVentas() {
         />
         <MetricCard
           title="Ingresos Cobrados"
-          value={`$${totalRevenue.toLocaleString("es-CL")}`}
+          value={formatCLP(totalRevenue)}
           description="Total ventas pagadas"
           icon={DollarSign}
         />
         <MetricCard
           title="Por Cobrar"
-          value={`$${pendingRevenue.toLocaleString("es-CL")}`}
+          value={formatCLP(pendingRevenue)}
           description="Ventas pendientes"
           icon={Clock}
         />
@@ -281,7 +308,7 @@ export function ListVentas() {
 
       <DataTable
         columns={columns}
-        data={sales}
+        data={sortedSales}
         initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onUpdateStatus={handleUpdateStatus}
@@ -325,7 +352,9 @@ export function ListVentas() {
           if (!activeReceipt) return
           printReceipt({
             dte: activeReceipt,
-            clientLabel: formatClientName(selectedSale?.cliente),
+            clientLabel: selectedSale?.cliente
+              ? formatClientName(selectedSale.cliente)
+              : "Cliente general",
             clientRut: selectedSale?.cliente?.rut,
             lines: selectedSale?.venta?.lineasDeVenta || [],
             detailLabel: "DETALLE DE PRODUCTOS:",
@@ -341,8 +370,8 @@ export function ListVentas() {
         open={cancelModalOpen}
         onOpenChange={setCancelModalOpen}
         entityLabel="venta"
-        entityName={saleToCancel ? `Venta #${saleToCancel.idPuntoVenta}` : ""}
-        title={saleToCancel ? `¿Anular Venta #${saleToCancel.idPuntoVenta}?` : "¿Anular venta?"}
+        entityName={saleToCancel ? `Venta #${saleToCancel.venta.idVenta}` : ""}
+        title={saleToCancel ? `¿Anular Venta #${saleToCancel.venta.idVenta}?` : "¿Anular venta?"}
         description="La venta será anulada en el sistema y cambiará su estado a Anulada. Esta acción no se puede revertir."
         confirmLabel="Confirmar Anulación"
         actionVariant="destructive"
