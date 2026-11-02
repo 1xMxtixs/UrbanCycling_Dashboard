@@ -9,6 +9,7 @@ interface DataTableContainerProps {
   description?: string
   searchPlaceholder?: string
   searchValue?: string
+  searchClassName?: string
   onSearchChange?: (value: string) => void
   toolbar?: React.ReactNode
   actions?: React.ReactNode
@@ -22,6 +23,7 @@ export function DataTableContainer({
   description,
   searchPlaceholder = "Buscar en la tabla...",
   searchValue,
+  searchClassName,
   onSearchChange,
   toolbar,
   actions,
@@ -59,7 +61,7 @@ export function DataTableContainer({
                   placeholder={searchPlaceholder}
                   value={searchValue ?? ""}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="h-9.5 pl-10 pr-3 rounded-xl bg-background border-border/80 text-xs md:text-sm shadow-2xs focus-visible:ring-primary/30"
+                  className={cn("h-9.5 pl-10 pr-3 rounded-xl bg-background border-border/80 text-xs md:text-sm shadow-2xs focus-visible:ring-primary/30", searchClassName)}
                 />
               </div>
             )}

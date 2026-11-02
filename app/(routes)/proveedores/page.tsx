@@ -196,14 +196,12 @@ export default function ProveedoresPage() {
               value={conContactoCount}
               description="Fichas con ejecutivo o contacto registrado"
               icon={UserCheck}
-              accentColor="cyan"
             />
             <MetricCard
               title="Con nombre comercial"
               value={conNombreFantasiaCount}
               description="Proveedores con un nombre de fantasía registrado"
               icon={Store}
-              accentColor="emerald"
             />
           </>
         )}

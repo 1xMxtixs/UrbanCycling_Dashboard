@@ -91,36 +91,41 @@ export function DataTable<TData extends { idGarantia: number }, TValue>({
       toolbar={
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label="Buscar solicitudes de garantía"
               placeholder="Buscar por cliente, orden o motivo..."
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
-              className="pl-9"
+              className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
             />
           </div>
-          <Select
-            value={estadoFiltro}
-            onValueChange={(value) => {
-              setEstadoFiltro(value);
-              table
-                .getColumn("estado")
-                ?.setFilterValue(value === "all" ? undefined : value);
-            }}
-          >
-            <SelectTrigger className="h-9 w-full sm:w-48">
-              <SelectValue placeholder="Estado: Todos" />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectItem value="all">Todos los estados</SelectItem>
-              {estados.map((estado) => (
-                <SelectItem key={estado} value={estado}>
-                  {NOMBRES_ESTADO_GARANTIA[estado]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full shrink-0 sm:w-56">
+            <Select
+              value={estadoFiltro}
+              onValueChange={(value) => {
+                setEstadoFiltro(value);
+                table
+                  .getColumn("estado")
+                  ?.setFilterValue(value === "all" ? undefined : value);
+              }}
+            >
+              <SelectTrigger
+                aria-label="Filtrar solicitudes por estado"
+                className="h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background shadow-2xs"
+              >
+                <SelectValue placeholder="Estado: Todos" />
+              </SelectTrigger>
+              <SelectContent position="popper" className="rounded-xl border-border/80">
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {estados.map((estado) => (
+                  <SelectItem key={estado} value={estado}>
+                    {NOMBRES_ESTADO_GARANTIA[estado]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       }
       footer={

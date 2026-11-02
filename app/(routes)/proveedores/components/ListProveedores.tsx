@@ -7,12 +7,14 @@ import {
   MoreHorizontal,
   PackageCheck,
   Pencil,
+  Search,
   Store,
   Trash2,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -33,6 +35,13 @@ import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import type { StatusType } from "@/components/common/StatusBadge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { normalizeSearchText } from "@/lib/search-normalization"
 
 import type { ProveedorListado } from "./types"
@@ -68,6 +77,7 @@ export function ListProveedores({
   canAssociateProducts,
 }: ListProveedoresProps) {
   const [search, setSearch] = useState("")
+  const [filterStatus, setFilterStatus] = useState("todos")
   const [pageIndex, setPageIndex] = useState(0)
 
   // PR-08: Búsqueda normalizada tolerante a acentos y mayúsculas
@@ -79,16 +89,22 @@ export function ListProveedores({
         const rut = proveedor.rut
           .replace(/[.\-\s]/g, "")
           .toLocaleLowerCase("es-CL")
-        if (!value) return true
-        return (
+        const matchesSearch = !value || (
           normalizeSearchText(proveedor.razonSocial).includes(value) ||
           (normalizedRutQuery.length > 0 && rut.includes(normalizedRutQuery)) ||
           normalizeSearchText(proveedor.giro).includes(value) ||
           normalizeSearchText(proveedor.nombreFantasia).includes(value)
         )
+        const estado = proveedor.estado.trim().toLocaleUpperCase("es-CL")
+        const matchesStatus =
+          filterStatus === "todos" ||
+          (filterStatus === "activo" && estado === "ACTIVO") ||
+          (filterStatus === "inactivo" && estado !== "ACTIVO")
+
+        return matchesSearch && matchesStatus
       })
       .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial, "es-CL"))
-  }, [proveedores, search])
+  }, [proveedores, search, filterStatus])
   const pageSize = 10
   const pageCount = Math.max(
     1,
@@ -105,12 +121,46 @@ export function ListProveedores({
     setPageIndex(0)
   }
 
+  const handleStatusChange = (value: string) => {
+    setFilterStatus(value)
+    setPageIndex(0)
+  }
+
   return (
     <DataTableContainer
       title="Directorio de proveedores"
-      searchPlaceholder="Buscar por razón social, RUT o giro..."
-      searchValue={search}
-      onSearchChange={handleSearchChange}
+      toolbar={
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              placeholder="Buscar por razón social, RUT o giro..."
+              value={search}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              aria-label="Buscar proveedores por razón social, RUT o giro"
+              className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
+            />
+          </div>
+          <div className="w-full shrink-0 sm:w-56">
+            <Select value={filterStatus} onValueChange={handleStatusChange}>
+              <SelectTrigger
+                aria-label="Filtrar proveedores por estado"
+                className="h-10 data-[size=default]:h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"
+              >
+                <SelectValue placeholder="Todos los estados" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="todos">Todos los estados</SelectItem>
+                <SelectItem value="activo">Activos</SelectItem>
+                <SelectItem value="inactivo">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      }
       description={
         !isLoading
           ? `${proveedoresFiltrados.length} ${proveedoresFiltrados.length === 1 ? "proveedor encontrado" : "proveedores encontrados"}`
@@ -120,17 +170,9 @@ export function ListProveedores({
         !isLoading && proveedoresFiltrados.length > 0 ? (
           <>
             <span>
-              Mostrando {paginaActual * pageSize + 1}–
-              {Math.min(
-                (paginaActual + 1) * pageSize,
-                proveedoresFiltrados.length
-              )}{" "}
-              de {proveedoresFiltrados.length}
+              Página {paginaActual + 1} de {pageCount}
             </span>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline">
-                Página {paginaActual + 1} de {pageCount}
-              </span>
               <Button
                 variant="outline"
                 size="sm"
@@ -141,7 +183,8 @@ export function ListProveedores({
                 aria-label="Página anterior"
                 className="h-8 px-2"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+                Anterior
               </Button>
               <Button
                 variant="outline"
@@ -155,7 +198,8 @@ export function ListProveedores({
                 aria-label="Página siguiente"
                 className="h-8 px-2"
               >
-                <ChevronRight className="h-4 w-4" />
+                Siguiente
+                <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </>
@@ -207,10 +251,10 @@ export function ListProveedores({
         <div className="p-6">
           <EmptyState
             icon={Store}
-            title={search ? "Sin resultados" : "No se encontraron proveedores"}
+            title={search || filterStatus !== "todos" ? "Sin resultados" : "No se encontraron proveedores"}
             description={
-              search
-                ? "Prueba con otro criterio de búsqueda."
+              search || filterStatus !== "todos"
+                ? "Prueba con otro criterio de búsqueda o cambia el estado seleccionado."
                 : "Registra tu primer proveedor para comenzar."
             }
           />
@@ -275,6 +319,7 @@ export function ListProveedores({
                   <StatusBadge
                     status={resolveStatusType(proveedor.estado)}
                     label={proveedor.estado}
+                    animateDot={proveedor.estado.trim().toUpperCase() === "ACTIVO"}
                   />
                 </TableCell>
 

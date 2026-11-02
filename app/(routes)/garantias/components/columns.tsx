@@ -15,7 +15,10 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { getEstadoGarantiaStatus } from "@/lib/garantia-status";
+import {
+  ESTADO_GARANTIA_CODIGO,
+  getEstadoGarantiaStatus,
+} from "@/lib/garantia-status";
 
 import {
   DropdownMenu,
@@ -324,12 +327,24 @@ export const columns: ColumnDef<Garantia>[] = [
     filterFn: (row, _columnId, filterValue) =>
       !filterValue || row.original.estadoCodigo === filterValue,
 
-    cell: ({ row }) => (
-      <StatusBadge
-        status={getEstadoGarantiaStatus(row.original.estadoCodigo)}
-        label={row.original.estado}
-      />
-    ),
+    cell: ({ row }) => {
+      const estado = row.original.estadoCodigo;
+      const esEstadoFinal =
+        estado === ESTADO_GARANTIA_CODIGO.APROBADO ||
+        estado === ESTADO_GARANTIA_CODIGO.RECHAZADO;
+      const esEstadoAnimado =
+        estado === ESTADO_GARANTIA_CODIGO.INGRESADO ||
+        estado === ESTADO_GARANTIA_CODIGO.EN_ESPERA;
+
+      return (
+        <StatusBadge
+          status={getEstadoGarantiaStatus(estado)}
+          label={row.original.estado}
+          showDot={!esEstadoFinal}
+          animateDot={esEstadoAnimado}
+        />
+      );
+    },
   },
 
   // ==========================================================

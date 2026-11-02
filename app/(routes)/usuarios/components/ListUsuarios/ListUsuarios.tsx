@@ -104,7 +104,7 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
         <StatusBadge
           status={active ? "success" : "neutral"}
           label={getNombreEstadoRegistro(user.estado)}
-          showDot={false}
+          animateDot={active}
         />
       </TableCell>
 

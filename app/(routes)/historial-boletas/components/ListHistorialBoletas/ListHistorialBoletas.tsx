@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Receipt, Search, Download, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { Receipt, Search, Download, RotateCcw, ChevronLeft, ChevronRight, MoreHorizontal, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,20 @@ import { TIPO_DTE } from "@/lib/tax-document";
 import { validarYFormatearRut } from "@/lib/client-rut";
 import { KpiCards } from "../KpiCards";
 import type { DocumentoTributario } from "../../types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ReceiptTicketPreview } from "@/components/common/ReceiptTicketPreview";
 
 const PAGE_SIZE = 10;
 
@@ -66,10 +80,6 @@ function formatDate(value: string): string {
   }).format(new Date(year, month - 1, day));
 }
 
-function escapeCsvText(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
 function getLocalDateStamp(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -104,6 +114,9 @@ export function ListHistorialBoletas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [page, setPage] = useState(0);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentoTributario | null>(null);
+  const [downloadDocument, setDownloadDocument] = useState<DocumentoTributario | null>(null);
+  const downloadPreviewRef = useRef<HTMLDivElement>(null);
 
   // HB-01: Recarga manual para botón Reintentar
   const loadDocuments = useCallback(async () => {
@@ -244,42 +257,174 @@ export function ListHistorialBoletas() {
     (page + 1) * PAGE_SIZE
   );
 
-  // HB-13: Toast de confirmación al exportar CSV
-  const handleExportCSV = () => {
+  const handleExportExcel = async () => {
     if (filteredDocuments.length === 0) return;
 
-    const headers =
-      "Folio,Origen,RUT Emisor,RUT Receptor,Fecha Emision,Monto Total,Estado\n";
-    const rows = filteredDocuments
-      .map(
-        (doc) => [
-          doc.numeroFolio,
-          escapeCsvText(getOrigenLabel(doc.tipoMovimiento)),
-          escapeCsvText(formatRut(doc.rutEmisor)),
-          escapeCsvText(formatRut(doc.rutReceptor)),
-          escapeCsvText(doc.fechaEmision),
-          Number(doc.montoTotal),
-          escapeCsvText(doc.estado),
-        ].join(",")
-      )
-      .join("\n");
+    try {
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Urban Cycling";
+      workbook.created = new Date();
 
-    const blob = new Blob([headers + rows], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `historial_boletas_${getLocalDateStamp(new Date())}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    toast.success("Historial de boletas exportado correctamente en formato CSV.");
+      const worksheet = workbook.addWorksheet("Historial de boletas", {
+        properties: { tabColor: { argb: "FF004D70" } },
+        views: [{ state: "frozen", ySplit: 4 }],
+      });
+      const headers = [
+        "Folio",
+        "Origen",
+        "RUT emisor",
+        "RUT receptor",
+        "Fecha de emisión",
+        "Estado",
+        "Subtotal (CLP)",
+        "Descuento (CLP)",
+        "Neto (CLP)",
+        "IVA (CLP)",
+        "Total (CLP)",
+      ];
+      worksheet.columns = [
+        { key: "folio", width: 12 },
+        { key: "origen", width: 25 },
+        { key: "rutEmisor", width: 18 },
+        { key: "rutReceptor", width: 18 },
+        { key: "fechaEmision", width: 19 },
+        { key: "estado", width: 16 },
+        { key: "subtotal", width: 19 },
+        { key: "descuento", width: 19 },
+        { key: "neto", width: 19 },
+        { key: "iva", width: 19 },
+        { key: "total", width: 20 },
+      ];
+
+      worksheet.mergeCells("A1:K1");
+      const title = worksheet.getCell("A1");
+      title.value = "Historial de boletas";
+      title.font = { name: "Aptos Display", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
+      title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF004D70" } };
+      title.alignment = { vertical: "middle" };
+      worksheet.getRow(1).height = 34;
+
+      worksheet.mergeCells("A2:K2");
+      const subtitle = worksheet.getCell("A2");
+      subtitle.value = `Se incluyeron ${filteredDocuments.length} ${filteredDocuments.length === 1 ? "boleta" : "boletas"}. Exportado el ${new Intl.DateTimeFormat("es-CL").format(new Date())}.`;
+      subtitle.font = { name: "Aptos", size: 10, color: { argb: "FF526579" } };
+      subtitle.alignment = { vertical: "middle" };
+      worksheet.getRow(2).height = 22;
+
+      worksheet.addRow([]);
+      const headerRow = worksheet.addRow(headers);
+      headerRow.height = 26;
+      headerRow.eachCell((cell) => {
+        cell.font = { name: "Aptos", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF316B82" } };
+        cell.alignment = { vertical: "middle", wrapText: true };
+        cell.border = { bottom: { style: "medium", color: { argb: "FF004D70" } } };
+      });
+
+      filteredDocuments.forEach((doc, index) => {
+        const datePart = doc.fechaEmision.split("T")[0];
+        const [year, month, day] = datePart.split("-").map(Number);
+        const row = worksheet.addRow({
+          folio: doc.numeroFolio,
+          origen: getOrigenLabel(doc.tipoMovimiento),
+          rutEmisor: formatRut(doc.rutEmisor),
+          rutReceptor: formatRut(doc.rutReceptor),
+          fechaEmision: year && month && day ? new Date(year, month - 1, day) : doc.fechaEmision,
+          estado: doc.estado,
+          subtotal: Number(doc.montoSubtotal),
+          descuento: Number(doc.descuentoAcumulado),
+          neto: Number(doc.montoNeto),
+          iva: Number(doc.montoIva),
+          total: Number(doc.montoTotal),
+        });
+        row.height = 22;
+        row.eachCell((cell) => {
+          cell.font = { name: "Aptos", size: 10, color: { argb: "FF263746" } };
+          cell.alignment = { vertical: "middle" };
+          cell.border = { bottom: { style: "hair", color: { argb: "FFDCE5EA" } } };
+          if (index % 2 === 1) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F7F9" } };
+          }
+        });
+        row.getCell(5).numFmt = "dd/mm/yyyy";
+        for (let column = 7; column <= 11; column += 1) {
+          row.getCell(column).numFmt = '"$"#,##0;[Red]-"$"#,##0';
+          row.getCell(column).alignment = { vertical: "middle", horizontal: "right" };
+        }
+        const statusCell = row.getCell(6);
+        statusCell.font = {
+          name: "Aptos",
+          size: 10,
+          bold: true,
+          color: { argb: doc.estado.trim().toLowerCase() === "emitido" ? "FF15803D" : "FFB42318" },
+        };
+      });
+
+      worksheet.autoFilter = {
+        from: { row: 4, column: 1 },
+        to: { row: worksheet.rowCount, column: 11 },
+      };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([new Uint8Array(buffer)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `historial_boletas_${getLocalDateStamp(new Date())}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      toast.success("Historial de boletas exportado a Excel.");
+    } catch {
+      toast.error("No fue posible exportar el historial a Excel.");
+    }
   };
+
+  const handleDownloadPdf = async (doc: DocumentoTributario) => {
+    setDownloadDocument(doc);
+  };
+
+  useEffect(() => {
+    if (!downloadDocument || !downloadPreviewRef.current) return;
+
+    let isCurrent = true;
+    const generatePdf = async () => {
+      try {
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+          import("html2canvas-pro"),
+          import("jspdf"),
+        ]);
+        const preview = downloadPreviewRef.current;
+        if (!preview) return;
+
+        const canvas = await html2canvas(preview, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: null,
+        });
+        if (!isCurrent) return;
+
+        const receiptWidth = 80;
+        const receiptHeight = (canvas.height / canvas.width) * receiptWidth;
+        const pdf = new jsPDF({ unit: "mm", format: [receiptWidth, receiptHeight] });
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, receiptWidth, receiptHeight);
+        pdf.save(`boleta_${downloadDocument.numeroFolio}.pdf`);
+        toast.success(`Boleta N° ${downloadDocument.numeroFolio} descargada en PDF.`);
+      } catch {
+        if (isCurrent) toast.error("No fue posible generar el PDF de la boleta.");
+      } finally {
+        if (isCurrent) setDownloadDocument(null);
+      }
+    };
+
+    void generatePdf();
+    return () => { isCurrent = false; };
+  }, [downloadDocument]);
 
   // HB-10: Skeleton estructurado para evitar layout shift
   if (loading) {
@@ -346,9 +491,8 @@ export function ListHistorialBoletas() {
             : "documentos encontrados"
         }${singleIssuerRut ? ` · Emisor ${formatRut(singleIssuerRut)}` : ""}`}
         toolbar={
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-              <div className="relative max-w-sm flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
                 <Search
                   className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
@@ -361,11 +505,11 @@ export function ListHistorialBoletas() {
                     setSearchTerm(event.target.value);
                   }}
                   aria-label="Buscar boletas por RUT o número de folio"
-                  className="h-9.5 rounded-xl border-border/80 bg-background pl-9 text-xs shadow-2xs focus-visible:ring-primary/30"
+                  className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
                 />
               </div>
 
-              <div className="w-full shrink-0 sm:w-48">
+              <div className="w-full shrink-0 sm:w-56">
                 <Select
                   value={filterStatus}
                   onValueChange={(value) => {
@@ -375,28 +519,26 @@ export function ListHistorialBoletas() {
                 >
                   <SelectTrigger
                     aria-label="Filtrar por estado del documento"
-                    className="h-9.5 cursor-pointer rounded-xl border-border/80 bg-background text-xs shadow-2xs"
+                    className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"
                   >
-                    <SelectValue placeholder="Estado: Todos" />
+                    <SelectValue placeholder="Todos los estados" />
                   </SelectTrigger>
-                  <SelectContent position="popper" className="rounded-xl border-border/80">
-                    <SelectItem value="todos" className="text-xs">Todos los estados</SelectItem>
-                    <SelectItem value="emitido" className="text-xs">Emitidos</SelectItem>
-                    <SelectItem value="anulado" className="text-xs">Anulados</SelectItem>
+                  <SelectContent position="popper">
+                  <SelectItem value="todos">Todos los estados</SelectItem>
+                  <SelectItem value="emitido">Emitidos</SelectItem>
+                  <SelectItem value="anulado">Anulados</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
             <Button
               variant="outline"
               size="sm"
-              onClick={handleExportCSV}
+              onClick={() => void handleExportExcel()}
               disabled={filteredDocuments.length === 0}
               className="shrink-0 self-start rounded-xl font-semibold cursor-pointer sm:self-auto"
             >
               <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-              Exportar CSV
+              Exportar Excel
             </Button>
           </div>
         }
@@ -471,6 +613,7 @@ export function ListHistorialBoletas() {
                 <TableHead className="hidden px-2 sm:px-4 md:table-cell">Emisión</TableHead>
                 <TableHead className="px-2 sm:px-4">Estado</TableHead>
                 <TableHead className="px-2 text-right sm:px-4">Total</TableHead>
+                <TableHead className="w-12 px-2 text-right sm:px-4"><span className="sr-only">Acciones</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -514,6 +657,31 @@ export function ListHistorialBoletas() {
                         {formatCLP(Number(doc.montoTotal))}
                       </span>
                     </TableCell>
+                    <TableCell className="px-2 text-right sm:px-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Acciones para boleta ${doc.numeroFolio}`}
+                            className="cursor-pointer"
+                          >
+                            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onSelect={() => setSelectedDocument(doc)}>
+                            <Eye aria-hidden="true" />
+                            Ver detalle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => void handleDownloadPdf(doc)}>
+                            <Download aria-hidden="true" />
+                            Descargar PDF
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -521,6 +689,35 @@ export function ListHistorialBoletas() {
           </Table>
         )}
       </DataTableContainer>
+
+      <Dialog open={!!selectedDocument} onOpenChange={(open) => { if (!open) setSelectedDocument(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          {selectedDocument && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Detalle de boleta N° {selectedDocument.numeroFolio}</DialogTitle>
+                <DialogDescription>
+                  Información del documento tributario emitido.
+                </DialogDescription>
+              </DialogHeader>
+              <ReceiptTicketPreview receipt={selectedDocument} />
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => void handleDownloadPdf(selectedDocument)} className="cursor-pointer">
+                  <Download className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Descargar PDF
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      {downloadDocument && (
+        <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0 w-80">
+          <div ref={downloadPreviewRef}>
+            <ReceiptTicketPreview receipt={downloadDocument} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
