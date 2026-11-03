@@ -144,19 +144,19 @@ export function DataTable<TData, TValue>({
       title="Registro de Ventas"
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "venta encontrada" : "ventas encontradas"}`}
       toolbar={
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 placeholder="Buscar por N.º de venta, cliente o producto…"
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(event.target.value)}
                 aria-label="Buscar ventas por número, cliente o producto"
-                className="pl-9"
+                className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
               />
             </div>
 
+            <div className="w-full shrink-0 sm:w-56">
             <Select
               value={
                 (table.getColumn("estadoPago")?.getFilterValue() as string) ?? "all"
@@ -165,7 +165,7 @@ export function DataTable<TData, TValue>({
                 table.getColumn("estadoPago")?.setFilterValue(value === "all" ? "" : value)
               }
             >
-              <SelectTrigger className="h-9 w-full sm:w-52" aria-label="Filtrar por estado de pago">
+              <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar por estado de pago">
                 <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -177,8 +177,8 @@ export function DataTable<TData, TValue>({
                 <SelectItem value={ESTADO_PAGO.ANULADA}>Anuladas</SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
-        </div>
       }
       footer={
         filteredRowCount > 0 ? (

@@ -163,35 +163,38 @@ export function DataTable<TData, TValue>({
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "orden encontrada" : "órdenes encontradas"}`}
       toolbar={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               placeholder="Buscar por ID, Cliente o Bicicleta..."
+              aria-label="Buscar órdenes de trabajo por ID, cliente o bicicleta"
               value={globalFilter ?? ""}
               onChange={(event) => setGlobalFilter(event.target.value)}
-              className="pl-9"
+              className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
             />
           </div>
+          <div className="w-full shrink-0 sm:w-56">
           <Select
             value={(table.getColumn("estadoOrden")?.getFilterValue() as string) ?? "all"}
             onValueChange={(value) => table.getColumn("estadoOrden")?.setFilterValue(value === "all" ? "" : value)}
           >
-            <SelectTrigger className="h-9 w-full sm:w-56"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+            <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar órdenes de trabajo por estado"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
             <SelectContent position="popper">
               <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="por-realizar">Por realizar</SelectItem>
               <SelectItem value="activa">En curso</SelectItem>
               <SelectItem value="espera">En espera</SelectItem>
               <SelectItem value="por-entregar">Por entregar</SelectItem>
-              <SelectItem value="completada">Completadas (Entregadas)</SelectItem>
+              <SelectItem value="completada">Entregadas</SelectItem>
               <SelectItem value="anulada">Anuladas</SelectItem>
               <SelectItem value="retrasada">Retrasadas</SelectItem>
             </SelectContent>
           </Select>
+          </div>
           <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
             <div className="flex items-center gap-1">
               <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm" className="h-9 gap-2">
+                <Button type="button" variant="outline" size="sm" className="h-10 rounded-xl border-border/80 bg-background text-sm shadow-2xs gap-2">
                   <CalendarRange className="h-4 w-4" aria-hidden="true" />
                   {periodFilter.applied
                     ? `${new Date(`${periodFilter.applied.fechaInicio}T00:00:00`).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })} – ${new Date(`${periodFilter.applied.fechaFin}T00:00:00`).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}`

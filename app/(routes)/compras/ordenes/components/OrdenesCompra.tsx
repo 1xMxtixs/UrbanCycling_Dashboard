@@ -343,19 +343,20 @@ export function OrdenesCompra() {
         }
         toolbar={
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 aria-label="Buscar órdenes por código, proveedor o producto"
                 placeholder="Buscar por orden, proveedor o producto…"
                 value={search}
                 onChange={(event) => handleSearchChange(event.target.value)}
-                className="pl-9"
+                className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
               />
             </div>
 
+            <div className="w-full shrink-0 sm:w-56">
             <Select value={statusFilter} onValueChange={(value) => updateFilter("estado", value)}>
-              <SelectTrigger className="h-9 w-full sm:w-48" aria-label="Filtrar por estado de orden">
+              <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar por estado de orden">
                 <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -365,9 +366,11 @@ export function OrdenesCompra() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
 
+            <div className="w-full shrink-0 sm:w-56">
             <Select value={paymentFilter} onValueChange={(value) => updateFilter("estadoPago", value)}>
-              <SelectTrigger className="h-9 w-full sm:w-44" aria-label="Filtrar por estado de pago">
+              <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar por estado de pago">
                 <SelectValue placeholder="Todos los pagos" />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -377,6 +380,7 @@ export function OrdenesCompra() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
           </div>
         }
         footer={
