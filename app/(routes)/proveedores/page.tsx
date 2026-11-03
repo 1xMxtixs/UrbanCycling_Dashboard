@@ -25,7 +25,9 @@ export default function ProveedoresPage() {
   const { hasPermission } = useUserPermissions()
   const canAssociateProducts =
     hasPermission(PERMISSIONS.INVENTORY_READ) &&
-    hasPermission(PERMISSIONS.INVENTORY_UPDATE)
+    hasPermission(PERMISSIONS.INVENTORY_UPDATE) &&
+    hasPermission(PERMISSIONS.SUPPLIERS_READ) &&
+    hasPermission(PERMISSIONS.SUPPLIERS_UPDATE)
   const [proveedores, setProveedores] = useState<ProveedorListado[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
@@ -270,6 +272,9 @@ export default function ProveedoresPage() {
           setDetailOpen(false)
           setDeleteOpen(true)
         }}
+        onProducts={canAssociateProducts ? () => {
+          if (selectedProveedor) handleAssociateProducts(selectedProveedor)
+        } : undefined}
       />
 
       <DeleteProveedorDialog

@@ -315,7 +315,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const handleAddService = () => {
     setSelectedServices([
       ...selectedServices,
-      { idServicio: "", cantidad: 1, precioUnitario: 0 },
+      { tipo: "catalogo", idServicio: "", cantidad: 1, precioUnitario: 0 },
     ])
   }
 
@@ -330,10 +330,28 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     const updated = [...selectedServices]
     updated[index] = {
       ...updated[index],
+      tipo: "catalogo",
       idServicio,
       precioUnitario: price,
     }
     setSelectedServices(updated)
+  }
+
+  const handleServiceTypeChange = (index: number, tipo: SelectedService["tipo"]) => {
+    setSelectedServices((current) => current.map((service, i) => i === index
+      ? tipo === "personalizado"
+        ? { tipo, nombre: "", cantidad: service.cantidad, precioUnitario: 0 }
+        : { tipo, idServicio: "", cantidad: service.cantidad, precioUnitario: 0 }
+      : service))
+  }
+
+  const handleCustomServiceChange = (index: number, field: "nombre" | "precioUnitario", value: string) => {
+    setSelectedServices((current) => current.map((service, i) => {
+      if (i !== index || service.tipo !== "personalizado") return service
+      return field === "nombre"
+        ? { ...service, nombre: value }
+        : { ...service, precioUnitario: value.trim() === "" ? Number.NaN : Number(value) }
+    }))
   }
 
   const handleServiceQuantityChange = (index: number, cantidad: number) => {
@@ -394,11 +412,15 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     }
 
     const incompleteServiceIdx = selectedServices.findIndex(
-      (s) => !s.idServicio
+      (s) =>
+        (s.tipo === "catalogo" ? !s.idServicio : !s.nombre.trim() || s.nombre.trim().length > 100) ||
+        !Number.isSafeInteger(s.cantidad) || s.cantidad <= 0 ||
+        !Number.isSafeInteger(s.precioUnitario) || s.precioUnitario < 0 || s.precioUnitario > 999999999999 ||
+        s.cantidad * s.precioUnitario > 999999999999
     )
     if (incompleteServiceIdx !== -1) {
       toast.error(
-        `Debe seleccionar un servicio en la línea #${incompleteServiceIdx + 1}.`
+        `Revise el servicio de la línea #${incompleteServiceIdx + 1}: indique un servicio, cantidad entera positiva y precio válido en pesos.`
       )
       return
     }
@@ -474,7 +496,9 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
             observacionesIngreso: descripcion.trim() || null,
             estadoOrden: ESTADO_OT.POR_REALIZAR,
             servicios: selectedServices.map((s) => ({
-              idServicio: Number(s.idServicio),
+              ...(s.tipo === "catalogo"
+                ? { tipo: s.tipo, idServicio: Number(s.idServicio) }
+                : { tipo: s.tipo, nombre: s.nombre.trim() }),
               cantidad: s.cantidad,
               precioUnitario: s.precioUnitario,
             })),
@@ -696,6 +720,8 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           onRemoveService={handleRemoveService}
           onServiceChange={handleServiceChange}
           onServiceQuantityChange={handleServiceQuantityChange}
+          onServiceTypeChange={handleServiceTypeChange}
+          onCustomServiceChange={handleCustomServiceChange}
           onAddProduct={handleAddProduct}
           onRemoveProduct={handleRemoveProduct}
           onProductChange={handleProductChange}

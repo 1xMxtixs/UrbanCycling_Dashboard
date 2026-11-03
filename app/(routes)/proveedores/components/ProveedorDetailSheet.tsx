@@ -36,6 +36,7 @@ interface ProveedorDetailSheetProps {
   onOpenChange: (open: boolean) => void
   onEdit: () => void
   onDelete: () => void
+  onProducts?: () => void
 }
 
 function resolveStatusType(estado?: string | null): StatusType {
@@ -52,6 +53,7 @@ export function ProveedorDetailSheet({
   onOpenChange,
   onEdit,
   onDelete,
+  onProducts,
 }: ProveedorDetailSheetProps) {
   const [detalle, setDetalle] = useState<ProveedorDetalle | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -162,6 +164,12 @@ export function ProveedorDetailSheet({
                 </div>
               </div>
             </div>
+
+            {onProducts && (
+              <Button variant="outline" onClick={onProducts}>
+                Ver y asociar productos
+              </Button>
+            )}
 
             {/* PR-07: Unificación con DataField */}
             <section className="space-y-4">

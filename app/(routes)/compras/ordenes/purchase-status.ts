@@ -14,6 +14,13 @@ export const ESTADO_PAGO_COMPRA = {
   ANULADA: "ANULADA",
 } as const
 
+export const ESTADO_RECEPCION_COMPRA = {
+  PENDIENTE: "PENDIENTE",
+  PARCIAL: "PARCIAL",
+  RECIBIDA: "RECIBIDA",
+  ANULADA: "ANULADA",
+} as const
+
 export const ESTADOS_COMPRA = [
   { value: ESTADO_COMPRA.BORRADOR, label: "Borrador" },
   { value: ESTADO_COMPRA.ENVIADA, label: "Enviada" },

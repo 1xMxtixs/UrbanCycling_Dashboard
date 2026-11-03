@@ -239,7 +239,7 @@ export function OrdenesCompra() {
     setSelected(order)
   }
 
-  const handleUpdated = (updated: PurchaseOrder) => {
+  const handleUpdated = useCallback((updated: PurchaseOrder) => {
     setOrders((current) =>
       current.map((order) =>
         order.idOrdenDeCompra === updated.idOrdenDeCompra ? { ...order, ...updated } : order
@@ -249,7 +249,7 @@ export function OrdenesCompra() {
       current?.idOrdenDeCompra === updated.idOrdenDeCompra ? { ...current, ...updated } : current
     )
     void loadOrders()
-  }
+  }, [loadOrders])
 
   const drafts = orders.filter((order) => order.estado === ESTADO_COMPRA.BORRADOR).length
   const outstanding = orders.filter(

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUserPermissions } from "@/components/providers";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,8 +31,10 @@ import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const DESCRIPTION_MAX_LENGTH = 50;
+type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
 
 const numericField = (fieldName: string) =>
   z
@@ -63,12 +66,24 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryProps) {
   const router = useRouter();
+  const { hasPermission } = useUserPermissions();
+  const canAssociateSupplier = [
+    PERMISSIONS.SUPPLIERS_READ,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.SUPPLIERS_UPDATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+  ].every(hasPermission);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("none");
+  const [supplierError, setSupplierError] = useState("");
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [supplierRetry, setSupplierRetry] = useState(0);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -111,6 +126,36 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
     };
   }, []);
 
+  useEffect(() => {
+    if (!canAssociateSupplier) return;
+    const controller = new AbortController();
+
+    async function loadSuppliers() {
+      setLoadingSuppliers(true);
+      setSupplierError("");
+      try {
+        const response = await fetch("/api/proveedores", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.message || "No fue posible cargar los proveedores.");
+        }
+        if (!controller.signal.aborted) setSuppliers(result?.providers ?? []);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSupplierError(error instanceof Error ? error.message : "No fue posible cargar los proveedores.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoadingSuppliers(false);
+      }
+    }
+
+    void loadSuppliers();
+    return () => controller.abort();
+  }, [canAssociateSupplier, supplierRetry]);
+
   const uploadImage = async (file: File): Promise<string | null> => {
     setUploadingImage(true);
     try {
@@ -140,6 +185,10 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   };
 
   const onSubmit = async (values: FormValues) => {
+    if (selectedSupplierId !== "none" && values.estado !== ESTADO_REGISTRO.ACTIVO) {
+      toast.error("El producto debe estar activo para asociarlo a un proveedor.");
+      return;
+    }
     try {
       let imageUrl: string | null = null;
 
@@ -161,6 +210,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
           stockActual: Number(values.stockActual),
           stockMinimo: Number(values.stockMinimo),
           categoriaIds: selectedCategoryIds,
+          ...(selectedSupplierId !== "none" ? { idProveedor: Number(selectedSupplierId) } : {}),
           imageUrl,
         }),
       });
@@ -178,6 +228,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       setImageFile(null);
       setImagePreview(null);
       setSelectedCategoryIds([]);
+      setSelectedSupplierId("none");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
@@ -239,6 +290,45 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
             Selecciona una o más categorías para facilitar el filtrado del inventario.
           </p>
         </div>
+
+        {canAssociateSupplier && (
+          <div className="space-y-2">
+            <FormLabel htmlFor="create-product-supplier">Proveedor (opcional)</FormLabel>
+            <Select
+              value={selectedSupplierId}
+              onValueChange={setSelectedSupplierId}
+              disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+            >
+              <SelectTrigger id="create-product-supplier" className="w-full">
+                <SelectValue placeholder="Selecciona un proveedor" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="none">Sin proveedor</SelectItem>
+                {suppliers.map((supplier) => (
+                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
+                    {supplier.razonSocial} · {supplier.rut}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {loadingSuppliers ? (
+              <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
+            ) : supplierError ? (
+              <div className="space-y-1">
+                <p role="alert" className="text-xs text-destructive">{supplierError}</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
+                  Reintentar carga de proveedores
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {suppliers.length
+                  ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
+                  : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
+              </p>
+            )}
+          </div>
+        )}
 
         <FormField
           control={form.control}

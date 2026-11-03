@@ -25,6 +25,7 @@ type ProductDetailSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit: (product: ProductColumn) => void
+  onManageSuppliers?: (product: ProductColumn) => void
 }
 
 export function ProductDetailSheet({
@@ -32,6 +33,7 @@ export function ProductDetailSheet({
   open,
   onOpenChange,
   onEdit,
+  onManageSuppliers,
 }: ProductDetailSheetProps) {
   const imageUrl = product?.imagenesProducto?.[0]?.url
   const isOutOfStock = product?.stockActual === 0
@@ -139,6 +141,13 @@ export function ProductDetailSheet({
                 </div>
               </div>
 
+              {product.proveedores !== undefined && <section className="space-y-2 rounded-xl border p-4">
+                <h3 className="text-sm font-semibold">Proveedores</h3>
+                {product.proveedores?.length ? product.proveedores.map((supplier) => (
+                  <p key={supplier.idProveedor} className="text-sm">{supplier.razonSocial} · {supplier.rut}{supplier.estado !== "ACTIVO" && " (inactivo)"}</p>
+                )) : <p className="text-sm text-muted-foreground">Sin proveedores asociados.</p>}
+                {onManageSuppliers && <Button variant="outline" size="sm" onClick={() => onManageSuppliers(product)}>Ver y asociar proveedores</Button>}
+              </section>}
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
                 <p className="text-xs font-semibold tracking-tight text-muted-foreground">Descripción del Producto</p>
                 <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">
