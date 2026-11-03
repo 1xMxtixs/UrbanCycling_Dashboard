@@ -96,7 +96,12 @@ export function ClientHistoryContent({
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="min-w-0 text-xl font-bold tracking-tight text-foreground sm:text-2xl">{fullName}</h2>
-              <StatusBadge status={isRegistroActivo(cliente.estado) ? "success" : "danger"} label={getNombreEstadoRegistro(cliente.estado)} />
+              <StatusBadge
+                status={isRegistroActivo(cliente.estado) ? "success" : "danger"}
+                label={getNombreEstadoRegistro(cliente.estado)}
+                showDot={isRegistroActivo(cliente.estado)}
+                animateDot={isRegistroActivo(cliente.estado)}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -183,7 +188,9 @@ export function ClientHistoryContent({
               <SelectContent position="popper">
                 <SelectItem value="all">Todos los estados</SelectItem>
                 {Object.values(ESTADO_OT).map((estado) => (
-                  <SelectItem key={estado} value={estado}>{NOMBRES_ESTADO_OT[estado]}</SelectItem>
+                  <SelectItem key={estado} value={estado}>
+                    {estado === ESTADO_OT.LISTO_PARA_ENTREGAR ? "Por entregar" : NOMBRES_ESTADO_OT[estado]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

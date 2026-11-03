@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { Calendar, ChevronDown, ChevronUp, ExternalLink, Wrench } from "lucide-react";
 import type { DBOrdenTrabajoCliente } from "../../types";
 import { getNombreEstadoPago, getPaymentStatusBadgeVariant } from "@/lib/payment-status";
-import { getNombreEstadoOtVisible, getOtStatusBadgeVariant } from "@/lib/work-order-status";
+import { ESTADO_OT, getNombreEstadoOtVisible, getOtStatusBadgeVariant } from "@/lib/work-order-status";
 import { formatCLP } from "@/lib/formatters";
 
 function formatOrderDate(value: string) {
@@ -33,6 +33,16 @@ export function WorkOrderHistoryItem({
   const orderStatus = getOrderStatusConfig(orden.estadoOrden, orden.fechaEntregaEstimada);
   const paymentBadgeStatus = getPaymentStatusBadgeVariant(orden.estadoPago);
   const paymentLabel = getNombreEstadoPago(orden.estadoPago);
+  const activeOrderStatuses: string[] = [
+    ESTADO_OT.POR_REALIZAR,
+    ESTADO_OT.EN_CURSO,
+    ESTADO_OT.EN_ESPERA,
+    ESTADO_OT.LISTO_PARA_ENTREGAR,
+  ];
+  const isActiveOrder = activeOrderStatuses.includes(orden.estadoOrden);
+  const orderLabel = orden.estadoOrden === ESTADO_OT.LISTO_PARA_ENTREGAR
+    ? "Por entregar"
+    : orderStatus.label;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs transition-colors duration-150 hover:border-border motion-reduce:transition-none">
@@ -44,8 +54,13 @@ export function WorkOrderHistoryItem({
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-xs sm:text-sm text-foreground">Orden #{orden.idOrdenDeTrabajo}</h4>
-              <StatusBadge status={orderStatus.status} label={orderStatus.label} />
-              <StatusBadge status={paymentBadgeStatus} label={paymentLabel} />
+              <StatusBadge
+                status={orderStatus.status}
+                label={orderLabel}
+                showDot={isActiveOrder}
+                animateDot={isActiveOrder}
+              />
+              <StatusBadge status={paymentBadgeStatus} label={paymentLabel} showDot={false} />
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
