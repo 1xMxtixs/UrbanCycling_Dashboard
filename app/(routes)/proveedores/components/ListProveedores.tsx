@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  Eye,
-  MoreHorizontal,
-  PackageCheck,
-  Pencil,
-  Search,
-  Trash2,
-} from "lucide-react"
+import { Eye, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -29,8 +22,7 @@ interface ListProveedoresProps {
   onView: (proveedor: ProveedorListado) => void
   onEdit: (proveedor: ProveedorListado) => void
   onDelete: (proveedor: ProveedorListado) => void
-  onAssociateProducts: (proveedor: ProveedorListado) => void
-  canAssociateProducts: boolean
+  onProducts?: (proveedor: ProveedorListado) => void
 }
 
 export function ListProveedores({
@@ -39,8 +31,7 @@ export function ListProveedores({
   onView,
   onEdit,
   onDelete,
-  onAssociateProducts,
-  canAssociateProducts,
+  onProducts,
 }: ListProveedoresProps) {
   const [search, setSearch] = useState("")
 
@@ -173,15 +164,13 @@ export function ListProveedores({
                             Editar
                           </DropdownMenuItem>
 
-                          {canAssociateProducts && (
+                          {onProducts && (
                             <DropdownMenuItem
-                              onClick={() => onAssociateProducts(proveedor)}
+                              onClick={() => onProducts(proveedor)}
                             >
-                              <PackageCheck className="mr-2 h-4 w-4" />
-                              Asociar productos
+                              Ver y asociar productos
                             </DropdownMenuItem>
                           )}
-
                           <DropdownMenuSeparator />
 
                           <DropdownMenuItem

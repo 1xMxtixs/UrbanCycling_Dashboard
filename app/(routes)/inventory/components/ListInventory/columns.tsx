@@ -38,7 +38,6 @@ export type ProductImage = {
 
 export type ProductColumn = {
   idProducto: number
-  codigoProveedor?: string | null
   tipoProducto: string
   nombre: string
   descripcion: string | null
@@ -49,13 +48,20 @@ export type ProductColumn = {
   estado: string
   imagenesProducto?: ProductImage[]
   categoriasProducto?: InventoryCategory[]
+  proveedores?: Array<{
+    idProveedor: number
+    razonSocial: string
+    rut: string
+    estado: string
+  }>
 }
 
 export function getColumns(
   onViewDetail: (product: ProductColumn) => void,
   onRegisterMovement: (product: ProductColumn) => void,
   onToggleStatus: (product: ProductColumn) => void,
-  canUpdate: boolean = false
+  canUpdate: boolean = false,
+  onManageSuppliers?: (product: ProductColumn) => void
 ): ColumnDef<ProductColumn>[] {
   return [
     {
@@ -216,6 +222,13 @@ export function getColumns(
                 <Eye className="h-4 w-4" />
                 Ver detalle
               </DropdownMenuItem>
+              {onManageSuppliers && (
+                <DropdownMenuItem
+                  onClick={() => onManageSuppliers(row.original)}
+                >
+                  Ver y asociar proveedores
+                </DropdownMenuItem>
+              )}
               {canUpdate && (
                 <>
                   <DropdownMenuItem

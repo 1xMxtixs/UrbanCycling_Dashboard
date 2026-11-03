@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { productSuppliersInclude, supplierSummaries, type ProductSupplierSummary } from "@/lib/product-suppliers"
 import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { parseProductSupplierCode } from "@/lib/product-supplier-code"
@@ -27,6 +28,7 @@ function parseProductId(id: string): number {
 function withImageAlias(product: {
   idProducto: number
   urlImagen: string
+  Proveedores?: Array<{ proveedor: ProductSupplierSummary }>
   categoriasProducto?: Array<{
     categoria: {
       idCategoria: number
@@ -34,9 +36,11 @@ function withImageAlias(product: {
       descripcion: string | null
     }
   }>
-}) {
+}, canReadSuppliers = false) {
+  const { Proveedores, ...record } = product
   return {
-    ...product,
+    ...record,
+    proveedores: canReadSuppliers ? supplierSummaries(Proveedores) : undefined,
     categoriasProducto: product.categoriasProducto?.map(({ categoria }) => categoria) ?? [],
     imagenesProducto: product.urlImagen
       ? [
@@ -67,6 +71,7 @@ function parseCategoryIds(value: unknown): number[] | null | undefined {
 }
 
 const productCategoriesInclude = {
+  ...productSuppliersInclude,
   categoriasProducto: {
     include: {
       categoria: {
@@ -160,7 +165,7 @@ function parseNonNegativeNumber(value: unknown, integer = false) {
  */
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
+    const { session, response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
 
     if (response) {
       return response
@@ -206,7 +211,7 @@ export async function GET(_request: Request, context: RouteContext) {
       )
     }
 
-    return NextResponse.json(withImageAlias(product))
+    return NextResponse.json(withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ)))
   } catch (error) {
     console.log("[INVENTORY_ID_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -493,6 +498,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return new NextResponse("Product not found", { status: 404 })
     }
 
+    const associations = await db.productoProveedor.count({ where: { idProducto: productId } })
+    if (associations > 0) {
+      return NextResponse.json({ code: "PRODUCTO_CON_PROVEEDORES", message: "Retire las asociaciones con proveedores antes de eliminar el producto." }, { status: 409 })
+    }
+
     await db.producto.delete({
       where: {
         idProducto: productId,
@@ -501,6 +511,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2003") {
+      return NextResponse.json({ code: "PRODUCTO_CON_REFERENCIAS", message: "El producto tiene asociaciones o historial y no puede eliminarse. Puede inactivarlo." }, { status: 409 })
+    }
     console.log("[INVENTORY_ID_DELETE]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

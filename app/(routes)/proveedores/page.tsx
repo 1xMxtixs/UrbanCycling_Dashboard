@@ -1,11 +1,16 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
 import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
+import {
+  SupplierProductsDialog,
+  type AssociationTarget,
+} from "@/components/inventory/SupplierProductsDialog"
 
 import {
   CreateProveedorDialog,
@@ -16,15 +21,15 @@ import {
   ProveedorDetailSheet,
   type ProveedorListado,
 } from "./components"
-import { PERMISSIONS } from "@/lib/permissions"
-import { AssociateProductsDialog } from "./components/AssociateProductsDialog"
 
 export default function ProveedoresPage() {
   const { data: session } = useSession()
-  const canAssociateProducts = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_READ) &&
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
-  )
+  const [associationTarget, setAssociationTarget] =
+    useState<AssociationTarget | null>(null)
+  const canReadAssociations = [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.SUPPLIERS_READ,
+  ].every((p) => session?.user?.permisos?.includes(p))
   const [proveedores, setProveedores] = useState<ProveedorListado[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
@@ -38,9 +43,6 @@ export default function ProveedoresPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [associateProductsOpen, setAssociateProductsOpen] = useState(false)
-  const [supplierForProducts, setSupplierForProducts] =
-    useState<ProveedorListado | null>(null)
 
   const cargarProveedores = useCallback(async () => {
     try {
@@ -75,11 +77,8 @@ export default function ProveedoresPage() {
   }, [])
 
   useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      void cargarProveedores()
-    }, 0)
-
-    return () => window.clearTimeout(timerId)
+    const timer = window.setTimeout(() => void cargarProveedores(), 0)
+    return () => window.clearTimeout(timer)
   }, [cargarProveedores])
 
   const handleCreated = (proveedor: ProveedorListado) => {
@@ -122,10 +121,17 @@ export default function ProveedoresPage() {
     setDeleteOpen(true)
   }
 
-  const handleAssociateProducts = (proveedor: ProveedorListado) => {
-    setSupplierForProducts(proveedor)
-    setAssociateProductsOpen(true)
-  }
+  const handleProducts = canReadAssociations
+    ? (supplier: ProveedorListado) => {
+        setDetailOpen(false)
+        setAssociationTarget({
+          kind: "supplier",
+          id: supplier.idProveedor,
+          nombre: supplier.razonSocial,
+          estado: supplier.estado,
+        })
+      }
+    : undefined
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -154,15 +160,15 @@ export default function ProveedoresPage() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onAssociateProducts={handleAssociateProducts}
-        canAssociateProducts={canAssociateProducts}
+        onProducts={handleProducts}
       />
-
-      <AssociateProductsDialog
-        open={associateProductsOpen}
-        proveedor={supplierForProducts}
-        onOpenChange={setAssociateProductsOpen}
-      />
+      {associationTarget && (
+        <SupplierProductsDialog
+          key={`${associationTarget.kind}-${associationTarget.id}`}
+          target={associationTarget}
+          onClose={() => setAssociationTarget(null)}
+        />
+      )}
 
       <CreateProveedorDialog
         open={createOpen}
@@ -178,6 +184,11 @@ export default function ProveedoresPage() {
       />
 
       <ProveedorDetailSheet
+        onProducts={
+          handleProducts && selectedProveedor
+            ? () => handleProducts(selectedProveedor)
+            : undefined
+        }
         open={detailOpen}
         proveedor={selectedProveedor}
         onOpenChange={setDetailOpen}
