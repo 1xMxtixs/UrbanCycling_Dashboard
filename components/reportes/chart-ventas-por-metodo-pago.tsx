@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Cell, Pie, PieChart } from "recharts"
+import { Label, Pie, PieChart } from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
@@ -18,23 +18,28 @@ interface ChartVentasPorMetodoPagoProps {
   data: MetodoPagoDatum[]
 }
 
-const METHOD_COLORS: Record<string, string> = {
-  CREDITO: "var(--chart-1)",
-  EFECTIVO: "var(--chart-2)",
-  DEBITO: "var(--chart-3)",
-  TRANSFERENCIA: "var(--chart-4)",
+const METHOD_CONFIG = {
+  CREDITO: { label: "Crédito", color: "var(--chart-1)" },
+  EFECTIVO: { label: "Efectivo", color: "var(--chart-2)" },
+  DEBITO: { label: "Débito", color: "var(--chart-3)" },
+  TRANSFERENCIA: { label: "Transferencia", color: "var(--chart-4)" },
 }
 
-const chartConfig = { monto: { label: "Monto" } } satisfies ChartConfig
+const chartConfig = {
+  monto: { label: "Monto" },
+  ...METHOD_CONFIG,
+} satisfies ChartConfig
 
 export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps) {
   const total = React.useMemo(() => data.reduce((sum, d) => sum + d.monto, 0), [data])
 
   const chartData = React.useMemo(
-    () => [...data].sort((a, b) => b.monto - a.monto).map((d, i) => ({
+    () => [...data].sort((a, b) => b.monto - a.monto).map((d) => ({
       ...d,
-      colorVar: METHOD_COLORS[d.metodo] ?? "var(--chart-5)",
-      gradientId: `fillMetodo${i}`,
+      colorVar: METHOD_CONFIG[d.metodo as keyof typeof METHOD_CONFIG]?.color ?? "var(--chart-5)",
+      fill: METHOD_CONFIG[d.metodo as keyof typeof METHOD_CONFIG]
+        ? `var(--color-${d.metodo})`
+        : "var(--chart-5)",
       pct: total > 0 ? Math.round((d.monto / total) * 100) : 0,
     })),
     [data, total]
@@ -57,14 +62,6 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
             <div className="relative mx-auto h-[220px] w-[220px]">
               <ChartContainer config={chartConfig} className="h-full w-full aspect-auto">
                 <PieChart>
-                  <defs>
-                    {chartData.map((d) => (
-                      <linearGradient key={d.gradientId} id={d.gradientId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={d.colorVar} stopOpacity={0.95} />
-                        <stop offset="95%" stopColor={d.colorVar} stopOpacity={0.55} />
-                      </linearGradient>
-                    ))}
-                  </defs>
                   <ChartTooltip
                     cursor={false}
                     content={
@@ -80,15 +77,25 @@ export function ChartVentasPorMetodoPago({ data }: ChartVentasPorMetodoPagoProps
                       />
                     }
                   />
-                  <Pie data={chartData} dataKey="monto" nameKey="label" innerRadius={60} strokeWidth={2} stroke="var(--background)">
-                    {chartData.map((d) => <Cell key={d.metodo} fill={`url(#${d.gradientId})`} />)}
+                  <Pie data={chartData} dataKey="monto" nameKey="metodo" innerRadius={60} strokeWidth={2} stroke="var(--background)">
+                    <Label
+                      content={({ viewBox }) => {
+                        if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-sm font-bold tabular-nums">
+                              {formatCLP(total)}
+                            </tspan>
+                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
+                              Recaudado
+                            </tspan>
+                          </text>
+                        )
+                      }}
+                    />
                   </Pie>
                 </PieChart>
               </ChartContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-lg font-bold tabular-nums text-foreground">{formatCLP(total)}</span>
-                <span className="text-xs text-muted-foreground">Recaudado</span>
-              </div>
             </div>
           </div>
         )}

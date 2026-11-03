@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { AlertCircle, CheckCircle2, ClipboardList, Plus, RefreshCw, Search, ShoppingCart } from "lucide-react"
+import { AlertCircle, CheckCircle2, ClipboardList, Eye, MoreHorizontal, Plus, Search, ShoppingCart } from "lucide-react"
 
 import { useUserPermissions } from "@/components/providers"
 import { PageHeader } from "@/components/common/PageHeader"
@@ -29,11 +29,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/table"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { PERMISSIONS } from "@/lib/permissions"
-import { cn } from "@/lib/utils"
 import { includesNormalizedText } from "@/lib/search-normalization"
 import { formatCLP } from "@/lib/formatters"
 import { CreatePurchaseOrderForm } from "./CreatePurchaseOrderForm"
@@ -86,7 +85,6 @@ export function OrdenesCompra() {
   const canUpdate = hasPermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE)
   const [orders, setOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
   const [search, setSearch] = useState("")
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -101,7 +99,6 @@ export function OrdenesCompra() {
   const [selected, setSelected] = useState<PurchaseOrder | null>(null)
 
   const loadOrders = useCallback(async () => {
-    setRefreshing(true)
     try {
       const response = await fetch("/api/ordenes-compra?page=1&pageSize=100", {
         cache: "no-store",
@@ -118,8 +115,6 @@ export function OrdenesCompra() {
           ? cause.message
           : "No fue posible cargar las órdenes de compra."
       )
-    } finally {
-      setRefreshing(false)
     }
   }, [])
 
@@ -323,24 +318,6 @@ export function OrdenesCompra() {
       <DataTableContainer
         title="Seguimiento de órdenes"
         description={`${filteredOrderCount} ${filteredOrderCount === 1 ? "orden encontrada" : "órdenes encontradas"}`}
-        actions={
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void loadOrders()}
-                  disabled={refreshing}
-                  aria-label="Actualizar listado"
-                >
-                  <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin motion-reduce:animate-none")} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Actualizar</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        }
         toolbar={
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
@@ -515,16 +492,25 @@ export function OrdenesCompra() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setSelected(order)
-                        }}
+                      <div
+                        className="flex justify-end"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
                       >
-                        Ver detalle
-                      </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones de orden OC-${order.idOrdenDeCompra}`}>
+                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onSelect={() => setSelected(order)} className="flex cursor-pointer items-center gap-2">
+                              <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                              Ver detalle
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

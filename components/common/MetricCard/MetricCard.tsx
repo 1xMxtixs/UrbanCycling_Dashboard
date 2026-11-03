@@ -24,36 +24,36 @@ const accentColorMap: Record<
   },
   emerald: {
     iconBg: "bg-emerald-500/10",
-    iconText: "text-emerald-700 dark:text-emerald-300",
-    iconHoverBg: "group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500",
+    iconText: "text-emerald-700",
+    iconHoverBg: "group-hover:bg-emerald-600",
     iconHoverText: "group-hover:text-white",
     hoverBorder: "hover:border-emerald-500/40",
   },
   cyan: {
     iconBg: "bg-cyan-500/10",
-    iconText: "text-cyan-700 dark:text-cyan-300",
-    iconHoverBg: "group-hover:bg-cyan-600 dark:group-hover:bg-cyan-500",
+    iconText: "text-cyan-700",
+    iconHoverBg: "group-hover:bg-cyan-600",
     iconHoverText: "group-hover:text-white",
     hoverBorder: "hover:border-cyan-500/40",
   },
   amber: {
     iconBg: "bg-amber-500/10",
-    iconText: "text-amber-700 dark:text-amber-300",
-    iconHoverBg: "group-hover:bg-amber-600 dark:group-hover:bg-amber-500",
+    iconText: "text-amber-700",
+    iconHoverBg: "group-hover:bg-amber-600",
     iconHoverText: "group-hover:text-white",
     hoverBorder: "hover:border-amber-500/40",
   },
   teal: {
     iconBg: "bg-teal-500/10",
-    iconText: "text-teal-700 dark:text-teal-300",
-    iconHoverBg: "group-hover:bg-teal-600 dark:group-hover:bg-teal-500",
+    iconText: "text-teal-700",
+    iconHoverBg: "group-hover:bg-teal-600",
     iconHoverText: "group-hover:text-white",
     hoverBorder: "hover:border-teal-500/40",
   },
   violet: {
     iconBg: "bg-violet-500/10",
-    iconText: "text-violet-700 dark:text-violet-300",
-    iconHoverBg: "group-hover:bg-violet-600 dark:group-hover:bg-violet-500",
+    iconText: "text-violet-700",
+    iconHoverBg: "group-hover:bg-violet-600",
     iconHoverText: "group-hover:text-white",
     hoverBorder: "hover:border-violet-500/40",
   },
@@ -87,18 +87,25 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        "group relative overflow-hidden transition-all duration-200 hover:shadow-sm bg-card border-border/80",
+        "group relative overflow-hidden bg-card/90 backdrop-blur-xs border-border/80 motion-safe:transition-all motion-safe:duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lg motion-safe:hover:shadow-primary/5",
         colors.hoverBorder,
         className
       )}
     >
+      <div
+        className={cn(
+          "pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-40 group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-300",
+          colors.iconBg
+        )}
+      />
+
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <CardTitle className="text-xs font-semibold text-muted-foreground">
           {title}
         </CardTitle>
         <div
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 transition-colors duration-200 shadow-2xs",
+            "flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 shadow-2xs motion-safe:transition-all motion-safe:duration-300 motion-safe:group-hover:scale-110",
             colors.iconBg,
             colors.iconText,
             colors.iconHoverBg,

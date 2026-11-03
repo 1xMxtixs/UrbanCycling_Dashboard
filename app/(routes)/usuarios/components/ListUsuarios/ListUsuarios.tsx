@@ -39,7 +39,7 @@ import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { formatUserName } from "@/lib/formatters";
+import { formatRut, formatUserName } from "@/lib/formatters";
 import { normalizeSearchText } from "@/lib/search-normalization";
 import { ROLE_STYLE, DEFAULT_ROLE_STYLE, type RoleName } from "@/lib/role-permissions-matrix";
 import { User, Role, PENDING_ROLE_NAME } from "../../types";
@@ -96,7 +96,7 @@ function UserRow({ user, roles, selectedRoleId, isSaving, onRoleChange, onSave, 
 
       <TableCell>
         <span className="font-mono text-xs tabular-nums text-foreground/80">
-          {user.rut}
+          {formatRut(user.rut)}
         </span>
       </TableCell>
 
