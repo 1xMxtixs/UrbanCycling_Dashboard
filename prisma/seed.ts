@@ -44,6 +44,7 @@ async function main() {
   await db.servicio.deleteMany();
   await db.categoriaProducto.deleteMany();
   await db.categoria.deleteMany();
+  await db.productoProveedor.deleteMany(); // Antes de productos y proveedores por sus claves foráneas.
   await db.producto.deleteMany();
   await db.direccionCliente.deleteMany();
   await db.telefonoCliente.deleteMany();
@@ -162,7 +163,7 @@ async function main() {
     descripcion: string,
     codigosPermiso: string[]
   ) => {
-    const permisosRol = codigosPermiso.map((codigo) => {
+    const permisosRol = [...new Set(codigosPermiso)].map((codigo) => {
       const idPermiso = permisosPorCodigo.get(codigo);
 
       if (!idPermiso) {

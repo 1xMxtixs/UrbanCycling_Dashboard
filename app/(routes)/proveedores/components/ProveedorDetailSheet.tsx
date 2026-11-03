@@ -35,6 +35,7 @@ interface ProveedorDetailSheetProps {
   onOpenChange: (open: boolean) => void
   onEdit: () => void
   onDelete: () => void
+  onProducts?: () => void
 }
 
 export function ProveedorDetailSheet({
@@ -43,6 +44,7 @@ export function ProveedorDetailSheet({
   onOpenChange,
   onEdit,
   onDelete,
+  onProducts,
 }: ProveedorDetailSheetProps) {
   const [detalle, setDetalle] =
     useState<ProveedorDetalle | null>(null)
@@ -147,6 +149,7 @@ export function ProveedorDetailSheet({
               </div>
             </div>
 
+            {onProducts && <Button variant="outline" onClick={onProducts}>Ver y asociar productos</Button>}
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
