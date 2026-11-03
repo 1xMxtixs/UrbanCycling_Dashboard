@@ -152,11 +152,11 @@ export function OrderDetailDialog({
           <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <User className="h-4 w-4 text-primary" />
-              InformaciÃ³n del Cliente
+              Información del Cliente
             </h4>
             <div className="grid gap-3 sm:grid-cols-2">
               <DataField
-                label="Nombre / RazÃ³n Social"
+                label="Nombre / Razón Social"
                 value={formatClientName(order.cliente)}
               />
               <DataField label="RUT" value={order.cliente?.rut || "No indicado"} />
@@ -177,7 +177,7 @@ export function OrderDetailDialog({
             </h4>
             <div className="grid gap-3 sm:grid-cols-3">
               <DataField
-                label="Fecha RecepciÃ³n"
+                label="Fecha Recepción"
                 value={new Date(
                   order.fechaRecepcion || order.fechaCreacion || ""
                 ).toLocaleDateString("es-ES", {
@@ -216,7 +216,7 @@ export function OrderDetailDialog({
                 label="Tiempo de Servicio"
                 value={
                   order.diasServicio != null
-                    ? `${order.diasServicio} ${order.diasServicio === 1 ? "dÃ­a" : "dÃ­as"}`
+                    ? `${order.diasServicio} ${order.diasServicio === 1 ? "día" : "días"}`
                     : "Pendiente de entrega"
                 }
               />
@@ -227,7 +227,7 @@ export function OrderDetailDialog({
           <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <FileText className="h-4 w-4 text-primary" />
-              DescripciÃ³n del Trabajo
+              Descripción del Trabajo
             </h4>
             <p className="text-foreground italic bg-background p-3 rounded-lg border border-border leading-relaxed">
               {order.observacionesIngreso || "No se especificaron observaciones adicionales."}
@@ -428,7 +428,7 @@ export function OrderDetailDialog({
                       {bike.descripcion && (
                         <div>
                           <span className="text-xs text-muted-foreground block mb-1">
-                            DescripciÃ³n / Estado inicial
+                            Descripción / Estado inicial
                           </span>
                           <p className="text-xs italic bg-background p-2.5 rounded-lg border border-border">
                             {bike.descripcion}
@@ -440,12 +440,12 @@ export function OrderDetailDialog({
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                             <ImageIcon className="h-3.5 w-3.5" />
-                            FotografÃ­as de Ingreso
+                            Fotografías de Ingreso
                           </span>
                           {bike.imagenes?.length ? (
                             <span className="text-[10px] font-bold text-muted-foreground">
                               {bike.imagenes.length}{" "}
-                              {bike.imagenes.length === 1 ? "fotografÃ­a" : "fotografÃ­as"}
+                              {bike.imagenes.length === 1 ? "fotografía" : "fotografías"}
                             </span>
                           ) : null}
                         </div>
@@ -507,7 +507,7 @@ export function OrderDetailDialog({
                           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-8 text-center">
                             <ImageIcon className="h-7 w-7 text-muted-foreground mb-2" />
                             <p className="text-xs text-muted-foreground">
-                              No hay fotografÃ­as registradas
+                              No hay fotografías registradas
                             </p>
                           </div>
                         )}
@@ -582,11 +582,11 @@ export function OrderDetailDialog({
                 className="gap-1.5 cursor-pointer font-semibold"
               >
                 <History className="h-4 w-4" />
-                Ver auditorÃ­a
+                Ver auditoría
               </Button>
             )}
 
-            {/* [Exportar â–¾] */}
+            {/* [Exportar ▾] */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer font-semibold">
@@ -653,10 +653,10 @@ export function OrderDetailDialog({
               <>
                 <DialogHeader>
                   <DialogTitle className="text-sm font-semibold text-white">
-                    {lightbox.title} Â· {lightbox.index + 1} / {lightbox.images.length}
+                    {lightbox.title} · {lightbox.index + 1} / {lightbox.images.length}
                   </DialogTitle>
                   <DialogDescription className="sr-only">
-                    FotografÃ­as de ingreso de la bicicleta
+                    Fotografías de ingreso de la bicicleta
                   </DialogDescription>
                 </DialogHeader>
                 <div className="relative flex w-full items-center justify-center">
@@ -665,14 +665,14 @@ export function OrderDetailDialog({
                       type="button"
                       onClick={() => showImage(-1)}
                       className="absolute left-2 z-10 cursor-pointer rounded-full bg-white/10 p-3 text-white transition-colors duration-150 hover:bg-white/20 motion-reduce:transition-none"
-                      aria-label="FotografÃ­a anterior"
+                      aria-label="Fotografía anterior"
                     >
                       <ChevronLeft className="h-7 w-7" />
                     </button>
                   )}
                   <img
                     src={lightbox.images[lightbox.index]}
-                    alt={`${lightbox.title} - fotografÃ­a ${lightbox.index + 1}`}
+                    alt={`${lightbox.title} - fotografía ${lightbox.index + 1}`}
                     className="max-h-[80vh] max-w-full rounded-lg object-contain"
                   />
                   {lightbox.images.length > 1 && (
@@ -680,7 +680,7 @@ export function OrderDetailDialog({
                       type="button"
                       onClick={() => showImage(1)}
                       className="absolute right-2 z-10 cursor-pointer rounded-full bg-white/10 p-3 text-white transition-colors duration-150 hover:bg-white/20 motion-reduce:transition-none"
-                      aria-label="FotografÃ­a siguiente"
+                      aria-label="Fotografía siguiente"
                     >
                       <ChevronRight className="h-7 w-7" />
                     </button>
@@ -722,13 +722,13 @@ function printWorkOrder(order: WorkOrder) {
 
   const cleanup = () => {
     document.getElementById(iframeId)?.remove()
-    // Liberar estilos de bloqueo si Radix quedÃ³ en estado inconsistente
+    // Liberar estilos de bloqueo si Radix quedó en estado inconsistente
     document.body.style.pointerEvents = ""
     document.body.style.overflow = ""
     try {
       previouslyFocused?.focus()
     } catch {
-      // Si el elemento ya no existe o cambiÃ³, no bloquea
+      // Si el elemento ya no existe o cambió, no bloquea
     }
   }
 
@@ -750,8 +750,8 @@ function printWorkOrder(order: WorkOrder) {
       }
       document.addEventListener("visibilitychange", onVisibility)
 
-      // PequeÃ±o retardo para permitir que el DropdownMenu termine su transiciÃ³n de cierre
-      // antes de que el browser suspenda el hilo principal con el diÃ¡logo nativo de impresiÃ³n
+      // Pequeño retardo para permitir que el DropdownMenu termine su transición de cierre
+      // antes de que el browser suspenda el hilo principal con el diálogo nativo de impresión
       setTimeout(() => {
         try {
           iframeWindow.focus()
@@ -774,7 +774,7 @@ function printWorkOrder(order: WorkOrder) {
 
   // Fallback de seguridad si onload no dispara
   setTimeout(triggerPrint, 350)
-  // Red de seguridad mÃ¡xima: asegura cleanup pasados 60s
+  // Red de seguridad máxima: asegura cleanup pasados 60s
   setTimeout(cleanup, 60000)
 }
 
@@ -785,12 +785,12 @@ async function downloadWorkOrderPdf(order: WorkOrder) {
     import("jspdf"),
   ])
 
-  // Contenedor aislado (no heredarÃ¡ estilos del DOM principal con colores lab/oklch)
+  // Contenedor aislado (no heredará estilos del DOM principal con colores lab/oklch)
   const container = document.createElement("div")
   container.style.position = "fixed"
   container.style.left = "-9999px"
   container.style.top = "0"
-  container.style.width = "794px" // â‰ˆ letter width en 96dpi
+  container.style.width = "794px" // ≈ letter width en 96dpi
   container.style.background = "#ffffff"
   container.style.fontFamily = "Arial, sans-serif"
   container.innerHTML = buildWorkOrderContent(order)

@@ -244,7 +244,7 @@ export function FormCreateVenta({
     0
   )
 
-  // Subtotal despuÃ©s de descuentos por lÃ­nea
+  // Subtotal después de descuentos por línea
   const subtotalAfterLineDiscounts = Math.max(
     0,
     totalProductsCost - totalLineDiscounts
@@ -298,14 +298,14 @@ export function FormCreateVenta({
 
     if (incompleteProductIdx !== -1) {
       toast.error(
-        `Debe seleccionar un producto en la lÃ­nea #${
+        `Debe seleccionar un producto en la línea #${
           incompleteProductIdx + 1
         }.`
       )
       return
     }
 
-    // ValidaciÃ³n de stock
+    // Validación de stock
     for (let i = 0; i < selectedProducts.length; i++) {
       const sp = selectedProducts[i]
 
@@ -325,7 +325,7 @@ export function FormCreateVenta({
       }
     }
 
-    // ValidaciÃ³n de descuentos unitarios
+    // Validación de descuentos unitarios
     const invalidDiscountIdx =
       selectedProducts.findIndex(
         (p) =>
@@ -336,14 +336,14 @@ export function FormCreateVenta({
 
     if (invalidDiscountIdx !== -1) {
       toast.error(
-        `Descuento invÃ¡lido en la lÃ­nea #${
+        `Descuento inválido en la línea #${
           invalidDiscountIdx + 1
         }. El descuento no puede superar el precio unitario.`
       )
       return
     }
 
-    // ValidaciÃ³n del descuento global
+    // Validación del descuento global
     if (
       descuentoGlobal < 0 ||
       descuentoGlobal >
@@ -430,7 +430,7 @@ export function FormCreateVenta({
       console.error(err)
 
       toast.error(
-        "Error de conexiÃ³n al procesar la venta."
+        "Error de conexión al procesar la venta."
       )
     } finally {
       setIsSubmitting(false)
@@ -562,7 +562,7 @@ export function FormCreateVenta({
 
                 <div className="flex items-center justify-between text-[10px] mt-1 px-1">
                   <span className="text-muted-foreground">
-                    Â¿El cliente no estÃ¡ registrado?
+                    ¿El cliente no está registrado?
                   </span>
 
                   <div className="flex gap-2">
@@ -577,7 +577,7 @@ export function FormCreateVenta({
                       }
                       className="h-auto p-0 font-bold"
                     >
-                      + Registrar aquÃ­
+                      + Registrar aquí
                     </Button>
 
                     <span className="text-muted-foreground/40">
@@ -856,18 +856,18 @@ export function FormCreateVenta({
           <div className="space-y-4">
             <Label className="text-sm font-bold flex items-center gap-1">
               <DollarSign className="h-4 w-4 text-primary" />
-              InformaciÃ³n del Pago
+              Información del Pago
             </Label>
 
             <div className="grid gap-3 sm:grid-cols-2">
 
-              {/* MÃ©todo */}
+              {/* Método */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="metodoPago"
                   className="text-xs font-semibold"
                 >
-                  MÃ©todo de Pago
+                  Método de Pago
                 </Label>
 
                 <Select
@@ -1088,7 +1088,7 @@ export function FormCreateVenta({
         </div>
       </form>
 
-      {/* Registro rÃ¡pido de cliente */}
+      {/* Registro rápido de cliente */}
       <Dialog
         open={openQuickCreateClient}
         onOpenChange={
@@ -1098,7 +1098,7 @@ export function FormCreateVenta({
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Registrar Cliente RÃ¡pido
+              Registrar Cliente Rápido
             </DialogTitle>
 
             <DialogDescription>

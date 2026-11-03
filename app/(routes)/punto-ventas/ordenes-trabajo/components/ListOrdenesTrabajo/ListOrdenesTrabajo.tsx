@@ -105,11 +105,11 @@ export function ListOrdenesTrabajo() {
       if (!response.ok) {
         if (response.status === 404 && data?.code === "SIN_ORDENES_EN_PERIODO") {
           setOrders([])
-          setPeriodEmptyMessage("No hay Ã³rdenes de trabajo dentro del perÃ­odo seleccionado.")
+          setPeriodEmptyMessage("No hay órdenes de trabajo dentro del período seleccionado.")
           return true
         }
 
-        toast.error(data?.message || "No fue posible consultar las Ã³rdenes de trabajo.")
+        toast.error(data?.message || "No fue posible consultar las órdenes de trabajo.")
         return false
       }
 
@@ -130,13 +130,13 @@ export function ListOrdenesTrabajo() {
       setOrders(ordenes)
       setPeriodEmptyMessage(
         period && ordenes.length === 0
-          ? "No hay Ã³rdenes de trabajo dentro del perÃ­odo seleccionado."
+          ? "No hay órdenes de trabajo dentro del período seleccionado."
           : null,
       )
       return true
     } catch (err) {
       console.error("Error fetching work orders:", err)
-      toast.error("No fue posible consultar las Ã³rdenes de trabajo.")
+      toast.error("No fue posible consultar las órdenes de trabajo.")
       return false
     } finally {
       setIsLoading(false)
@@ -148,7 +148,7 @@ export function ListOrdenesTrabajo() {
   }, [appliedPeriod, getOrders])
 
   useEffect(() => {
-    // Difiere la carga inicial para evitar actualizaciones de estado sÃ­ncronas durante el efecto.
+    // Difiere la carga inicial para evitar actualizaciones de estado síncronas durante el efecto.
     void Promise.resolve().then(() => getOrders(null))
   }, [getOrders])
 
@@ -387,7 +387,7 @@ export function ListOrdenesTrabajo() {
         throw new Error(err.message || "Error al registrar el pago restante")
       }
 
-      toast.success("Pago registrado correctamente. La orden ahora estÃ¡ Pagada.")
+      toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
       setPayModalOpen(false)
       closeOrderDetail()
       refreshOrders()
@@ -453,7 +453,7 @@ export function ListOrdenesTrabajo() {
     <div className="space-y-6 animate-in fade-in duration-150 motion-reduce:animate-none">
       {/* 1. Panel de KPIs */}
       <KpiCards orders={orders} />
-      {/* 2. Tabla Principal de Ã“rdenes */}
+      {/* 2. Tabla Principal de Órdenes */}
       <DataTable
         columns={columns}
         data={orders}
@@ -469,7 +469,7 @@ export function ListOrdenesTrabajo() {
         emptyState={
           periodEmptyMessage
             ? {
-                title: "Sin Ã³rdenes en este perÃ­odo",
+                title: "Sin órdenes en este período",
                 description: periodEmptyMessage,
               }
             : undefined
@@ -489,7 +489,7 @@ export function ListOrdenesTrabajo() {
 
       <UpcomingDeadlines orders={orders} onViewDetails={handleViewDetails} />
 
-      {/* 3. PrÃ³ximos Vencimientos */}
+      {/* 3. Próximos Vencimientos */}
       {/* 4. Modal de Detalle */}
       <OrderDetailDialog
         open={openDetailsModal}
@@ -509,7 +509,7 @@ export function ListOrdenesTrabajo() {
         onModifyServiceClick={handleModifyServiceClick}
       />
 
-      {/* 4.5. Modal de AsignaciÃ³n de Insumos y ValorizaciÃ³n */}
+      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
       <AssignSuppliesDialog
         open={suppliesModalOpen}
         onOpenChange={setSuppliesModalOpen}
@@ -555,7 +555,7 @@ export function ListOrdenesTrabajo() {
         isGeneratingReceipt={isGeneratingReceipt}
       />
 
-      {/* 7. Modal de ReprogramaciÃ³n de Entrega */}
+      {/* 7. Modal de Reprogramación de Entrega */}
       <RescheduleDialog
         open={rescheduleModalOpen}
         onOpenChange={setRescheduleModalOpen}
@@ -566,7 +566,7 @@ export function ListOrdenesTrabajo() {
         isRescheduling={isRescheduling}
       />
 
-      {/* 8. Modal de ConfirmaciÃ³n de AnulaciÃ³n */}
+      {/* 8. Modal de Confirmación de Anulación */}
       <CancelOrderDialog
         open={cancelModalOpen}
         onOpenChange={setCancelModalOpen}
@@ -575,14 +575,14 @@ export function ListOrdenesTrabajo() {
         isCancelling={isCancellingOrder}
       />
 
-      {/* 9. Modal de Historial de AuditorÃ­a */}
+      {/* 9. Modal de Historial de Auditoría */}
       <OrderAuditDialog
         open={auditModalOpen}
         onOpenChange={setAuditModalOpen}
         order={orderToAudit}
       />
 
-      {/* 10. Modal de ModificaciÃ³n de Servicio */}
+      {/* 10. Modal de Modificación de Servicio */}
       <ModifyServiceDialog
         open={modifyServiceModalOpen}
         onOpenChange={setModifyServiceModalOpen}

@@ -559,7 +559,7 @@ export function ResolveGarantiaDialog({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            La resoluciÃ³n es definitiva: una vez registrada no podrÃ¡ modificarse.
+            La resolución es definitiva: una vez registrada no podrá modificarse.
           </p>
 
           {/* ==================================================
