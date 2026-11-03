@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic"
  * igual que GET /api/ordenes-trabajo/[idVenta]/pdf de T3-B08.
  *
  * Contrato para frontend:
- * - 200 PDF_ENVIADO: el correo se entregó a Resend.
+ * - 200 PDF_ENVIADO: el correo se entregó al servidor SMTP.
  * - 400 ORDEN_TRABAJO_INVALIDA, 404 ORDEN_TRABAJO_NO_ENCONTRADA,
  *   422 CLIENTE_SIN_CORREO y 503 SERVICIO_CORREO_NO_DISPONIBLE.
  */
