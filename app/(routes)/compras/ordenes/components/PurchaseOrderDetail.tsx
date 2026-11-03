@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { PERMISSIONS } from "@/lib/permissions"
 import { PurchaseOrderReceptionDialog } from "./PurchaseOrderReceptionDialog"
-import { AlertCircle, CheckCircle2, LoaderCircle, Send, Wallet } from "lucide-react"
+import { AlertCircle, CheckCircle2, Copy, LoaderCircle, Send, Wallet } from "lucide-react"
+import { toast } from "sonner"
+import { buildPurchaseOrderText } from "@/lib/purchase-order-text"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +50,7 @@ export function PurchaseOrderDetail({
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [amount, setAmount] = useState("")
@@ -88,6 +91,22 @@ export function PurchaseOrderDetail({
     .reduce((total, item) => total + Number(item.montoAsociado), 0), [order])
   const total = Number(order?.montoTotal ?? 0)
   const balance = Math.max(0, total - paid)
+
+  const copyToClipboard = async () => {
+    if (!order || order.idOrdenDeCompra !== id || loading || busy || copying) return
+    setCopying(true)
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Portapapeles no disponible")
+      }
+      await navigator.clipboard.writeText(buildPurchaseOrderText(order))
+      toast.success("Orden copiada al portapapeles. Ya puedes pegarla en WhatsApp.")
+    } catch {
+      toast.error("No se pudo copiar la orden. Revisa los permisos del portapapeles del navegador.")
+    } finally {
+      setCopying(false)
+    }
+  }
 
   const runTransition = async (action: "ENVIAR" | "COMPLETAR") => {
     if (!order) return
@@ -147,6 +166,10 @@ export function PurchaseOrderDetail({
         <DialogHeader className="min-w-0 break-words pr-8">
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
+          <Button type="button" variant="outline" className="mt-2 h-auto min-h-8 w-full whitespace-normal py-2 sm:w-fit" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
+            {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+            Copiar al portapapeles
+          </Button>
         </DialogHeader>
         {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
           <div className="min-w-0 space-y-5">
