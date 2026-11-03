@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { PERMISSIONS } from "@/lib/permissions"
 import { PurchaseOrderReceptionDialog } from "./PurchaseOrderReceptionDialog"
-import { AlertCircle, CheckCircle2, Copy, LoaderCircle, Send, Wallet } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, Copy, LoaderCircle, Send, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { buildPurchaseOrderText } from "@/lib/purchase-order-text"
 
@@ -51,6 +51,7 @@ export function PurchaseOrderDetail({
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [copying, setCopying] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [amount, setAmount] = useState("")
@@ -105,6 +106,48 @@ export function PurchaseOrderDetail({
       toast.error("No se pudo copiar la orden. Revisa los permisos del portapapeles del navegador.")
     } finally {
       setCopying(false)
+    }
+  }
+
+  const downloadPdf = async () => {
+    if (!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf) return
+    const orderId = order.idOrdenDeCompra
+    let downloadUrl: string | undefined
+    let link: HTMLAnchorElement | undefined
+    setDownloadingPdf(true)
+    try {
+      const response = await fetch(`/api/ordenes-compra/${orderId}/pdf`, {
+        headers: { Accept: "application/pdf" },
+        credentials: "same-origin",
+        cache: "no-store",
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        throw new Error(result?.message || "No fue posible generar el PDF de la orden de compra.")
+      }
+      if (!response.headers.get("Content-Type")?.toLowerCase().includes("application/pdf")) {
+        throw new Error("El servidor no devolvió un PDF válido. Comprueba tu sesión e inténtalo nuevamente.")
+      }
+      const blob = await response.blob()
+      if (!blob.size) throw new Error("El PDF está vacío. Inténtalo nuevamente.")
+      downloadUrl = URL.createObjectURL(blob)
+      link = document.createElement("a")
+      link.href = downloadUrl
+      link.download = `reporte-orden-compra-${orderId}.pdf`
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      toast.success("Descarga del PDF iniciada.")
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "No fue posible descargar el PDF.")
+    } finally {
+      link?.remove()
+      if (downloadUrl) {
+        const url = downloadUrl
+        // Permite que el navegador inicie la descarga antes de liberar la URL.
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
+      setDownloadingPdf(false)
     }
   }
 
@@ -166,10 +209,16 @@ export function PurchaseOrderDetail({
         <DialogHeader className="min-w-0 break-words pr-8">
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
-          <Button type="button" variant="outline" className="mt-2 h-auto min-h-8 w-full whitespace-normal py-2 sm:w-fit" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
-            {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
-            Copiar al portapapeles
-          </Button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
+              {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+              Copiar al portapapeles
+            </Button>
+            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf} onClick={() => void downloadPdf()}>
+              {downloadingPdf ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
+            </Button>
+          </div>
         </DialogHeader>
         {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
           <div className="min-w-0 space-y-5">
