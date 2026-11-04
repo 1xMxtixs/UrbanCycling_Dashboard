@@ -27,6 +27,8 @@ import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
 import { ESTADO_PAGO } from "@/lib/payment-status"
+import { formatClientName } from "@/lib/formatters"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 import {
   Select,
   SelectContent,
@@ -45,6 +47,7 @@ interface DataTableProps<TData, TValue> {
   updatingId: number | null
   onPayClick?: (idVenta: number, total: number) => void
   onGenerateReceipt?: (op: SaleOperation) => void
+  onCancelClick?: (op: SaleOperation) => void
   initialSearch?: string
 }
 
@@ -56,6 +59,7 @@ export function DataTable<TData, TValue>({
   updatingId,
   onPayClick,
   onGenerateReceipt,
+  onCancelClick,
   initialSearch = "",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -84,13 +88,14 @@ export function DataTable<TData, TValue>({
       pagination: {
         pageSize: 8,
       },
-    } as any,
+    },
     meta: {
       onViewDetails,
       onUpdateStatus,
       updatingId,
       onPayClick,
       onGenerateReceipt,
+      onCancelClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -99,6 +104,28 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const query = String(filterValue ?? "").trim().replace(/^#/, "").trim()
+      if (!query) return true
+
+      const sale = row.original as SaleOperation
+      const clientName = sale.cliente
+        ? formatClientName(sale.cliente)
+        : "Cliente general"
+      const productNames = sale.venta?.lineasDeVenta?.map((line) => line.producto?.nombre ?? "") ?? []
+      const matchesText = [
+        String(sale.venta?.idVenta ?? ""),
+        clientName,
+        sale.cliente?.rut ?? "",
+        ...productNames,
+      ].some((value) => includesNormalizedText(value, query))
+
+      const normalizedQuery = normalizeSearchText(query).replace(/[.\-\s]/g, "")
+      const normalizedRut = normalizeSearchText(sale.cliente?.rut).replace(/[.\-\s]/g, "")
+      const matchesRut = normalizedQuery.length >= 3 && normalizedRut.includes(normalizedQuery)
+
+      return matchesText || matchesRut
+    },
     state: {
       sorting,
       columnFilters,
@@ -117,18 +144,19 @@ export function DataTable<TData, TValue>({
       title="Registro de Ventas"
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "venta encontrada" : "ventas encontradas"}`}
       toolbar={
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
-                placeholder="Buscar por ID o Cliente..."
+                placeholder="Buscar por N.º de venta, cliente o producto…"
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(event.target.value)}
-                className="pl-9"
+                aria-label="Buscar ventas por número, cliente o producto"
+                className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
               />
             </div>
 
+            <div className="w-full shrink-0 sm:w-56">
             <Select
               value={
                 (table.getColumn("estadoPago")?.getFilterValue() as string) ?? "all"
@@ -137,11 +165,11 @@ export function DataTable<TData, TValue>({
                 table.getColumn("estadoPago")?.setFilterValue(value === "all" ? "" : value)
               }
             >
-              <SelectTrigger className="h-9 w-full sm:w-48">
-                <SelectValue placeholder="Todos los estados de pago" />
+              <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar por estado de pago">
+                <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value="all">Todos los estados de pago</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PAGADA}>Pagadas</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PENDIENTE}>Pendientes</SelectItem>
                 <SelectItem value={ESTADO_PAGO.PARCIAL}>Parciales</SelectItem>
@@ -149,12 +177,8 @@ export function DataTable<TData, TValue>({
                 <SelectItem value={ESTADO_PAGO.ANULADA}>Anuladas</SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            {filteredRowCount} {filteredRowCount === 1 ? "venta encontrada" : "ventas encontradas"}
-          </p>
-        </div>
       }
       footer={
         filteredRowCount > 0 ? (
@@ -215,7 +239,22 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                key={row.id}
+                className="cursor-pointer"
+                tabIndex={0}
+                aria-label={`Ver detalle de venta #${(row.original as SaleOperation).venta.idVenta}`}
+                onClick={() => onViewDetails(row.original as SaleOperation)}
+                onKeyDown={(event) => {
+                  if (
+                    event.target === event.currentTarget &&
+                    (event.key === "Enter" || event.key === " ")
+                  ) {
+                    event.preventDefault()
+                    onViewDetails(row.original as SaleOperation)
+                  }
+                }}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

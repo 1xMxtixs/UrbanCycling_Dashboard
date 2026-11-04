@@ -2,29 +2,22 @@
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table"
 import {
-  ArrowUpDown,
-  MoreHorizontal,
   Eye,
-  Loader2,
   FileText,
+  Play,
+  Pause,
+  PackageCheck,
+  CheckCircle2,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/common/StatusBadge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+import type { LucideIcon } from "lucide-react"
+import { SortableHeader } from "@/components/common/SortableHeader"
+import { WorkOrderStatusBadge } from "@/components/common/WorkOrderStatusBadge"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName } from "@/lib/formatters"
 import {
   ESTADO_OT,
-  ESTADOS_OT_CERRADOS,
   getNombreEstadoOt,
-  getNombreEstadoOtVisible,
   isOrdenTrabajoRetrasada,
   TRANSICIONES_OT,
 } from "@/lib/work-order-status"
@@ -47,64 +40,49 @@ function getAvailableTransitions(currentStatus: string) {
   return TRANSICIONES_OT[currentStatus as keyof typeof TRANSICIONES_OT] || []
 }
 
+const transitionIcons: Record<string, LucideIcon> = {
+  [ESTADO_OT.EN_CURSO]: Play,
+  [ESTADO_OT.EN_ESPERA]: Pause,
+  [ESTADO_OT.LISTO_PARA_ENTREGAR]: PackageCheck,
+  [ESTADO_OT.ENTREGADO]: CheckCircle2,
+}
+
 const CellActions = ({ row, table }: { row: Row<WorkOrder>; table: Table<WorkOrder> }) => {
   const order = row.original
   const meta = table.options.meta as WorkOrderTableMeta | undefined
   const transitions = getAvailableTransitions(order.estadoOrden)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-          {meta?.updatingId === order.idOrdenDeTrabajo ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <MoreHorizontal className="h-4 w-4" />
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-
-        <DropdownMenuItem
-          onClick={() => meta?.onViewDetails?.(order)}
-          className="flex cursor-pointer items-center gap-2"
-        >
-          <Eye className="h-4 w-4" />
-          Ver Detalle
-        </DropdownMenuItem>
-
-        {order.estadoOrden === ESTADO_OT.ENTREGADO && (
-          <DropdownMenuItem
-            onClick={() => meta?.onGenerateReceipt?.(order)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-          >
-            <FileText className="h-4 w-4" />
-            Generar Boleta
-          </DropdownMenuItem>
-        )}
-        {transitions.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              Cambiar Estado
-            </DropdownMenuLabel>
-            {transitions.map((nextState: string) => (
-              <DropdownMenuItem
-                key={nextState}
-                onClick={() =>
-                  meta?.onStatusChange?.(order.idOrdenDeTrabajo, nextState)
-                }
-                className="flex cursor-pointer items-center gap-1.5 pl-6 text-xs"
-              >
-                <span>→ Mover a:</span>
-                <span className="font-semibold text-primary">{getNombreEstadoOt(nextState)}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <RowActionsMenu
+      ariaLabel={`Acciones de la orden #${order.idOrdenDeTrabajo}`}
+      isLoading={meta?.updatingId === order.idOrdenDeTrabajo}
+      groups={[
+        {
+          actions: [
+            {
+              label: "Ver detalle",
+              icon: Eye,
+              onSelect: () => meta?.onViewDetails?.(order),
+            },
+            {
+              label: "Generar boleta",
+              icon: FileText,
+              variant: "primary",
+              hidden: order.estadoOrden !== ESTADO_OT.ENTREGADO,
+              onSelect: () => meta?.onGenerateReceipt?.(order),
+            },
+          ],
+        },
+        {
+          label: "Cambiar estado",
+          actions: transitions.map((nextState: string) => ({
+            label: getNombreEstadoOt(nextState),
+            icon: transitionIcons[nextState],
+            onSelect: () => meta?.onStatusChange?.(order.idOrdenDeTrabajo, nextState),
+          })),
+        },
+      ]}
+    />
   )
 }
 
@@ -113,7 +91,9 @@ export const columns: ColumnDef<WorkOrder>[] = [
     accessorKey: "idOrdenDeTrabajo",
     header: "ID Orden",
     cell: ({ row }) => (
-      <DataField variant="table-cell" value={`#${row.getValue("idOrdenDeTrabajo")}`} />
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+        #{row.getValue("idOrdenDeTrabajo")}
+      </span>
     ),
   },
   {
@@ -197,56 +177,35 @@ export const columns: ColumnDef<WorkOrder>[] = [
     },
     cell: ({ row }) => {
       const order = row.original
-      switch (order.estadoOrden) {
-        case ESTADO_OT.POR_REALIZAR:
-          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        case ESTADO_OT.EN_CURSO:
-          return <StatusBadge status="info" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        case ESTADO_OT.EN_ESPERA:
-          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        case ESTADO_OT.LISTO_PARA_ENTREGAR:
-          return <StatusBadge status="warning" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        case ESTADO_OT.ENTREGADO:
-          return <StatusBadge status="success" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        case ESTADO_OT.ANULADA:
-          return <StatusBadge status="danger" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-        default:
-          return <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
-      }
+      return (
+        <WorkOrderStatusBadge estado={order.estadoOrden} nombre={order.estadoOrdenNombre} fechaEntregaEstimada={order.fechaEntregaEstimada} />
+      )
     },
   },
   {
     accessorKey: "fechaEntregaEstimada",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-        >
-          Fecha Entrega
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
+    header: ({ column }) => <SortableHeader column={column}>Fecha entrega</SortableHeader>,
     cell: ({ row }) => {
       const date = new Date(row.getValue("fechaEntregaEstimada"))
       return (
-        <DataField
-          variant="table-cell"
-          value={date.toLocaleDateString("es-ES", {
+        <span className="text-sm tabular-nums text-foreground">
+          {date.toLocaleDateString("es-ES", {
             day: "2-digit",
             month: "short",
             year: "numeric",
             timeZone: "UTC",
           })}
-        />
+        </span>
       )
     },
   },
   {
     id: "acciones",
     header: "Acciones",
-    cell: CellActions,
+    cell: ({ row, table }) => (
+      <div className="flex justify-end" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+        <CellActions row={row} table={table} />
+      </div>
+    ),
   },
 ]

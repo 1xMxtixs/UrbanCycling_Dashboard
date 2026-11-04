@@ -43,7 +43,9 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.metaKey || event.ctrlKey || event.altKey) {
+      // Requiere combinación intencional (Alt+Shift+D o Ctrl+Shift+D) para evitar cambios accidentales
+      const hasModifier = event.altKey || event.ctrlKey || event.metaKey
+      if (!hasModifier || !event.shiftKey) {
         return
       }
 
@@ -51,11 +53,11 @@ function ThemeHotkey() {
         return
       }
 
-
       if (isTypingTarget(event.target)) {
         return
       }
 
+      event.preventDefault()
       setTheme(resolvedTheme === "dark" ? "light" : "dark")
     }
 

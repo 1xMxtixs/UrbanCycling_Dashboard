@@ -44,17 +44,7 @@ import {
   Service,
 } from "./OrderLinesSection"
 import { PaymentInitialSection } from "./PaymentInitialSection"
-
-interface Client {
-  idCliente: number
-  tipoCliente: string
-  rut: string
-  primerNombre: string | null
-  segundoNombre: string | null
-  apellidoPaterno: string | null
-  apellidoMaterno: string | null
-  razonSocial: string | null
-}
+import type { Client } from "@/app/(routes)/punto-ventas/types"
 
 interface FormCreateOrderProps {
   setOpenModalCreate: (open: boolean) => void
@@ -203,7 +193,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
 
   const handleQuickClientSuccess = () => {
     setOpenQuickCreateClient(false)
-    toast.success("Cliente creado correctamente.")
     fetchClients(true) // Re-fetch y auto-selecciona el más nuevo
   }
 

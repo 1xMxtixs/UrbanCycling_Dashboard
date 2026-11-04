@@ -13,6 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,19 +25,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DBCliente } from "../../types";
+import { validarYFormatearRut } from "@/lib/client-rut";
 
 const formSchema = z
   .object({
     tipoCliente: z.enum(["natural", "juridica"]),
     nombre: z.string(),
     apellido: z.string(),
-    rut: z.string().min(1, "El RUT es obligatorio"),
-    telefono: z.string().min(1, "El teléfono es obligatorio"),
+    rut: z.string(),
+    telefono: z.string().min(8, "El teléfono debe tener al menos 8 dígitos"),
     razon: z.string(),
     nombreContacto: z.string(),
     giro: z.string(),
   })
   .superRefine((values, context) => {
+    const rutResult = validarYFormatearRut(values.rut);
+    if (!rutResult.valid) {
+      context.addIssue({
+        code: "custom",
+        path: ["rut"],
+        message: rutResult.error,
+      });
+    }
     if (values.tipoCliente === "natural") {
       if (!values.nombre.trim()) {
         context.addIssue({
@@ -110,7 +120,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    mode: "onChange",
+    mode: "onTouched",
     defaultValues: getInitialValues(cliente),
   });
 
@@ -121,7 +131,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
   }, [cliente, form]);
 
   const tipoCliente = form.watch("tipoCliente");
-  const { isSubmitting, isValid } = form.formState;
+  const { isSubmitting } = form.formState;
 
   const onSubmit = async (values: FormValues) => {
     setErrorGeneral("");
@@ -216,6 +226,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                   <SelectItem value="juridica">Persona Jurídica</SelectItem>
                 </SelectContent>
               </Select>
+              {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
@@ -280,8 +291,16 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                     placeholder="12345678-9"
                     {...field}
                     disabled={Boolean(cliente)}
+                    onBlur={(event) => {
+                      field.onBlur();
+                      const result = validarYFormatearRut(event.currentTarget.value);
+                      if (result.valid) {
+                        form.setValue("rut", result.compact, { shouldValidate: true });
+                      }
+                    }}
                   />
                 </FormControl>
+                {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
                 <FormMessage />
               </FormItem>
             )}
@@ -296,6 +315,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                   <Input
                     placeholder="912345678"
                     maxLength={9}
+                    inputMode="numeric"
                     {...field}
                     onChange={(event) =>
                       field.onChange(event.target.value.replace(/\D/g, "").slice(0, 9))
@@ -348,7 +368,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
         <div className="flex justify-end pt-2">
           <Button
             type="submit"
-            disabled={!isValid || isSubmitting}
+            disabled={isSubmitting}
             className="w-full font-semibold sm:w-auto"
           >
             {isSubmitting

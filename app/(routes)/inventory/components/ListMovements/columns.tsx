@@ -1,9 +1,11 @@
 "use client"
 
-import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import type { ColumnDef } from "@tanstack/react-table"
+import Link from "next/link"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { formatDateCL } from "@/lib/formatters"
+import { SortableHeader } from "@/components/common/SortableHeader"
+import type { ReactNode } from "react"
 
 export type MovementColumn = {
   idMovimientoInventario: number
@@ -19,17 +21,55 @@ export type MovementColumn = {
   usuario?: string | null
 }
 
+export function formatMotivo(motivo?: string | null): string {
+  const normalized = (motivo ?? "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .toLocaleLowerCase("es-CL")
+  if (!normalized) return "—"
+  if (normalized === "orden trabajo") return "Orden de trabajo"
+  return normalized[0].toLocaleUpperCase("es-CL") + normalized.slice(1)
+}
+
+function renderObservacion(text?: string | null): ReactNode {
+  if (!text?.trim()) return <span className="text-muted-foreground/60">—</span>
+  const match = /\b(venta|OT)\s*#(\d+)/i.exec(text)
+  if (!match) return text
+
+  const referenceType = match[1].toLocaleLowerCase("es-CL")
+  const referenceId = match[2]
+  const href = referenceType === "venta"
+    ? `/punto-ventas/ventas?ventaId=${referenceId}`
+    : `/punto-ventas/ordenes-trabajo?ordenId=${referenceId}`
+  const start = match.index
+  const end = start + match[0].length
+
+  return (
+    <>
+      {text.slice(0, start)}
+      <Link
+        href={href}
+        className="font-medium text-primary hover:underline underline-offset-2"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {match[0]}
+      </Link>
+      {text.slice(end)}
+    </>
+  )
+}
+
 export const columns: ColumnDef<MovementColumn>[] = [
   {
     accessorKey: "fechaOperacion",
-    header: ({ column }) => (
-      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="cursor-pointer p-0 font-semibold hover:bg-transparent">
-        Fecha <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Fecha</SortableHeader>,
     cell: ({ row }) => {
       const v = row.original.fechaOperacion
-      return <span className="text-xs text-muted-foreground whitespace-nowrap">{v ? new Date(v).toLocaleString("es-CL") : "—"}</span>
+      return (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {v ? formatDateCL(typeof v === "string" ? v : v.toISOString()) : "—"}
+        </span>
+      )
     },
   },
   {
@@ -43,7 +83,7 @@ export const columns: ColumnDef<MovementColumn>[] = [
     filterFn: "equals",
     cell: ({ row }) => {
       const isEntrada = row.original.tipoMovimiento === "ENTRADA"
-      return <StatusBadge status={isEntrada ? "success" : "danger"} label={isEntrada ? "Entrada" : "Salida"} />
+      return <StatusBadge status={isEntrada ? "success" : "danger"} label={isEntrada ? "Entrada" : "Salida"} showDot={false} />
     },
   },
   {
@@ -52,7 +92,7 @@ export const columns: ColumnDef<MovementColumn>[] = [
     cell: ({ row }) => {
       const isEntrada = row.original.tipoMovimiento === "ENTRADA"
       return (
-        <span className={`font-semibold text-sm ${isEntrada ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+        <span className={`font-semibold text-sm tabular-nums ${isEntrada ? "text-primary" : "text-destructive"}`}>
           {isEntrada ? "+" : "-"}{row.original.cantidad} u
         </span>
       )
@@ -66,20 +106,22 @@ export const columns: ColumnDef<MovementColumn>[] = [
       if (stockAnterior === null || stockAnterior === undefined || stockNuevo === null || stockNuevo === undefined) {
         return <span className="text-muted-foreground text-xs">—</span>
       }
-      return <span className="text-xs text-muted-foreground font-medium">{stockAnterior} → <span className="text-foreground font-semibold">{stockNuevo}</span></span>
+      return <span className="text-xs tabular-nums text-muted-foreground font-medium">{stockAnterior} → <span className="text-foreground font-semibold">{stockNuevo}</span></span>
     },
   },
   {
-    accessorKey: "motivo",
-    header: "Motivo",
-    cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.motivo || "—"}</span>,
-  },
-  {
-    accessorKey: "observacion",
-    header: "Observación",
+    id: "detalle",
+    header: "Detalle",
     cell: ({ row }) => {
       const obs = row.original.observacion
-      return obs ? <span className="block max-w-[200px] truncate text-xs text-muted-foreground" title={obs}>{obs}</span> : <span className="text-xs text-muted-foreground">—</span>
+      return (
+        <div className="max-w-[320px] space-y-0.5">
+          <span className="block text-sm text-foreground">{formatMotivo(row.original.motivo)}</span>
+          <span className="block truncate text-xs text-muted-foreground" title={obs ?? undefined}>
+            {renderObservacion(obs)}
+          </span>
+        </div>
+      )
     },
   },
   {

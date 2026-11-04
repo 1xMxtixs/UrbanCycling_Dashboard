@@ -1,24 +1,15 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
 import {
   ArrowLeftRight,
-  ArrowUpDown,
+  Building2,
   Eye,
-  MoreHorizontal,
   Package,
   Power,
-  Trash2,
+  PowerOff,
 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
   getNombreEstadoRegistro,
@@ -26,6 +17,8 @@ import {
 } from "@/lib/registro-status"
 import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
+import { SortableHeader } from "@/components/common/SortableHeader"
+import { formatTipoProducto } from "@/lib/product-types"
 import type { InventoryCategory } from "../../types"
 
 export type { InventoryCategory } from "../../types"
@@ -68,7 +61,7 @@ export function getColumns(
       accessorKey: "idProducto",
       header: "ID",
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-semibold text-muted-foreground">
+        <span className="font-mono text-xs font-semibold tabular-nums text-muted-foreground">
           #{row.original.idProducto}
         </span>
       ),
@@ -97,7 +90,7 @@ export function getColumns(
             <DataField
               variant="table-cell"
               value={p.nombre}
-              secondaryValue={p.tipoProducto}
+              secondaryValue={formatTipoProducto(p.tipoProducto)}
             />
           </div>
         )
@@ -105,73 +98,32 @@ export function getColumns(
     },
     {
       accessorKey: "stockActual",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-          >
-            Stock Actual
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
+      header: ({ column }) => <SortableHeader column={column}>Stock</SortableHeader>,
       cell: ({ row }) => {
-        const stockActual = row.original.stockActual
+        const { stockActual, stockMinimo } = row.original
+        const badge = stockActual === 0 ? (
+          <StatusBadge status="danger" label="Sin stock" showDot={false} />
+        ) : stockActual <= stockMinimo ? (
+          <StatusBadge status="warning" label="Stock bajo" showDot={false} />
+        ) : null
 
         return (
-          <span className="text-sm font-semibold text-foreground">
-            {stockActual} u
-          </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold tabular-nums text-foreground">{stockActual} u</span>
+              {badge}
+            </div>
+            <span className="text-[11px] tabular-nums text-muted-foreground">Mín. {stockMinimo} u</span>
+          </div>
         )
       },
-    },
-    {
-      id: "stockStatus",
-      header: "Disponibilidad",
-      cell: ({ row }) => {
-        const p = row.original
-        const statusKey =
-          p.stockActual === 0
-            ? "danger"
-            : p.stockActual <= p.stockMinimo
-              ? "warning"
-              : "success"
-        const label =
-          p.stockActual === 0
-            ? "Sin stock"
-            : p.stockActual <= p.stockMinimo
-              ? "Stock bajo"
-              : "Disponible"
-
-        return <StatusBadge status={statusKey} label={label} />
-      },
-    },
-    {
-      accessorKey: "stockMinimo",
-      header: "Mínimo",
-      cell: ({ row }) => (
-        <span className="text-xs font-medium text-muted-foreground">
-          {row.original.stockMinimo} u
-        </span>
-      ),
     },
     {
       accessorKey: "precioVenta",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-        >
-          Precio Venta
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
+      header: ({ column }) => <SortableHeader column={column}>Precio venta</SortableHeader>,
       cell: ({ row }) => {
         return (
-          <span className="text-sm font-bold text-foreground">
+          <span className="text-sm font-bold tabular-nums text-foreground">
             {formatCurrency(row.original.precioVenta)}
           </span>
         )
@@ -188,7 +140,8 @@ export function getColumns(
           <StatusBadge
             status={isActive ? "success" : "danger"}
             label={getNombreEstadoRegistro(estado)}
-            showDot={false}
+            showDot={isActive}
+            animateDot={isActive}
           />
         )
       },
@@ -197,71 +150,57 @@ export function getColumns(
       id: "actions",
       header: "Acciones",
       cell: ({ row }) => {
-        const isActive = isRegistroActivo(row.original.estado)
+        const product = row.original
+        const isActive = isRegistroActivo(product.estado)
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 cursor-pointer"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-48 rounded-xl border-border/80"
-            >
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => onViewDetail(row.original)}
-                className="flex cursor-pointer items-center gap-2 text-xs font-medium"
-              >
-                <Eye className="h-4 w-4" />
-                Ver detalle
-              </DropdownMenuItem>
-              {onManageSuppliers && (
-                <DropdownMenuItem
-                  onClick={() => onManageSuppliers(row.original)}
-                >
-                  Ver y asociar proveedores
-                </DropdownMenuItem>
-              )}
-              {canUpdate && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => onRegisterMovement(row.original)}
-                    className="flex cursor-pointer items-center gap-2 text-xs font-medium"
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                    Registrar movimiento
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {isActive ? (
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(row.original)}
-                      className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Inactivar producto
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(row.original)}
-                      className="flex cursor-pointer items-center gap-2 text-xs font-medium text-primary focus:text-primary"
-                    >
-                      <Power className="h-4 w-4" />
-                      Reactivar producto
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActionsMenu
+            ariaLabel={`Acciones del producto ${product.nombre}`}
+            groups={[
+              {
+                actions: [
+                  {
+                    label: "Ver detalle",
+                    icon: Eye,
+                    onSelect: () => onViewDetail(product),
+                  },
+                  {
+                    label: "Asociar proveedores",
+                    icon: Building2,
+                    hidden: !onManageSuppliers,
+                    onSelect: () => onManageSuppliers?.(product),
+                  },
+                  {
+                    label: "Registrar movimiento",
+                    icon: ArrowLeftRight,
+                    hidden: !canUpdate,
+                    onSelect: () => onRegisterMovement(product),
+                  },
+                ],
+              },
+              {
+                label: "Cambiar estado",
+                actions: [
+                  {
+                    label: "Inactivar producto",
+                    icon: PowerOff,
+                    variant: "destructive",
+                    hidden: !canUpdate || !isActive,
+                    onSelect: () => onToggleStatus(product),
+                  },
+                  {
+                    label: "Reactivar producto",
+                    icon: Power,
+                    variant: "primary",
+                    hidden: !canUpdate || isActive,
+                    onSelect: () => onToggleStatus(product),
+                  },
+                ],
+              },
+            ]}
+          />
         )
       },
-    },
+    }
   ]
 }

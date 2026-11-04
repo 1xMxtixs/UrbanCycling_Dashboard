@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Wrench } from "lucide-react"
+import { ESTADO_REGISTRO } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
 const formSchema = z.object({
@@ -65,7 +66,7 @@ export function FormCreateServicio({
         nombre: values.nombre,
         descripcion: values.descripcion || null,
         precioVenta: Number(values.precioVenta),
-        estado: "activo",
+        estado: ESTADO_REGISTRO.ACTIVO,
       }
 
       const response = await fetch("/api/servicios", {

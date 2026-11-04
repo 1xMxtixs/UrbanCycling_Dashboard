@@ -15,33 +15,27 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/common/PageHeader"
 import { toast } from "sonner"
-import { Check, Edit3, KeyRound, Mail, Save, ShieldCheck, UserRound, X } from "lucide-react"
-
-type Profile = {
-  idUsuario: number
-  primerNombre: string
-  segundoNombre: string | null
-  apellidoPaterno: string
-  apellidoMaterno: string | null
-  rut: string
-  correo: string | null
-  telefono: string | null
-  estado: string
-  rol: { idRol: number; nombre: string; descripcion: string | null }
-}
-
-type EditableField =
-  | "primerNombre"
-  | "segundoNombre"
-  | "apellidoPaterno"
-  | "apellidoMaterno"
-  | "correo"
-  | "telefono"
-
-type FormValues = Record<EditableField, string>
-type FieldError = EditableField | "contrasenaActual"
-type PasswordField = "contrasenaActual" | "contrasenaNueva" | "confirmacionContrasena"
-type PasswordValues = Record<PasswordField, string>
+import {
+  AlertCircle,
+  Check,
+  Edit3,
+  KeyRound,
+  Mail,
+  RotateCcw,
+  Save,
+  ShieldCheck,
+  UserRound,
+  X,
+} from "lucide-react"
+import { isRegistroActivo } from "@/lib/registro-status"
+import type {
+  EditableField,
+  FieldError,
+  FormValues,
+  PasswordField,
+  PasswordValues,
+  Profile,
+} from "./types"
 
 const editableFields: EditableField[] = [
   "primerNombre",
@@ -146,7 +140,7 @@ export function ProfileContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldError, string>>>({})
-  const [contrasenaActual, setContrasenaActual] = useState("")
+  const [contactPasswordConfirm, setContactPasswordConfirm] = useState("")
   const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordValues, setPasswordValues] = useState<PasswordValues>({
@@ -155,6 +149,8 @@ export function ProfileContent() {
     confirmacionContrasena: "",
   })
   const [passwordErrors, setPasswordErrors] = useState<Partial<Record<PasswordField | "form", string>>>({})
+
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -177,7 +173,7 @@ export function ProfileContent() {
 
     void loadProfile()
     return () => controller.abort()
-  }, [])
+  }, [reloadKey])
 
   const changes = useMemo(() => {
     if (!profile || !formValues) return {}
@@ -207,7 +203,6 @@ export function ProfileContent() {
       [name]: undefined,
       ...(name === "correo" || name === "telefono" ? { contrasenaActual: undefined } : {}),
     }))
-
   }
 
   function validate() {
@@ -220,7 +215,7 @@ export function ProfileContent() {
     if (formValues.telefono.trim() && !PHONE_REGEX.test(formValues.telefono.trim())) {
       errors.telefono = "Ingresa un teléfono válido."
     }
-    if (requiresCurrentPassword && !contrasenaActual) {
+    if (requiresCurrentPassword && !contactPasswordConfirm) {
       errors.contrasenaActual = "Ingresa tu clave actual para modificar los datos de contacto."
     }
 
@@ -231,7 +226,7 @@ export function ProfileContent() {
   function cancelEditing() {
     if (profile) setFormValues(toFormValues(profile))
     setFieldErrors({})
-    setContrasenaActual("")
+    setContactPasswordConfirm("")
     setIsEditing(false)
   }
 
@@ -251,7 +246,7 @@ export function ProfileContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...changes,
-          ...(requiresCurrentPassword ? { contrasenaActual } : {}),
+          ...(requiresCurrentPassword ? { contrasenaActual: contactPasswordConfirm } : {}),
         }),
       })
       const data = await response.json().catch(() => null)
@@ -278,7 +273,7 @@ export function ProfileContent() {
               : "No fue posible validar tu clave actual."
         }
         setFieldErrors(errors)
-        setContrasenaActual("")
+        setContactPasswordConfirm("")
         throw new Error(
           typeof errorData?.message === "string"
             ? errorData.message
@@ -290,7 +285,7 @@ export function ProfileContent() {
       setProfile(updatedProfile)
       setFormValues(toFormValues(updatedProfile))
       setFieldErrors({})
-      setContrasenaActual("")
+      setContactPasswordConfirm("")
       setIsEditing(false)
 
       const requiresSessionRefresh = sessionFields.some((field) =>
@@ -309,7 +304,7 @@ export function ProfileContent() {
 
       toast.success("Tu perfil se actualizó correctamente.")
     } catch (error) {
-      setContrasenaActual("")
+      setContactPasswordConfirm("")
       toast.error(error instanceof Error ? error.message : "Ocurrió un error inesperado.")
     } finally {
       setIsSaving(false)
@@ -421,11 +416,75 @@ export function ProfileContent() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-20 w-full" />
+      <div
+        className="space-y-6 animate-pulse motion-reduce:animate-none"
+        aria-busy="true"
+        aria-label="Cargando perfil"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-9 w-28" />
+        </div>
         <div className="grid gap-6 lg:grid-cols-3">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-96 lg:col-span-2" />
+          {/* Card lateral usuario */}
+          <Card className="border-border/80 lg:col-span-1">
+            <CardHeader className="items-center border-b border-border/60 text-center space-y-3">
+              <Skeleton className="h-20 w-20 rounded-2xl" />
+              <div className="space-y-1.5 w-full flex flex-col items-center">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </CardHeader>
+            <CardContent className="space-y-4 pt-5">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-4 w-28" />
+            </CardContent>
+          </Card>
+
+          {/* Card información personal y seguridad */}
+          <div className="space-y-6 lg:col-span-2">
+            <Card className="border-border/80">
+              <CardHeader className="border-b border-border/60 space-y-1.5">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="space-y-4">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+                <div className="space-y-4 pt-4 border-t border-border/60">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/80">
+              <CardHeader className="border-b border-border/60 space-y-1.5">
+                <Skeleton className="h-5 w-44" />
+                <Skeleton className="h-4 w-56" />
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <Skeleton className="h-4 w-60" />
+                  <Skeleton className="h-9 w-36" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     )
@@ -435,11 +494,22 @@ export function ProfileContent() {
     return (
       <Card className="border-destructive/25 bg-destructive/5">
         <CardHeader>
-          <CardTitle>No pudimos cargar tu perfil</CardTitle>
+          <CardTitle className="text-destructive flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            No pudimos cargar tu perfil
+          </CardTitle>
           <CardDescription>{loadError || "Intenta nuevamente más tarde."}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={() => window.location.reload()}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsLoading(true)
+              setLoadError("")
+              setReloadKey((prev) => prev + 1)
+            }}
+          >
+            <RotateCcw className="h-4 w-4" />
             Reintentar
           </Button>
         </CardContent>
@@ -448,7 +518,7 @@ export function ProfileContent() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
+    <div className="space-y-6 animate-in fade-in-50 duration-300 motion-reduce:animate-none">
       <PageHeader
         title="Mi perfil"
         description="Consulta y actualiza tus datos personales y de contacto."
@@ -483,13 +553,19 @@ export function ProfileContent() {
           </CardHeader>
           <CardContent className="space-y-4 pt-5">
             <div className="rounded-xl border border-border/70 bg-muted/35 p-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">RUT</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">RUT</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{profile.rut}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Este dato no se puede editar desde el perfil.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Este dato no se puede editar desde el perfil.</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Cuenta {profile.estado.toLowerCase()}
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isRegistroActivo(profile.estado)
+                    ? "bg-emerald-500 dark:bg-emerald-400"
+                    : "bg-muted-foreground"
+                }`}
+              />
+              Cuenta {isRegistroActivo(profile.estado) ? "activa" : "inactiva"}
             </div>
           </CardContent>
         </Card>
@@ -529,9 +605,9 @@ export function ProfileContent() {
                   <Field label="Teléfono" name="telefono" type="tel" value={formValues.telefono} placeholder="Opcional" disabled={!isEditing || isSaving} error={fieldErrors.telefono} onChange={updateField} />
                 </div>
                 {isEditing && requiresCurrentPassword && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 dark:border-amber-400/30 dark:bg-amber-400/10 p-4">
                     <label htmlFor="contrasenaActual" className="text-xs font-semibold text-foreground">
-                      Clave actual
+                       Clave actual
                     </label>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Confirma tu clave para modificar el correo o teléfono de tu cuenta.
@@ -541,12 +617,12 @@ export function ProfileContent() {
                       name="contrasenaActual"
                       type="password"
                       autoComplete="current-password"
-                      value={contrasenaActual}
+                      value={contactPasswordConfirm}
                       disabled={isSaving}
                       aria-invalid={Boolean(fieldErrors.contrasenaActual)}
                       className="mt-3"
                       onChange={(event) => {
-                        setContrasenaActual(event.target.value)
+                        setContactPasswordConfirm(event.target.value)
                         setFieldErrors((current) => ({ ...current, contrasenaActual: undefined }))
                       }}
                     />
@@ -561,7 +637,7 @@ export function ProfileContent() {
                 <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={cancelEditing} disabled={isSaving}>Cancelar</Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving ? <Save className="h-4 w-4 animate-pulse" /> : <Check className="h-4 w-4" />}
+                    {isSaving ? <Save className="h-4 w-4 animate-pulse motion-reduce:animate-none" /> : <Check className="h-4 w-4" />}
                     {isSaving ? "Guardando..." : "Guardar cambios"}
                   </Button>
                 </div>
@@ -667,9 +743,13 @@ export function ProfileContent() {
                 </div>
 
                 {passwordErrors.form && (
-                  <p role="alert" className="text-xs text-destructive">
-                    {passwordErrors.form}
-                  </p>
+                  <div
+                    role="alert"
+                    className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+                  >
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{passwordErrors.form}</span>
+                  </div>
                 )}
 
                 <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
@@ -677,7 +757,7 @@ export function ProfileContent() {
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={isChangingPassword}>
-                    {isChangingPassword ? <Save className="h-4 w-4 animate-pulse" /> : <ShieldCheck className="h-4 w-4" />}
+                    {isChangingPassword ? <Save className="h-4 w-4 animate-pulse motion-reduce:animate-none" /> : <ShieldCheck className="h-4 w-4" />}
                     {isChangingPassword ? "Actualizando..." : "Actualizar contraseña"}
                   </Button>
                 </div>

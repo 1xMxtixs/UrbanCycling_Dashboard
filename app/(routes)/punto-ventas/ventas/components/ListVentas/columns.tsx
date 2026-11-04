@@ -1,111 +1,104 @@
 "use client"
 
-import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ColumnDef, Row, Table } from "@tanstack/react-table"
+import { Eye, Check, Ban, FileText } from "lucide-react"
 import { StatusBadge } from "@/components/common/StatusBadge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { DataField } from "@/components/common/DataField"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
+import { SortableHeader } from "@/components/common/SortableHeader"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
 import { SaleOperation } from "../../types"
 
-const CellActions = ({ row, table }: { row: any; table: any }) => {
-  const op = row.original as SaleOperation
-  const meta = table.options.meta as any
+interface VentaTableMeta {
+  updatingId?: number | null
+  onViewDetails?: (sale: SaleOperation) => void
+  onUpdateStatus?: (idVenta: number, nextStatus: string, estadoVenta: string) => void
+  onPayClick?: (idVenta: number, total: number) => void
+  onGenerateReceipt?: (sale: SaleOperation) => void
+  onCancelClick?: (sale: SaleOperation) => void
+}
+
+const CellActions = ({ row, table }: { row: Row<SaleOperation>; table: Table<SaleOperation> }) => {
+  const op = row.original
+  const meta = table.options.meta as VentaTableMeta | undefined
   const isPending = op.estadoPago === ESTADO_PAGO.PENDIENTE
   const isAnulada = isVentaAnulada(op.estadoVenta)
-  const isPaid =
-    op.estadoPago === ESTADO_PAGO.PAGADA
+  const isPaid = op.estadoPago === ESTADO_PAGO.PAGADA
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-          {meta?.updatingId === op.venta.idVenta ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <MoreHorizontal className="h-4 w-4" />
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-
-        <DropdownMenuItem
-          onClick={() => meta?.onViewDetails(op)}
-          className="flex cursor-pointer items-center gap-2"
-        >
-          <Eye className="h-4 w-4" />
-          Ver Detalle
-        </DropdownMenuItem>
-
-        {isPaid && !isAnulada && (
-          <DropdownMenuItem
-            onClick={() => meta?.onGenerateReceipt?.(op)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-          >
-            <FileText className="h-4 w-4" />
-            Generar Boleta
-          </DropdownMenuItem>
-        )}
-
-        {!isAnulada && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              Actualizar Venta
-            </DropdownMenuLabel>
-
-            {isPending && (
-              <DropdownMenuItem
-                onClick={() =>
+    <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+      <RowActionsMenu
+        ariaLabel={`Acciones de la venta #${op.venta.idVenta}`}
+        isLoading={meta?.updatingId === op.venta.idVenta}
+        groups={[
+          {
+            actions: [
+              {
+                label: "Ver detalle",
+                icon: Eye,
+                onSelect: () => meta?.onViewDetails?.(op),
+              },
+              {
+                label: "Generar boleta",
+                icon: FileText,
+                variant: "primary",
+                hidden: !isPaid || isAnulada,
+                onSelect: () => meta?.onGenerateReceipt?.(op),
+              },
+            ],
+          },
+          {
+            label: "Cambiar estado",
+            actions: [
+              {
+                label: "Marcar como pagada",
+                icon: Check,
+                hidden: !isPending || isAnulada,
+                onSelect: () =>
                   meta?.onPayClick
-                    ? meta.onPayClick(op.venta.idVenta, op.total)
-                    : meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta)
-                }
-                className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-              >
-                <Check className="h-4 w-4" />
-                Marcar como Pagada
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuItem
-              onClick={() => meta?.onUpdateStatus(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)}
-              className="flex cursor-pointer items-center gap-2 text-destructive font-semibold"
-            >
-              <XCircle className="h-4 w-4" />
-              Anular Venta
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                    ? meta.onPayClick(op.venta.idVenta, Number(op.total))
+                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta),
+              },
+            ],
+          },
+          {
+            actions: [
+              {
+                label: "Anular venta",
+                icon: Ban,
+                variant: "destructive",
+                hidden: isAnulada,
+                onSelect: () =>
+                  meta?.onCancelClick
+                    ? meta.onCancelClick(op)
+                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA),
+              },
+            ],
+          },
+        ]}
+      />
+    </div>
   )
 }
 
 export const columns: ColumnDef<SaleOperation>[] = [
   {
-    accessorKey: "idPuntoVenta",
+    id: "idVenta",
     header: "ID Venta",
+    accessorFn: (row) => row.venta.idVenta,
     cell: ({ row }) => (
-      <DataField variant="table-cell" value={`#${row.getValue("idPuntoVenta")}`} />
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+        #{row.original.venta.idVenta}
+      </span>
     ),
   },
   {
     id: "cliente",
     header: "Cliente",
     accessorFn: (row) => {
-      if (!row.cliente) return "Cliente General"
+      if (!row.cliente) return "Cliente general"
       return (
         row.cliente.razonSocial ||
         `${row.cliente.primerNombre} ${row.cliente.apellidoPaterno || ""}`.trim()
@@ -113,7 +106,7 @@ export const columns: ColumnDef<SaleOperation>[] = [
     },
     cell: ({ row }) => {
       const op = row.original
-      const clientName = formatClientName(op.cliente)
+      const clientName = op.cliente ? formatClientName(op.cliente) : "Cliente general"
 
       return (
         <DataField
@@ -162,44 +155,34 @@ export const columns: ColumnDef<SaleOperation>[] = [
       const isAnulada = isVentaAnulada(op.estadoVenta)
 
       if (isAnulada) {
-        return <StatusBadge status="danger" label="Anulada" />
+        return <StatusBadge status="danger" label="Anulada" showDot={false} />
       }
 
       switch (op.estadoPago) {
         case ESTADO_PAGO.PAGADA:
-          return <StatusBadge status="success" label="Pagada" />
+          return <StatusBadge status="success" label="Pagada" showDot={false} />
         case ESTADO_PAGO.PENDIENTE:
-          return <StatusBadge status="warning" label="Pendiente" />
+          return <StatusBadge status="warning" label="Pendiente" showDot={false} />
         default:
-          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} />
+          return <StatusBadge status="neutral" label={getNombreEstadoPago(op.estadoPago)} showDot={false} />
       }
     },
   },
   {
     accessorKey: "total",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-      >
-        Monto Total
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Monto total</SortableHeader>,
+    sortingFn: (rowA, rowB, columnId) =>
+      Number(rowA.getValue(columnId)) - Number(rowB.getValue(columnId)),
     cell: ({ row }) => {
       const total = Number(row.getValue("total"))
       return (
-        <DataField
-          variant="table-cell"
-          value={`$${total.toLocaleString("es-CL")}`}
-        />
+        <span className="text-sm font-semibold tabular-nums">{formatCLP(total)}</span>
       )
     },
   },
   {
     id: "acciones",
-    header: "Acciones",
+    header: () => <div className="text-right">Acciones</div>,
     cell: CellActions,
   },
 ]

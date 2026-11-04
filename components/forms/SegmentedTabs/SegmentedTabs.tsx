@@ -26,7 +26,7 @@ export function SegmentedTabs({ items, className }: SegmentedTabsProps) {
         <TabsTrigger
           key={value}
           value={value}
-          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 data-active:bg-background data-active:text-foreground data-active:shadow-xs data-active:border-border/60 text-muted-foreground hover:text-foreground cursor-pointer select-none"
+          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 motion-reduce:transition-none data-active:bg-background data-active:text-foreground data-active:shadow-xs data-active:border-border/60 text-muted-foreground hover:text-foreground cursor-pointer select-none"
         >
           {Icon && <Icon className="h-4 w-4 stroke-[2] shrink-0" />}
           <span>{label}</span>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { SidebarItem } from "../SidebarItem"
 import { cn } from "@/lib/utils"
 import type { PermissionCode } from "@/lib/permissions"
@@ -38,6 +39,23 @@ function RouteSection({ title, routes, collapsed, onNavigate }: RouteSectionProp
   )
 }
 
+function filterRoutes(
+  routes: SidebarRoute[],
+  permissions: PermissionCode[],
+  isAdmin: boolean,
+): SidebarRoute[] {
+  return routes.flatMap((item) => {
+    const children = item.children ? filterRoutes(item.children, permissions, isAdmin) : undefined
+    const canAccessItem =
+      (!item.adminOnly || isAdmin) &&
+      (!item.permission || permissions.includes(item.permission))
+
+    if (!canAccessItem && !children?.length) return []
+
+    return [{ ...item, href: children?.[0]?.href ?? item.href, children }]
+  })
+}
+
 type SidebarRoutesProps = {
   collapsed?: boolean
   permissions: PermissionCode[]
@@ -46,18 +64,22 @@ type SidebarRoutesProps = {
 }
 
 export function SidebarRoutes({ collapsed = false, permissions, isAdmin, onNavigate }: SidebarRoutesProps) {
-  const filterRoutes = (routes: SidebarRoute[]): SidebarRoute[] => {
-    return routes.flatMap((item) => {
-      const children = item.children ? filterRoutes(item.children) : undefined
-      const canAccessItem =
-        (!item.adminOnly || isAdmin) &&
-        (!item.permission || permissions.includes(item.permission))
-
-      if (!canAccessItem && !children?.length) return []
-
-      return [{ ...item, href: children?.[0]?.href ?? item.href, children }]
-    })
-  }
+  const generalRoutes = useMemo(
+    () => filterRoutes(dataGeneralSidebar, permissions, isAdmin),
+    [permissions, isAdmin]
+  )
+  const operationRoutes = useMemo(
+    () => filterRoutes(dataOperationSidebar, permissions, isAdmin),
+    [permissions, isAdmin]
+  )
+  const managementRoutes = useMemo(
+    () => filterRoutes(dataManagementSidebar, permissions, isAdmin),
+    [permissions, isAdmin]
+  )
+  const administrationRoutes = useMemo(
+    () => filterRoutes(dataAdministrationSidebar, permissions, isAdmin),
+    [permissions, isAdmin]
+  )
 
   return (
     <div
@@ -67,10 +89,10 @@ export function SidebarRoutes({ collapsed = false, permissions, isAdmin, onNavig
       }}
     >
       <div className={cn(collapsed ? "space-y-0" : "space-y-6")}>
-        <RouteSection title="Principal" routes={filterRoutes(dataGeneralSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
-        <RouteSection title="Operaciones" routes={filterRoutes(dataOperationSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
-        <RouteSection title="Gestión & Taller" routes={filterRoutes(dataManagementSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
-        <RouteSection title="Configuración" routes={filterRoutes(dataAdministrationSidebar)} collapsed={collapsed} onNavigate={onNavigate} />
+        <RouteSection title="Principal" routes={generalRoutes} collapsed={collapsed} onNavigate={onNavigate} />
+        <RouteSection title="Operaciones" routes={operationRoutes} collapsed={collapsed} onNavigate={onNavigate} />
+        <RouteSection title="Gestión & Taller" routes={managementRoutes} collapsed={collapsed} onNavigate={onNavigate} />
+        <RouteSection title="Configuración" routes={administrationRoutes} collapsed={collapsed} onNavigate={onNavigate} />
       </div>
     </div>
   )

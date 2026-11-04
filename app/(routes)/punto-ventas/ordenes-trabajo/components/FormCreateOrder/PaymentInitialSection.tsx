@@ -67,7 +67,7 @@ export function PaymentInitialSection({
 
         {/* Método de Pago */}
         {estadoPago !== ESTADO_PAGO.PENDIENTE && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in">
+          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="metodoPago"
               className="text-muted-foreground text-xs font-semibold"
@@ -87,7 +87,7 @@ export function PaymentInitialSection({
 
         {/* Monto del Abono */}
         {estadoPago === ESTADO_PAGO.PARCIAL && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in">
+          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="montoAbono"
               className="text-muted-foreground text-xs font-semibold"
