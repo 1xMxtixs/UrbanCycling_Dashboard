@@ -149,32 +149,6 @@ export function ListInventory() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-96 rounded-xl" />
-      </div>
-    )
-  }
-
-  const activeProducts = inventory.filter((product) =>
-    isRegistroActivo(product.estado)
-  )
-
-  const lowStockProducts = activeProducts.filter(
-    (product) =>
-      product.stockActual > 0 && product.stockActual <= product.stockMinimo
-  )
-
-  const outOfStockProducts = activeProducts.filter(
-    (product) => product.stockActual === 0
-  )
-
   const handleViewDetail = useCallback((product: ProductColumn) => {
     setSelectedProduct(product)
     setOpenDetail(true)
@@ -268,6 +242,32 @@ export function ListInventory() {
       handleManageSuppliers,
     ]
   )
+
+  const activeProducts = inventory.filter((product) =>
+    isRegistroActivo(product.estado)
+  )
+
+  const lowStockProducts = activeProducts.filter(
+    (product) =>
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo
+  )
+
+  const outOfStockProducts = activeProducts.filter(
+    (product) => product.stockActual === 0
+  )
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, index) => (
+            <Skeleton key={index} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    )
+  }
 
   return (
     <>
