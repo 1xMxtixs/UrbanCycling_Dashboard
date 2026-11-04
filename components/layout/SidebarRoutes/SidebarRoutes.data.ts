@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   ShieldCheck,
   Store,
+  Truck,
   UserCog,
   Users,
   Wrench,
@@ -111,7 +112,7 @@ export const dataManagementSidebar = [
     permission: PERMISSIONS.WARRANTIES_READ,
   },
   {
-    icon: Users,
+    icon: Truck,
     label: "Proveedores",
     href: "/proveedores",
     permission: PERMISSIONS.SUPPLIERS_READ,

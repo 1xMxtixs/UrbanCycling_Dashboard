@@ -77,6 +77,7 @@ export function ImageUpload({
             variant="destructive"
             size="icon"
             type="button"
+            aria-label="Eliminar imagen seleccionada"
             disabled={disabled}
             onClick={handleRemove}
             className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full opacity-90 transition-opacity hover:opacity-100 shadow-sm"

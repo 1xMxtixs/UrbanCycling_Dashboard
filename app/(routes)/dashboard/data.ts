@@ -1,7 +1,6 @@
 import type { TodaySale } from "@/components/reportes/today-sales-columns"
 import type { DateRange, ReportsData } from "./types"
 
-type IngresosResponse = { ingresosOrdenesTrabajo: number }
 type OrdenesResponse = { totalOrdenes: number }
 type RentabilidadResponse = {
   ingresosOrdenesTrabajo: number
@@ -66,8 +65,7 @@ export async function getDashboardData(range: DateRange): Promise<ReportsData> {
   const now = new Date()
   const today = `${String(now.getDate()).padStart(2, "0")}-${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`
 
-  const [, ordenes, rentabilidad, metodosPago, productos, consumo, ventasDiarias] = await Promise.all([
-    getReport<IngresosResponse>(`/api/reportes/ingresos-totales?${query}`),
+  const [ordenes, rentabilidad, metodosPago, productos, consumo, ventasDiarias] = await Promise.all([
     getReport<OrdenesResponse>(`/api/reportes/ordenes-trabajo?${query}`),
     getReport<RentabilidadResponse>(`/api/reportes/rentabilidad-servicios?${query}`),
     getReport<MetodosPagoResponse>(`/api/reportes/metodos-pago?${query}`),

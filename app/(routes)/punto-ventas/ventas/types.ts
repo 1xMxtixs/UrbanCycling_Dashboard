@@ -42,6 +42,27 @@ export interface SaleOperation {
   fechaCreacion: string;
   fechaRegistro?: string;
   cliente?: SaleClient | null;
-  usuario?: any;
+  usuario?: {
+    idUsuario?: number;
+    primerNombre?: string | null;
+    apellidoPaterno?: string | null;
+    apellidoMaterno?: string | null;
+    correoElectronico?: string | null;
+  } | null;
   venta: SaleDetails;
+}
+
+export type { DocumentoTributario } from "../types"
+
+export interface SaleCreationResult {
+  idPuntoVenta?: number | string | null;
+  venta?: SaleDetails | null;
+  ordenTrabajo?: unknown;
+}
+
+export interface ReceiptLine {
+  cantidad: number;
+  precioUnitario: number | string;
+  servicio?: { nombre?: string | null } | null;
+  producto?: { nombre?: string | null } | null;
 }

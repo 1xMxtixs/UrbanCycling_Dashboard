@@ -4,8 +4,11 @@ export const dynamic = "force-dynamic"
 
 export default function HistorialClientesPage() {
   return (
-    <div className="min-h-full space-y-6">
-      <HeaderClientes />
+    <div className="space-y-6">
+      <HeaderClientes
+        title="Historial de Clientes"
+        description="Consulta el historial acumulado de mantenciones, reparaciones y visitas por cliente."
+      />
       <ListClientes initialTab="historial" />
     </div>
   )

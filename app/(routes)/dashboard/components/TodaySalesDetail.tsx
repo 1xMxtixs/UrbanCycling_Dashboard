@@ -9,8 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { DataTable } from "@/components/reportes/data-table"
-import { todaySalesColumns, type TodaySale } from "@/components/reportes/today-sales-columns"
+import { DataTable, todaySalesColumns, type TodaySale } from "@/components/reportes"
 
 interface TodaySalesDetailProps {
   sales: TodaySale[]
@@ -30,14 +29,14 @@ export function TodaySalesDetail({ sales }: TodaySalesDetailProps) {
               <span className="text-xs text-muted-foreground">({sales.length})</span>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${
                 open ? "rotate-180" : ""
               }`}
             />
           </CardHeader>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-200">
+        <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none">
           <CardContent className="pt-0 pb-4">
             {sales.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
@@ -48,6 +47,7 @@ export function TodaySalesDetail({ sales }: TodaySalesDetailProps) {
                 columns={todaySalesColumns}
                 data={sales}
                 emptyMessage="No hubo ventas registradas en la jornada de hoy."
+                bordered={false}
               />
             )}
           </CardContent>

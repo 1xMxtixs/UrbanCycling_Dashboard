@@ -1,12 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useUserPermissions } from "@/components/providers";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,8 +30,10 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
+import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 
+const DESCRIPTION_MAX_LENGTH = 50;
 type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
 
 const numericField = (fieldName: string) =>
@@ -53,7 +55,7 @@ const integerField = (fieldName: string) =>
 const formSchema = z.object({
   tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
-  descripcion: z.string().optional(),
+  descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
   precioVenta: numericField("El precio"),
   stockActual: integerField("El stock actual"),
   stockMinimo: integerField("El stock mínimo"),
@@ -64,9 +66,13 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryProps) {
   const router = useRouter();
-  const { data: session } = useSession();
-  const canAssociateSupplier = [PERMISSIONS.SUPPLIERS_READ, PERMISSIONS.INVENTORY_READ, PERMISSIONS.SUPPLIERS_UPDATE, PERMISSIONS.INVENTORY_UPDATE]
-    .every((permission) => session?.user?.permisos?.includes(permission));
+  const { hasPermission } = useUserPermissions();
+  const canAssociateSupplier = [
+    PERMISSIONS.SUPPLIERS_READ,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.SUPPLIERS_UPDATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+  ].every(hasPermission);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -88,44 +94,64 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       descripcion: "",
       precioVenta: "0",
       stockActual: "0",
-      stockMinimo: "",
+      stockMinimo: "0",
       estado: ESTADO_REGISTRO.ACTIVO,
     },
   });
 
   const { isSubmitting, isValid } = form.formState;
+  const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadCategories() {
       try {
         const response = await fetch("/api/inventory/categories", { cache: "no-store" });
         const result = await response.json().catch(() => null);
-        setCategories(response.ok ? result?.categories ?? [] : []);
+        if (isMounted) {
+          setCategories(response.ok ? result?.categories ?? [] : []);
+        }
       } catch {
-        setCategories([]);
+        if (isMounted) {
+          setCategories([]);
+        }
       }
     }
 
-    loadCategories();
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (!canAssociateSupplier) return;
     const controller = new AbortController();
+
     async function loadSuppliers() {
       setLoadingSuppliers(true);
       setSupplierError("");
       try {
-        const response = await fetch("/api/proveedores", { cache: "no-store", signal: controller.signal });
+        const response = await fetch("/api/proveedores", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.message || "No fue posible cargar los proveedores.");
+        if (!response.ok) {
+          throw new Error(result?.message || "No fue posible cargar los proveedores.");
+        }
         if (!controller.signal.aborted) setSuppliers(result?.providers ?? []);
       } catch (error) {
-        if (!controller.signal.aborted) setSupplierError(error instanceof Error ? error.message : "No fue posible cargar los proveedores.");
+        if (!controller.signal.aborted) {
+          setSupplierError(error instanceof Error ? error.message : "No fue posible cargar los proveedores.");
+        }
       } finally {
         if (!controller.signal.aborted) setLoadingSuppliers(false);
       }
     }
+
     void loadSuppliers();
     return () => controller.abort();
   }, [canAssociateSupplier, supplierRetry]);
@@ -178,6 +204,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
         },
         body: JSON.stringify({
           ...values,
+          tipoProducto: canonicalTipoProducto(values.tipoProducto),
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
           stockActual: Number(values.stockActual),
@@ -190,9 +217,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
 
       if (!res.ok) {
         const errorText = await res.text();
-        let message = errorText;
-        try { message = JSON.parse(errorText).message || errorText; } catch { /* Respuestas antiguas en texto. */ }
-        throw new Error(message || "No se pudo crear el producto");
+        throw new Error(errorText || "No se pudo crear el producto");
       }
 
       toast.success("Producto creado correctamente");
@@ -205,7 +230,6 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       setSelectedCategoryIds([]);
       setSelectedSupplierId("none");
     } catch (error) {
-      console.error(error);
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
       );
@@ -229,8 +253,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    <SelectItem value="Repuesto">Repuesto</SelectItem>
-                    <SelectItem value="Accesorio">Accesorio</SelectItem>
+                    {getTipoProductoOptions().map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -269,23 +294,39 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
         {canAssociateSupplier && (
           <div className="space-y-2">
             <FormLabel htmlFor="create-product-supplier">Proveedor (opcional)</FormLabel>
-            <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId} disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}>
+            <Select
+              value={selectedSupplierId}
+              onValueChange={setSelectedSupplierId}
+              disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+            >
               <SelectTrigger id="create-product-supplier" className="w-full">
                 <SelectValue placeholder="Selecciona un proveedor" />
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="none">Sin proveedor</SelectItem>
                 {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>{supplier.razonSocial} · {supplier.rut}</SelectItem>
+                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
+                    {supplier.razonSocial} · {supplier.rut}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {loadingSuppliers ? <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p> : supplierError ? (
+            {loadingSuppliers ? (
+              <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
+            ) : supplierError ? (
               <div className="space-y-1">
                 <p role="alert" className="text-xs text-destructive">{supplierError}</p>
-                <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>Reintentar carga de proveedores</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
+                  Reintentar carga de proveedores
+                </Button>
               </div>
-            ) : <p className="text-xs text-muted-foreground">{suppliers.length ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha." : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}</p>}
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {suppliers.length
+                  ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
+                  : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
+              </p>
+            )}
           </div>
         )}
 
@@ -298,9 +339,11 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               <FormControl>
                 <Textarea
                   placeholder="Descripción opcional del producto"
+                  maxLength={DESCRIPTION_MAX_LENGTH}
                   {...field}
                 />
               </FormControl>
+              <p className="text-right text-xs text-muted-foreground">{description.length}/{DESCRIPTION_MAX_LENGTH}</p>
               <FormMessage />
             </FormItem>
           )}
@@ -342,9 +385,8 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               <FormItem>
                 <FormLabel>Stock mínimo</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} step={1} placeholder="Ej: 10" autoComplete="off" {...field} />
+                  <Input type="number" min={0} placeholder="0" {...field} />
                 </FormControl>
-                <p className="text-xs text-muted-foreground">Ingresa el mínimo deseado; usa 0 si no necesitas un umbral.</p>
                 <FormMessage />
               </FormItem>
             )}

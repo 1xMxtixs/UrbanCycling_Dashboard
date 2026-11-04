@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function OrdenesTrabajoPage() {
   return (
-    <div className="min-h-full space-y-6">
+    <div className="space-y-6">
       <HeaderOrdenesTrabajo />
       <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
         <ListOrdenesTrabajo />

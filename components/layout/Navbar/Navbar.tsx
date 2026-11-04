@@ -167,6 +167,7 @@ export function Navbar({ permissions, isAdmin }: NavbarProps) {
             </SheetContent>
           </Sheet>
         </div>
+
       </div>
     </header>
   )

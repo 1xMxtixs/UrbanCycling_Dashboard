@@ -103,7 +103,7 @@ export function OrderLinesSection({
             {selectedServices.map((selService, idx) => (
               <div
                 key={idx}
-                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1"
+                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1 motion-reduce:animate-none"
               >
                 <Select
                   value={selService.tipo}
@@ -197,6 +197,7 @@ export function OrderLinesSection({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label={`Quitar servicio ${idx + 1}`}
                   className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => onRemoveService(idx)}
                 >
@@ -233,7 +234,7 @@ export function OrderLinesSection({
             {selectedProducts.map((selProd, idx) => (
               <div
                 key={idx}
-                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1"
+                className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1 motion-reduce:animate-none"
               >
                 {/* Select Product */}
                 <div className="min-w-50 flex-1">
@@ -293,6 +294,7 @@ export function OrderLinesSection({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label={`Quitar producto ${idx + 1}`}
                   className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => onRemoveProduct(idx)}
                 >

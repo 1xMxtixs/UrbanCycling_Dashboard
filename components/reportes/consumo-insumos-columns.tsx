@@ -2,6 +2,8 @@
 
 import { type ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { formatCLP } from "@/lib/formatters"
+import { formatTipoProducto } from "@/lib/product-types"
 
 export interface ConsumoInsumo {
   nombre: string
@@ -11,12 +13,10 @@ export interface ConsumoInsumo {
   costoTotal: number
 }
 
-function formatCLP(value: number) { return `$${value.toLocaleString("es-CL")}` }
-
 export const consumoInsumosColumns: ColumnDef<ConsumoInsumo>[] = [
   { accessorKey: "nombre", header: "Insumo / Repuesto", cell: ({ getValue }) => <span className="font-medium">{getValue() as string}</span>, sortingFn: "text" },
-  { accessorKey: "tipo", header: "Tipo", cell: ({ getValue }) => <Badge variant="secondary" className="font-normal">{getValue() as string}</Badge>, enableSorting: false },
-  { accessorKey: "cantidadUsada", header: () => <div className="text-right">Cantidad usada</div>, cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue() as number}</div>, sortingFn: "alphanumeric" },
-  { accessorKey: "ordenesAsociadas", header: () => <div className="text-right">Órdenes asociadas</div>, cell: ({ getValue }) => <div className="text-right"><Badge variant="outline" className="font-normal tabular-nums">{getValue() as number} ODT</Badge></div>, enableSorting: false },
-  { accessorKey: "costoTotal", header: () => <div className="text-right">Costo total</div>, cell: ({ getValue }) => <div className="text-right font-medium tabular-nums">{formatCLP(getValue() as number)}</div>, sortingFn: "alphanumeric" },
+  { accessorKey: "tipo", header: "Tipo", cell: ({ getValue }) => <Badge variant="secondary" className="font-normal">{formatTipoProducto(getValue() as string)}</Badge>, enableSorting: false },
+  { accessorKey: "cantidadUsada", header: "Cantidad usada", meta: { align: "right" }, cell: ({ getValue }) => <span className="tabular-nums">{getValue() as number}</span>, sortingFn: "basic" },
+  { accessorKey: "ordenesAsociadas", header: "Órdenes asociadas", meta: { align: "right" }, cell: ({ getValue }) => <Badge variant="outline" className="font-normal tabular-nums">{getValue() as number} ODT</Badge>, enableSorting: false },
+  { accessorKey: "costoTotal", header: "Costo total", meta: { align: "right" }, cell: ({ getValue }) => <span className="font-medium tabular-nums">{formatCLP(getValue() as number)}</span>, sortingFn: "basic" },
 ]

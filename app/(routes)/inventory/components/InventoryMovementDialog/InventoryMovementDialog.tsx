@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StatusBadge } from "@/components/common/StatusBadge"
 import type { ProductColumn } from "../ListInventory/columns"
 
 export interface InventoryMovementDialogProps {
@@ -27,7 +28,7 @@ function getNowLocalString() {
 
 const movementSchema = (stockActual: number) =>
   z.object({
-    tipoMovimiento: z.enum(["ENTRADA", "SALIDA"], { error: "Obligatorio" }),
+    tipoMovimiento: z.enum(["ENTRADA", "SALIDA"], { message: "Obligatorio" }),
     cantidad: z.string().min(1, "Obligatorio")
       .refine((v) => !Number.isNaN(Number(v)) && Number.isInteger(Number(v)) && Number(v) > 0, "Entero > 0"),
     fechaOperacion: z.string().min(1, "Obligatorio"),
@@ -49,6 +50,12 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
     mode: "onChange",
     defaultValues: { tipoMovimiento: "ENTRADA", cantidad: "", fechaOperacion: getNowLocalString(), motivo: "", observacion: "" },
   })
+  const movementType = useWatch({ control: form.control, name: "tipoMovimiento" })
+  const movementQuantity = Number(useWatch({ control: form.control, name: "cantidad" }))
+  const hasValidPreviewQuantity = Number.isInteger(movementQuantity) && movementQuantity > 0
+  const resultingStock = movementType === "ENTRADA"
+    ? stockActual + movementQuantity
+    : stockActual - movementQuantity
 
   useEffect(() => {
     if (open) {
@@ -112,9 +119,11 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
                 <p className="text-xs text-muted-foreground font-medium">Producto</p>
                 <p className="font-semibold text-sm text-foreground">{product.nombre}</p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
-                Stock actual: {product.stockActual} u
-              </span>
+              <StatusBadge
+                status="info"
+                label={`Stock actual: ${product.stockActual} u`}
+                showDot={false}
+              />
             </div>
 
             <Form {...form}>
@@ -142,6 +151,14 @@ export function InventoryMovementDialog({ product, open, onOpenChange }: Invento
                     </FormItem>
                   )} />
                 </div>
+                {hasValidPreviewQuantity && (
+                  <p className="text-xs text-muted-foreground">
+                    Stock resultante:{" "}
+                    <span className={`font-semibold tabular-nums ${resultingStock < 0 ? "text-destructive" : "text-foreground"}`}>
+                      {stockActual} → {resultingStock} u
+                    </span>
+                  </p>
+                )}
 
                 <FormField control={form.control} name="fechaOperacion" render={({ field }) => (
                   <FormItem>

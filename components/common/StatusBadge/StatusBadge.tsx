@@ -13,6 +13,7 @@ interface StatusBadgeProps {
   label?: string
   className?: string
   showDot?: boolean
+  animateDot?: boolean
 }
 
 const statusConfig: Record<StatusType, { badge: string; dot: string }> = {
@@ -43,7 +44,7 @@ function formatStatusLabel(label: string) {
   return normalized ? normalized[0].toLocaleUpperCase("es-CL") + normalized.slice(1) : normalized
 }
 
-export function StatusBadge({ status, label, className, showDot = true }: StatusBadgeProps) {
+export function StatusBadge({ status, label, className, showDot = true, animateDot = false }: StatusBadgeProps) {
   const normalizedStatus = (statusConfig[status as StatusType] ? status : "neutral") as StatusType
   const config = statusConfig[normalizedStatus]
   const displayLabel = formatStatusLabel(label || status)
@@ -58,7 +59,12 @@ export function StatusBadge({ status, label, className, showDot = true }: Status
       )}
     >
       {showDot && (
-        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0 animate-pulse", config.dot)} />
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
+          {animateDot && (
+            <span className={cn("absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping motion-reduce:animate-none", config.dot)} />
+          )}
+          <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", config.dot)} />
+        </span>
       )}
       <span>{displayLabel}</span>
     </Badge>

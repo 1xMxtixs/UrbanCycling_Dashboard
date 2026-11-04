@@ -35,7 +35,7 @@ import {
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react"
-import { includesNormalizedText } from "@/lib/search-normalization"
+import { includesNormalizedText, normalizeSearchText } from "@/lib/search-normalization"
 
 interface DataTableProps<TData, Tvalue> {
   columns: ColumnDef<TData, Tvalue>[]
@@ -45,6 +45,7 @@ interface DataTableProps<TData, Tvalue> {
   onEdit?: (id: number) => void
   onInactivate?: (id: number) => Promise<string>
   initialSearch?: string
+  title?: string
 }
 
 export function DataTable<TData, Tvalue>({
@@ -55,6 +56,7 @@ export function DataTable<TData, Tvalue>({
   onEdit,
   onInactivate,
   initialSearch = "",
+  title = "Directorio de Clientes",
 }: DataTableProps<TData, Tvalue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
@@ -91,13 +93,18 @@ export function DataTable<TData, Tvalue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _columnId, filterValue) =>
-      row
-        .getAllCells()
-        .some((cell) =>
-          includesNormalizedText(String(cell.getValue() ?? ""), String(filterValue ?? "")),
-        ),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const filter = String(filterValue ?? "")
+      const compactFilter = normalizeSearchText(filter).replace(/[.\-\s]/g, "")
+      return Object.values(row.original as Record<string, unknown>).some((value) => {
+        const text = String(value ?? "")
+        if (includesNormalizedText(text, filter)) return true
+        const compactValue = normalizeSearchText(text).replace(/[.\-\s]/g, "")
+        return compactFilter.length >= 3 && compactValue.includes(compactFilter)
+      })
+    },
     getFilteredRowModel: getFilteredRowModel(),
+    autoResetPageIndex: false,
     state: {
       sorting,
       columnFilters,
@@ -113,28 +120,33 @@ export function DataTable<TData, Tvalue>({
 
   return (
     <DataTableContainer
-      title="Directorio de Clientes"
+      title={title}
       description={`${filteredRowCount} ${filteredRowCount === 1 ? "cliente encontrado" : "clientes encontrados"}`}
       toolbar={
-        <div className="space-y-3">
-          <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre, razón social o RUT..."
-                value={globalFilter ?? ""}
-                onChange={(event) => setGlobalFilter(event.target.value)}
-                className="pl-9"
-              />
-            </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="Buscar por nombre, razón social o RUT..."
+              aria-label="Buscar por nombre, razón social o RUT"
+              value={globalFilter ?? ""}
+              onChange={(event) => {
+                setGlobalFilter(event.target.value)
+                table.setPageIndex(0)
+              }}
+              className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
+            />
+          </div>
 
+          <div className="w-full shrink-0 sm:w-56">
             <Select
-              value={(table.getColumn("estado")?.getFilterValue() as string) ?? ESTADO_REGISTRO.ACTIVO}
-              onValueChange={(value) =>
+              value={(table.getColumn("estado")?.getFilterValue() as string) || "all"}
+              onValueChange={(value) => {
                 table.getColumn("estado")?.setFilterValue(value === "all" ? "" : value)
-              }
+                table.setPageIndex(0)
+              }}
             >
-              <SelectTrigger className="h-9 w-full sm:w-40">
+              <SelectTrigger className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Solo Activos" />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -144,10 +156,6 @@ export function DataTable<TData, Tvalue>({
               </SelectContent>
             </Select>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            {filteredRowCount} {filteredRowCount === 1 ? "cliente encontrado" : "clientes encontrados"}
-          </p>
         </div>
       }
       footer={
@@ -209,7 +217,18 @@ export function DataTable<TData, Tvalue>({
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow
+                    key={row.id}
+                    className={onViewDetails ? "cursor-pointer" : undefined}
+                    tabIndex={onViewDetails ? 0 : undefined}
+                    onClick={() => onViewDetails?.((row.original as { id: number }).id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        onViewDetails?.((row.original as { id: number }).id)
+                      }
+                    }}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

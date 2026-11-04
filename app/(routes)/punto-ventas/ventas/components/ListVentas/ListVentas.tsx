@@ -1,22 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { formatClientName } from "@/lib/formatters"
+import { formatClientName, formatCLP } from "@/lib/formatters"
+import { printReceipt } from "@/lib/print-receipt"
 import { ShoppingBag, DollarSign, Clock, Ban } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { MetricCard } from "@/components/common/MetricCard"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
+import { EmptyState } from "@/components/common/EmptyState"
 
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { SaleDetailDialog } from "./SaleDetailDialog"
 import { SalePayDialog } from "./SalePayDialog"
 import { SaleReceiptTicketDialog } from "./SaleReceiptTicketDialog"
-import { SaleOperation } from "../../types"
+import { SaleOperation, type DocumentoTributario } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
-import { isVentaAnulada } from "@/lib/sale-status"
+import { ESTADO_VENTA, isVentaAnulada } from "@/lib/sale-status"
+import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 import { useSearchDetailNavigation } from "@/hooks/use-search-detail-navigation"
 
 export function ListVentas() {
@@ -26,6 +31,7 @@ export function ListVentas() {
   const searchParam = searchParams.get("search") ?? ""
   const [sales, setSales] = useState<SaleOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [hasLoadError, setHasLoadError] = useState(false)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
 
   const {
@@ -38,13 +44,19 @@ export function ListVentas() {
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [saleToPay, setSaleToPay] = useState<{ idVenta: number; total: number } | null>(null)
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>("EFECTIVO")
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>(METODO_PAGO_DEFECTO)
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
-  const [activeReceipt, setActiveReceipt] = useState<any | null>(null)
+  const [activeReceipt, setActiveReceipt] = useState<DocumentoTributario | null>(null)
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
 
-  const getSales = async () => {
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [saleToCancel, setSaleToCancel] = useState<SaleOperation | null>(null)
+  const [isCancelling, setIsCancelling] = useState(false)
+
+  const getSales = useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
     try {
       const response = await fetch("/api/punto-venta", {
         cache: "no-store",
@@ -52,6 +64,8 @@ export function ListVentas() {
 
       if (!response.ok) {
         setSales([])
+        setHasLoadError(true)
+        toast.error("No fue posible consultar las ventas en mostrador.")
         return
       }
 
@@ -65,10 +79,13 @@ export function ListVentas() {
       setSales(ventas)
     } catch (err) {
       console.error("Error fetching sales:", err)
+      setHasLoadError(true)
+      setSales([])
+      toast.error("No fue posible consultar las ventas en mostrador.")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     // Difiere la carga inicial para evitar una actualización de estado durante
@@ -79,7 +96,7 @@ export function ListVentas() {
     return () => {
       window.removeEventListener("sales:refresh", getSales)
     }
-  }, [])
+  }, [getSales])
 
   const handleUpdateStatus = async (idVenta: number, nextPagoStatus: string, nextVentaStatus: string) => {
     setUpdatingId(idVenta)
@@ -112,9 +129,9 @@ export function ListVentas() {
 
       getSales()
       router.refresh()
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo actualizar el estado de la venta")
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado de la venta")
     } finally {
       setUpdatingId(null)
     }
@@ -122,8 +139,29 @@ export function ListVentas() {
 
   const handlePayClick = (idVenta: number, total: number) => {
     setSaleToPay({ idVenta, total: Number(total) })
-    setSelectedMetodoPago("EFECTIVO")
+    setSelectedMetodoPago(METODO_PAGO_DEFECTO)
     setPayModalOpen(true)
+  }
+
+  const handleCancelClick = (op: SaleOperation) => {
+    setSaleToCancel(op)
+    setCancelModalOpen(true)
+  }
+
+  const handleConfirmCancelSale = async () => {
+    if (!saleToCancel) return
+    setIsCancelling(true)
+    try {
+      await handleUpdateStatus(
+        Number(saleToCancel.venta.idVenta),
+        ESTADO_PAGO.ANULADA,
+        ESTADO_VENTA.ANULADA
+      )
+      setCancelModalOpen(false)
+      setSaleToCancel(null)
+    } finally {
+      setIsCancelling(false)
+    }
   }
 
   const handleConfirmPayment = async () => {
@@ -151,9 +189,9 @@ export function ListVentas() {
       closeSaleDetail()
       getSales()
       router.refresh()
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo registrar el pago")
+      toast.error(err instanceof Error ? err.message : "No se pudo registrar el pago")
     } finally {
       setIsConfirmingPayment(false)
     }
@@ -187,98 +225,12 @@ export function ListVentas() {
         const errorData = await res.json()
         throw new Error(errorData.message || "Error al generar comprobante")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err.message || "No se pudo generar el comprobante.")
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el comprobante.")
     } finally {
       setIsGeneratingReceipt(false)
     }
-  }
-
-  const handlePrintReceipt = (dte: any, sale: SaleOperation | null) => {
-    const clientLabel = formatClientName(sale?.cliente)
-    const lineas = sale?.venta?.lineasDeVenta || []
-
-    const content = `
-      <html>
-        <head>
-          <title>Comprobante de Compra N° ${dte.numeroFolio}</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 300px; margin: 0 auto; font-size: 12px; color: #000; line-height: 1.4; }
-            .text-center { text-align: center; }
-            .bold { font-weight: bold; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .header-title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-            .receipt-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; }
-            .footer { font-size: 10px; margin-top: 25px; text-align: center; color: #555; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center header-title">URBAN CYCLING</div>
-          <div class="text-center">Giro: Venta y Servicio de Bicicletas</div>
-          <div class="text-center">RUT Emisor: ${dte.rutEmisor}</div>
-          <div class="divider"></div>
-          <div class="text-center receipt-title">COMPROBANTE DE COMPRA</div>
-          <div class="text-center bold">N° Folio: ${dte.numeroFolio}</div>
-          <div class="divider"></div>
-          <div>Fecha Emisión: ${new Date(dte.fechaEmision).toLocaleDateString("es-CL")}</div>
-          <div>Cliente: ${clientLabel}</div>
-          ${sale?.cliente?.rut ? `<div>RUT Receptor: ${sale.cliente.rut}</div>` : ""}
-          <div class="divider"></div>
-          <div class="bold" style="margin-bottom: 5px;">DETALLE DE PRODUCTOS:</div>
-          ${lineas.map((line: any) => `
-            <div class="flex">
-              <span>${line.cantidad}x ${line.producto?.nombre || "Producto"}</span>
-              <span>$${(line.cantidad * Number(line.precioUnitario)).toLocaleString("es-CL")}</span>
-            </div>
-          `).join("")}
-          <div class="divider"></div>
-          <div class="flex"><span>Neto:</span><span>$${Number(dte.montoNeto).toLocaleString("es-CL")}</span></div>
-          <div class="flex"><span>IVA (19%):</span><span>$${Number(dte.montoIva).toLocaleString("es-CL")}</span></div>
-          <div class="flex bold" style="font-size: 13px; margin-top: 5px;"><span>TOTAL:</span><span>$${Number(dte.montoTotal).toLocaleString("es-CL")}</span></div>
-          <div class="divider"></div>
-          <div class="footer">ESTE DOCUMENTO ES UN COMPROBANTE INTERNO DE COMPRA.<br>¡Gracias por su compra en Urban Cycling!</div>
-        </body>
-      </html>
-    `
-
-    const iframe = document.createElement("iframe")
-    iframe.style.position = "fixed"
-    iframe.style.right = "0"
-    iframe.style.bottom = "0"
-    iframe.style.width = "0"
-    iframe.style.height = "0"
-    iframe.style.border = "0"
-    document.body.appendChild(iframe)
-
-    const iframeDoc = iframe.contentWindow?.document
-    if (!iframeDoc) {
-      toast.error("No se pudo preparar la impresión.")
-      document.body.removeChild(iframe)
-      return
-    }
-
-    iframeDoc.open()
-    iframeDoc.write(content)
-    iframeDoc.close()
-
-    iframe.onload = () => {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
-    }
-
-    const cleanup = () => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe)
-      }
-    }
-
-    if (iframe.contentWindow) {
-      iframe.contentWindow.onafterprint = cleanup
-    }
-    // Red de seguridad: si `onafterprint` no se dispara en algún navegador, igual se limpia solo a los 60s.
-    setTimeout(cleanup, 60000)
   }
 
   // Cálculos de KPIs
@@ -292,16 +244,35 @@ export function ListVentas() {
   const canceledCount = sales
     .filter((s) => isVentaAnulada(s.estadoVenta))
     .length
+  const sortedSales = useMemo(
+    () => [...sales].sort((a, b) => Number(b.venta.idVenta) - Number(a.venta.idVenta)),
+    [sales]
+  )
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" aria-busy="true">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-xl" />
+            <Skeleton key={`skeleton-kpi-${index}`} className="h-24 rounded-xl motion-reduce:animate-none" />
           ))}
         </div>
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl motion-reduce:animate-none" />
+      </div>
+    )
+  }
+
+  if (hasLoadError) {
+    return (
+      <div className="space-y-4 rounded-xl border border-border bg-card p-6">
+        <EmptyState
+          icon={ShoppingBag}
+          title="No se pudieron cargar las ventas"
+          description="Revisa la conexión e intenta cargar el listado nuevamente."
+        />
+        <div className="flex justify-center">
+          <Button onClick={() => void getSales()}>Reintentar carga</Button>
+        </div>
       </div>
     )
   }
@@ -317,13 +288,13 @@ export function ListVentas() {
         />
         <MetricCard
           title="Ingresos Cobrados"
-          value={`$${totalRevenue.toLocaleString("es-CL")}`}
+          value={formatCLP(totalRevenue)}
           description="Total ventas pagadas"
           icon={DollarSign}
         />
         <MetricCard
           title="Por Cobrar"
-          value={`$${pendingRevenue.toLocaleString("es-CL")}`}
+          value={formatCLP(pendingRevenue)}
           description="Ventas pendientes"
           icon={Clock}
         />
@@ -337,13 +308,14 @@ export function ListVentas() {
 
       <DataTable
         columns={columns}
-        data={sales}
+        data={sortedSales}
         initialSearch={searchParam}
         onViewDetails={handleViewDetails}
         onUpdateStatus={handleUpdateStatus}
         updatingId={updatingId}
         onPayClick={handlePayClick}
         onGenerateReceipt={handleGenerateReceipt}
+        onCancelClick={handleCancelClick}
       />
 
       <SaleDetailDialog
@@ -359,6 +331,7 @@ export function ListVentas() {
         sale={selectedSale}
         onPayClick={handlePayClick}
         onUpdateStatus={handleUpdateStatus}
+        onCancelClick={handleCancelClick}
       />
 
       <SalePayDialog
@@ -375,8 +348,35 @@ export function ListVentas() {
         open={receiptModalOpen}
         onOpenChange={setReceiptModalOpen}
         activeReceipt={activeReceipt}
-        onPrint={() => handlePrintReceipt(activeReceipt, selectedSale)}
+        onPrint={() => {
+          if (!activeReceipt) return
+          printReceipt({
+            dte: activeReceipt,
+            clientLabel: selectedSale?.cliente
+              ? formatClientName(selectedSale.cliente)
+              : "Cliente general",
+            clientRut: selectedSale?.cliente?.rut,
+            lines: selectedSale?.venta?.lineasDeVenta || [],
+            detailLabel: "DETALLE DE PRODUCTOS:",
+            lineFallback: "Producto",
+            thanksMessage: "¡Gracias por su compra en Urban Cycling!",
+            onError: () => toast.error("No se pudo preparar la impresión."),
+          })
+        }}
         isGeneratingReceipt={isGeneratingReceipt}
+      />
+
+      <StatusToggleDialog
+        open={cancelModalOpen}
+        onOpenChange={setCancelModalOpen}
+        entityLabel="venta"
+        entityName={saleToCancel ? `Venta #${saleToCancel.venta.idVenta}` : ""}
+        title={saleToCancel ? `¿Anular Venta #${saleToCancel.venta.idVenta}?` : "¿Anular venta?"}
+        description="La venta será anulada en el sistema y cambiará su estado a Anulada. Esta acción no se puede revertir."
+        confirmLabel="Confirmar Anulación"
+        actionVariant="destructive"
+        isSubmitting={isCancelling}
+        onConfirm={handleConfirmCancelSale}
       />
     </div>
   )

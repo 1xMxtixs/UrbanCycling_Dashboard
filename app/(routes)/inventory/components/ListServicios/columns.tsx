@@ -1,21 +1,14 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Eye, Pencil, Power, PowerOff, Wrench } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Eye, Pencil, Power, PowerOff, Wrench } from "lucide-react"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
 import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
+import { SortableHeader } from "@/components/common/SortableHeader"
 
 interface GetColumnsOptions {
   canUpdate?: boolean
@@ -35,7 +28,7 @@ export function getColumns({
       accessorKey: "codigo",
       header: "Código",
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-semibold text-primary">
+        <span className="font-mono text-xs font-semibold text-muted-foreground">
           {row.getValue("codigo")}
         </span>
       ),
@@ -62,20 +55,9 @@ export function getColumns({
     },
     {
       accessorKey: "precioVenta",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="cursor-pointer p-0 font-semibold hover:bg-transparent"
-          >
-            Precio (Mano de Obra)
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
+      header: ({ column }) => <SortableHeader column={column}>Mano de obra</SortableHeader>,
       cell: ({ row }) => (
-        <span className="font-semibold text-sm text-foreground">
+        <span className="font-semibold text-sm tabular-nums text-foreground">
           {formatCurrency(row.original.precioVenta)}
         </span>
       ),
@@ -91,6 +73,8 @@ export function getColumns({
           <StatusBadge
             status={isActivo ? "success" : "danger"}
             label={getNombreEstadoRegistro(estado)}
+            showDot={isActivo}
+            animateDot={isActivo}
           />
         )
       },
@@ -104,60 +88,53 @@ export function getColumns({
       id: "actions",
       header: () => <span className="text-right block pr-2 text-xs font-semibold">Acciones</span>,
       cell: ({ row }) => {
-        const servicio = row.original
-        const isActivo = isRegistroActivo(servicio.estado)
+        const service = row.original
+        const isActive = isRegistroActivo(service.estado)
 
         return (
           <div className="text-right pr-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-                  <span className="sr-only">Abrir menú</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel className="text-xs">Opciones</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => onViewDetails?.(servicio)}
-                  className="cursor-pointer text-xs"
-                >
-                  <Eye className="mr-2 h-3.5 w-3.5" /> Ver detalle
-                </DropdownMenuItem>
-
-                {canUpdate && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => onEdit?.(servicio)}
-                      className="cursor-pointer text-xs"
-                    >
-                      <Pencil className="mr-2 h-3.5 w-3.5" /> Editar servicio
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {isActivo ? (
-                      <DropdownMenuItem
-                        onClick={() => onToggleStatus?.(servicio)}
-                        className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
-                      >
-                        <PowerOff className="h-3.5 w-3.5" />
-                        Inactivar servicio
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        onClick={() => onToggleStatus?.(servicio)}
-                        className="flex cursor-pointer items-center gap-2 text-xs font-medium text-primary focus:text-primary"
-                      >
-                        <Power className="h-3.5 w-3.5" />
-                        Reactivar servicio
-                      </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <RowActionsMenu
+              ariaLabel={`Acciones del servicio ${service.codigo}`}
+              groups={[
+                {
+                  actions: [
+                    {
+                      label: "Ver detalle",
+                      icon: Eye,
+                      onSelect: () => onViewDetails?.(service),
+                    },
+                    {
+                      label: "Editar",
+                      icon: Pencil,
+                      hidden: !canUpdate,
+                      onSelect: () => onEdit?.(service),
+                    },
+                  ],
+                },
+                {
+                  label: "Cambiar estado",
+                  actions: [
+                    {
+                      label: "Inactivar servicio",
+                      icon: PowerOff,
+                      variant: "destructive",
+                      hidden: !canUpdate || !isActive,
+                      onSelect: () => onToggleStatus?.(service),
+                    },
+                    {
+                      label: "Reactivar servicio",
+                      icon: Power,
+                      variant: "primary",
+                      hidden: !canUpdate || isActive,
+                      onSelect: () => onToggleStatus?.(service),
+                    },
+                  ],
+                },
+              ]}
+            />
           </div>
         )
       },
-    },
+    }
   ]
 }

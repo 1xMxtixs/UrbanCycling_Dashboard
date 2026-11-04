@@ -109,7 +109,7 @@
   /* Surfaces & Cards */
   --card: oklch(0.17 0.025 245);
   --card-foreground: oklch(0.96 0.01 230);
-  --popover: oklch(0.18 0.025 245);
+  --popover: oklch(0.21 0.03 245);
   --popover-foreground: oklch(0.96 0.01 230);
 
   /* Primary (Vibrant Cyan-Petrol in dark mode) */

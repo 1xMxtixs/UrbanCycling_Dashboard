@@ -14,6 +14,7 @@ export interface DataFieldProps {
   variant?: DataFieldVariant;
   className?: string;
   valueClassName?: string;
+  secondaryValueClassName?: string;
 }
 
 export function DataField({
@@ -24,6 +25,7 @@ export function DataField({
   variant = "detail-item",
   className = "",
   valueClassName = "",
+  secondaryValueClassName = "",
 }: DataFieldProps) {
   // Variante 1: Celdas compuestas en Tablas (ej. Nombre + RUT abajo)
   if (variant === "table-cell") {
@@ -36,7 +38,7 @@ export function DataField({
           </span>
         </div>
         {secondaryValue && (
-          <span className="mt-0.5 text-[10px] text-muted-foreground">
+          <span className={cn("mt-0.5 text-[10px] text-muted-foreground", secondaryValueClassName)}>
             {secondaryValue}
           </span>
         )}
@@ -54,7 +56,7 @@ export function DataField({
           {value}
         </span>
         {secondaryValue && (
-          <span className="text-[10px] text-muted-foreground">
+          <span className={cn("text-[10px] text-muted-foreground", secondaryValueClassName)}>
             {secondaryValue}
           </span>
         )}
@@ -77,7 +79,7 @@ export function DataField({
         {value}
       </div>
       {secondaryValue && (
-        <span className="text-[10px] text-muted-foreground block">
+        <span className={cn("text-[10px] text-muted-foreground block", secondaryValueClassName)}>
           {secondaryValue}
         </span>
       )}

@@ -33,7 +33,7 @@ export function CancelOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg font-black text-rose-600 dark:text-rose-400">
+          <DialogTitle className="flex items-center gap-2 text-lg font-black text-destructive">
             <XCircle className="h-5 w-5" />
             Anular Orden de Trabajo
           </DialogTitle>
@@ -43,7 +43,7 @@ export function CancelOrderDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-3">
-          <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs space-y-2">
+          <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs space-y-2">
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Orden</span>
               <span className="font-bold text-foreground">#{order.idOrdenDeTrabajo}</span>
@@ -64,11 +64,11 @@ export function CancelOrderDialog({
               Cancelar
             </Button>
             <Button
-              variant="default"
+              variant="destructive"
               size="sm"
               onClick={onConfirmCancel}
               disabled={isCancelling}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              className="font-bold"
             >
               {isCancelling ? (
                 <span className="flex items-center gap-1.5">

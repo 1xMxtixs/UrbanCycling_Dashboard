@@ -4,8 +4,6 @@ import { ColumnDef, Row, Table } from "@tanstack/react-table";
 import {
   ArrowUpDown,
   Eye,
-  MoreHorizontal,
-  Pencil,
   Gavel,
   Clock3,
   PauseCircle,
@@ -15,24 +13,17 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
-
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ESTADO_GARANTIA_CODIGO,
+  getEstadoGarantiaStatus,
+} from "@/lib/garantia-status";
+
+import { RowActionsMenu } from "@/components/common/RowActionsMenu";
 
 import type { EstadoGarantiaCodigo, Garantia } from "../types";
 
 export interface GarantiasTableMeta {
   onViewDetails?: (id: number) => void;
-  onEdit?: (id: number) => void;
   onResolve?: (id: number) => void;
   onRequestStatusChange?: (id: number, estado: EstadoGarantiaCodigo) => void;
   canUpdate?: boolean;
@@ -48,35 +39,11 @@ function CellActions({
   row,
   table,
 }: CellActionsProps) {
-  const garantia = row.original;
-
-  const meta =
-    table.options.meta as GarantiasTableMeta | undefined;
-
-  const estado = garantia.estadoCodigo;
-
-  /*
-   * ============================================================
-   * PERMISOS DE ACCIONES SEGÚN ESTADO
-   * ============================================================
-   *
-   * INGRESADO:
-   * - Ver detalle
-   * - Modificar solicitud
-   * - Resolver garantía
-   *
-   * EN REVISIÓN:
-   * - Ver detalle
-   * - Resolver garantía
-   *
-   * APROBADO / RECHAZADO:
-   * - Solo ver detalle
-   */
-
-  const isPending = ["INGRESADO", "EN_REVISION", "EN_ESPERA"].includes(estado);
-  const canEdit = Boolean(meta?.canUpdate) && isPending;
-
-  const canResolve = Boolean(meta?.canResolve) && isPending;
+  const garantia = row.original
+  const meta = table.options.meta as GarantiasTableMeta | undefined
+  const estado = garantia.estadoCodigo
+  const isPending = ["INGRESADO", "EN_REVISION", "EN_ESPERA"].includes(estado)
+  const canResolve = Boolean(meta?.canResolve) && isPending
   const statusOptions: Array<{ estado: EstadoGarantiaCodigo; label: string; icon: LucideIcon }> =
     estado === "INGRESADO"
       ? [
@@ -87,111 +54,39 @@ function CellActions({
         ? [{ estado: "EN_ESPERA", label: "Poner en espera", icon: PauseCircle }]
         : estado === "EN_ESPERA"
           ? [{ estado: "EN_REVISION", label: "Reanudar revisión", icon: PlayCircle }]
-          : [];
+          : []
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 cursor-pointer"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        className="w-52"
-      >
-        <DropdownMenuLabel>
-          Acciones
-        </DropdownMenuLabel>
-
-        {/* =====================================================
-            VER DETALLE
-        ===================================================== */}
-
-        <DropdownMenuItem
-          onClick={() =>
-            meta?.onViewDetails?.(
-              garantia.idGarantia
-            )
-          }
-          className="flex cursor-pointer items-center gap-2"
-        >
-          <Eye className="h-4 w-4 text-muted-foreground" />
-
-          Ver Detalle
-        </DropdownMenuItem>
-
-        {meta?.canUpdate && statusOptions.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Cambiar estado</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {statusOptions.map((option) => {
-                  const Icon = option.icon;
-                  return (
-                    <DropdownMenuItem
-                      key={option.estado}
-                      onClick={() => meta.onRequestStatusChange?.(garantia.idGarantia, option.estado)}
-                      className="flex cursor-pointer items-center gap-2"
-                    >
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      {option.label}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </>
-        )}
-
-        {/* =====================================================
-            MODIFICAR SOLICITUD
-            Solo disponible en "Ingresado"
-        ===================================================== */}
-
-        {canEdit && (
-          <DropdownMenuItem
-            onClick={() =>
-              meta?.onEdit?.(
-                garantia.idGarantia
-              )
-            }
-            className="flex cursor-pointer items-center gap-2"
-          >
-            <Pencil className="h-4 w-4 text-muted-foreground" />
-
-            Modificar Solicitud
-          </DropdownMenuItem>
-        )}
-
-        {/* =====================================================
-            RESOLVER GARANTÍA
-            Disponible en "Ingresado" y "En Revisión"
-        ===================================================== */}
-
-        {canResolve && (
-          <DropdownMenuItem
-            onClick={() =>
-              meta?.onResolve?.(
-                garantia.idGarantia
-              )
-            }
-            className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary"
-          >
-            <Gavel className="h-4 w-4 text-primary" />
-
-            Resolver Garantía
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+    <RowActionsMenu
+      ariaLabel={`Acciones de garantía #${garantia.idGarantia}`}
+      groups={[
+        {
+          actions: [
+            {
+              label: "Ver detalle",
+              icon: Eye,
+              onSelect: () => meta?.onViewDetails?.(garantia.idGarantia),
+            },
+            {
+              label: "Resolver garantía",
+              icon: Gavel,
+              hidden: !canResolve,
+              onSelect: () => meta?.onResolve?.(garantia.idGarantia),
+            },
+          ],
+        },
+        {
+          label: "Cambiar estado",
+          actions: statusOptions.map((option) => ({
+            label: option.label,
+            icon: option.icon,
+            hidden: !meta?.canUpdate,
+            onSelect: () => meta?.onRequestStatusChange?.(garantia.idGarantia, option.estado),
+          })),
+        },
+      ]}
+    />
+  )
 }
 
 export const columns: ColumnDef<Garantia>[] = [
@@ -211,7 +106,7 @@ export const columns: ColumnDef<Garantia>[] = [
               column.getIsSorted() === "asc"
             )
           }
-          className="cursor-pointer"
+          className="cursor-pointer p-0 font-semibold hover:bg-transparent"
         >
           ID
 
@@ -221,7 +116,7 @@ export const columns: ColumnDef<Garantia>[] = [
     },
 
     cell: ({ row }) => (
-      <span className="font-bold text-foreground">
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
         GAR-
         {String(
           row.original.idGarantia
@@ -240,7 +135,7 @@ export const columns: ColumnDef<Garantia>[] = [
     header: "Orden de Trabajo",
 
     cell: ({ row }) => (
-      <span className="font-semibold">
+      <span className="font-mono text-sm tabular-nums text-muted-foreground">
         #{row.original.idOrdenDeTrabajo}
       </span>
     ),
@@ -258,17 +153,38 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Cliente",
 
-    cell: ({ row }) => (
-      <div className="space-y-0.5">
-        <p className="font-semibold text-foreground">
-          {row.original.cliente.nombre}
-        </p>
+    cell: ({ row }) => {
+      const nombre = row.original.cliente.nombre?.trim();
+      const rut = row.original.cliente.rut?.trim();
+      const nombreVisible =
+        nombre && nombre.toLocaleLowerCase("es-CL") !== "cliente sin nombre"
+          ? nombre
+          : "—";
+      const rutVisible = rut && rut.toLocaleLowerCase("es-CL") !== "sin rut";
 
-        <p className="text-[11px] text-muted-foreground">
-          RUT:{" "}
-          {row.original.cliente.rut}
-        </p>
-      </div>
+      return (
+        <div className="space-y-0.5">
+          <p className={nombreVisible === "—" ? "text-muted-foreground/60" : "font-semibold text-foreground"}>
+            {nombreVisible}
+          </p>
+          {rutVisible && (
+            <p className="text-[11px] text-muted-foreground">RUT: {rut}</p>
+          )}
+        </div>
+      );
+    },
+  },
+
+  {
+    accessorKey: "motivoReclamo",
+    header: "Motivo",
+    cell: ({ row }) => (
+      <span
+        className="block max-w-[260px] truncate text-sm text-muted-foreground"
+        title={row.original.motivoReclamo}
+      >
+        {row.original.motivoReclamo}
+      </span>
     ),
   },
 
@@ -278,11 +194,12 @@ export const columns: ColumnDef<Garantia>[] = [
 
   {
     accessorKey: "fechaIngreso",
+    enableSorting: false,
 
     header: "Fecha de Ingreso",
 
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
+      <span className="text-sm text-muted-foreground">
         {row.original.fechaIngreso}
       </span>
     ),
@@ -297,61 +214,25 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Estado",
 
-    filterFn: (
-      row,
-      columnId,
-      filterValue
-    ) => {
-      if (!filterValue) {
-        return true;
-      }
-
-      return (
-        String(
-          row.getValue(columnId)
-        )
-          .trim()
-          .toLowerCase() ===
-        String(filterValue)
-          .trim()
-          .toLowerCase()
-      );
-    },
+    filterFn: (row, _columnId, filterValue) =>
+      !filterValue || row.original.estadoCodigo === filterValue,
 
     cell: ({ row }) => {
-      const estado = row.original.estado;
-      const codigo = row.original.estadoCodigo;
-
-      let status:
-        | "success"
-        | "warning"
-        | "danger"
-        | "neutral" = "neutral";
-
-      // INGRESADO
-      if (codigo === "INGRESADO" || codigo === "EN_ESPERA") {
-        status = "neutral";
-      }
-
-      // EN REVISIÓN
-      if (codigo === "EN_REVISION") {
-        status = "warning";
-      }
-
-      // APROBADO
-      if (codigo === "APROBADO") {
-        status = "success";
-      }
-
-      // RECHAZADO
-      if (codigo === "RECHAZADO") {
-        status = "danger";
-      }
+      const estado = row.original.estadoCodigo;
+      const esEstadoFinal =
+        estado === ESTADO_GARANTIA_CODIGO.APROBADO ||
+        estado === ESTADO_GARANTIA_CODIGO.RECHAZADO;
+      const esEstadoAnimado =
+        estado === ESTADO_GARANTIA_CODIGO.INGRESADO ||
+        estado === ESTADO_GARANTIA_CODIGO.EN_REVISION ||
+        estado === ESTADO_GARANTIA_CODIGO.EN_ESPERA;
 
       return (
         <StatusBadge
-          status={status}
-          label={estado}
+          status={getEstadoGarantiaStatus(estado)}
+          label={row.original.estado}
+          showDot={!esEstadoFinal}
+          animateDot={esEstadoAnimado}
         />
       );
     },
@@ -366,14 +247,10 @@ export const columns: ColumnDef<Garantia>[] = [
 
     header: "Acciones",
 
-    cell: ({
-      row,
-      table,
-    }) => (
-      <CellActions
-        row={row}
-        table={table}
-      />
+    cell: ({ row, table }) => (
+      <div className="flex justify-end">
+        <CellActions row={row} table={table} />
+      </div>
     ),
   },
 ];

@@ -43,6 +43,9 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "warranties:resolve",
     "sales:read",
     "sales:create",
+    "purchase_orders:read",
+    "purchase_orders:create",
+    "purchase_orders:update",
     "payments:create",
     "receipts:create",
     "users:read",
@@ -81,6 +84,9 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleName, PermissionCode[]> = {
     "inventory:create",
     "inventory:update",
     "inventory:delete",
+    "purchase_orders:read",
+    "purchase_orders:create",
+    "purchase_orders:update",
   ],
   "Asesor Técnico": [
     "work-orders:read",
@@ -159,6 +165,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { code: "sales:create", label: "Crear ventas" },
       { code: "payments:create", label: "Registrar pagos" },
       { code: "receipts:create", label: "Emitir documentos" },
+    ],
+  },
+  {
+    label: "Compras",
+    permissions: [
+      { code: "purchase_orders:read", label: "Ver órdenes de compra" },
+      { code: "purchase_orders:create", label: "Crear órdenes de compra" },
+      { code: "purchase_orders:update", label: "Actualizar órdenes de compra" },
     ],
   },
   {
