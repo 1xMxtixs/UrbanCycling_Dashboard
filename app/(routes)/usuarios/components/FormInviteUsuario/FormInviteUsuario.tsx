@@ -252,7 +252,7 @@ export function FormInviteUsuario({
           </p>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 border-t-0 bg-transparent p-0">
           <Button
             type="button"
             variant="outline"
