@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import dynamic from "next/dynamic"
 import { AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { useUserPermissions } from "@/components/providers"
@@ -11,8 +12,6 @@ import { formatTipoProducto } from "@/lib/product-types"
 import { cn } from "@/lib/utils"
 import {
   DateRangeFilter,
-  ChartRentabilidadOrdenesTrabajo,
-  ChartVentasPorMetodoPago,
   DetalleOperacionesInventario,
   type RentabilidadOrdenTrabajoPoint,
   type MetodoPagoDatum,
@@ -25,6 +24,32 @@ import { AccessDeniedState } from "./components/AccessDeniedState"
 import { FinancialSummarySkeleton, ChartsSkeleton, TableSkeleton } from "./components/ReportsSkeletons"
 import { getDashboardData } from "./data"
 import type { DateRange, ReportsData } from "./types"
+
+const ChartRentabilidadOrdenesTrabajo = dynamic(
+  () =>
+    import("@/components/reportes").then(
+      (mod) => mod.ChartRentabilidadOrdenesTrabajo
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[340px] w-full animate-pulse rounded-xl bg-muted/40" />
+    ),
+  }
+)
+
+const ChartVentasPorMetodoPago = dynamic(
+  () =>
+    import("@/components/reportes").then(
+      (mod) => mod.ChartVentasPorMetodoPago
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[340px] w-full animate-pulse rounded-xl bg-muted/40" />
+    ),
+  }
+)
 
 function formatDateISO(date: Date): string {
   const year = date.getFullYear()

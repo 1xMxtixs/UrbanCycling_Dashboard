@@ -99,7 +99,9 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [searchInput, setSearchInput] = React.useState(initialSearch)
+  const deferredSearch = React.useDeferredValue(searchInput)
+  const [globalFilter, setGlobalFilter] = React.useState(initialSearch)
   const [isMounted, setIsMounted] = React.useState(false)
   const [periodOpen, setPeriodOpen] = React.useState(false)
 
@@ -108,8 +110,12 @@ export function DataTable<TData, TValue>({
   }, [])
 
   React.useEffect(() => {
-    setGlobalFilter(initialSearch)
+    setSearchInput(initialSearch)
   }, [initialSearch])
+
+  React.useEffect(() => {
+    setGlobalFilter(deferredSearch)
+  }, [deferredSearch])
 
   const table = useReactTable({
     data,
@@ -168,8 +174,8 @@ export function DataTable<TData, TValue>({
             <Input
               placeholder="Buscar por ID, Cliente o Bicicleta..."
               aria-label="Buscar órdenes de trabajo por ID, cliente o bicicleta"
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
             />
           </div>
@@ -267,7 +273,7 @@ export function DataTable<TData, TValue>({
             title={emptyState?.title || "No se encontraron órdenes"}
             description={
               emptyState?.description ||
-              (globalFilter
+              (searchInput
                 ? "No hay órdenes que coincidan con el término de búsqueda ingresado."
                 : "No hay órdenes de trabajo registradas en este estado.")
             }
