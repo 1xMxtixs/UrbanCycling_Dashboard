@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileText,
   Gavel,
+  Pencil,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -28,12 +29,16 @@ interface GarantiaDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   garantia: Garantia | null;
+  canEdit?: boolean;
+  onEdit?: (id: number) => void;
 }
 
 export function GarantiaDetailDialog({
   open,
   onOpenChange,
   garantia,
+  canEdit = false,
+  onEdit,
 }: GarantiaDetailDialogProps) {
   if (!garantia) return null;
 
@@ -185,7 +190,17 @@ export function GarantiaDetailDialog({
             </div>
           )}
 
-          <div className="flex justify-end border-t border-border/60 pt-4">
+          <div className="flex flex-col-reverse justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row">
+            {canEdit ? (
+              <Button
+                variant="outline"
+                className="rounded-xl cursor-pointer"
+                onClick={() => onEdit?.(garantia.idGarantia)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar solicitud
+              </Button>
+            ) : <span />}
             <Button
               variant="outline"
               className="rounded-xl cursor-pointer"

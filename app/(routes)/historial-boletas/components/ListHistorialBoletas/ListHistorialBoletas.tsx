@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { Receipt, Search, Download, RotateCcw, ChevronLeft, ChevronRight, MoreHorizontal, Eye } from "lucide-react";
+import { Receipt, Search, Download, RotateCcw, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,12 +30,7 @@ import { TIPO_DTE } from "@/lib/tax-document";
 import { validarYFormatearRut } from "@/lib/client-rut";
 import { KpiCards } from "../KpiCards";
 import type { DocumentoTributario } from "../../types";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/common/RowActionsMenu";
 import {
   Dialog,
   DialogContent,
@@ -613,7 +608,7 @@ export function ListHistorialBoletas() {
                 <TableHead className="hidden px-2 sm:px-4 md:table-cell">Emisión</TableHead>
                 <TableHead className="px-2 sm:px-4">Estado</TableHead>
                 <TableHead className="px-2 text-right sm:px-4">Total</TableHead>
-                <TableHead className="w-12 px-2 text-right sm:px-4"><span className="sr-only">Acciones</span></TableHead>
+                <TableHead className="w-24 min-w-24 whitespace-nowrap px-2 text-right sm:px-4">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -658,29 +653,25 @@ export function ListHistorialBoletas() {
                       </span>
                     </TableCell>
                     <TableCell className="px-2 text-right sm:px-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Acciones para boleta ${doc.numeroFolio}`}
-                            className="cursor-pointer"
-                          >
-                            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onSelect={() => setSelectedDocument(doc)}>
-                            <Eye aria-hidden="true" />
-                            Ver detalle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => void handleDownloadPdf(doc)}>
-                            <Download aria-hidden="true" />
-                            Descargar PDF
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <RowActionsMenu
+                          ariaLabel={`Acciones para boleta ${doc.numeroFolio}`}
+                          groups={[
+                            {
+                              actions: [
+                                {
+                                  label: "Ver detalle",
+                                  icon: Eye,
+                                  onSelect: () => setSelectedDocument(doc),
+                                },
+                                {
+                                  label: "Descargar PDF",
+                                  icon: Download,
+                                  onSelect: () => void handleDownloadPdf(doc),
+                                },
+                              ],
+                            },
+                          ]}
+                        />
                     </TableCell>
                   </TableRow>
                 );

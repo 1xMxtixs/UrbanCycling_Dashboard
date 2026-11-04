@@ -9,7 +9,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { AlertCircle, CheckCircle2, ClipboardList, Eye, MoreHorizontal, Plus, Search, ShoppingCart } from "lucide-react"
+import { AlertCircle, CheckCircle2, ClipboardList, Copy, Download, Eye, Plus, Search, ShoppingCart } from "lucide-react"
+import { toast } from "sonner"
 
 import { useUserPermissions } from "@/components/providers"
 import { PageHeader } from "@/components/common/PageHeader"
@@ -28,12 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import {
   Table,
   TableBody,
@@ -46,6 +42,7 @@ import { FormDialog } from "@/components/forms/FormDialog"
 import { PERMISSIONS } from "@/lib/permissions"
 import { includesNormalizedText } from "@/lib/search-normalization"
 import { formatCLP } from "@/lib/formatters"
+import { buildPurchaseOrderText } from "@/lib/purchase-order-text"
 import { CreatePurchaseOrderForm } from "./CreatePurchaseOrderForm"
 import { PurchaseOrderDetail } from "./PurchaseOrderDetail"
 import type { PurchaseOrder } from "../types"
@@ -97,6 +94,55 @@ export function OrdenesCompra() {
   })
   const [createOpen, setCreateOpen] = useState(false)
   const [selected, setSelected] = useState<PurchaseOrder | null>(null)
+
+  const copyOrderToClipboard = async (order: PurchaseOrder) => {
+    try {
+      const response = await fetch(`/api/ordenes-compra/${order.idOrdenDeCompra}`, { cache: "no-store" })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.purchaseOrder) {
+        throw new Error(result?.message || "No fue posible cargar la orden de compra.")
+      }
+      if (!navigator.clipboard?.writeText) throw new Error("Portapapeles no disponible")
+      await navigator.clipboard.writeText(buildPurchaseOrderText(result.purchaseOrder))
+      toast.success("Orden copiada al portapapeles.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo copiar la orden.")
+    }
+  }
+
+  const downloadOrderPdf = async (order: PurchaseOrder) => {
+    let downloadUrl: string | undefined
+    let link: HTMLAnchorElement | undefined
+    try {
+      const response = await fetch(`/api/ordenes-compra/${order.idOrdenDeCompra}/pdf`, {
+        headers: { Accept: "application/pdf" },
+        credentials: "same-origin",
+        cache: "no-store",
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        throw new Error(result?.message || "No fue posible descargar el PDF.")
+      }
+      if (!response.headers.get("Content-Type")?.toLowerCase().includes("application/pdf")) {
+        throw new Error("El servidor no devolvió un PDF válido.")
+      }
+      const blob = await response.blob()
+      if (!blob.size) throw new Error("El PDF está vacío.")
+      downloadUrl = URL.createObjectURL(blob)
+      link = document.createElement("a")
+      link.href = downloadUrl
+      link.download = `orden-compra-${order.idOrdenDeCompra}.pdf`
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      toast.success("Descarga del PDF iniciada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible descargar el PDF.")
+    } finally {
+      link?.remove()
+      if (downloadUrl) window.setTimeout(() => URL.revokeObjectURL(downloadUrl!), 1000)
+    }
+  }
 
   const loadOrders = useCallback(async () => {
     try {
@@ -497,19 +543,30 @@ export function OrdenesCompra() {
                         onClick={(event) => event.stopPropagation()}
                         onKeyDown={(event) => event.stopPropagation()}
                       >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones de orden OC-${order.idOrdenDeCompra}`}>
-                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onSelect={() => setSelected(order)} className="flex cursor-pointer items-center gap-2">
-                              <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                              Ver detalle
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <RowActionsMenu
+                          ariaLabel={`Acciones de orden OC-${order.idOrdenDeCompra}`}
+                          groups={[
+                            {
+                              actions: [
+                                {
+                                  label: "Ver detalle",
+                                  icon: Eye,
+                                  onSelect: () => setSelected(order),
+                                },
+                                {
+                                  label: "Descargar PDF",
+                                  icon: Download,
+                                  onSelect: () => void downloadOrderPdf(order),
+                                },
+                                {
+                                  label: "Copiar al portapapeles",
+                                  icon: Copy,
+                                  onSelect: () => void copyOrderToClipboard(order),
+                                },
+                              ],
+                            },
+                          ]}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

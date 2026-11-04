@@ -1,17 +1,9 @@
 "use client"
 
 import { ColumnDef, Row, Table } from "@tanstack/react-table"
-import { MoreHorizontal, Eye, Check, XCircle, Loader2, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Eye, Check, Ban, FileText } from "lucide-react"
 import { StatusBadge } from "@/components/common/StatusBadge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { DataField } from "@/components/common/DataField"
 import { formatClientName, formatCLP } from "@/lib/formatters"
 import { SortableHeader } from "@/components/common/SortableHeader"
@@ -33,79 +25,60 @@ const CellActions = ({ row, table }: { row: Row<SaleOperation>; table: Table<Sal
   const meta = table.options.meta as VentaTableMeta | undefined
   const isPending = op.estadoPago === ESTADO_PAGO.PENDIENTE
   const isAnulada = isVentaAnulada(op.estadoVenta)
-  const isPaid =
-    op.estadoPago === ESTADO_PAGO.PAGADA
+  const isPaid = op.estadoPago === ESTADO_PAGO.PAGADA
 
   return (
     <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label={`Abrir acciones de venta #${op.venta.idVenta}`}>
-          {meta?.updatingId === op.venta.idVenta ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <MoreHorizontal className="h-4 w-4" />
-          )}
-          <span className="sr-only">Abrir menú de acciones</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-
-        <DropdownMenuItem
-          onClick={() => meta?.onViewDetails?.(op)}
-          className="flex cursor-pointer items-center gap-2"
-        >
-          <Eye className="h-4 w-4" />
-          Ver Detalle
-        </DropdownMenuItem>
-
-        {isPaid && !isAnulada && (
-          <DropdownMenuItem
-            onClick={() => meta?.onGenerateReceipt?.(op)}
-            className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-          >
-            <FileText className="h-4 w-4" />
-            Generar Boleta
-          </DropdownMenuItem>
-        )}
-
-        {!isAnulada && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-semibold tracking-tight text-muted-foreground">
-              Actualizar Venta
-            </DropdownMenuLabel>
-
-            {isPending && (
-              <DropdownMenuItem
-                onClick={() =>
+      <RowActionsMenu
+        ariaLabel={`Acciones de la venta #${op.venta.idVenta}`}
+        isLoading={meta?.updatingId === op.venta.idVenta}
+        groups={[
+          {
+            actions: [
+              {
+                label: "Ver detalle",
+                icon: Eye,
+                onSelect: () => meta?.onViewDetails?.(op),
+              },
+              {
+                label: "Generar boleta",
+                icon: FileText,
+                variant: "primary",
+                hidden: !isPaid || isAnulada,
+                onSelect: () => meta?.onGenerateReceipt?.(op),
+              },
+            ],
+          },
+          {
+            label: "Cambiar estado",
+            actions: [
+              {
+                label: "Marcar como pagada",
+                icon: Check,
+                hidden: !isPending || isAnulada,
+                onSelect: () =>
                   meta?.onPayClick
                     ? meta.onPayClick(op.venta.idVenta, Number(op.total))
-                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta)
-                }
-                className="flex cursor-pointer items-center gap-2 text-primary font-semibold"
-              >
-                <Check className="h-4 w-4" />
-                Marcar como Pagada
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuItem
-              onClick={() =>
-                meta?.onCancelClick
-                ? meta.onCancelClick(op)
-                : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA)
-              }
-              className="flex cursor-pointer items-center gap-2 text-destructive font-semibold"
-            >
-              <XCircle className="h-4 w-4" />
-              Anular Venta
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.PAGADA, op.estadoVenta),
+              },
+            ],
+          },
+          {
+            actions: [
+              {
+                label: "Anular venta",
+                icon: Ban,
+                variant: "destructive",
+                hidden: isAnulada,
+                onSelect: () =>
+                  meta?.onCancelClick
+                    ? meta.onCancelClick(op)
+                    : meta?.onUpdateStatus?.(op.venta.idVenta, ESTADO_PAGO.ANULADA, ESTADO_VENTA.ANULADA),
+              },
+            ],
+          },
+        ]}
+      />
     </div>
   )
 }

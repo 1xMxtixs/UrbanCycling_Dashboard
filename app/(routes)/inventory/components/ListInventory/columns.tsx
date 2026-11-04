@@ -1,23 +1,15 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
 import {
   ArrowLeftRight,
+  Building2,
   Eye,
-  MoreHorizontal,
   Package,
   Power,
-  Trash2,
+  PowerOff,
 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import {
   getNombreEstadoRegistro,
@@ -158,72 +150,57 @@ export function getColumns(
       id: "actions",
       header: "Acciones",
       cell: ({ row }) => {
-        const isActive = isRegistroActivo(row.original.estado)
+        const product = row.original
+        const isActive = isRegistroActivo(product.estado)
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 cursor-pointer"
-              >
-                <span className="sr-only">Abrir menú de opciones</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-48 rounded-xl border-border/80"
-            >
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => onViewDetail(row.original)}
-                className="flex cursor-pointer items-center gap-2 text-xs font-medium"
-              >
-                <Eye className="h-4 w-4" />
-                Ver detalle
-              </DropdownMenuItem>
-              {onManageSuppliers && (
-                <DropdownMenuItem
-                  onClick={() => onManageSuppliers(row.original)}
-                >
-                  Ver y asociar proveedores
-                </DropdownMenuItem>
-              )}
-              {canUpdate && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => onRegisterMovement(row.original)}
-                    className="flex cursor-pointer items-center gap-2 text-xs font-medium"
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                    Registrar movimiento
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {isActive ? (
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(row.original)}
-                      className="flex cursor-pointer items-center gap-2 text-xs text-destructive focus:bg-gradient-to-r focus:from-destructive/20 focus:to-destructive/5 focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Inactivar producto
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(row.original)}
-                      className="flex cursor-pointer items-center gap-2 text-xs font-medium text-primary focus:text-primary"
-                    >
-                      <Power className="h-4 w-4" />
-                      Reactivar producto
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActionsMenu
+            ariaLabel={`Acciones del producto ${product.nombre}`}
+            groups={[
+              {
+                actions: [
+                  {
+                    label: "Ver detalle",
+                    icon: Eye,
+                    onSelect: () => onViewDetail(product),
+                  },
+                  {
+                    label: "Asociar proveedores",
+                    icon: Building2,
+                    hidden: !onManageSuppliers,
+                    onSelect: () => onManageSuppliers?.(product),
+                  },
+                  {
+                    label: "Registrar movimiento",
+                    icon: ArrowLeftRight,
+                    hidden: !canUpdate,
+                    onSelect: () => onRegisterMovement(product),
+                  },
+                ],
+              },
+              {
+                label: "Cambiar estado",
+                actions: [
+                  {
+                    label: "Inactivar producto",
+                    icon: PowerOff,
+                    variant: "destructive",
+                    hidden: !canUpdate || !isActive,
+                    onSelect: () => onToggleStatus(product),
+                  },
+                  {
+                    label: "Reactivar producto",
+                    icon: Power,
+                    variant: "primary",
+                    hidden: !canUpdate || isActive,
+                    onSelect: () => onToggleStatus(product),
+                  },
+                ],
+              },
+            ]}
+          />
         )
       },
-    },
+    }
   ]
 }

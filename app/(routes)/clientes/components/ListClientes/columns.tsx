@@ -3,25 +3,16 @@
 import * as React from "react";
 import type { ColumnDef, Row, Table } from "@tanstack/react-table";
 import {
-  MoreHorizontal,
   Eye,
   ClipboardList,
   Pencil,
-  Trash2,
+  PowerOff,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISSIONS } from "@/lib/permissions";
-import { Button } from "@/components/ui/button";
+import { RowActionsMenu } from "@/components/common/RowActionsMenu";
 import { DataField } from "@/components/common/DataField";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { InactivateClientDialog } from "./InactivateClientDialog";
 import type { ClienteNatural, ClienteJuridica, ClientesTableMeta } from "../../types";
 import { formatRut } from "@/lib/formatters";
@@ -39,13 +30,14 @@ const CellActions = <TData extends { id: number }>({
   row,
   table,
 }: CellActionsProps<TData>) => {
-  const client = row.original as TData & { nombre?: string; estado?: string };
-  const meta = table.options.meta as ClientesTableMeta | undefined;
-  const { data: session } = useSession();
-  const canEdit = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_UPDATE);
-  const canDelete = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_DELETE);
-  const isActivo = isRegistroActivo(client.estado);
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const client = row.original as TData & { nombre?: string; razonSocial?: string; estado?: string }
+  const meta = table.options.meta as ClientesTableMeta | undefined
+  const { data: session } = useSession()
+  const canEdit = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_UPDATE)
+  const canDelete = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_DELETE)
+  const isActivo = isRegistroActivo(client.estado)
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  const nombre = client.nombre ?? client.razonSocial ?? String(client.id)
 
   return (
     <div
@@ -53,56 +45,62 @@ const CellActions = <TData extends { id: number }>({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label="Acciones de cliente">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => meta?.onViewDetails?.(client.id)} className="flex cursor-pointer items-center gap-2">
-            <Eye className="h-4 w-4 text-muted-foreground" /> Ver detalle
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => meta?.onViewHistory?.(client.id)} className="flex cursor-pointer items-center gap-2 font-medium text-primary focus:text-primary">
-            <ClipboardList className="h-4 w-4 text-primary" /> Historial de órdenes
-          </DropdownMenuItem>
-          {canEdit && (
-            <DropdownMenuItem onClick={() => meta?.onEdit?.(client.id)} className="flex cursor-pointer items-center gap-2">
-              <Pencil className="h-4 w-4 text-muted-foreground" /> Editar
-            </DropdownMenuItem>
-          )}
-          {canDelete && isActivo && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setDialogOpen(true);
-                }}
-                className="flex cursor-pointer items-center gap-2 text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" /> Inactivar cliente
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu
+        ariaLabel={`Acciones de cliente ${nombre}`}
+        groups={[
+          {
+            actions: [
+              {
+                label: "Ver detalle",
+                icon: Eye,
+                onSelect: () => meta?.onViewDetails?.(client.id),
+              },
+              {
+                label: "Historial de órdenes",
+                icon: ClipboardList,
+                variant: "primary",
+                onSelect: () => meta?.onViewHistory?.(client.id),
+              },
+              {
+                label: "Editar",
+                icon: Pencil,
+                hidden: !canEdit,
+                onSelect: () => meta?.onEdit?.(client.id),
+              },
+            ],
+          },
+          {
+            label: "Cambiar estado",
+            actions: [
+              {
+                label: "Inactivar cliente",
+                icon: PowerOff,
+                variant: "destructive",
+                hidden: !canDelete || !isActivo,
+                onSelect: (event) => {
+                  event.preventDefault()
+                  setDialogOpen(true)
+                },
+              },
+            ],
+          },
+        ]}
+      />
       {canDelete && (
         <InactivateClientDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           clientId={client.id}
-          clientName={client.nombre ?? "este cliente"}
+          clientName={nombre === String(client.id) ? "este cliente" : nombre}
           onConfirm={(id) => {
-            if (!meta?.onInactivate) return Promise.reject(new Error("No se pudo inactivar el cliente."));
-            return meta.onInactivate(id);
+            if (!meta?.onInactivate) return Promise.reject(new Error("No se pudo inactivar el cliente."))
+            return meta.onInactivate(id)
           }}
         />
       )}
     </div>
-  );
-};
+  )
+}
 
 function PhoneCell({ value }: { value: unknown }) {
   const phone = String(value ?? "").trim();

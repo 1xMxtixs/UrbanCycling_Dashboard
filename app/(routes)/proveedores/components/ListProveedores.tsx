@@ -4,12 +4,11 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   PackageCheck,
   Pencil,
   Search,
   Store,
-  Trash2,
+  PowerOff,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -24,13 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { RowActionsMenu } from "@/components/common/RowActionsMenu"
 import { DataTableContainer } from "@/components/common/DataTableContainer"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
@@ -324,61 +317,48 @@ export function ListProveedores({
                 </TableCell>
 
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Acciones para ${proveedor.razonSocial}`}
-                        className="cursor-pointer"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent
-                      align="end"
-                      className="rounded-xl border-border/80"
+                  <div
+                      className="flex justify-end"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
                     >
-                      <DropdownMenuItem
-                        onClick={() => onView(proveedor)}
-                        className="cursor-pointer"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver ficha
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        onClick={() => onEdit(proveedor)}
-                        className="cursor-pointer"
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar
-                      </DropdownMenuItem>
-
-                      {canAssociateProducts && (
-                        <DropdownMenuItem
-                          onClick={() => onAssociateProducts(proveedor)}
-                          className="cursor-pointer"
-                        >
-                          <PackageCheck className="mr-2 h-4 w-4" />
-                          Asociar productos
-                        </DropdownMenuItem>
-                      )}
-
-                      <DropdownMenuSeparator />
-
-                      {/* PR-13: Texto claro alineado con la acción de inactivación */}
-                      <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onClick={() => onDelete(proveedor)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Inactivar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      <RowActionsMenu
+                        ariaLabel={`Acciones para ${proveedor.razonSocial}`}
+                        groups={[
+                          {
+                            actions: [
+                              {
+                                label: "Ver detalle",
+                                icon: Eye,
+                                onSelect: () => onView(proveedor),
+                              },
+                              {
+                                label: "Editar",
+                                icon: Pencil,
+                                onSelect: () => onEdit(proveedor),
+                              },
+                              {
+                                label: "Asociar productos",
+                                icon: PackageCheck,
+                                hidden: !canAssociateProducts,
+                                onSelect: () => onAssociateProducts(proveedor),
+                              },
+                            ],
+                          },
+                          {
+                            label: "Cambiar estado",
+                            actions: [
+                              {
+                                label: "Inactivar proveedor",
+                                icon: PowerOff,
+                                variant: "destructive",
+                                onSelect: () => onDelete(proveedor),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
+                    </div>
                 </TableCell>
               </TableRow>
             ))}

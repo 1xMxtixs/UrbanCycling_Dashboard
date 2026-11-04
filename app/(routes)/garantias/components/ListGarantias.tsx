@@ -13,7 +13,6 @@ import {
 import { MetricCard } from "@/components/common/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusToggleDialog } from "@/components/common/StatusToggleDialog";
 import { PERMISSIONS } from "@/lib/permissions";
 import { toast } from "sonner";
 import {
@@ -169,14 +168,10 @@ export function ListGarantias() {
    * El cambio de estado se confirma antes de llamar al controlador.
    * El usuario solo puede ver las opciones autorizadas por su sesión.
    */
-  const [cambioEstadoPendiente, setCambioEstadoPendiente] = useState<{
-    garantia: Garantia;
-    estadoDestino: EstadoGarantiaCodigo;
-  } | null>(null);
-  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   const canUpdate = hasPermission(PERMISSIONS.WARRANTIES_UPDATE);
   const canResolve = hasPermission(PERMISSIONS.WARRANTIES_RESOLVE);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   /*
    * ==========================================================
@@ -471,14 +466,12 @@ export function ListGarantias() {
     setOpenResolveModal(true);
   };
 
-  /*
-   * Solicita la confirmación visual. La transición válida la decide el backend;
-   * esta capa solo presenta las alternativas que ese contrato permite.
-   */
-  const handleRequestStatusChange = (
+  /* Ejecuta de inmediato la transición elegida; el backend valida el destino. */
+  const handleRequestStatusChange = async (
     id: number,
     estadoDestino: EstadoGarantiaCodigo
   ) => {
+    if (isChangingStatus) return;
     const garantia = garantias.find((item) => item.idGarantia === id);
 
     if (!garantia) {
@@ -486,15 +479,7 @@ export function ListGarantias() {
       return;
     }
 
-    setCambioEstadoPendiente({ garantia, estadoDestino });
-  };
-
-  const handleConfirmStatusChange = async () => {
-    if (!cambioEstadoPendiente) return;
-
-    const { garantia, estadoDestino } = cambioEstadoPendiente;
     setIsChangingStatus(true);
-
     try {
       const response = await fetch(
         `/api/garantias/${garantia.idGarantia}/estado`,
@@ -528,7 +513,6 @@ export function ListGarantias() {
       setSelectedGarantia((actual) =>
         actual?.idGarantia === garantia.idGarantia ? garantiaActualizada : actual
       );
-      setCambioEstadoPendiente(null);
       toast.success(data?.message ?? "Estado de garantía actualizado");
 
       // Recarga para conservar en pantalla cualquier dato adicional del backend.
@@ -701,9 +685,6 @@ export function ListGarantias() {
           onViewDetails:
             handleViewDetails,
 
-          onEdit:
-            handleEdit,
-
           onResolve:
             handleResolve,
 
@@ -713,25 +694,6 @@ export function ListGarantias() {
 
           canResolve,
         }}
-      />
-
-      {/* Confirma la transición antes de enviar el PATCH al controlador. */}
-      <StatusToggleDialog
-        open={Boolean(cambioEstadoPendiente)}
-        onOpenChange={(open) => {
-          if (!open && !isChangingStatus) {
-            setCambioEstadoPendiente(null);
-          }
-        }}
-        title="Confirmar cambio de estado"
-        description={
-          cambioEstadoPendiente
-            ? `La solicitud #${cambioEstadoPendiente.garantia.idGarantia} pasará de ${cambioEstadoPendiente.garantia.estado} a ${NOMBRES_ESTADO_GARANTIA[cambioEstadoPendiente.estadoDestino]}.`
-            : undefined
-        }
-        confirmLabel="Confirmar"
-        onConfirm={handleConfirmStatusChange}
-        isSubmitting={isChangingStatus}
       />
 
       {/* ======================================================
@@ -748,6 +710,11 @@ export function ListGarantias() {
         garantia={
           selectedGarantia
         }
+        canEdit={Boolean(canUpdate && selectedGarantia && ["INGRESADO", "EN_REVISION", "EN_ESPERA"].includes(selectedGarantia.estadoCodigo))}
+        onEdit={(id) => {
+          setOpenDetailsModal(false);
+          handleEdit(id);
+        }}
       />
 
       {/* ======================================================
