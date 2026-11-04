@@ -2,7 +2,15 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowLeftRight, ArrowUpDown, Eye, MoreHorizontal, Package, Power, Trash2 } from "lucide-react"
+import {
+  ArrowLeftRight,
+  ArrowUpDown,
+  Eye,
+  MoreHorizontal,
+  Package,
+  Power,
+  Trash2,
+} from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +20,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/common/StatusBadge"
-import { getNombreEstadoRegistro, isRegistroActivo } from "@/lib/registro-status"
+import {
+  getNombreEstadoRegistro,
+  isRegistroActivo,
+} from "@/lib/registro-status"
 import { DataField } from "@/components/common/DataField"
 import { formatCurrency } from "@/lib/formatters"
 import type { InventoryCategory } from "../../types"
@@ -37,6 +48,12 @@ export type ProductColumn = {
   estado: string
   imagenesProducto?: ProductImage[]
   categoriasProducto?: InventoryCategory[]
+  proveedores?: Array<{
+    idProveedor: number
+    razonSocial: string
+    rut: string
+    estado: string
+  }>
 }
 
 export function getColumns(
@@ -44,6 +61,7 @@ export function getColumns(
   onRegisterMovement: (product: ProductColumn) => void,
   onToggleStatus: (product: ProductColumn) => void,
   canUpdate: boolean = false,
+  onManageSuppliers?: (product: ProductColumn) => void
 ): ColumnDef<ProductColumn>[] {
   return [
     {
@@ -64,10 +82,14 @@ export function getColumns(
 
         return (
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 shrink-0 rounded-lg border border-border/80 bg-muted/40 overflow-hidden flex items-center justify-center">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/80 bg-muted/40">
               {firstImg ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={firstImg} alt={p.nombre} className="h-full w-full object-cover" />
+                <img
+                  src={firstImg}
+                  alt={p.nombre}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <Package className="h-4 w-4 text-muted-foreground/70" />
               )}
@@ -87,9 +109,7 @@ export function getColumns(
         return (
           <Button
             variant="ghost"
-            onClick={() =>
-              column.toggleSorting(column.getIsSorted() === "asc")
-            }
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="cursor-pointer p-0 font-semibold hover:bg-transparent"
           >
             Stock Actual
@@ -101,7 +121,7 @@ export function getColumns(
         const stockActual = row.original.stockActual
 
         return (
-          <span className="font-semibold text-sm text-foreground">
+          <span className="text-sm font-semibold text-foreground">
             {stockActual} u
           </span>
         )
@@ -116,14 +136,14 @@ export function getColumns(
           p.stockActual === 0
             ? "danger"
             : p.stockActual <= p.stockMinimo
-            ? "warning"
-            : "success"
+              ? "warning"
+              : "success"
         const label =
           p.stockActual === 0
             ? "Sin stock"
             : p.stockActual <= p.stockMinimo
-            ? "Stock bajo"
-            : "Disponible"
+              ? "Stock bajo"
+              : "Disponible"
 
         return <StatusBadge status={statusKey} label={label} />
       },
@@ -132,7 +152,7 @@ export function getColumns(
       accessorKey: "stockMinimo",
       header: "Mínimo",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground font-medium">
+        <span className="text-xs font-medium text-muted-foreground">
           {row.original.stockMinimo} u
         </span>
       ),
@@ -142,9 +162,7 @@ export function getColumns(
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() =>
-            column.toggleSorting(column.getIsSorted() === "asc")
-          }
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="cursor-pointer p-0 font-semibold hover:bg-transparent"
         >
           Precio Venta
@@ -153,7 +171,7 @@ export function getColumns(
       ),
       cell: ({ row }) => {
         return (
-          <span className="font-bold text-sm text-foreground">
+          <span className="text-sm font-bold text-foreground">
             {formatCurrency(row.original.precioVenta)}
           </span>
         )
@@ -184,11 +202,18 @@ export function getColumns(
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 cursor-pointer"
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl border-border/80">
+            <DropdownMenuContent
+              align="end"
+              className="w-48 rounded-xl border-border/80"
+            >
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem
                 onClick={() => onViewDetail(row.original)}
@@ -197,6 +222,13 @@ export function getColumns(
                 <Eye className="h-4 w-4" />
                 Ver detalle
               </DropdownMenuItem>
+              {onManageSuppliers && (
+                <DropdownMenuItem
+                  onClick={() => onManageSuppliers(row.original)}
+                >
+                  Ver y asociar proveedores
+                </DropdownMenuItem>
+              )}
               {canUpdate && (
                 <>
                   <DropdownMenuItem

@@ -25,6 +25,10 @@ import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import type { InventoryCategory } from "../../types"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param"
+import {
+  SupplierProductsDialog,
+  type AssociationTarget,
+} from "@/components/inventory/SupplierProductsDialog"
 
 export function ListInventory() {
   const { data: session } = useSession()
@@ -37,14 +41,20 @@ export function ListInventory() {
     useDismissedSearchParam(productIdParam)
 
   const canUpdate = Boolean(
-    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE),
+    session?.user?.permisos?.includes(PERMISSIONS.INVENTORY_UPDATE)
   )
 
   const [inventory, setInventory] = useState<ProductColumn[]>([])
+  const [associationTarget, setAssociationTarget] =
+    useState<AssociationTarget | null>(null)
+  const canReadAssociations = [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.SUPPLIERS_READ,
+  ].every((p) => session?.user?.permisos?.includes(p))
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
-    null,
+    null
   )
   const [openDetail, setOpenDetail] = useState(false)
   const [selectedMovementProduct, setSelectedMovementProduct] =
@@ -54,7 +64,9 @@ export function ListInventory() {
   const [openEdit, setOpenEdit] = useState(false)
   const [openLowStock, setOpenLowStock] = useState(false)
   const [openOutOfStock, setOpenOutOfStock] = useState(false)
-  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(null)
+  const [productToToggle, setProductToToggle] = useState<ProductColumn | null>(
+    null
+  )
   const [openToggleDialog, setOpenToggleDialog] = useState(false)
   const [isSubmittingToggle, setIsSubmittingToggle] = useState(false)
 
@@ -67,7 +79,9 @@ export function ListInventory() {
         ])
 
         const categoriesData = await categoriesResponse.json().catch(() => null)
-        setCategories(categoriesResponse.ok ? categoriesData?.categories ?? [] : [])
+        setCategories(
+          categoriesResponse.ok ? (categoriesData?.categories ?? []) : []
+        )
 
         if (!response.ok) {
           setInventory([])
@@ -76,6 +90,13 @@ export function ListInventory() {
 
         const data = (await response.json()) as ProductColumn[]
         setInventory(data)
+        setSelectedProduct((current) =>
+          current
+            ? (data.find(
+                (product) => product.idProducto === current.idProducto
+              ) ?? null)
+            : null
+        )
       } finally {
         setIsLoading(false)
       }
@@ -99,7 +120,8 @@ export function ListInventory() {
       !productIdParam ||
       isCurrentParameterDismissed() ||
       inventory.length === 0
-    ) return
+    )
+      return
 
     const targetId = Number(productIdParam)
     if (!isNaN(targetId)) {
@@ -127,7 +149,6 @@ export function ListInventory() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -141,17 +162,17 @@ export function ListInventory() {
     )
   }
 
-  const activeProducts = inventory.filter(
-    (product) => isRegistroActivo(product.estado),
+  const activeProducts = inventory.filter((product) =>
+    isRegistroActivo(product.estado)
   )
 
   const lowStockProducts = activeProducts.filter(
     (product) =>
-      product.stockActual > 0 && product.stockActual <= product.stockMinimo,
+      product.stockActual > 0 && product.stockActual <= product.stockMinimo
   )
 
   const outOfStockProducts = activeProducts.filter(
-    (product) => product.stockActual === 0,
+    (product) => product.stockActual === 0
   )
 
   const handleViewDetail = (product: ProductColumn) => {
@@ -193,7 +214,8 @@ export function ListInventory() {
 
       if (!res.ok) {
         throw new Error(
-          data?.message || "No se pudo actualizar el estado del producto. Intenta nuevamente."
+          data?.message ||
+            "No se pudo actualizar el estado del producto. Intenta nuevamente."
         )
       }
 
@@ -216,11 +238,24 @@ export function ListInventory() {
     }
   }
 
+  const handleManageSuppliers = canReadAssociations
+    ? (product: ProductColumn) => {
+        setOpenDetail(false)
+        setAssociationTarget({
+          kind: "product",
+          id: product.idProducto,
+          nombre: product.nombre,
+          estado: product.estado,
+        })
+      }
+    : undefined
+
   const columns = getColumns(
     handleViewDetail,
     handleRegisterMovement,
     handleToggleProductStatus,
     canUpdate,
+    handleManageSuppliers
   )
 
   return (
@@ -288,6 +323,29 @@ export function ListInventory() {
         data={inventory}
         categories={categories}
         initialSearch={searchParam}
+        canAssociate={
+          canReadAssociations &&
+          canUpdate &&
+          Boolean(
+            session?.user?.permisos?.includes(PERMISSIONS.SUPPLIERS_UPDATE)
+          )
+        }
+        onAssociateProducts={(productIds) => {
+          const product = inventory.find(
+            (item) => item.idProducto === productIds[0]
+          )
+          if (productIds.length === 1 && product) {
+            handleManageSuppliers?.(product)
+          } else if (productIds.length > 1) {
+            setAssociationTarget({
+              kind: "product",
+              id: productIds[0],
+              nombre: `${productIds.length} productos seleccionados`,
+              estado: "ACTIVO",
+              productIds,
+            })
+          }
+        }}
       />
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
@@ -359,7 +417,15 @@ export function ListInventory() {
         open={openDetail}
         onOpenChange={handleDetailOpenChange}
         onEdit={handleEditProduct}
+        onManageSuppliers={handleManageSuppliers}
       />
+      {associationTarget && (
+        <SupplierProductsDialog
+          key={`${associationTarget.kind}-${associationTarget.id}`}
+          target={associationTarget}
+          onClose={() => setAssociationTarget(null)}
+        />
+      )}
       <InventoryMovementDialog
         product={selectedMovementProduct}
         open={openMovement}

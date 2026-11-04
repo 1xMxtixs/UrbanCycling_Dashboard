@@ -21,6 +21,7 @@ import {
 } from "@/lib/stored-procedures"
 import { ESTADO_OT } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
+import { randomUUID } from "node:crypto"
 
 const prisma = db
 
@@ -37,6 +38,8 @@ type ProductoInput = {
 }
 
 type ServicioInput = {
+  tipo?: unknown
+  nombre?: unknown
   id_servicio?: unknown
   idServicio?: unknown
   cantidad?: unknown
@@ -187,7 +190,13 @@ function mapearProducto(item: ProductoInput) {
 }
 
 function mapearServicio(item: ServicioInput) {
+  const precioInput = item.precio_unitario ?? item.precioUnitario
   return {
+    tipo: item.tipo ?? "catalogo",
+    nombre: typeof item.nombre === "string" ? item.nombre.trim() : "",
+    precioPersonalizadoValido:
+      typeof precioInput === "number" ||
+      (typeof precioInput === "string" && precioInput.trim() !== ""),
     idServicio: parsePositiveInteger(item.id_servicio ?? item.idServicio),
     cantidad: parsePositiveInteger(item.cantidad),
     precioUnitario:
@@ -522,7 +531,18 @@ export async function POST(req: Request) {
 
     const serviciosInvalidos = serviciosOrden.find(
       (item) =>
-        Number.isNaN(item.idServicio) ||
+        (item.tipo !== "catalogo" && item.tipo !== "personalizado") ||
+        (item.tipo === "catalogo" && Number.isNaN(item.idServicio)) ||
+        (item.tipo === "personalizado" && (
+          !item.nombre || item.nombre.length > 100 ||
+          !item.precioPersonalizadoValido ||
+          !Number.isSafeInteger(item.cantidad) ||
+          item.precioUnitario === null ||
+          !Number.isSafeInteger(item.precioUnitario) ||
+          item.precioUnitario < 0 ||
+          item.precioUnitario > 999999999999 ||
+          item.precioUnitario * item.cantidad > 999999999999
+        )) ||
         Number.isNaN(item.cantidad) ||
         (item.precioUnitario !== null &&
           !Number.isFinite(item.precioUnitario)) ||
@@ -535,7 +555,7 @@ export async function POST(req: Request) {
         {
           code: "SERVICIO_INVALIDO",
           message:
-            "Todos los servicios deben tener ID, cantidad y precio validos",
+            "Indique un servicio del catálogo o un nombre personalizado (máximo 100 caracteres), cantidad positiva y precio válido en pesos",
         },
         { status: 400 }
       )
@@ -633,7 +653,6 @@ export async function POST(req: Request) {
       }
     }
 
-    const productosVentaAgrupados = agruparProductos(productosVenta)
     const productosAgrupados = agruparProductos([
       ...productosVenta,
       ...productosOrden,
@@ -693,11 +712,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const servicios: any[] = serviciosOrden.length
+    const serviciosCatalogo = serviciosOrden.filter((item) => item.tipo === "catalogo")
+    const servicios: any[] = serviciosCatalogo.length
       ? await prisma.servicio.findMany({
           where: {
             idServicio: {
-              in: serviciosOrden.map((item) => item.idServicio),
+              in: serviciosCatalogo.map((item) => item.idServicio),
             },
           },
           include: {
@@ -708,7 +728,7 @@ export async function POST(req: Request) {
     const serviciosPorId = new Map<number, any>(
       servicios.map((servicio: any) => [servicio.idServicio, servicio])
     )
-    const servicioNoExiste = serviciosOrden.find(
+    const servicioNoExiste = serviciosCatalogo.find(
       (item) => !serviciosPorId.has(item.idServicio)
     )
 
@@ -722,7 +742,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const servicioInactivo = serviciosOrden.find((item) => {
+    const servicioInactivo = serviciosCatalogo.find((item) => {
       const servicio = serviciosPorId.get(item.idServicio)
 
       return servicio && servicio.estado !== EstadoRegistro.ACTIVO
@@ -759,6 +779,7 @@ export async function POST(req: Request) {
         item.precioUnitario ?? toNumber(producto.precioVenta)
 
       return {
+        nombrePersonalizado: null as string | null,
         idProducto: producto.idProducto,
         idServicio: null,
         cantidad: item.cantidad,
@@ -770,11 +791,12 @@ export async function POST(req: Request) {
     const lineasOrdenServicios = serviciosOrden.map((item) => {
       const servicio = serviciosPorId.get(item.idServicio)!
       const precioUnitario =
-        item.precioUnitario ?? toNumber(servicio.precioVenta)
+        item.precioUnitario ?? toNumber(servicio?.precioVenta)
 
       return {
+        nombrePersonalizado: item.tipo === "personalizado" ? item.nombre : null,
         idProducto: null,
-        idServicio: servicio.idServicio,
+        idServicio: item.tipo === "personalizado" ? null : servicio.idServicio,
         cantidad: item.cantidad,
         precioUnitario,
         descuentoUnitario: item.descuentoUnitario,
@@ -961,26 +983,37 @@ export async function POST(req: Request) {
       const lineasOrden = [...lineasOrdenProductos, ...lineasOrdenServicios]
       const lineasOrdenCreadas = []
 
-      for (const item of productosVentaAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!
+      const itemsStockVenta =
+        venta?.ventaEnMostrador?.lineasDeVenta.map((linea) => ({
+          idProducto: linea.idProducto,
+          cantidad: linea.cantidad,
+          idLineaDeVenta: linea.idLineaDeVenta,
+        })) ?? []
 
-        await tx.producto.update({
-          where: {
-            idProducto: item.idProducto,
-          },
-          data: {
-            stockActual: producto.stockActual - item.cantidad,
-          },
-        })
-      }
+      // La SP descuenta las existencias y crea una SALIDA por cada línea.
+      // No se debe actualizar Producto.stockActual nuevamente para evitar duplicar el descuento.
+      await descontarStockProductos(tx, itemsStockVenta)
 
       if (ordenTrabajo) {
         for (const linea of lineasOrden) {
+          // El nombre se conserva en Servicio sin cambiar el esquema ni el catálogo activo.
+          const servicioPersonalizado = linea.nombrePersonalizado
+            ? await tx.servicio.upsert({
+                where: { nombre: linea.nombrePersonalizado },
+                update: {},
+                create: {
+                  codigo: `CUSTOM-${randomUUID()}`,
+                  nombre: linea.nombrePersonalizado,
+                  precioVenta: linea.precioUnitario,
+                  estado: EstadoRegistro.INACTIVO,
+                },
+              })
+            : null
           const lineaCreada = await tx.lineaDeOrdenDeTrabajo.create({
             data: {
               idOrdenDeTrabajo: ordenTrabajo.idOrdenDeTrabajo,
               idProducto: linea.idProducto,
-              idServicio: linea.idServicio,
+              idServicio: servicioPersonalizado?.idServicio ?? linea.idServicio,
               cantidad: linea.cantidad,
               precioUnitario: linea.precioUnitario,
               descuentoUnitario: linea.descuentoUnitario,
@@ -988,7 +1021,7 @@ export async function POST(req: Request) {
             },
           })
 
-          lineasOrdenCreadas.push(lineaCreada)
+          lineasOrdenCreadas.push({ ...lineaCreada, personalizado: Boolean(linea.nombrePersonalizado) })
         }
 
         const itemsStockOrden = lineasOrdenCreadas.flatMap((linea) => {
@@ -1002,7 +1035,7 @@ export async function POST(req: Request) {
             })
           }
 
-          if (linea.idServicio) {
+          if (linea.idServicio && !linea.personalizado) {
             const servicio = serviciosPorId.get(linea.idServicio)
 
             for (const insumo of servicio?.productosServicio ?? []) {

@@ -1,12 +1,6 @@
 "use client"
 
-import {
-  Eye,
-  MoreHorizontal,
-  Pencil,
-  Search,
-  Trash2,
-} from "lucide-react"
+import { Eye, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -28,6 +22,7 @@ interface ListProveedoresProps {
   onView: (proveedor: ProveedorListado) => void
   onEdit: (proveedor: ProveedorListado) => void
   onDelete: (proveedor: ProveedorListado) => void
+  onProducts?: (proveedor: ProveedorListado) => void
 }
 
 export function ListProveedores({
@@ -36,6 +31,7 @@ export function ListProveedores({
   onView,
   onEdit,
   onDelete,
+  onProducts,
 }: ListProveedoresProps) {
   const [search, setSearch] = useState("")
 
@@ -48,14 +44,10 @@ export function ListProveedores({
 
     return proveedores.filter((proveedor) => {
       return (
-        proveedor.razonSocial
-          .toLowerCase()
-          .includes(value) ||
+        proveedor.razonSocial.toLowerCase().includes(value) ||
         proveedor.rut.toLowerCase().includes(value) ||
         proveedor.giro.toLowerCase().includes(value) ||
-        proveedor.nombreFantasia
-          ?.toLowerCase()
-          .includes(value)
+        proveedor.nombreFantasia?.toLowerCase().includes(value)
       )
     })
   }, [proveedores, search])
@@ -63,7 +55,7 @@ export function ListProveedores({
   return (
     <div className="space-y-4">
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
         <Input
           value={search}
@@ -82,21 +74,13 @@ export function ListProveedores({
                   Razón social
                 </th>
 
-                <th className="px-4 py-3 text-left font-medium">
-                  RUT
-                </th>
+                <th className="px-4 py-3 text-left font-medium">RUT</th>
 
-                <th className="px-4 py-3 text-left font-medium">
-                  Giro
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Giro</th>
 
-                <th className="px-4 py-3 text-left font-medium">
-                  Contacto
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Contacto</th>
 
-                <th className="px-4 py-3 text-left font-medium">
-                  Estado
-                </th>
+                <th className="px-4 py-3 text-left font-medium">Estado</th>
 
                 <th className="w-12 px-4 py-3" />
               </tr>
@@ -114,10 +98,7 @@ export function ListProveedores({
                 </tr>
               ) : proveedoresFiltrados.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="h-32 text-center"
-                  >
+                  <td colSpan={6} className="h-32 text-center">
                     <div className="flex flex-col items-center gap-1">
                       <p className="font-medium">
                         No se encontraron proveedores
@@ -139,9 +120,7 @@ export function ListProveedores({
                   >
                     <td className="px-4 py-4">
                       <div>
-                        <p className="font-medium">
-                          {proveedor.razonSocial}
-                        </p>
+                        <p className="font-medium">{proveedor.razonSocial}</p>
 
                         {proveedor.nombreFantasia && (
                           <p className="text-xs text-muted-foreground">
@@ -151,67 +130,52 @@ export function ListProveedores({
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      {proveedor.rut}
-                    </td>
+                    <td className="px-4 py-4">{proveedor.rut}</td>
 
                     <td className="max-w-xs px-4 py-4">
-                      <p className="truncate">
-                        {proveedor.giro}
-                      </p>
+                      <p className="truncate">{proveedor.giro}</p>
                     </td>
 
                     <td className="px-4 py-4">
-                      {proveedor.nombreContacto ||
-                        "Sin contacto"}
+                      {proveedor.nombreContacto || "Sin contacto"}
                     </td>
 
                     <td className="px-4 py-4">
-                      <Badge variant="secondary">
-                        Activo
-                      </Badge>
+                      <Badge variant="secondary">Activo</Badge>
                     </td>
 
                     <td className="px-4 py-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                          >
+                          <Button variant="ghost" size="icon">
                             <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">
-                              Acciones
-                            </span>
+                            <span className="sr-only">Acciones</span>
                           </Button>
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              onView(proveedor)
-                            }
-                          >
+                          <DropdownMenuItem onClick={() => onView(proveedor)}>
                             <Eye className="mr-2 h-4 w-4" />
                             Ver ficha
                           </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              onEdit(proveedor)
-                            }
-                          >
+                          <DropdownMenuItem onClick={() => onEdit(proveedor)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
 
+                          {onProducts && (
+                            <DropdownMenuItem
+                              onClick={() => onProducts(proveedor)}
+                            >
+                              Ver y asociar productos
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
 
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() =>
-                              onDelete(proveedor)
-                            }
+                            onClick={() => onDelete(proveedor)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Eliminar

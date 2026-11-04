@@ -5,6 +5,12 @@ import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { useSession } from "next-auth/react"
+import { PERMISSIONS } from "@/lib/permissions"
+import {
+  SupplierProductsDialog,
+  type AssociationTarget,
+} from "@/components/inventory/SupplierProductsDialog"
 
 import {
   CreateProveedorDialog,
@@ -17,9 +23,14 @@ import {
 } from "./components"
 
 export default function ProveedoresPage() {
-  const [proveedores, setProveedores] = useState<
-    ProveedorListado[]
-  >([])
+  const { data: session } = useSession()
+  const [associationTarget, setAssociationTarget] =
+    useState<AssociationTarget | null>(null)
+  const canReadAssociations = [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.SUPPLIERS_READ,
+  ].every((p) => session?.user?.permisos?.includes(p))
+  const [proveedores, setProveedores] = useState<ProveedorListado[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -47,8 +58,7 @@ export default function ProveedoresPage() {
 
       if (!response.ok) {
         throw new Error(
-          data?.message ||
-            "No fue posible cargar los proveedores.",
+          data?.message || "No fue posible cargar los proveedores."
         )
       }
 
@@ -67,27 +77,19 @@ export default function ProveedoresPage() {
   }, [])
 
   useEffect(() => {
-    void cargarProveedores()
+    const timer = window.setTimeout(() => void cargarProveedores(), 0)
+    return () => window.clearTimeout(timer)
   }, [cargarProveedores])
 
-  const handleCreated = (
-    proveedor: ProveedorListado,
-  ) => {
-    setProveedores((current) => [
-      ...current,
-      proveedor,
-    ])
+  const handleCreated = (proveedor: ProveedorListado) => {
+    setProveedores((current) => [...current, proveedor])
   }
 
-  const handleUpdated = (
-    proveedor: ProveedorListado,
-  ) => {
+  const handleUpdated = (proveedor: ProveedorListado) => {
     setProveedores((current) =>
       current.map((item) =>
-        item.idProveedor === proveedor.idProveedor
-          ? proveedor
-          : item,
-      ),
+        item.idProveedor === proveedor.idProveedor ? proveedor : item
+      )
     )
 
     setSelectedProveedor(proveedor)
@@ -95,43 +97,45 @@ export default function ProveedoresPage() {
 
   const handleDeleted = (idProveedor: number) => {
     setProveedores((current) =>
-      current.filter(
-        (item) => item.idProveedor !== idProveedor,
-      ),
+      current.filter((item) => item.idProveedor !== idProveedor)
     )
 
     setSelectedProveedor(null)
     setDetailOpen(false)
   }
 
-  const handleView = (
-    proveedor: ProveedorListado,
-  ) => {
+  const handleView = (proveedor: ProveedorListado) => {
     setSelectedProveedor(proveedor)
     setDetailOpen(true)
   }
 
-  const handleEdit = (
-    proveedor: ProveedorListado,
-  ) => {
+  const handleEdit = (proveedor: ProveedorListado) => {
     setSelectedProveedor(proveedor)
     setDetailOpen(false)
     setEditOpen(true)
   }
 
-  const handleDelete = (
-    proveedor: ProveedorListado,
-  ) => {
+  const handleDelete = (proveedor: ProveedorListado) => {
     setSelectedProveedor(proveedor)
     setDetailOpen(false)
     setDeleteOpen(true)
   }
 
+  const handleProducts = canReadAssociations
+    ? (supplier: ProveedorListado) => {
+        setDetailOpen(false)
+        setAssociationTarget({
+          kind: "supplier",
+          id: supplier.idProveedor,
+          nombre: supplier.razonSocial,
+          estado: supplier.estado,
+        })
+      }
+    : undefined
+
   return (
     <div className="flex flex-col gap-6 p-6">
-      <HeaderProveedores
-        onCreate={() => setCreateOpen(true)}
-      />
+      <HeaderProveedores onCreate={() => setCreateOpen(true)} />
 
       {error && (
         <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -140,15 +144,10 @@ export default function ProveedoresPage() {
               No fue posible cargar los proveedores.
             </p>
 
-            <p className="text-sm text-destructive/80">
-              {error}
-            </p>
+            <p className="text-sm text-destructive/80">{error}</p>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => void cargarProveedores()}
-          >
+          <Button variant="outline" onClick={() => void cargarProveedores()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Reintentar
           </Button>
@@ -161,7 +160,15 @@ export default function ProveedoresPage() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onProducts={handleProducts}
       />
+      {associationTarget && (
+        <SupplierProductsDialog
+          key={`${associationTarget.kind}-${associationTarget.id}`}
+          target={associationTarget}
+          onClose={() => setAssociationTarget(null)}
+        />
+      )}
 
       <CreateProveedorDialog
         open={createOpen}
@@ -177,6 +184,11 @@ export default function ProveedoresPage() {
       />
 
       <ProveedorDetailSheet
+        onProducts={
+          handleProducts && selectedProveedor
+            ? () => handleProducts(selectedProveedor)
+            : undefined
+        }
         open={detailOpen}
         proveedor={selectedProveedor}
         onOpenChange={setDetailOpen}

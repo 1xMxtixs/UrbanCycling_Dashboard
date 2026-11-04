@@ -15,7 +15,7 @@ function hasControlCharacters(value: string) {
 
 /**
  * Lee codigoProveedor desde el cuerpo de una solicitud.
- * Distingue entre campo ausente, retiro de asociación y código válido.
+ * Distingue entre campo ausente, borrado del código comercial y código válido.
  */
 export function parseProductSupplierCode(
   data: Record<string, unknown>,
@@ -42,7 +42,7 @@ export function parseProductSupplierCode(
     ? data.codigoProveedor
     : data.codigo_proveedor
 
-  // null retira la asociación lógica del producto.
+  // null borra el código comercial; las asociaciones viven en ProductoProveedor.
   if (value === null) {
     return { status: "valid", value: null }
   }

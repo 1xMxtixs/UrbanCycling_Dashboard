@@ -35,11 +35,13 @@ export interface SelectedProduct {
   precioUnitario: number
 }
 
-export interface SelectedService {
-  idServicio: string
+export type SelectedService = {
   cantidad: number
   precioUnitario: number
-}
+} & (
+  | { tipo: "catalogo"; idServicio: string }
+  | { tipo: "personalizado"; nombre: string }
+)
 
 interface OrderLinesSectionProps {
   products: Product[]
@@ -53,6 +55,8 @@ interface OrderLinesSectionProps {
   onRemoveService: (index: number) => void
   onServiceChange: (index: number, idServicio: string) => void
   onServiceQuantityChange: (index: number, cantidad: number) => void
+  onServiceTypeChange: (index: number, tipo: SelectedService["tipo"]) => void
+  onCustomServiceChange: (index: number, field: "nombre" | "precioUnitario", value: string) => void
   onAddProduct: () => void
   onRemoveProduct: (index: number) => void
   onProductChange: (index: number, idProducto: string) => void
@@ -71,6 +75,8 @@ export function OrderLinesSection({
   onRemoveService,
   onServiceChange,
   onServiceQuantityChange,
+  onServiceTypeChange,
+  onCustomServiceChange,
   onAddProduct,
   onRemoveProduct,
   onProductChange,
@@ -85,7 +91,7 @@ export function OrderLinesSection({
 
       <div className="space-y-3">
         <Label className="text-xs font-bold text-foreground">
-          Servicios del Catálogo
+          Servicios
         </Label>
 
         {selectedServices.length === 0 ? (
@@ -99,7 +105,30 @@ export function OrderLinesSection({
                 key={idx}
                 className="flex animate-in flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 shadow-xs duration-150 slide-in-from-top-1"
               >
+                <Select
+                  value={selService.tipo}
+                  onValueChange={(value: SelectedService["tipo"]) => onServiceTypeChange(idx, value)}
+                >
+                  <SelectTrigger aria-label={`Tipo de servicio ${idx + 1}`} className="h-9 w-40 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="catalogo">Catálogo</SelectItem>
+                    <SelectItem value="personalizado">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="min-w-50 flex-1">
+                  {selService.tipo === "personalizado" ? (
+                    <Input
+                      aria-label={`Nombre del servicio ${idx + 1}`}
+                      placeholder="Nombre del servicio"
+                      maxLength={100}
+                      required
+                      value={selService.nombre}
+                      onChange={(e) => onCustomServiceChange(idx, "nombre", e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  ) : (
                   <Select
                     value={selService.idServicio || undefined}
                     onValueChange={(val) => onServiceChange(idx, val)}
@@ -119,12 +148,15 @@ export function OrderLinesSection({
                       ))}
                     </SelectContent>
                   </Select>
+                  )}
                 </div>
 
                 <div className="w-20">
                   <Input
                     type="number"
                     min={1}
+                    step={1}
+                    aria-label={`Cantidad del servicio ${idx + 1}`}
                     value={selService.cantidad}
                     onChange={(e) =>
                       onServiceQuantityChange(idx, Number(e.target.value))
@@ -135,7 +167,23 @@ export function OrderLinesSection({
                 </div>
 
                 <div className="w-24 text-xs font-semibold text-muted-foreground">
+                  {selService.tipo === "personalizado" ? (
+                    <Input
+                      aria-label={`Precio unitario del servicio ${idx + 1}`}
+                      type="number"
+                      min={0}
+                      max={999999999999}
+                      step={1}
+                      required
+                      value={Number.isFinite(selService.precioUnitario) ? selService.precioUnitario : ""}
+                      onChange={(e) => onCustomServiceChange(idx, "precioUnitario", e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  ) : (
+                    <>
                   Uni: ${selService.precioUnitario.toLocaleString("es-CL")}
+                    </>
+                  )}
                 </div>
 
                 <div className="w-28 text-xs font-bold text-foreground">

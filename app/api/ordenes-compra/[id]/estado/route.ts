@@ -43,17 +43,17 @@ function parsePurchaseOrderId(value: string) {
 
 /**
  * PATCH /api/ordenes-compra/:id/estado
- * Permite enviar borradores, completar órdenes enviadas y pagadas ingresando
- * sus productos al inventario, o anular órdenes sin movimientos asociados.
+ * Permite enviar borradores, cerrar órdenes pagadas y recibidas, o anular
+ * órdenes sin movimientos. El ingreso de stock se realiza en /recepciones.
  */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { response } = await requirePermission(
+    const { session, response } = await requirePermission(
       PERMISSIONS.PURCHASE_ORDERS_UPDATE,
     )
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response || new NextResponse("No autorizado", { status: 401 })
     }
 
     const { id } = await context.params
@@ -182,60 +182,12 @@ export async function PATCH(request: Request, context: RouteContext) {
           )
         }
 
-        const movements: Array<{
-          idMovimientoInventario: number
-          idLineaDeOrdenDeCompra: number
-          cantidad: number
-        }> = []
-
-        for (const line of order.lineas) {
-          if (
-            line.cantidadOrdenada <= 0 ||
-            line.cantidadRecibida < 0 ||
-            line.cantidadRecibida > line.cantidadOrdenada
-          ) {
-            throw new PurchaseOrderTransitionError(
-              "CANTIDADES_ORDEN_INVALIDAS",
-              409,
-              "Las cantidades de los productos de la orden no son coherentes.",
-            )
-          }
-
-          const quantityToAdd =
-            line.cantidadOrdenada - line.cantidadRecibida
-
-          // Solo se incorpora la diferencia para evitar duplicar stock histórico.
-          if (quantityToAdd > 0) {
-            await tx.producto.update({
-              where: { idProducto: line.idProducto },
-              data: {
-                stockActual: { increment: quantityToAdd },
-              },
-            })
-
-            const movement = await tx.movimientoInventario.create({
-              data: {
-                idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
-                tipoMovimiento: "ENTRADA",
-                cantidad: quantityToAdd,
-                costoUnitario: line.precioCostoUnitario,
-              },
-              select: { idMovimientoInventario: true },
-            })
-
-            movements.push({
-              idMovimientoInventario: movement.idMovimientoInventario,
-              idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
-              cantidad: quantityToAdd,
-            })
-          }
-
-          await tx.lineaDeOrdenDeCompra.update({
-            where: {
-              idLineaDeOrdenDeCompra: line.idLineaDeOrdenDeCompra,
-            },
-            data: { cantidadRecibida: line.cantidadOrdenada },
-          })
+        if (order.estadoRecepcion !== EstadoRecepcionOrdenCompra.RECIBIDA ||
+          order.lineas.some((line) => line.cantidadOrdenada <= 0 || line.cantidadRecibida !== line.cantidadOrdenada)) {
+          throw new PurchaseOrderTransitionError(
+            "ORDEN_NO_RECIBIDA", 409,
+            "Registre la recepción completa de los productos antes de cerrar la orden.",
+          )
         }
 
         const purchaseOrder = await tx.ordenDeCompra.update({
@@ -243,11 +195,10 @@ export async function PATCH(request: Request, context: RouteContext) {
           data: {
             estado: EstadoOrdenCompra.COMPLETADA,
             estadoRecepcion: EstadoRecepcionOrdenCompra.RECIBIDA,
-            fechaEntregaReal: order.fechaEntregaReal ?? new Date(),
           },
         })
 
-        return { purchaseOrder, movements }
+        return { purchaseOrder, movements: [] }
       }
 
       if (
@@ -299,7 +250,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       COMPLETAR: {
         code: "ORDEN_COMPRA_COMPLETADA",
         message:
-          "La orden fue completada y sus productos ingresaron al inventario.",
+          "La orden de compra fue cerrada. Sus productos ya fueron recibidos en inventario.",
       },
       ANULAR: {
         code: "ORDEN_COMPRA_ANULADA",
