@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { useSession } from "next-auth/react"
@@ -175,26 +175,26 @@ export function ListInventory() {
     (product) => product.stockActual === 0
   )
 
-  const handleViewDetail = (product: ProductColumn) => {
+  const handleViewDetail = useCallback((product: ProductColumn) => {
     setSelectedProduct(product)
     setOpenDetail(true)
-  }
+  }, [])
 
-  const handleEditProduct = (product: ProductColumn) => {
+  const handleEditProduct = useCallback((product: ProductColumn) => {
     setOpenDetail(false)
     setProductToEdit(product)
     setOpenEdit(true)
-  }
+  }, [])
 
-  const handleRegisterMovement = (product: ProductColumn) => {
+  const handleRegisterMovement = useCallback((product: ProductColumn) => {
     setSelectedMovementProduct(product)
     setOpenMovement(true)
-  }
+  }, [])
 
-  const handleToggleProductStatus = (product: ProductColumn) => {
+  const handleToggleProductStatus = useCallback((product: ProductColumn) => {
     setProductToToggle(product)
     setOpenToggleDialog(true)
-  }
+  }, [])
 
   const handleConfirmToggle = async () => {
     if (!productToToggle) return
@@ -238,24 +238,35 @@ export function ListInventory() {
     }
   }
 
-  const handleManageSuppliers = canReadAssociations
-    ? (product: ProductColumn) => {
-        setOpenDetail(false)
-        setAssociationTarget({
-          kind: "product",
-          id: product.idProducto,
-          nombre: product.nombre,
-          estado: product.estado,
-        })
-      }
-    : undefined
+  const handleManageSuppliers = useMemo(() => {
+    if (!canReadAssociations) return undefined
+    return (product: ProductColumn) => {
+      setOpenDetail(false)
+      setAssociationTarget({
+        kind: "product",
+        id: product.idProducto,
+        nombre: product.nombre,
+        estado: product.estado,
+      })
+    }
+  }, [canReadAssociations])
 
-  const columns = getColumns(
-    handleViewDetail,
-    handleRegisterMovement,
-    handleToggleProductStatus,
-    canUpdate,
-    handleManageSuppliers
+  const columns = useMemo(
+    () =>
+      getColumns(
+        handleViewDetail,
+        handleRegisterMovement,
+        handleToggleProductStatus,
+        canUpdate,
+        handleManageSuppliers
+      ),
+    [
+      handleViewDetail,
+      handleRegisterMovement,
+      handleToggleProductStatus,
+      canUpdate,
+      handleManageSuppliers,
+    ]
   )
 
   return (
