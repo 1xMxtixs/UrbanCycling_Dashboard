@@ -736,11 +736,7 @@ export function FormCreateVenta({
                                       p.idProducto
                                     )}
                                   >
-                                    {p.nombre}{" "}
-                                    (Stock:{" "}
-                                    {
-                                      p.stockActual
-                                    }) - $
+                                    {p.nombre} - $
                                     {Number(
                                       p.precioVenta
                                     ).toLocaleString(
@@ -771,38 +767,28 @@ export function FormCreateVenta({
                           <Label htmlFor={`sale-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
                             Cantidad
                           </Label>
-                          <Input
-                            id={`sale-quantity-${idx}`}
-                            type="number"
-                            min={1}
-                            max={
-                              maxStock ||
-                              undefined
-                            }
-                            value={
-                              selProd.cantidad
-                            }
-                            onChange={(e) =>
-                              handleProductQuantityChange(
-                                idx,
-                                Number(
-                                  e.target.value
-                                )
-                              )
-                            }
-                            className={`h-9 text-xs pr-6 ${
-                              isOut
-                                ? "border-destructive focus-visible:ring-destructive"
-                                : ""
-                            }`}
-                            aria-label={`Cantidad para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
-                            required
-                          />
-                          {selectedItem && (
-                            <p className="text-[10px] text-muted-foreground">
-                              Stock disponible: {maxStock}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id={`sale-quantity-${idx}`}
+                              type="number"
+                              min={1}
+                              max={maxStock || undefined}
+                              value={selProd.cantidad}
+                              onChange={(e) =>
+                                handleProductQuantityChange(idx, Number(e.target.value))
+                              }
+                              className={`h-9 text-xs ${
+                                isOut ? "border-destructive focus-visible:ring-destructive" : ""
+                              }`}
+                              aria-label={`Cantidad para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
+                              required
+                            />
+                            {selectedItem && (
+                              <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+                                / {maxStock}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <DataField
@@ -847,7 +833,7 @@ export function FormCreateVenta({
 
                       {isOut && (
                         <div className="w-full rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
-                          Stock insuficiente. Máximo disponible: {maxStock}
+                          Stock insuficiente.
                         </div>
                       )}
                     </div>

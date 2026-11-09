@@ -18,6 +18,7 @@ export interface Product {
   idProducto: number
   nombre: string
   precioVenta: number
+  stockActual: number
   estado: string
 }
 
@@ -342,20 +343,28 @@ export function OrderLinesSection({
                     <Label htmlFor={`order-product-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
                       Cantidad
                     </Label>
-                  <Input
-                    id={`order-product-quantity-${idx}`}
-                    type="number"
-                    min={1}
-                    aria-label={`Cantidad del producto ${idx + 1}`}
-                    value={selProd.cantidad}
-                    onChange={(e) =>
-                      onProductQuantityChange(
-                        idx,
-                        Number(e.target.value)
-                      )
-                    }
-                    className="h-9 text-xs"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`order-product-quantity-${idx}`}
+                      type="number"
+                      min={1}
+                      max={products.find((p) => String(p.idProducto) === selProd.idProducto)?.stockActual}
+                      aria-label={`Cantidad del producto ${idx + 1}`}
+                      value={selProd.cantidad}
+                      onChange={(e) =>
+                        onProductQuantityChange(
+                          idx,
+                          Number(e.target.value)
+                        )
+                      }
+                      className="h-9 text-xs"
+                    />
+                    {products.find((p) => String(p.idProducto) === selProd.idProducto) && (
+                      <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+                        / {products.find((p) => String(p.idProducto) === selProd.idProducto)?.stockActual}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                   <DataField
