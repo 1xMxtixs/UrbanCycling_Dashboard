@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { PageHeader } from "@/components/common/PageHeader"
-import { Plus, ShoppingCart } from "lucide-react"
+import { Plus } from "lucide-react"
 import { FormCreateVenta } from "../FormCreateVenta/FormCreateVenta"
 
 export function HeaderVentas() {
@@ -29,7 +29,9 @@ export function HeaderVentas() {
         <FormDialog
           title="Registrar Venta Directa"
           description="Selecciona el cliente, añade los productos y registra el pago para completar la transacción."
-          size="2xl"
+          size="3xl"
+          scrollable
+          scrollableContentClassName="pb-3"
         >
           <FormCreateVenta setOpenModalCreate={setOpenModalCreate} />
         </FormDialog>

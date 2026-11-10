@@ -16,6 +16,8 @@ export interface FormDialogProps {
   description?: React.ReactNode
   size?: FormDialogSize
   className?: string
+  scrollable?: boolean
+  scrollableContentClassName?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
   children: React.ReactNode
@@ -35,17 +37,29 @@ export function FormDialog({
   description,
   size = "lg",
   className,
+  scrollable = false,
+  scrollableContentClassName,
   open,
   onOpenChange,
   children,
 }: FormDialogProps) {
   const content = (
-    <DialogContent className={cn("max-h-[90vh] overflow-y-auto", sizeClasses[size], className)}>
-      <DialogHeader>
+    <DialogContent
+      className={cn(
+        scrollable && "flex max-h-[min(90dvh,48rem)] flex-col gap-0 overflow-hidden p-0",
+        sizeClasses[size],
+        className
+      )}
+    >
+      <DialogHeader className={scrollable ? "shrink-0 px-6 pt-6 pr-12" : undefined}>
         <DialogTitle className="text-lg font-bold text-foreground">{title}</DialogTitle>
         {description && <DialogDescription className="text-xs text-muted-foreground">{description}</DialogDescription>}
       </DialogHeader>
-      {children}
+      {scrollable ? (
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6 pt-4", scrollableContentClassName)}>
+          {children}
+        </div>
+      ) : children}
     </DialogContent>
   )
 
