@@ -7,12 +7,21 @@ import {
   Loader2,
   Sparkles,
   Bike,
+  CalendarDays,
 } from "lucide-react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -64,6 +73,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     new Date().toISOString().split("T")[0]
   )
   const [fechaEntrega, setFechaEntrega] = useState<string>("")
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [descripcion, setDescripcion] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [conBicicleta, setConBicicleta] = useState(true)
@@ -537,12 +547,13 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     <>
       <form
         onSubmit={handleSubmit}
-        className="space-y-6 py-1"
+        className="flex min-h-0 flex-1 flex-col"
       >
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain py-1 pr-2">
         {/* ── Información General ─────────────────────────────────── */}
-        <div className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs">
+        <div className="space-y-4 rounded-xl border border-border p-4">
           <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
             Información General
           </h3>
 
@@ -557,7 +568,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
               </Label>
               {isLoadingClients ? (
                 <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/30">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
                   Cargando clientes...
                 </div>
               ) : (
@@ -641,14 +652,45 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
                 Fecha Estimada de Entrega{" "}
                 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="fechaEntrega"
-                type="date"
-                value={fechaEntrega}
-                onChange={(e) => setFechaEntrega(e.target.value)}
-                min={fechaIngreso}
-                required
-              />
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="fechaEntrega"
+                    type="button"
+                    variant="outline"
+                    aria-label="Elegir fecha estimada de entrega"
+                    aria-required="true"
+                    aria-haspopup="dialog"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {fechaEntrega
+                      ? new Date(`${fechaEntrega}T00:00:00`).toLocaleDateString(
+                          "es-CL",
+                          { dateStyle: "long" }
+                        )
+                      : "Selecciona una fecha"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      fechaEntrega
+                        ? new Date(`${fechaEntrega}T00:00:00`)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (!date) return
+                      setFechaEntrega(format(date, "yyyy-MM-dd"))
+                      setIsCalendarOpen(false)
+                    }}
+                    disabled={{ before: new Date(`${fechaIngreso}T00:00:00`) }}
+                    locale={es}
+                    className="rounded-lg border"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Descripción del Trabajo */}
@@ -672,9 +714,9 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         </div>
 
         {/* ── Toggle Bicicleta ─────────────────────────────────── */}
-        <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3 shadow-xs">
+        <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <Bike className="h-4.5 w-4.5 text-primary" />
+            <Bike className="h-4.5 w-4.5 text-muted-foreground" />
             <div>
               <p className="text-sm font-semibold text-foreground">
                 Asociar bicicleta
@@ -713,9 +755,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           services={services}
           selectedProducts={selectedProducts}
           selectedServices={selectedServices}
-          totalProductsCost={totalProductsCost}
-          totalServicesCost={totalServicesCost}
-          grandTotal={grandTotal}
           onAddService={handleAddService}
           onRemoveService={handleRemoveService}
           onServiceChange={handleServiceChange}
@@ -732,13 +771,15 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           estadoPago={estadoPago}
           metodoPago={metodoPago}
           montoAbono={montoAbono}
+          totalProductsCost={totalProductsCost}
+          totalServicesCost={totalServicesCost}
           grandTotal={grandTotal}
           onEstadoPagoChange={setEstadoPago}
           onMetodoPagoChange={setMetodoPago}
           onMontoAbonoChange={setMontoAbono}
         />
 
-        <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div className="flex flex-col-reverse justify-end gap-2.5 border-t border-border/60 px-1 py-3 sm:flex-row">
           <Button
             type="button"
             variant="outline"
@@ -747,7 +788,6 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
           >
             Cancelar
           </Button>
-
           <Button
             type="submit"
             disabled={isSubmitting || (conBicicleta && bikes.some((b) => b.isUploading))}
@@ -761,6 +801,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
               "Crear Orden de Trabajo"
             )}
           </Button>
+        </div>
         </div>
       </form>
 

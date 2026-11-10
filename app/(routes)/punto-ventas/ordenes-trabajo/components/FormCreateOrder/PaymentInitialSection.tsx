@@ -18,6 +18,8 @@ interface PaymentInitialSectionProps {
   estadoPago: string
   metodoPago: string
   montoAbono: number
+  totalProductsCost: number
+  totalServicesCost: number
   grandTotal: number
   onEstadoPagoChange: (estado: string) => void
   onMetodoPagoChange: (metodo: string) => void
@@ -28,19 +30,22 @@ export function PaymentInitialSection({
   estadoPago,
   metodoPago,
   montoAbono,
+  totalProductsCost,
+  totalServicesCost,
   grandTotal,
   onEstadoPagoChange,
   onMetodoPagoChange,
   onMontoAbonoChange,
 }: PaymentInitialSectionProps) {
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs">
+    <div className="space-y-4 rounded-xl border border-border p-4">
       <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
-        <DollarSign className="h-4.5 w-4.5 text-primary" />
+        <DollarSign className="h-4.5 w-4.5 text-muted-foreground" />
         Información del Pago Inicial
       </h3>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="space-y-3">
+        <div className={`grid content-start gap-3 ${estadoPago === ESTADO_PAGO.PARCIAL ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {/* Tipo de Pago / Estado Pago */}
         <div className="space-y-1.5">
           <Label
@@ -108,6 +113,33 @@ export function PaymentInitialSection({
             />
           </div>
         )}
+        </div>
+
+        <div className="space-y-2.5 rounded-lg border border-border/70 bg-muted/50 p-3 text-xs font-semibold">
+          <h4 className="border-b border-border pb-1.5 text-xs font-semibold text-foreground">
+            Resumen de la orden
+          </h4>
+          <div className="flex justify-between gap-3">
+            <span className="text-muted-foreground">Total repuestos:</span>
+            <span className="text-foreground">${totalProductsCost.toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-muted-foreground">Total servicios:</span>
+            <span className="text-foreground">${totalServicesCost.toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex justify-between gap-3 pt-1 text-[11px] font-normal text-muted-foreground">
+            <span>Neto estimado (afecto):</span>
+            <span>${Math.round(grandTotal / 1.19).toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-[11px] font-normal text-muted-foreground">
+            <span>IVA (19%):</span>
+            <span>${(grandTotal - Math.round(grandTotal / 1.19)).toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex justify-between gap-3 border-t border-border pt-2.5 text-sm font-bold text-foreground">
+            <span>Total orden:</span>
+            <span>${grandTotal.toLocaleString("es-CL")}</span>
+          </div>
+        </div>
       </div>
     </div>
   )
