@@ -95,10 +95,9 @@ export function HeaderUsuarios() {
               onValueChange={(value) => setMode(value as RegistrationMode)}
               className="space-y-5"
             >
-              <SegmentedTabs
-                items={registrationTabs}
-                className="w-full sm:w-full"
-              />
+              <div className="flex items-center">
+                <SegmentedTabs items={registrationTabs} />
+              </div>
 
               <TabsContent value="direct" className="mt-0">
                 <FormCreateUsuario

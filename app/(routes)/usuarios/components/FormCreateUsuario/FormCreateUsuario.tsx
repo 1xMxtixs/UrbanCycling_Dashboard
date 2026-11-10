@@ -167,9 +167,7 @@ export function FormCreateUsuario({
       })
 
       const result = (await response.json().catch(() => null)) as
-        | CreateUserResponse
-        | ApiError
-        | null
+        CreateUserResponse | ApiError | null
 
       if (!response.ok) {
         const apiError = result as ApiError | null
@@ -498,7 +496,7 @@ export function FormCreateUsuario({
           </div>
         </section>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 border-t-0 bg-transparent p-0">
           <Button
             type="button"
             variant="outline"
