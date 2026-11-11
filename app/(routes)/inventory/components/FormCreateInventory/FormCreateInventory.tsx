@@ -30,8 +30,7 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Check, Loader2 } from "lucide-react";
-import { CategoryMultiSelect } from "../CategoryMultiSelect";
-import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
+import type { FormCreateInventoryProps } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -110,8 +109,6 @@ export function FormCreateInventory({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [categories, setCategories] = useState<InventoryCategory[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
   const [supplierError, setSupplierError] = useState("");
@@ -148,7 +145,6 @@ export function FormCreateInventory({
     setValidationError("");
     setImageFile(null);
     setImagePreview(null);
-    setSelectedCategoryIds([]);
     setSelectedSupplierIds([]);
   };
 
@@ -187,30 +183,6 @@ export function FormCreateInventory({
     setValidationError("");
     return onSubmit(values);
   }, handleInvalid);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadCategories() {
-      try {
-        const response = await fetch("/api/inventory/categories", { cache: "no-store" });
-        const result = await response.json().catch(() => null);
-        if (isMounted) {
-          setCategories(response.ok ? result?.categories ?? [] : []);
-        }
-      } catch {
-        if (isMounted) {
-          setCategories([]);
-        }
-      }
-    }
-
-    void loadCategories();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!canAssociateSupplier) return;
@@ -301,7 +273,6 @@ export function FormCreateInventory({
           costoPromedio: cleanCostoPromedio,
           stockActual: cleanStockActual,
           stockMinimo: cleanStockMinimo,
-          categoriaIds: selectedCategoryIds,
           ...(selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {}),
           imageUrl,
         }),
@@ -438,21 +409,6 @@ export function FormCreateInventory({
         </FormSection>
 
         <FormSection title="Clasificación">
-          <div className="space-y-2">
-            <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
-              Categorías (opcional)
-            </FormLabel>
-            <CategoryMultiSelect
-              categories={categories}
-              value={selectedCategoryIds}
-              onChange={setSelectedCategoryIds}
-              disabled={isSubmitting || uploadingImage}
-            />
-            <p className="text-xs text-muted-foreground">
-              Selecciona una o más categorías para facilitar el filtrado del inventario.
-            </p>
-          </div>
-
           {canAssociateSupplier && (
             <div className="space-y-2">
               <FormLabel>Proveedor/es (opcional)</FormLabel>
