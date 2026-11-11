@@ -40,8 +40,10 @@ const formSchema = z
     giro: z.string(),
   })
   .superRefine((values, context) => {
-    const rutResult = validarYFormatearRut(values.rut);
-    if (!rutResult.valid) {
+    const rutResult = values.rut.trim()
+      ? validarYFormatearRut(values.rut)
+      : null;
+    if (rutResult && !rutResult.valid) {
       context.addIssue({
         code: "custom",
         path: ["rut"],
@@ -184,17 +186,16 @@ export function FormCreateCliente({
           { name: "razon" as const, missing: !values.razon.trim(), message: "La razón social es obligatoria." },
         ];
 
-    const rutValidation = validarYFormatearRut(values.rut);
-    const rutError = !values.rut.trim()
-      ? "El RUT es obligatorio."
-      : rutValidation.valid
-        ? null
-        : rutValidation.error;
-    requiredFields.push({
-      name: "rut" as const,
-      missing: Boolean(rutError),
-      message: rutError ?? "El RUT es obligatorio.",
-    });
+    const rutValidation = values.rut.trim()
+      ? validarYFormatearRut(values.rut)
+      : null;
+    if (rutValidation && !rutValidation.valid) {
+      requiredFields.push({
+        name: "rut" as const,
+        missing: true,
+        message: rutValidation.error,
+      });
+    }
     requiredFields.push({
       name: "telefono" as const,
       missing: values.telefono.trim().length < 8,
@@ -440,11 +441,10 @@ export function FormCreateCliente({
             render={({ field }) => (
               <FormItem>
                 <FormLabel
-                  required
                   data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
-                  RUT
+                  RUT (opcional)
                 </FormLabel>
                 <FormControl aria-invalid={false}>
                   <Input
