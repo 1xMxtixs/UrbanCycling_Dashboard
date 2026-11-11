@@ -35,7 +35,7 @@ import { ESTADO_REGISTRO } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 
-const DESCRIPTION_MAX_LENGTH = 500;
+const DESCRIPTION_MAX_LENGTH = 50;
 type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
 
 const numericField = (fieldName: string) =>
@@ -77,7 +77,10 @@ const formSchema = z.object({
   nombre: z.string().min(2, "El nombre es obligatorio"),
   descripcion: z
     .string()
-    .max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 500 caracteres")
+    .max(
+      DESCRIPTION_MAX_LENGTH,
+      `La descripción no puede superar ${DESCRIPTION_MAX_LENGTH} caracteres`
+    )
     .optional(),
   precioVenta: numericField("El precio"),
   costoPromedio: numericField("El precio de compra"),
