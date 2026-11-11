@@ -553,16 +553,18 @@ export async function POST(request: Request) {
       return stockMinimumValidation
     }
 
-    const purchaseCost = data.costoPromedio ?? data.precioCosto
+    const purchaseCost = data.precioCompra ?? data.precio_compra
     if (
       typeof purchaseCost !== "number" ||
       !Number.isFinite(purchaseCost) ||
+      !Number.isInteger(purchaseCost) ||
       purchaseCost < 0
     ) {
       return NextResponse.json(
         {
-          code: "COSTO_PROMEDIO_INVALIDO",
-          message: "El precio de compra es obligatorio y debe ser mayor o igual a 0.",
+          code: "PRECIO_COMPRA_INVALIDO",
+          message:
+            "El precio de compra es obligatorio y debe ser un entero mayor o igual a 0.",
         },
         { status: 422 },
       )
@@ -634,7 +636,8 @@ export async function POST(request: Request) {
           nombre: data.nombre,
           descripcion: data.descripcion ?? null,
           precioVenta: data.precioVenta,
-          costoPromedio: purchaseCost,
+          precioCompra: purchaseCost,
+          costoPromedio: data.costoPromedio ?? 0,
           stockActual: data.stockActual,
           stockMinimo: data.stockMinimo,
           estado,
