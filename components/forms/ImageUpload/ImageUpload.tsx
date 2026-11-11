@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 interface ImageUploadProps {
   label?: string;
+  inputId?: string;
   imagePreview: string | null;
   onChange: (file: File | null, previewUrl: string | null) => void;
   maxSizeInMB?: number;
@@ -24,6 +25,7 @@ const DEFAULT_ALLOWED_TYPES = [
 
 export function ImageUpload({
   label = "Imagen (opcional)",
+  inputId,
   imagePreview,
   onChange,
   maxSizeInMB = 5,
@@ -52,6 +54,7 @@ export function ImageUpload({
 
     const previewUrl = URL.createObjectURL(file);
     onChange(file, previewUrl);
+    e.target.value = "";
   };
 
   const handleRemove = () => {
@@ -107,6 +110,7 @@ export function ImageUpload({
       )}
 
       <input
+        id={inputId}
         ref={fileInputRef}
         type="file"
         accept={allowedTypes.join(",")}

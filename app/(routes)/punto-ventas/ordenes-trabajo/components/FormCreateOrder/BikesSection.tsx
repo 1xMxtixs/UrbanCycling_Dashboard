@@ -7,19 +7,14 @@ import {
   ChevronDown,
   ChevronUp,
   Wrench,
-  ImagePlus,
-  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-
-export interface BikeImage {
-  file: File
-  preview: string
-}
+import { ImageUpload } from "@/components/forms/ImageUpload"
+import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images"
 
 export interface BikeInput {
   marca: string
@@ -49,10 +44,7 @@ interface BikesSectionProps {
     value: BikeInput[keyof BikeInput]
   ) => void
   onToggleCollapse: (index: number) => void
-  onBikeImagesChange: (
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => void
+  onAddBikeImage: (index: number, file: File, preview: string) => void
   onRemoveBikeImage: (
     bikeIndex: number,
     imageIndex: number
@@ -66,7 +58,7 @@ export function BikesSection({
   onRemoveBike,
   onUpdateBikeField,
   onToggleCollapse,
-  onBikeImagesChange,
+  onAddBikeImage,
   onRemoveBikeImage,
 }: BikesSectionProps) {
   return (
@@ -264,100 +256,58 @@ export function BikesSection({
 
                   {/* Fotografías */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <Label className="inline-block mb-1.5 font-medium text-foreground">
                         Fotografías del Estado de Ingreso
                       </Label>
-
-                      {bike.imagePreviews.length > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {bike.imagePreviews.length}{" "}
-                          {bike.imagePreviews.length === 1
-                            ? "imagen seleccionada"
-                            : "imágenes seleccionadas"}
-                        </span>
+                      {bike.imagePreviews.length > 0 &&
+                        bike.imagePreviews.length < MAX_BICYCLE_IMAGES && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              document
+                                .getElementById(`bike-add-image-${idx}`)
+                                ?.click()
+                            }
+                            disabled={isSubmitting}
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" />
+                            Añadir foto
+                          </Button>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground/70">
+                      Puedes agregar hasta {MAX_BICYCLE_IMAGES} fotografías por bicicleta.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                      {bike.imagePreviews.map((preview, imageIndex) => (
+                        <div key={`${preview}-${imageIndex}`} className="flex justify-center">
+                          <ImageUpload
+                            label=""
+                            imagePreview={preview}
+                            disabled={isSubmitting}
+                            onChange={(_, nextPreview) => {
+                              if (!nextPreview) onRemoveBikeImage(idx, imageIndex)
+                            }}
+                          />
+                        </div>
+                      ))}
+                      {bike.imagePreviews.length < MAX_BICYCLE_IMAGES && (
+                        <div className={bike.imagePreviews.length > 0 ? "hidden" : "col-span-2 w-full sm:col-span-3 md:col-span-4"}>
+                          <ImageUpload
+                            label=""
+                            inputId={`bike-add-image-${idx}`}
+                            imagePreview={null}
+                            disabled={isSubmitting}
+                            onChange={(file, preview) => {
+                              if (file && preview) onAddBikeImage(idx, file, preview)
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
-
-                    <label
-                      htmlFor={`bike-images-${idx}`}
-                      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 px-4 py-6 text-center transition-colors hover:border-border hover:bg-muted/50 ${
-                        isSubmitting
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }`}
-                    >
-                      <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
-
-                      <span className="text-sm font-semibold text-foreground">
-                        Agregar fotografías
-                      </span>
-
-                      <span className="mt-1 text-xs text-muted-foreground">
-                        Puedes seleccionar varias imágenes a la vez
-                      </span>
-
-                      <span className="mt-1 text-[10px] text-muted-foreground">
-                        JPG, PNG, WEBP o GIF · Máximo 5 MB por imagen
-                      </span>
-
-                      <input
-                        id={`bike-images-${idx}`}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        multiple
-                        className="hidden"
-                        disabled={isSubmitting}
-                        onChange={(e) =>
-                          onBikeImagesChange(idx, e)
-                        }
-                      />
-                    </label>
-
-                    {/* Galería de previews */}
-                    {bike.imagePreviews.length > 0 && (
-                      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 md:grid-cols-4">
-                        {bike.imagePreviews.map(
-                          (preview, imageIndex) => (
-                            <div
-                              key={`${preview}-${imageIndex}`}
-                              className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted"
-                            >
-                              <img
-                                src={preview}
-                                alt={`Foto ${
-                                  imageIndex + 1
-                                } de bicicleta #${idx + 1}`}
-                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                              />
-
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6">
-                                <span className="text-[10px] font-medium text-white">
-                                  Foto {imageIndex + 1}
-                                </span>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onRemoveBikeImage(
-                                    idx,
-                                    imageIndex
-                                  )
-                                }
-                                disabled={isSubmitting}
-                                className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-100 transition-colors hover:bg-destructive"
-                                aria-label={`Eliminar foto ${
-                                  imageIndex + 1
-                                }`}
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

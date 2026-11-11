@@ -246,47 +246,20 @@ export function FormCreateOrder({
     setBikes(updated)
   }
 
-  const handleBikeImagesChange = (
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = Array.from(e.target.files || [])
-    e.target.value = ""
-    if (files.length === 0) return
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-    const validFiles: File[] = []
-    for (const file of files) {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(
-          `"${file.name}" no es un formato permitido. Usa JPG, PNG, WEBP o GIF.`
-        )
-        continue
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`"${file.name}" supera el tamaño máximo de 5 MB.`)
-        continue
-      }
-      validFiles.push(file)
-    }
-
-    const available = MAX_BICYCLE_IMAGES - bikes[index].imageFiles.length
-    if (validFiles.length > available) {
+  const handleAddBikeImage = (index: number, file: File, preview: string) => {
+    if (bikes[index].imageFiles.length >= MAX_BICYCLE_IMAGES) {
+      URL.revokeObjectURL(preview)
       toast.warning(
         `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} fotos por bicicleta.`
       )
-      validFiles.splice(Math.max(0, available))
+      return
     }
-    if (validFiles.length === 0) return
 
     const updated = [...bikes]
     updated[index] = {
       ...updated[index],
-      imageFiles: [...updated[index].imageFiles, ...validFiles],
-      imagePreviews: [
-        ...updated[index].imagePreviews,
-        ...validFiles.map((file) => URL.createObjectURL(file)),
-      ],
+      imageFiles: [...updated[index].imageFiles, file],
+      imagePreviews: [...updated[index].imagePreviews, preview],
     }
     setBikes(updated)
   }
@@ -868,7 +841,7 @@ export function FormCreateOrder({
           onRemoveBike={handleRemoveBike}
           onUpdateBikeField={handleUpdateBikeField}
           onToggleCollapse={toggleCollapse}
-          onBikeImagesChange={handleBikeImagesChange}
+          onAddBikeImage={handleAddBikeImage}
           onRemoveBikeImage={handleRemoveBikeImage}
         />
       )}

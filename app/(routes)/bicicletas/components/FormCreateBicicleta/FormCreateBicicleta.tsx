@@ -5,7 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, Plus, RefreshCw } from "lucide-react";
 
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { formatClientName, formatCLP } from "@/lib/formatters";
+import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images";
 import { getNombreEstadoOtVisible } from "@/lib/work-order-status";
 import type { OrdenTrabajoResumen } from "../../types";
 
@@ -65,8 +66,8 @@ export function FormCreateBicicleta({
   onSuccess,
   onCancel,
 }: FormCreateBicicletaProps) {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [requiredFieldError, setRequiredFieldError] = useState<string | null>(null);
 
@@ -86,8 +87,9 @@ export function FormCreateBicicleta({
   const resetForm = () => {
     form.reset();
     setRequiredFieldError(null);
-    setSelectedImage(null);
-    setImagePreview(null);
+    imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    setSelectedImages([]);
+    setImagePreviews([]);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -156,29 +158,31 @@ export function FormCreateBicicleta({
     (orden) => String(orden.idOrdenDeTrabajo) === selectedOrdenId
   );
 
-  const uploadImage = async () => {
-    if (!selectedImage) {
-      return null;
-    }
+  const uploadImages = async () => {
+    if (selectedImages.length === 0) return [];
 
     setIsUploadingImage(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedImage);
+      return await Promise.all(
+        selectedImages.map(async (image) => {
+          const formData = new FormData();
+          formData.append("file", image);
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "No se pudo subir la imagen");
-      }
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "No se pudo subir una imagen");
+          }
 
-      const data = (await response.json()) as { url: string };
-      return data.url;
+          const data = (await response.json()) as { url: string };
+          return data.url;
+        })
+      );
     } finally {
       setIsUploadingImage(false);
     }
@@ -186,7 +190,7 @@ export function FormCreateBicicleta({
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const imagenUrl = await uploadImage();
+      const imagenes = await uploadImages();
 
       const response = await fetch("/api/bicycles", {
         method: "POST",
@@ -199,7 +203,7 @@ export function FormCreateBicicleta({
           modelo: values.modelo,
           color: values.color,
           descripcion: values.descripcion || null,
-          imagenUrl,
+          imagenes,
         }),
       });
 
@@ -494,16 +498,64 @@ export function FormCreateBicicleta({
             />
           </FormSection>
 
-          <FormSection title="Fotografía (opcional)">
-            <ImageUpload
-              label=""
-              imagePreview={imagePreview}
-              onChange={(file, previewUrl) => {
-                setSelectedImage(file);
-                setImagePreview(previewUrl);
-              }}
-              disabled={isSubmitting || isUploadingImage}
-            />
+          <FormSection>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Fotografía (opcional)
+              </h3>
+              {imagePreviews.length > 0 && imagePreviews.length < MAX_BICYCLE_IMAGES && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    document.getElementById("bicycle-add-image-input")?.click();
+                  }}
+                  disabled={isSubmitting || isUploadingImage}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Añadir foto
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground/70">
+              Puedes agregar hasta {MAX_BICYCLE_IMAGES} fotografías por bicicleta.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {imagePreviews.map((preview, index) => (
+                <ImageUpload
+                  key={`${preview}-${index}`}
+                  label=""
+                  imagePreview={preview}
+                  onChange={(_, nextPreview) => {
+                    if (nextPreview) return;
+                    URL.revokeObjectURL(preview);
+                    setSelectedImages((images) => images.filter((_, i) => i !== index));
+                    setImagePreviews((previews) => previews.filter((_, i) => i !== index));
+                  }}
+                  disabled={isSubmitting || isUploadingImage}
+                />
+              ))}
+              {imagePreviews.length < MAX_BICYCLE_IMAGES && (
+                <div className={imagePreviews.length > 0 ? "hidden" : "w-full"}>
+                  <ImageUpload
+                    label=""
+                    inputId="bicycle-add-image-input"
+                    imagePreview={null}
+                    onChange={(file, preview) => {
+                      if (!file || !preview) return;
+                      if (selectedImages.length >= MAX_BICYCLE_IMAGES) {
+                        URL.revokeObjectURL(preview);
+                        return;
+                      }
+                      setSelectedImages([...selectedImages, file]);
+                      setImagePreviews([...imagePreviews, preview]);
+                    }}
+                    disabled={isSubmitting || isUploadingImage}
+                  />
+                </div>
+              )}
+            </div>
           </FormSection>
         </form>
       </Form>
