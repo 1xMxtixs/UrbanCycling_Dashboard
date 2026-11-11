@@ -206,6 +206,7 @@ export function EditProveedorDialog({
       title="Editar proveedor"
       description="Modifica los datos registrados del proveedor."
       size="3xl"
+      scrollable
     >
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center">
