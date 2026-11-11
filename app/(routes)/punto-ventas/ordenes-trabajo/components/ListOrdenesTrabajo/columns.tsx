@@ -33,7 +33,6 @@ interface WorkOrderTableMeta {
   onCancelClick?: (order: WorkOrder) => void
   onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
-  onModifyServiceClick?: (order: WorkOrder) => void
 }
 
 function getAvailableTransitions(currentStatus: string) {
