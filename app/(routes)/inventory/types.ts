@@ -16,6 +16,7 @@ export type ProductColumn = {
   nombre: string;
   descripcion: string | null;
   precioVenta: number | string;
+  precioCompra: number | string;
   costoPromedio: number | string;
   stockActual: number;
   stockMinimo: number;

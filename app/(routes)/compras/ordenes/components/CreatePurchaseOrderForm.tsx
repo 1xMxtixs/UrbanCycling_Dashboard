@@ -179,7 +179,7 @@ export function CreatePurchaseOrderForm({
     setProductId(value)
     const product = products.find((item) => item.idProducto === Number(value))
     if (product) {
-      setUnitCost(`$${Number(product.costoPromedio || 0).toLocaleString("es-CL")}`)
+      setUnitCost(`$${Number(product.precioCompra || 0).toLocaleString("es-CL")}`)
     } else {
       setUnitCost("")
     }

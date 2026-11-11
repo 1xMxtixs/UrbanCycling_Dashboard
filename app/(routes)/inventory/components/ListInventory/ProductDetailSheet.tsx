@@ -128,6 +128,13 @@ export function ProductDetailSheet({
 
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
                   <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
+                    Precio de compra
+                  </span>
+                  <p className="text-base font-bold text-foreground">{formatCurrency(product.precioCompra)}</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-xs font-semibold tracking-tight text-muted-foreground block mb-1">
                     Stock Disponible
                   </span>
                   <p className="text-sm font-bold text-foreground">{product.stockActual} unidades</p>
