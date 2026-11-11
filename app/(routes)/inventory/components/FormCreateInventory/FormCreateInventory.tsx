@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -101,6 +102,10 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
 
   const { isSubmitting, isValid } = form.formState;
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
+  const supplierSummary =
+    selectedSupplierIds.length === 0
+      ? "Sin proveedor"
+      : `${selectedSupplierIds.length} proveedor(es)`;
 
   useEffect(() => {
     let isMounted = true;
@@ -301,51 +306,56 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                 No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
               </p>
             ) : (
-              <div
-                role="listbox"
-                aria-label="Proveedores del producto"
-                aria-multiselectable="true"
-                className="grid gap-2 sm:grid-cols-2"
-              >
-                <Button
-                  type="button"
-                  variant={selectedSupplierIds.length === 0 ? "default" : "outline"}
-                  role="option"
-                  aria-selected={selectedSupplierIds.length === 0}
-                  disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-                  onClick={() => setSelectedSupplierIds([])}
-                  className="h-auto min-h-9 justify-between gap-2 px-3 py-2 text-left text-xs"
-                >
-                  <span className="truncate">Sin proveedor</span>
-                </Button>
-                {suppliers.map((supplier) => {
-                  const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
-
-                  return (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between gap-2 px-3 py-2 text-left text-sm"
+                    disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                  >
+                    <span className="truncate">{supplierSummary}</span>
+                    <span className="text-xs text-muted-foreground">▾</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-2">
+                  <div className="max-h-64 space-y-1 overflow-y-auto">
                     <Button
-                      key={supplier.idProveedor}
                       type="button"
-                      variant={isSelected ? "default" : "outline"}
-                      role="option"
-                      aria-selected={isSelected}
-                      disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-                      onClick={() =>
-                        setSelectedSupplierIds((current) =>
-                          current.includes(supplier.idProveedor)
-                            ? current.filter((id) => id !== supplier.idProveedor)
-                            : [...current, supplier.idProveedor],
-                        )
-                      }
-                      className="h-auto min-h-9 justify-between gap-2 px-3 py-2 text-left text-xs"
+                      variant={selectedSupplierIds.length === 0 ? "default" : "ghost"}
+                      className="w-full justify-between text-left text-xs"
+                      onClick={() => setSelectedSupplierIds([])}
                     >
-                      <span className="truncate">
-                        {supplier.razonSocial} · {supplier.rut}
-                      </span>
-                      {isSelected ? <span className="text-[10px] font-medium">✓</span> : null}
+                      <span>Sin proveedor</span>
+                      {selectedSupplierIds.length === 0 ? <span>✓</span> : null}
                     </Button>
-                  );
-                })}
-              </div>
+                    {suppliers.map((supplier) => {
+                      const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
+
+                      return (
+                        <Button
+                          key={supplier.idProveedor}
+                          type="button"
+                          variant={isSelected ? "default" : "ghost"}
+                          className="w-full justify-between text-left text-xs"
+                          onClick={() =>
+                            setSelectedSupplierIds((current) =>
+                              current.includes(supplier.idProveedor)
+                                ? current.filter((id) => id !== supplier.idProveedor)
+                                : [...current, supplier.idProveedor],
+                            )
+                          }
+                        >
+                          <span className="truncate">
+                            {supplier.razonSocial} · {supplier.rut}
+                          </span>
+                          {isSelected ? <span>✓</span> : null}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             {loadingSuppliers ? (
               <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
