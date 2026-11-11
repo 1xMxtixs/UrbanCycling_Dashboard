@@ -314,7 +314,7 @@ export async function POST(request: Request) {
       db.proveedor.findUnique({ where: { idProveedor } }),
       db.producto.findMany({
         where: { idProducto: { in: lines.map((line) => line.idProducto) } },
-        select: { idProducto: true, nombre: true, costoPromedio: true },
+        select: { idProducto: true, nombre: true, precioCompra: true },
       }),
     ])
 
@@ -345,7 +345,7 @@ export async function POST(request: Request) {
       ...line,
       precioCostoUnitario:
         line.precioCostoUnitario ??
-        Number(productsById.get(line.idProducto)!.costoPromedio),
+        Number(productsById.get(line.idProducto)!.precioCompra),
     }))
     const montoSubtotal = resolvedLines.reduce(
       (total, line) => total + line.cantidadOrdenada * line.precioCostoUnitario,
