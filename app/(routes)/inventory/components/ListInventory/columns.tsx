@@ -35,6 +35,7 @@ export type ProductColumn = {
   nombre: string
   descripcion: string | null
   precioVenta: number | string
+  precioCompra: number | string
   costoPromedio: number | string
   stockActual: number
   stockMinimo: number
@@ -128,6 +129,15 @@ export function getColumns(
           </span>
         )
       },
+    },
+    {
+      accessorKey: "precioCompra",
+      header: ({ column }) => <SortableHeader column={column}>Precio compra</SortableHeader>,
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {formatCurrency(row.original.precioCompra)}
+        </span>
+      ),
     },
     {
       accessorKey: "estado",

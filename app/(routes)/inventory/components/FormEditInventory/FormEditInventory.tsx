@@ -58,6 +58,10 @@ const formSchema = z.object({
     (value) => Number.isInteger(Number(value)),
     "El precio de venta debe ser un número entero",
   ),
+  precioCompra: nonNegativeNumber("El precio de compra").refine(
+    (value) => Number.isInteger(Number(value)),
+    "El precio de compra debe ser un número entero",
+  ),
   costoPromedio: nonNegativeNumber("El costo promedio"),
   stockMinimo: z
     .string()
@@ -141,6 +145,7 @@ export function FormEditInventory({
       nombre: product.nombre,
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
+      precioCompra: String(product.precioCompra ?? 0),
       costoPromedio: String(product.costoPromedio ?? 0),
       stockMinimo: String(product.stockMinimo),
       estado: isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO,
@@ -155,6 +160,7 @@ export function FormEditInventory({
       "estado",
       "nombre",
       "precioVenta",
+      "precioCompra",
       "costoPromedio",
       "stockMinimo",
     ] as const).find((field) => errors[field])
@@ -204,6 +210,7 @@ export function FormEditInventory({
           nombre: values.nombre,
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
+          precioCompra: Number(values.precioCompra),
           costoPromedio: Number(values.costoPromedio),
           stockMinimo: Number(values.stockMinimo),
           categoriaIds: selectedCategoryIds,
@@ -348,6 +355,19 @@ export function FormEditInventory({
                 <FormLabel data-error={false}>Precio de venta</FormLabel>
                 <FormControl aria-invalid={false}>
                   <Input id="edit-product-precioVenta" type="number" min={0} {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="precioCompra"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel data-error={false}>Precio de compra</FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="edit-product-precioCompra" type="number" min={0} step={1} {...field} />
                 </FormControl>
               </FormItem>
             )}

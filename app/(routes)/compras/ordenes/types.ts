@@ -49,7 +49,7 @@ export type Product = {
   idProducto: number
   nombre: string
   tipoProducto: string
-  costoPromedio: number | string
+  precioCompra: number | string
   estado: string
 }
 

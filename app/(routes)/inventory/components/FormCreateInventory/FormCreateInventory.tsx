@@ -84,7 +84,7 @@ const formSchema = z.object({
     )
     .optional(),
   precioVenta: numericField("El precio"),
-  costoPromedio: numericField("El precio de compra"),
+  precioCompra: integerField("El precio de compra"),
   stockActual: integerField("El stock actual"),
   stockMinimo: integerField("El stock mínimo"),
   estado: z.string().min(2, "El estado es obligatorio"),
@@ -124,7 +124,7 @@ export function FormCreateInventory({
       nombre: "",
       descripcion: "",
       precioVenta: "",
-      costoPromedio: "",
+      precioCompra: "",
       stockActual: "",
       stockMinimo: "",
       estado: ESTADO_REGISTRO.ACTIVO,
@@ -159,7 +159,7 @@ export function FormCreateInventory({
       "tipoProducto",
       "nombre",
       "precioVenta",
-      "costoPromedio",
+      "precioCompra",
       "stockActual",
       "stockMinimo",
       "estado",
@@ -256,7 +256,7 @@ export function FormCreateInventory({
       }
 
       const cleanPrecio = Number(values.precioVenta.replace(/\D/g, ""));
-      const cleanCostoPromedio = Number(values.costoPromedio.replace(/\D/g, ""));
+      const cleanPrecioCompra = Number(values.precioCompra.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
 
@@ -270,7 +270,8 @@ export function FormCreateInventory({
           tipoProducto: canonicalTipoProducto(values.tipoProducto),
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
-          costoPromedio: cleanCostoPromedio,
+          precioCompra: cleanPrecioCompra,
+          costoPromedio: 0,
           stockActual: cleanStockActual,
           stockMinimo: cleanStockMinimo,
           ...(selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {}),
@@ -535,7 +536,7 @@ export function FormCreateInventory({
 
             <FormField
               control={form.control}
-              name="costoPromedio"
+              name="precioCompra"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel
@@ -547,7 +548,7 @@ export function FormCreateInventory({
                   </FormLabel>
                   <FormControl aria-invalid={false}>
                     <Input
-                      id="create-product-costoPromedio"
+                      id="create-product-precioCompra"
                       ref={field.ref}
                       type="text"
                       inputMode="numeric"
