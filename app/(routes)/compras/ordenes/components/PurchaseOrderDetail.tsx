@@ -227,23 +227,53 @@ export function PurchaseOrderDetail({
 
   return (
     <>
-      <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
-        <DialogContent
-          className="max-h-[96vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-6rem)]"
-          style={{ width: "min(1600px, calc(100vw - 2rem))" }}
-        >
-          <DialogHeader>
-            <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
-            <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
-                {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
-                Copiar al portapapeles
-              </Button>
-              <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf} onClick={() => void downloadPdf()}>
-                {downloadingPdf ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
-              </Button>
+    <Dialog open={Boolean(orderSummary) && !receptionOpen} onOpenChange={(open) => { if (!busy) onOpenChange(open) }}>
+      <DialogContent className="flex h-[min(78dvh,48rem)] max-h-[88dvh] w-[calc(100vw-2rem)] min-w-0 flex-col gap-3 overflow-hidden sm:w-full sm:max-w-5xl">
+        <DialogHeader className="shrink-0">
+          <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
+          <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
+              {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+              Copiar al portapapeles
+            </Button>
+            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf} onClick={() => void downloadPdf()}>
+              {downloadingPdf ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
+            </Button>
+          </div>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pr-2">
+        {id ? (loading && !order ? (
+          <div className="space-y-4 py-4 animate-pulse motion-reduce:animate-none" aria-busy="true">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
+          </div>
+        ) : order ? (
+          <div className="min-w-0 space-y-5">
+            <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 sm:grid-cols-2">
+              <DataField label="Proveedor" value={order.proveedor.razonSocial} />
+              <DataField label="Emisión" value={formatDateCL(order.fechaRegistro)} />
+              <DataField label="Entrega estimada" value={formatDateCL(order.fechaEntregaEstimada)} />
+              <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Estado de la orden</p>
+                  <StatePill value={order.estado} />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Estado del pago</p>
+                  <StatusBadge
+                    status={getPaymentStatusBadgeVariant(order.estadoPago)}
+                    label={getNombreEstadoPago(order.estadoPago)}
+                    showDot={false}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Estado de recepción</p>
+                  <StatePill value={order.estadoRecepcion} />
+                </div>
+              </div>
             </div>
           </DialogHeader>
           {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
@@ -310,37 +340,39 @@ export function PurchaseOrderDetail({
               {canUpdate && order.estado === ESTADO_COMPRA.ENVIADA && balance > 0 && (
                 <form
                   onSubmit={registerPayment}
-                  className="grid gap-3 border-t border-border/60 pt-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                  className="grid gap-3 border-t border-border/60 pt-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="partial-payment">Monto del abono (CLP)</Label>
-                    <Input
-                      id="partial-payment"
-                      type="number"
-                      min="1"
-                      max={balance}
-                      step="1"
-                      required
-                      value={amount}
-                      onChange={(event) => setAmount(event.target.value)}
-                      placeholder={`Hasta ${balance}`}
-                      disabled={busy}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="purchase-payment-method">Método de pago</Label>
-                    <Select value={method} onValueChange={setMethod} disabled={busy}>
-                      <SelectTrigger id="purchase-payment-method" aria-label="Seleccionar método de pago">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {METODOS_PAGO.map((item) => (
-                          <SelectItem key={item.codigo} value={item.codigo}>
-                            {item.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                    <div className="grid grid-rows-[2.5rem_2rem] gap-2">
+                      <Label htmlFor="partial-payment" className="flex items-end">Monto del abono (CLP)</Label>
+                      <Input
+                        id="partial-payment"
+                        type="number"
+                        min="1"
+                        max={balance}
+                        step="1"
+                        required
+                        value={amount}
+                        onChange={(event) => setAmount(event.target.value)}
+                        placeholder={`Hasta ${balance}`}
+                        disabled={busy}
+                      />
+                    </div>
+                    <div className="grid grid-rows-[2.5rem_2rem] gap-2">
+                      <Label htmlFor="purchase-payment-method" className="flex items-end">Método de pago</Label>
+                      <Select value={method} onValueChange={setMethod} disabled={busy}>
+                        <SelectTrigger id="purchase-payment-method" className="h-8 w-full" aria-label="Seleccionar método de pago">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {METODOS_PAGO.map((item) => (
+                            <SelectItem key={item.codigo} value={item.codigo}>
+                              {item.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <Button type="submit" disabled={busy || !amount}>
                     <Wallet className="mr-2 h-4 w-4" />
@@ -404,7 +436,8 @@ export function PurchaseOrderDetail({
           <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             {error || "No fue posible cargar la orden."}
           </div>
-        )}
+        )) : null}
+        </div>
 
           {order && (
             <StatusToggleDialog
