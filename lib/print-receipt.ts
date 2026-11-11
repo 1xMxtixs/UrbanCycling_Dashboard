@@ -4,7 +4,7 @@ import { escapeHtml } from "@/components/common/WorkOrderDocument"
 interface PrintReceiptOptions {
   dte: DocumentoTributario
   clientLabel: string
-  clientRut?: string
+  clientRut?: string | null
   lines: ReceiptLine[]
   detailLabel: string
   lineFallback: string
