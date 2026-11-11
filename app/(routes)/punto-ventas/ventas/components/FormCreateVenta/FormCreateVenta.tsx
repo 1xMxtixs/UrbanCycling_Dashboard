@@ -626,13 +626,11 @@ export function FormCreateVenta({
                     </SelectItem>
 
                     {clients.map((c) => {
-                      const label =
-                        c.razonSocial
-                          ? `${c.razonSocial} (${c.rut})`
-                          : `${c.primerNombre} ${
-                              c.apellidoPaterno ||
-                              ""
-                            } (${c.rut})`.trim()
+                      const nombreCliente = c.razonSocial
+                        || `${c.primerNombre} ${c.apellidoPaterno || ""}`.trim()
+                      const label = c.rut
+                        ? `${nombreCliente} (${c.rut})`
+                        : nombreCliente
 
                       return (
                         <SelectItem
