@@ -80,7 +80,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState("none");
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -185,8 +185,8 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (selectedSupplierId !== "none" && values.estado !== ESTADO_REGISTRO.ACTIVO) {
-      toast.error("El producto debe estar activo para asociarlo a un proveedor.");
+    if (selectedSupplierIds.length > 0 && values.estado !== ESTADO_REGISTRO.ACTIVO) {
+      toast.error("El producto debe estar activo para asociarlo a uno o más proveedores.");
       return;
     }
     try {
@@ -210,7 +210,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
           stockActual: Number(values.stockActual),
           stockMinimo: Number(values.stockMinimo),
           categoriaIds: selectedCategoryIds,
-          ...(selectedSupplierId !== "none" ? { idProveedor: Number(selectedSupplierId) } : {}),
+          ...(selectedSupplierIds.length > 0
+            ? { idProveedores: selectedSupplierIds, idProveedor: selectedSupplierIds[0] }
+            : {}),
           imageUrl,
         }),
       });
@@ -228,7 +230,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       setImageFile(null);
       setImagePreview(null);
       setSelectedCategoryIds([]);
-      setSelectedSupplierId("none");
+      setSelectedSupplierIds([]);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
@@ -293,24 +295,58 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
 
         {canAssociateSupplier && (
           <div className="space-y-2">
-            <FormLabel htmlFor="create-product-supplier">Proveedor (opcional)</FormLabel>
-            <Select
-              value={selectedSupplierId}
-              onValueChange={setSelectedSupplierId}
-              disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-            >
-              <SelectTrigger id="create-product-supplier" className="w-full">
-                <SelectValue placeholder="Selecciona un proveedor" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="none">Sin proveedor</SelectItem>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
-                    {supplier.razonSocial} · {supplier.rut}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FormLabel>Proveedor/es (opcional)</FormLabel>
+            {suppliers.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
+              </p>
+            ) : (
+              <div
+                role="listbox"
+                aria-label="Proveedores del producto"
+                aria-multiselectable="true"
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                <Button
+                  type="button"
+                  variant={selectedSupplierIds.length === 0 ? "default" : "outline"}
+                  role="option"
+                  aria-selected={selectedSupplierIds.length === 0}
+                  disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                  onClick={() => setSelectedSupplierIds([])}
+                  className="h-auto min-h-9 justify-between gap-2 px-3 py-2 text-left text-xs"
+                >
+                  <span className="truncate">Sin proveedor</span>
+                </Button>
+                {suppliers.map((supplier) => {
+                  const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
+
+                  return (
+                    <Button
+                      key={supplier.idProveedor}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      role="option"
+                      aria-selected={isSelected}
+                      disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                      onClick={() =>
+                        setSelectedSupplierIds((current) =>
+                          current.includes(supplier.idProveedor)
+                            ? current.filter((id) => id !== supplier.idProveedor)
+                            : [...current, supplier.idProveedor],
+                        )
+                      }
+                      className="h-auto min-h-9 justify-between gap-2 px-3 py-2 text-left text-xs"
+                    >
+                      <span className="truncate">
+                        {supplier.razonSocial} · {supplier.rut}
+                      </span>
+                      {isSelected ? <span className="text-[10px] font-medium">✓</span> : null}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
             {loadingSuppliers ? (
               <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
             ) : supplierError ? (
@@ -322,9 +358,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {suppliers.length
-                  ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
-                  : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
+                {selectedSupplierIds.length > 0
+                  ? `${selectedSupplierIds.length} proveedor(es) seleccionado(s).`
+                  : "Puedes asociar uno o varios proveedores antes de guardar el producto."}
               </p>
             )}
           </div>

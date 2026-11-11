@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 
 import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
-import { productSuppliersInclude, supplierSummaries, type ProductSupplierSummary } from "@/lib/product-suppliers"
+import { associationIds, productSuppliersInclude, supplierSummaries, type ProductSupplierSummary } from "@/lib/product-suppliers"
 import { associationId, lockSupplier, ProductSupplierError, productSupplierErrorResponse, requireProductSupplierPermission } from "@/lib/product-suppliers"
 import {
   productSearchQuerySchema,
@@ -516,9 +516,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const idProveedor = data.idProveedor === undefined || data.idProveedor === null
-      ? null : associationId(data.idProveedor)
-    if (idProveedor !== null) {
+    const supplierIds = (() => {
+      const rawIds = data.idProveedores ?? data.idProveedor
+      if (rawIds === undefined || rawIds === null) return []
+      return associationIds(rawIds)
+    })()
+
+    if (supplierIds.length > 0) {
       const associationResponse = await requireProductSupplierPermission(true)
       if (associationResponse) return associationResponse
     }
@@ -591,12 +595,15 @@ export async function POST(request: Request) {
       )
     }
 
-    if (idProveedor !== null && estado !== EstadoRegistro.ACTIVO) {
-      throw new ProductSupplierError("PRODUCTO_INACTIVO", "El producto debe estar activo para asociarlo a un proveedor.", 409)
+    if (supplierIds.length > 0 && estado !== EstadoRegistro.ACTIVO) {
+      throw new ProductSupplierError("PRODUCTO_INACTIVO", "El producto debe estar activo para asociarlo a uno o más proveedores.", 409)
     }
 
     const product = await db.$transaction(async (tx) => {
-      if (idProveedor !== null) await lockSupplier(tx, idProveedor, true)
+      for (const idProveedor of supplierIds) {
+        await lockSupplier(tx, idProveedor, true)
+      }
+
       const createdProduct = await tx.producto.create({
         data: {
           tipoProducto: data.tipoProducto,
@@ -612,7 +619,10 @@ export async function POST(request: Request) {
           stockMinimo: data.stockMinimo,
           estado,
           urlImagen: data.urlImagen ?? data.imageUrl ?? "",
-          Proveedores: idProveedor !== null ? { create: { idProveedor } } : undefined,
+          Proveedores:
+            supplierIds.length > 0
+              ? { create: supplierIds.map((idProveedor) => ({ idProveedor })) }
+              : undefined,
         },
       })
 
