@@ -74,7 +74,6 @@ interface DataTableProps<TData, TValue> {
   onCancelClick?: (order: WorkOrder) => void
   onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
-  onModifyServiceClick?: (order: WorkOrder) => void
   periodFilter: PeriodFilterProps
   emptyState?: EmptyStateProps
   initialSearch?: string
@@ -92,7 +91,6 @@ export function DataTable<TData, TValue>({
   onCancelClick,
   onAssignSuppliesClick,
   onAuditClick,
-  onModifyServiceClick,
   periodFilter,
   emptyState,
   initialSearch = "",
@@ -135,7 +133,6 @@ export function DataTable<TData, TValue>({
       onCancelClick,
       onAssignSuppliesClick,
       onAuditClick,
-      onModifyServiceClick,
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
