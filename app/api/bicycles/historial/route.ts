@@ -27,7 +27,7 @@ type BicycleHistoryRecord = {
         apellidoPaterno: string | null
         apellidoMaterno: string | null
         razonSocial: string | null
-        rut: string
+        rut: string | null
       } | null
     }
   }

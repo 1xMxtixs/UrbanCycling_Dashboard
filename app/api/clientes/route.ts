@@ -1,6 +1,8 @@
 //endpoints generales del inventario para registrar nuevos clientes.
+import { randomUUID } from "node:crypto"
 import { db } from "@/lib/db"
 import { separarApellidos, separarNombres } from "@/lib/client-helpers"
+import { validarRutOpcional } from "@/app/api/_lib/client-rut"
 import { validarYFormatearRut } from "@/lib/client-rut"
 import { EstadoRegistro, Prisma } from "@/generated/prisma"
 import { PERMISSIONS } from "@/lib/permissions"
@@ -8,51 +10,9 @@ import { requirePermission } from "@/lib/require-permission"
 import { ACTIVE_WORK_ORDER_STATUSES } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
-function formatearRut(rut: string) {
-  const rutLimpio = rut
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, "")
-    .replace(/-/g, "")
-
-  if (!/^\d+[\dK]$/.test(rutLimpio)) {
-    return {
-      rutFormateado: null,
-      error: "El RUT solo puede contener números y dígito verificador K",
-    }
-  }
-
-  const cuerpo = rutLimpio.slice(0, -1)
-  const dv = rutLimpio.slice(-1)
-
-  if (cuerpo.length < 7) {
-    return {
-      rutFormateado: null,
-      error:
-        "El RUT ingresado tiene menos de 7 dígitos sin contar el verificador",
-    }
-  }
-
-  if (cuerpo.length > 8) {
-    return {
-      rutFormateado: null,
-      error:
-        "El RUT ingresado tiene más de 8 dígitos sin contar el verificador",
-    }
-  }
-
-  const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-
-  return {
-    rutFormateado: `${cuerpoFormateado}-${dv}`,
-    error: null,
-  }
-}
-
-function crearCorreoRespaldo(rut: string) {
-  const rutLimpio = rut.replace(/\./g, "").replace(/-/g, "").toLowerCase()
-
-  return `cliente.${rutLimpio}@urbancycling.local`
+function crearCorreoRespaldo(rut: string | null) {
+  const identificador = rut ? rut.replace(/[.\-]/g, "").toLowerCase() : randomUUID()
+  return `cliente.${identificador}@urbancycling.local`
 }
 
 /**
@@ -68,36 +28,35 @@ export async function POST(req: Request) {
       return response
     }
 
-    const data = await req.json()
+    let data
+    try {
+      data = await req.json()
+    } catch {
+      return new NextResponse("El cuerpo debe contener un JSON válido", { status: 400 })
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return new NextResponse("Los datos enviados no son válidos", { status: 400 })
+    }
     const tipoCliente = data.tipoCliente || "natural"
     const rut = data.rut
     const telefono = data.telefono
     const correo = data.correo || data.email || data.correoElectronico
 
-    if (!rut || !telefono) {
-      return new NextResponse("Faltan campos obligatorios (RUT y Teléfono)", {
-        status: 400,
-      })
+    if (!telefono || !String(telefono).trim()) {
+      return new NextResponse("Falta el teléfono obligatorio", { status: 400 })
     }
-
-    const { rutFormateado, error } = formatearRut(String(rut))
-
-    if (error || !rutFormateado) {
-      return new NextResponse(error ?? "El RUT ingresado no es válido", {
-        status: 400,
-      })
+    const resultadoRut = validarRutOpcional(rut)
+    if (!resultadoRut.valid) {
+      return new NextResponse(resultadoRut.error, { status: 400 })
     }
-
-    const clienteExistente = await db.cliente.findUnique({
-      where: {
-        rut: rutFormateado,
-      },
-    })
-
-    if (clienteExistente) {
-      return new NextResponse("Ya existe un cliente con ese RUT", {
-        status: 409,
+    const rutFormateado = resultadoRut.formatted
+    if (rutFormateado) {
+      const clienteExistente = await db.cliente.findFirst({
+        where: { OR: [{ rut: rutFormateado }, { rut: resultadoRut.compact }] },
       })
+      if (clienteExistente) {
+        return new NextResponse("Ya existe un cliente con ese RUT", { status: 409 })
+      }
     }
 
     let insertData: Prisma.ClienteCreateInput = {
@@ -174,6 +133,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(cliente, { status: 201 })
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
+      && JSON.stringify(error.meta?.target ?? "").includes("rut")) {
+      return new NextResponse("Ya existe un cliente con ese RUT", { status: 409 })
+    }
     console.log("[CLIENTES_POST]", error)
     return new NextResponse("Internal Server Error", { status: 500 })
   }

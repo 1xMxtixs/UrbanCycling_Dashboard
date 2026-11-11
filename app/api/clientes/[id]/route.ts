@@ -1,5 +1,5 @@
 // Endpoint para actualizar parcialmente la ficha de un cliente por ID.
-import { EstadoRegistro, type Prisma } from "@/generated/prisma"
+import { EstadoRegistro, Prisma } from "@/generated/prisma"
 import { NextResponse } from "next/server"
 
 import {
@@ -8,6 +8,7 @@ import {
   separarApellidos,
   separarNombres,
 } from "@/lib/client-helpers"
+import { validarRutOpcional } from "@/app/api/_lib/client-rut"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -19,6 +20,7 @@ type RouteContext = {
 }
 
 type UpdateClienteBody = {
+  rut?: unknown
   nombre?: unknown
   apellido?: unknown
   razonSocial?: unknown
@@ -115,6 +117,26 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const clienteData: Prisma.ClienteUpdateInput = {}
+
+    // Omitir el campo conserva el RUT; null o texto vacío lo elimina.
+    if ("rut" in data) {
+      const resultadoRut = validarRutOpcional(data.rut)
+      if (!resultadoRut.valid) {
+        return new NextResponse(resultadoRut.error, { status: 400 })
+      }
+      clienteData.rut = resultadoRut.formatted
+      if (resultadoRut.formatted) {
+        const duplicado = await db.cliente.findFirst({
+          where: {
+            idCliente: { not: idCliente },
+            OR: [{ rut: resultadoRut.formatted }, { rut: resultadoRut.compact }],
+          },
+        })
+        if (duplicado) {
+          return new NextResponse("Ya existe un cliente con ese RUT", { status: 409 })
+        }
+      }
+    }
 
     if (esPersonaNatural) {
       if (data.nombre !== undefined) {
@@ -270,6 +292,10 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return NextResponse.json(clienteActualizado)
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
+      && JSON.stringify(error.meta?.target ?? "").includes("rut")) {
+      return new NextResponse("Ya existe un cliente con ese RUT", { status: 409 })
+    }
     console.log("[CLIENTES_ID_PATCH]", error)
 
     return new NextResponse("Internal Server Error", { status: 500 })
