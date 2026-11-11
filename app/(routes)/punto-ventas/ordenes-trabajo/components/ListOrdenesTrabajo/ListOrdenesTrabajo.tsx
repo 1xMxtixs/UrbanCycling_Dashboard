@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,9 +15,7 @@ import { OrderPayDialog } from "./OrderPayDialog"
 import { ReceiptTicketDialog } from "./ReceiptTicketDialog"
 import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
-import { AssignSuppliesDialog } from "./AssignSuppliesDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
-import { ModifyServiceDialog } from "./ModifyServiceDialog"
 import { WorkOrder } from "../../types"
 import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
@@ -51,6 +49,7 @@ export function ListOrdenesTrabajo() {
   const [periodErrors, setPeriodErrors] = useState<PeriodErrors>({})
   const [periodEmptyMessage, setPeriodEmptyMessage] = useState<string | null>(null)
   const [isFilteringByPeriod, setIsFilteringByPeriod] = useState(false)
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null)
 
   const {
     activeItem: selectedOrder,
@@ -60,8 +59,21 @@ export function ListOrdenesTrabajo() {
     setLocalItem: setSelectedOrder,
   } = useSearchDetailNavigation(orderIdParam, orders, (order) => order.idOrdenDeTrabajo)
 
-  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false)
-  const [orderToAssignSupplies, setOrderToAssignSupplies] = useState<WorkOrder | null>(null)
+  const previousActiveOrderId = useRef(selectedOrder?.idOrdenDeTrabajo ?? null)
+
+  useEffect(() => {
+    const activeOrderId = selectedOrder?.idOrdenDeTrabajo ?? null
+    if (previousActiveOrderId.current === activeOrderId) return
+
+    previousActiveOrderId.current = activeOrderId
+    if (editingOrderId !== null && editingOrderId !== activeOrderId) {
+      Promise.resolve().then(() => {
+        setEditingOrderId((currentId) =>
+          currentId === editingOrderId ? null : currentId,
+        )
+      })
+    }
+  }, [editingOrderId, selectedOrder?.idOrdenDeTrabajo])
 
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [orderToPay, setOrderToPay] = useState<WorkOrder | null>(null)
@@ -83,9 +95,6 @@ export function ListOrdenesTrabajo() {
 
   const [auditModalOpen, setAuditModalOpen] = useState(false)
   const [orderToAudit, setOrderToAudit] = useState<WorkOrder | null>(null)
-
-  const [modifyServiceModalOpen, setModifyServiceModalOpen] = useState(false)
-  const [orderToModifyService, setOrderToModifyService] = useState<WorkOrder | null>(null)
 
   const getOrders = useCallback(async (period: PeriodFilter | null): Promise<boolean> => {
     try {
@@ -160,6 +169,16 @@ export function ListOrdenesTrabajo() {
     }
   }, [refreshOrders])
 
+  useEffect(() => {
+    if (!selectedOrder) return
+    const refreshedOrder = orders.find(
+      (order) => order.idOrdenDeTrabajo === selectedOrder.idOrdenDeTrabajo,
+    )
+    if (refreshedOrder && refreshedOrder !== selectedOrder) {
+      setSelectedOrder(refreshedOrder)
+    }
+  }, [orders, selectedOrder, setSelectedOrder])
+
   const updatePeriodField = (field: keyof PeriodFilter, value: string) => {
     setPeriodDraft((current) => ({ ...current, [field]: value }))
     setPeriodErrors((current) => ({ ...current, [field]: undefined }))
@@ -231,17 +250,19 @@ export function ListOrdenesTrabajo() {
 
       refreshOrders()
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      toast.error(err.message || "No se pudo actualizar el estado.")
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado.")
     } finally {
       setUpdatingId(null)
     }
   }
 
   const handleAssignSuppliesClick = (order: WorkOrder) => {
-    setOrderToAssignSupplies(order)
-    setSuppliesModalOpen(true)
+    previousActiveOrderId.current = order.idOrdenDeTrabajo
+    setSelectedOrder(order)
+    setEditingOrderId(order.idOrdenDeTrabajo)
+    openOrderDetail(order)
   }
 
   const handlePayClick = (order: WorkOrder) => {
@@ -264,11 +285,6 @@ export function ListOrdenesTrabajo() {
   const handleAuditClick = (order: WorkOrder) => {
     setOrderToAudit(order)
     setAuditModalOpen(true)
-  }
-
-  const handleModifyServiceClick = (order: WorkOrder) => {
-    setOrderToModifyService(order)
-    setModifyServiceModalOpen(true)
   }
 
   const handleConfirmCancelOrder = async () => {
@@ -392,15 +408,17 @@ export function ListOrdenesTrabajo() {
       closeOrderDetail()
       refreshOrders()
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      toast.error(err.message || "No se pudo procesar el pago restante")
+      toast.error(err instanceof Error ? err.message : "No se pudo procesar el pago restante")
     } finally {
       setIsConfirmingPayment(false)
     }
   }
 
   const handleViewDetails = (order: WorkOrder) => {
+    previousActiveOrderId.current = order.idOrdenDeTrabajo
+    setEditingOrderId(null)
     openOrderDetail(order)
   }
 
@@ -428,9 +446,9 @@ export function ListOrdenesTrabajo() {
         const errorData = await res.json()
         throw new Error(errorData.message || "Error al generar la boleta")
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      toast.error(err.message || "No se pudo generar la boleta.")
+      toast.error(err instanceof Error ? err.message : "No se pudo generar la boleta.")
     } finally {
       setIsGeneratingReceipt(false)
     }
@@ -484,7 +502,6 @@ export function ListOrdenesTrabajo() {
         onCancelClick={handleCancelClick}
         onAssignSuppliesClick={handleAssignSuppliesClick}
         onAuditClick={handleAuditClick}
-        onModifyServiceClick={handleModifyServiceClick}
       />
 
       <UpcomingDeadlines orders={orders} onViewDetails={handleViewDetails} />
@@ -495,6 +512,7 @@ export function ListOrdenesTrabajo() {
         open={openDetailsModal}
         onOpenChange={(open) => {
           if (!open) {
+            setEditingOrderId(null)
             closeOrderDetail()
           }
           if (!open && orderIdParam) {
@@ -502,24 +520,22 @@ export function ListOrdenesTrabajo() {
           }
         }}
         order={selectedOrder}
-        onPayClick={handlePayClick}
-        onGenerateReceipt={handleGenerateReceipt}
-        onAssignSuppliesClick={handleAssignSuppliesClick}
-        onAuditClick={handleAuditClick}
-        onModifyServiceClick={handleModifyServiceClick}
-      />
-
-      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
-      <AssignSuppliesDialog
-        open={suppliesModalOpen}
-        onOpenChange={setSuppliesModalOpen}
-        order={orderToAssignSupplies}
-        onSuccess={() => {
+        isEditing={selectedOrder?.idOrdenDeTrabajo === editingOrderId}
+        onEditingChange={(isEditing) => {
+          setEditingOrderId(
+            isEditing ? selectedOrder?.idOrdenDeTrabajo ?? null : null,
+          )
+        }}
+        onEditSuccess={() => {
           refreshOrders()
           router.refresh()
         }}
+        onPayClick={handlePayClick}
+        onGenerateReceipt={handleGenerateReceipt}
+        onAuditClick={handleAuditClick}
       />
 
+      {/* 4.5. Modal de Asignación de Insumos y Valorización */}
       {/* 5. Modal de Pago Restante */}
       <OrderPayDialog
         open={payModalOpen}
@@ -580,17 +596,6 @@ export function ListOrdenesTrabajo() {
         open={auditModalOpen}
         onOpenChange={setAuditModalOpen}
         order={orderToAudit}
-      />
-
-      {/* 10. Modal de Modificación de Servicio */}
-      <ModifyServiceDialog
-        open={modifyServiceModalOpen}
-        onOpenChange={setModifyServiceModalOpen}
-        order={orderToModifyService}
-        onSuccess={() => {
-          refreshOrders()
-          router.refresh()
-        }}
       />
     </div>
   )
