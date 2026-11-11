@@ -29,12 +29,13 @@ import {
 import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 const DESCRIPTION_MAX_LENGTH = 50;
 type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
@@ -476,12 +477,18 @@ export function FormCreateInventory({
                     <div className="max-h-64 space-y-1 overflow-y-auto">
                       <Button
                         type="button"
-                        variant={selectedSupplierIds.length === 0 ? "default" : "ghost"}
-                        className="w-full justify-between text-left text-xs"
+                        variant="outline"
+                        className={cn(
+                          "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                          selectedSupplierIds.length === 0 &&
+                            "border-primary bg-primary/10 text-primary"
+                        )}
                         onClick={() => setSelectedSupplierIds([])}
                       >
                         <span className="truncate">Sin proveedor</span>
-                        {selectedSupplierIds.length === 0 ? <span>✓</span> : null}
+                        {selectedSupplierIds.length === 0 ? (
+                          <Check className="h-4 w-4 shrink-0" />
+                        ) : null}
                       </Button>
                       {suppliers.map((supplier) => {
                         const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
@@ -490,8 +497,12 @@ export function FormCreateInventory({
                           <Button
                             key={supplier.idProveedor}
                             type="button"
-                            variant={isSelected ? "default" : "ghost"}
-                            className="w-full justify-between text-left text-xs"
+                            variant="outline"
+                            className={cn(
+                              "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                              isSelected &&
+                                "border-primary bg-primary/10 text-primary"
+                            )}
                             onClick={() =>
                               setSelectedSupplierIds((current) =>
                                 current.includes(supplier.idProveedor)
@@ -503,7 +514,9 @@ export function FormCreateInventory({
                             <span className="min-w-0 truncate">
                               {supplier.razonSocial} · {supplier.rut}
                             </span>
-                            {isSelected ? <span className="shrink-0">✓</span> : null}
+                            {isSelected ? (
+                              <Check className="h-4 w-4 shrink-0" />
+                            ) : null}
                           </Button>
                         );
                       })}
