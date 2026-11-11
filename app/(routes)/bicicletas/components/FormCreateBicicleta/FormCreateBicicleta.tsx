@@ -324,15 +324,19 @@ export function FormCreateBicicleta({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent position="popper">
-                      <SelectItem value="none">
+                      <SelectItem key="order-none" value="none">
                         {cargandoOrdenes
                           ? "Cargando órdenes..."
                           : "Selecciona una orden"}
                       </SelectItem>
-                      {ordenes.map((orden) => (
+                      {ordenes.map((orden, index) => (
                         <SelectItem
-                          key={orden.idOrdenDeTrabajo}
-                          value={String(orden.idOrdenDeTrabajo)}
+                          key={
+                            orden.idOrdenDeTrabajo != null
+                              ? String(orden.idOrdenDeTrabajo)
+                              : `orden-${index}`
+                          }
+                          value={String(orden.idOrdenDeTrabajo ?? index)}
                         >
                           Orden #{orden.idOrdenDeTrabajo} -{" "}
                           {formatClientName(orden.cliente)}

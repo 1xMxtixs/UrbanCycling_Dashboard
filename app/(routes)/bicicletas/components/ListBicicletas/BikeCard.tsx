@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ChevronDown,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
@@ -36,13 +37,14 @@ import type { Bicicleta } from "../../types";
 
 type BikeCardProps = {
   bicicleta: Bicicleta;
+  onEdit?: (bicicleta: Bicicleta) => void;
 };
 
 const ETIQUETA_CORTA_ESTADO: Partial<Record<string, string>> = {
   [ESTADO_OT.LISTO_PARA_ENTREGAR]: "Por entregar",
 };
 
-export function BikeCard({ bicicleta }: BikeCardProps) {
+export function BikeCard({ bicicleta, onEdit }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
@@ -62,6 +64,23 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
 
   return (
     <article className="group relative @container flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      <div className="absolute right-3 top-3 z-10">
+        <Button
+          type="button"
+          aria-label={`Editar bicicleta ${bicicleta.marca} ${bicicleta.modelo}`}
+          size="icon"
+          variant="secondary"
+          className="h-8 w-8 rounded-full border border-border/80 bg-background/90 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent cursor-pointer"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onEdit?.(bicicleta);
+          }}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
       <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
         {bicicleta.imagenUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

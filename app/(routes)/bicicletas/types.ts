@@ -6,6 +6,10 @@ export type Bicicleta = {
   color: string;
   descripcion: string | null;
   imagenUrl: string | null;
+  imagenes?: Array<{
+    idImagenBicicleta: number;
+    urlImagen: string;
+  }>;
   ordenDeTrabajo: {
     estadoOrden: string;
     estadoOrdenNombre?: string | null;

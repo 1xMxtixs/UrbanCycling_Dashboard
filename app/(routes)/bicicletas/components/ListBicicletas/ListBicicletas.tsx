@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BikeCard } from "./BikeCard";
+import { FormEditBicicleta } from "../FormEditBicicleta/FormEditBicicleta";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Bicicleta } from "../../types";
+import type { Bicicleta, OrdenTrabajoResumen } from "../../types";
 import {
   ESTADO_OT,
   ESTADOS_OT_FINALIZADOS,
@@ -32,6 +33,11 @@ export function ListBicicletas() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("all");
+  const [selectedBicicleta, setSelectedBicicleta] = useState<Bicicleta | null>(null);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [ordenes, setOrdenes] = useState<OrdenTrabajoResumen[]>([]);
+  const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
+  const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
 
   const fetchBicicletas = useCallback(async () => {
     setIsLoading(true);
@@ -55,6 +61,46 @@ export function ListBicicletas() {
       setBicicletas([]);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchOrdenes = useCallback(async () => {
+    setCargandoOrdenes(true);
+    setErrorOrdenes(null);
+
+    try {
+      const response = await fetch("/api/punto-venta", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudieron cargar las órdenes de trabajo");
+      }
+
+      const data = await response.json();
+      const ordenesTrabajo: OrdenTrabajoResumen[] = Array.isArray(data)
+        ? data
+            .filter((item) => item.tipoOperacion === "orden_trabajo")
+            .map((item) => {
+              const adapted = item;
+              return {
+                idOrdenDeTrabajo: adapted.idOrdenDeTrabajo,
+                estadoOrden: adapted.estadoOrden,
+                estadoOrdenNombre: adapted.estadoOrdenNombre,
+                fechaEntregaEstimada: adapted.fechaEntregaEstimada,
+                estadoPago: adapted.estadoPago,
+                total: adapted.total,
+                cliente: adapted.cliente,
+                bicicletas: adapted.bicicletas,
+              } as OrdenTrabajoResumen;
+            })
+        : [];
+
+      setOrdenes(ordenesTrabajo);
+    } catch {
+      setErrorOrdenes("Error al cargar las órdenes de trabajo");
+    } finally {
+      setCargandoOrdenes(false);
     }
   }, []);
 
@@ -98,6 +144,14 @@ export function ListBicicletas() {
       window.removeEventListener("bicicletas:refresh", handleRefresh);
     };
   }, [fetchBicicletas]);
+
+  const handleEditBicicleta = useCallback((bicicleta: Bicicleta) => {
+    setSelectedBicicleta(bicicleta);
+    setOpenEditModal(true);
+    if (ordenes.length === 0) {
+      void fetchOrdenes();
+    }
+  }, [fetchOrdenes, ordenes.length]);
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredBicicletas = useMemo(() => {
@@ -321,12 +375,42 @@ export function ListBicicletas() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredBicicletas.map((bicicleta) => (
-                <BikeCard key={bicicleta.idBicicleta} bicicleta={bicicleta} />
+                <BikeCard
+                  key={bicicleta.idBicicleta}
+                  bicicleta={bicicleta}
+                  onEdit={handleEditBicicleta}
+                />
               ))}
             </div>
           )}
         </div>
       </DataTableContainer>
+
+      {selectedBicicleta && (
+        <FormEditBicicleta
+          bicicleta={selectedBicicleta}
+          open={openEditModal}
+          onOpenChange={(open) => {
+            setOpenEditModal(open);
+            if (open && ordenes.length === 0) {
+              void fetchOrdenes();
+            }
+            if (!open) {
+              setSelectedBicicleta(null);
+            }
+          }}
+          ordenes={ordenes}
+          cargandoOrdenes={cargandoOrdenes}
+          errorOrdenes={errorOrdenes}
+          onRetryOrdenes={fetchOrdenes}
+          onCancel={() => setOpenEditModal(false)}
+          onSuccess={() => {
+            setOpenEditModal(false);
+            setSelectedBicicleta(null);
+            void fetchBicicletas();
+          }}
+        />
+      )}
     </div>
   );
 }
