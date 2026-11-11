@@ -29,7 +29,7 @@ export function HeaderOrdenesTrabajo() {
         <FormDialog
           title="Ingreso de Orden de Trabajo"
           description="Completa los datos del cliente, selecciona los vehículos y define los servicios y repuestos requeridos."
-          size="3xl"
+          size="4xl"
           scrollable
           scrollableContentClassName="pb-3"
         >
