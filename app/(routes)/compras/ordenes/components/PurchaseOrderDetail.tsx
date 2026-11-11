@@ -230,9 +230,11 @@ export function PurchaseOrderDetail({
   }
 
   return (
-    <>
-    <Dialog open={Boolean(orderSummary) && !receptionOpen} onOpenChange={(open) => { if (!busy) onOpenChange(open) }}>
-      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl min-w-0 overflow-x-hidden overflow-y-auto sm:w-full">
+    <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-h-[96vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-6rem)]"
+        style={{ width: "min(1600px, calc(100vw - 2rem))" }}
+      >
         <DialogHeader>
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
@@ -247,26 +249,19 @@ export function PurchaseOrderDetail({
             </Button>
           </div>
         </DialogHeader>
-        {loading && !order ? (
-          <div className="space-y-4 py-4 animate-pulse motion-reduce:animate-none" aria-busy="true">
-            <Skeleton className="h-24 w-full rounded-xl" />
-            <Skeleton className="h-44 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
-        ) : order ? (
-          <div className="min-w-0 space-y-5">
-            <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 sm:grid-cols-2">
-              <DataField label="Proveedor" value={order.proveedor.razonSocial} />
-              <DataField label="Emisión" value={formatDateCL(order.fechaRegistro)} />
-              <DataField label="Entrega estimada" value={formatDateCL(order.fechaEntregaEstimada)} />
-              <div className="flex flex-wrap content-start gap-2">
-                <StatePill value={order.estado} />
-                <StatusBadge
-                  status={getPaymentStatusBadgeVariant(order.estadoPago)}
-                  label={getNombreEstadoPago(order.estadoPago)}
-                  showDot={false}
-                />
-                <StatePill value={order.estadoRecepcion} />
+        {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
+          <div className="space-y-5">
+            <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-[1.4fr_1fr_1fr_1.1fr] sm:items-end">
+              <div><p className="text-xs text-muted-foreground">Proveedor</p><p className="mt-1 font-semibold">{order.proveedor.razonSocial}</p></div>
+              <div><p className="text-xs text-muted-foreground">Emisión</p><p className="mt-1 font-medium">{date(order.fechaRegistro)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Entrega estimada</p><p className="mt-1 font-medium">{date(order.fechaEntregaEstimada)}</p></div>
+              <div className="flex flex-col items-start justify-end gap-2">
+                <p className="text-xs text-muted-foreground">Estados</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatePill value={order.estado} />
+                  <StatePill value={order.estadoPago} />
+                  <StatePill value={order.estadoRecepcion} />
+                </div>
               </div>
             </div>
 
