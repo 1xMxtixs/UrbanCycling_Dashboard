@@ -177,13 +177,13 @@ export function BikesSection({
                 <div className="space-y-4 p-4">
                   {/* Información de bicicleta */}
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Marca{" "}
-                        <span className="text-destructive">*</span>
+                    <div>
+                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
+                        Marca
                       </Label>
 
                       <Input
+                        id={`bike-${idx}-marca`}
                         placeholder="Ej: Trek, Giant"
                         value={bike.marca}
                         onChange={(e) =>
@@ -193,17 +193,16 @@ export function BikesSection({
                             e.target.value
                           )
                         }
-                        required
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Modelo{" "}
-                        <span className="text-destructive">*</span>
+                    <div>
+                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
+                        Modelo
                       </Label>
 
                       <Input
+                        id={`bike-${idx}-modelo`}
                         placeholder="Ej: Marlin 7"
                         value={bike.modelo}
                         onChange={(e) =>
@@ -213,17 +212,16 @@ export function BikesSection({
                             e.target.value
                           )
                         }
-                        required
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Color{" "}
-                        <span className="text-destructive">*</span>
+                    <div>
+                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
+                        Color
                       </Label>
 
                       <Input
+                        id={`bike-${idx}-color`}
                         placeholder="Ej: Negro/Rojo"
                         value={bike.color}
                         onChange={(e) =>
@@ -233,20 +231,26 @@ export function BikesSection({
                             e.target.value
                           )
                         }
-                        required
                       />
                     </div>
                   </div>
 
                   {/* Observaciones */}
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">
-                      Observaciones / Estado de Ingreso
-                    </Label>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <Label className="inline-block font-medium text-foreground">
+                        Observaciones / Estado de Ingreso{" "}
+                        <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        {(bike.descripcion || "").length}/500
+                      </span>
+                    </div>
 
                     <Textarea
                       placeholder="Rayaduras previas, componentes adicionales, golpes, abolladuras..."
                       value={bike.descripcion}
+                      maxLength={500}
                       onChange={(e) =>
                         onUpdateBikeField(
                           idx,
@@ -261,7 +265,7 @@ export function BikesSection({
                   {/* Fotografías */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-muted-foreground">
+                      <Label className="inline-block mb-1.5 font-medium text-foreground">
                         Fotografías del Estado de Ingreso
                       </Label>
 

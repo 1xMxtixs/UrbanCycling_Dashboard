@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AlertCircle, LoaderCircle, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -18,6 +18,20 @@ import type { CreatePurchaseOrderLine, Product, Provider, PurchaseOrder } from "
 const localISODate = () => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+
+const focusOrderField = (id: string) => {
+  const control = document.getElementById(id)
+  if (!control) return
+
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches
+  control.scrollIntoView({
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+    block: "nearest",
+  })
+  requestAnimationFrame(() => control.focus())
 }
 
 export function CreatePurchaseOrderForm({
@@ -44,6 +58,29 @@ export function CreatePurchaseOrderForm({
   const [lines, setLines] = useState<CreatePurchaseOrderLine[]>([])
   const [error, setError] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+
+  const resetForm = useCallback(() => {
+    setProviderId("")
+    setEmissionDate(localISODate())
+    setDeliveryDate(localISODate())
+    setProductId("")
+    setQuantity("1")
+    setUnitCost("")
+    setLines([])
+    setError("")
+  }, [])
+
+  const handleCancel = () => {
+    resetForm()
+    onCancel()
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetForm()
+    }
+    onOpenChange?.(nextOpen)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -101,7 +138,23 @@ export function CreatePurchaseOrderForm({
   const addLine = () => {
     const product = products.find((item) => item.idProducto === Number(productId))
     const parsedQuantity = Number(quantity)
-    const parsedCost = Number(unitCost)
+    const rawCost = unitCost.replace(/\D/g, "")
+    const parsedCost = rawCost ? Number(rawCost) : 0
+    if (!product) {
+      setError("Selecciona un producto.")
+      focusOrderField("purchase-product-select")
+      return
+    }
+    if (!Number.isSafeInteger(parsedQuantity) || parsedQuantity <= 0) {
+      setError("Ingresa una cantidad entera mayor que cero.")
+      focusOrderField("purchase-quantity")
+      return
+    }
+    if (!Number.isFinite(parsedCost) || parsedCost < 0) {
+      setError("Ingresa un costo unitario vÃ¡lido.")
+      focusOrderField("purchase-unit-cost")
+      return
+    }
     if (
       !product ||
       !Number.isSafeInteger(parsedQuantity) ||
@@ -109,7 +162,7 @@ export function CreatePurchaseOrderForm({
       !Number.isFinite(parsedCost) ||
       parsedCost < 0
     ) {
-      setError("Selecciona un producto e ingresa una cantidad y costo unitario válidos.")
+      setError("Selecciona un producto e ingresa una cantidad válida.")
       return
     }
     setLines((current) => [
@@ -125,12 +178,41 @@ export function CreatePurchaseOrderForm({
   const handleProductChange = (value: string) => {
     setProductId(value)
     const product = products.find((item) => item.idProducto === Number(value))
-    setUnitCost(product ? String(Number(product.costoPromedio)) : "")
+    if (product) {
+      setUnitCost(`$${Number(product.costoPromedio || 0).toLocaleString("es-CL")}`)
+    } else {
+      setUnitCost("")
+    }
   }
 
   const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
     if (event) event.preventDefault()
     setError("")
+    if (!providerId) {
+      setError("Selecciona un proveedor.")
+      focusOrderField("purchase-provider")
+      return
+    }
+    if (!emissionDate) {
+      setError("La fecha de emisión es obligatoria.")
+      focusOrderField("emission-date")
+      return
+    }
+    if (!deliveryDate) {
+      setError("La fecha estimada de entrega es obligatoria.")
+      focusOrderField("delivery-date")
+      return
+    }
+    if (deliveryDate < emissionDate) {
+      setError("La fecha estimada de entrega no puede ser anterior a la fecha de emisión.")
+      focusOrderField("delivery-date")
+      return
+    }
+    if (lines.length === 0) {
+      setError("Agrega al menos un producto a la orden.")
+      focusOrderField("purchase-product-select")
+      return
+    }
     if (!providerId || lines.length === 0 || !emissionDate || !deliveryDate) {
       setError("Completa el proveedor, agrega al menos un producto e ingresa ambas fechas.")
       return
@@ -153,8 +235,10 @@ export function CreatePurchaseOrderForm({
       })
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.message || "No fue posible registrar la orden de compra.")
+      const orderPayload = { ...result.purchaseOrder, _count: { lineas: lines.length } }
+      resetForm()
       toast.success("Orden de compra creada en borrador")
-      onCreated({ ...result.purchaseOrder, _count: { lineas: lines.length } })
+      onCreated(orderPayload)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible registrar la orden de compra.")
     } finally {
@@ -170,7 +254,7 @@ export function CreatePurchaseOrderForm({
         </p>
       )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
+        <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
           Cancelar
         </Button>
         <Button
@@ -261,7 +345,6 @@ export function CreatePurchaseOrderForm({
                   <Input
                     id="emission-date"
                     type="date"
-                    required
                     value={emissionDate}
                     onChange={(event) => setEmissionDate(event.target.value)}
                   />
@@ -278,7 +361,6 @@ export function CreatePurchaseOrderForm({
                     id="delivery-date"
                     type="date"
                     min={emissionDate}
-                    required
                     value={deliveryDate}
                     onChange={(event) => setDeliveryDate(event.target.value)}
                   />
@@ -296,10 +378,11 @@ export function CreatePurchaseOrderForm({
                 No hay productos activos disponibles en el inventario.
               </p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px_150px_auto] sm:items-end">
-                <div className="space-y-2">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_150px_auto] items-start">
+                <div className="flex flex-col">
                   <Label
                     htmlFor="purchase-product-select"
+                    required
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Producto
@@ -317,7 +400,7 @@ export function CreatePurchaseOrderForm({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col">
                   <Label
                     htmlFor="purchase-quantity"
                     className="inline-block mb-1.5 font-medium text-foreground"
@@ -331,28 +414,43 @@ export function CreatePurchaseOrderForm({
                     step="1"
                     value={quantity}
                     onChange={(event) => setQuantity(event.target.value)}
+                    disabled={!productId}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col">
                   <Label
                     htmlFor="purchase-unit-cost"
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
-                    Costo unitario (CLP)
+                    Costo unitario
                   </Label>
                   <Input
                     id="purchase-unit-cost"
-                    type="number"
-                    min="0"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="$0"
                     value={unitCost}
-                    onChange={(event) => setUnitCost(event.target.value)}
+                    disabled
                   />
                 </div>
-                <Button type="button" variant="outline" onClick={addLine} disabled={!productId}>
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Agregar
-                </Button>
+                <div className="flex flex-col">
+                  <span
+                    className="hidden sm:inline-block mb-1.5 text-sm font-medium invisible select-none"
+                    aria-hidden="true"
+                  >
+                    &nbsp;
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addLine}
+                    disabled={!productId}
+                    className="w-full sm:w-auto"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Agregar
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -406,7 +504,7 @@ export function CreatePurchaseOrderForm({
     return (
       <FormDialog
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={handleOpenChange}
         title="Nueva orden de compra"
         description="Selecciona un proveedor activo, agrega productos y define las fechas de la orden."
         size="3xl"

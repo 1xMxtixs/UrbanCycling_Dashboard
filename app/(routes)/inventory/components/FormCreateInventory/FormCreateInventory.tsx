@@ -15,7 +15,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +80,7 @@ const formSchema = z.object({
     .max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 500 caracteres")
     .optional(),
   precioVenta: numericField("El precio"),
+  costoPromedio: numericField("El precio de compra"),
   stockActual: integerField("El stock actual"),
   stockMinimo: integerField("El stock mínimo"),
   estado: z.string().min(2, "El estado es obligatorio"),
@@ -112,6 +112,7 @@ export function FormCreateInventory({
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
+  const [validationError, setValidationError] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -121,14 +122,60 @@ export function FormCreateInventory({
       nombre: "",
       descripcion: "",
       precioVenta: "",
+      costoPromedio: "",
       stockActual: "",
       stockMinimo: "",
       estado: ESTADO_REGISTRO.ACTIVO,
     },
   });
 
-  const { isSubmitting, isValid } = form.formState;
+  const { isSubmitting } = form.formState;
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
+
+  const resetForm = () => {
+    form.reset();
+    setValidationError("");
+    setImageFile(null);
+    setImagePreview(null);
+    setSelectedCategoryIds([]);
+    setSelectedSupplierId("none");
+  };
+
+  const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm();
+    setOpenModalCreate(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
+
+  const handleInvalid = (errors: typeof form.formState.errors) => {
+    const firstInvalid = ([
+      "tipoProducto",
+      "nombre",
+      "precioVenta",
+      "costoPromedio",
+      "stockActual",
+      "stockMinimo",
+      "estado",
+    ] as const).find((field) => errors[field]);
+    if (!firstInvalid) return;
+    setValidationError(String(errors[firstInvalid]?.message ?? "Revisa los datos ingresados."));
+    const control = document.getElementById(`create-product-${firstInvalid}`);
+    if (control) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      control.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "nearest",
+      });
+    }
+    requestAnimationFrame(() => form.setFocus(firstInvalid));
+  };
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setValidationError("");
+    return onSubmit(values);
+  }, handleInvalid);
 
   useEffect(() => {
     let isMounted = true;
@@ -226,6 +273,7 @@ export function FormCreateInventory({
       }
 
       const cleanPrecio = Number(values.precioVenta.replace(/\D/g, ""));
+      const cleanCostoPromedio = Number(values.costoPromedio.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
 
@@ -239,6 +287,7 @@ export function FormCreateInventory({
           tipoProducto: canonicalTipoProducto(values.tipoProducto),
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
+          costoPromedio: cleanCostoPromedio,
           stockActual: cleanStockActual,
           stockMinimo: cleanStockMinimo,
           categoriaIds: selectedCategoryIds,
@@ -255,12 +304,7 @@ export function FormCreateInventory({
       toast.success("Producto creado correctamente");
       window.dispatchEvent(new Event("inventory:refresh"));
       router.refresh();
-      setOpenModalCreate(false);
-      form.reset();
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedCategoryIds([]);
-      setSelectedSupplierId("none");
+      handleClose(false);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
@@ -270,19 +314,24 @@ export function FormCreateInventory({
 
   const footerContent = (
     <div className="space-y-3">
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button
           type="button"
           variant="outline"
-          onClick={() => setOpenModalCreate(false)}
+          onClick={() => handleClose(false)}
           disabled={isSubmitting || uploadingImage}
         >
           Cancelar
         </Button>
         <Button
           type="button"
-          onClick={form.handleSubmit(onSubmit)}
-          disabled={!isValid || isSubmitting || uploadingImage}
+          onClick={handleFormSubmit}
+          disabled={isSubmitting || uploadingImage}
         >
           {(uploadingImage || isSubmitting) && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
@@ -299,7 +348,7 @@ export function FormCreateInventory({
 
   const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormSection title="Información básica">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
             <FormField
@@ -309,13 +358,14 @@ export function FormCreateInventory({
                 <FormItem className="col-span-1">
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Tipo de producto
                   </FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
+                    <FormControl aria-invalid={false}>
+                      <SelectTrigger id="create-product-tipoProducto" ref={field.ref} className="w-full">
                         <SelectValue placeholder="Selecciona un tipo" />
                       </SelectTrigger>
                     </FormControl>
@@ -325,7 +375,6 @@ export function FormCreateInventory({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -337,14 +386,14 @@ export function FormCreateInventory({
                 <FormItem className="sm:col-span-2">
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Nombre
                   </FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Cadena Shimano 11v" {...field} />
+                  <FormControl aria-invalid={false}>
+                    <Input id="create-product-nombre" placeholder="Ej: Cadena Shimano 11v" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -364,7 +413,7 @@ export function FormCreateInventory({
                     {description.length}/{DESCRIPTION_MAX_LENGTH}
                   </span>
                 </div>
-                <FormControl>
+                <FormControl aria-invalid={false}>
                   <Textarea
                     placeholder="Descripción opcional del producto"
                     maxLength={DESCRIPTION_MAX_LENGTH}
@@ -372,7 +421,6 @@ export function FormCreateInventory({
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -440,7 +488,7 @@ export function FormCreateInventory({
         </FormSection>
 
         <FormSection title="Inventario y precio">
-          <div className="grid gap-4 sm:grid-cols-3 items-start">
+          <div className="grid gap-4 sm:grid-cols-2 items-start">
             <FormField
               control={form.control}
               name="precioVenta"
@@ -448,12 +496,15 @@ export function FormCreateInventory({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Precio de venta (CLP)
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input
+                      id="create-product-precioVenta"
+                      ref={field.ref}
                       type="text"
                       inputMode="numeric"
                       placeholder="$0"
@@ -469,7 +520,40 @@ export function FormCreateInventory({
                       }}
                     />
                   </FormControl>
-                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="costoPromedio"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel
+                    required
+                    data-error={false}
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Precio de compra (CLP)
+                  </FormLabel>
+                  <FormControl aria-invalid={false}>
+                    <Input
+                      id="create-product-costoPromedio"
+                      ref={field.ref}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="$0"
+                      value={field.value}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        if (!digits) {
+                          field.onChange("");
+                        } else {
+                          field.onChange(`$${Number(digits).toLocaleString("es-CL")}`);
+                        }
+                      }}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
@@ -481,12 +565,15 @@ export function FormCreateInventory({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Stock actual
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input
+                      id="create-product-stockActual"
+                      ref={field.ref}
                       type="text"
                       inputMode="numeric"
                       placeholder="0"
@@ -496,7 +583,6 @@ export function FormCreateInventory({
                       }}
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -508,12 +594,15 @@ export function FormCreateInventory({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Stock mínimo
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input
+                      id="create-product-stockMinimo"
+                      ref={field.ref}
                       type="text"
                       inputMode="numeric"
                       placeholder="0"
@@ -523,7 +612,6 @@ export function FormCreateInventory({
                       }}
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -538,13 +626,14 @@ export function FormCreateInventory({
               <FormItem>
                 <FormLabel
                   required
+                  data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   Estado
                 </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
+                  <FormControl aria-invalid={false}>
+                    <SelectTrigger id="create-product-estado" ref={field.ref} className="w-full">
                       <SelectValue placeholder="Selecciona un estado" />
                     </SelectTrigger>
                   </FormControl>
@@ -553,7 +642,6 @@ export function FormCreateInventory({
                     <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
                   </SelectContent>
                 </Select>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -576,7 +664,7 @@ export function FormCreateInventory({
     return (
       <FormDialog
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={handleClose}
         title="Nuevo Producto en Catálogo"
         description="Completa la información técnica, categoría, precio de venta y niveles de stock mínimos."
         size="2xl"

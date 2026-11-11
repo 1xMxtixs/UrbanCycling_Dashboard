@@ -15,7 +15,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 import {
   Select,
@@ -69,6 +68,7 @@ export function FormCreateBicicleta({
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [requiredFieldError, setRequiredFieldError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -81,8 +81,65 @@ export function FormCreateBicicleta({
       descripcion: "",
     },
   });
-
   const { isSubmitting } = form.formState;
+
+  const resetForm = () => {
+    form.reset();
+    setRequiredFieldError(null);
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm();
+    onOpenChange(nextOpen);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    onCancel();
+  };
+
+  const handleInvalid = () => {
+    const requiredFields = [
+      {
+        name: "idOrdenDeTrabajo" as const,
+        isMissing: !form.getValues("idOrdenDeTrabajo").trim(),
+        message: "Debe seleccionar una orden de trabajo.",
+      },
+      {
+        name: "marca" as const,
+        isMissing: !form.getValues("marca").trim(),
+        message: "La marca es obligatoria.",
+      },
+      {
+        name: "modelo" as const,
+        isMissing: !form.getValues("modelo").trim(),
+        message: "El modelo es obligatorio.",
+      },
+      {
+        name: "color" as const,
+        isMissing: !form.getValues("color").trim(),
+        message: "El color es obligatorio.",
+      },
+    ];
+    const missingField = requiredFields.find((field) => field.isMissing);
+
+    if (missingField) {
+      setRequiredFieldError(missingField.message);
+      form.setFocus(missingField.name);
+      return;
+    }
+
+    setRequiredFieldError(
+      form.formState.errors.descripcion?.message ?? null
+    );
+  };
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setRequiredFieldError(null);
+    return onSubmit(values);
+  }, handleInvalid);
 
   const selectedOrdenId = useWatch({
     control: form.control,
@@ -153,9 +210,7 @@ export function FormCreateBicicleta({
 
       window.dispatchEvent(new Event("bicicletas:refresh"));
       toast.success("Bicicleta registrada correctamente");
-      form.reset();
-      setSelectedImage(null);
-      setImagePreview(null);
+      resetForm();
       onSuccess();
     } catch (error) {
       toast.error(
@@ -169,17 +224,24 @@ export function FormCreateBicicleta({
   return (
     <FormDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title="Registrar Nueva Bicicleta"
       description="Ingresa los datos técnicos de la bicicleta y vincúlala a una orden de trabajo existente."
       size="2xl"
       footer={
         <div className="space-y-3">
+          {requiredFieldError && (
+            <p role="alert" className="text-sm text-destructive">
+              {requiredFieldError.endsWith(".")
+                ? requiredFieldError
+                : `${requiredFieldError}.`}
+            </p>
+          )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
-              onClick={onCancel}
+              onClick={handleCancel}
               disabled={isSubmitting || isUploadingImage}
             >
               Cancelar
@@ -187,7 +249,7 @@ export function FormCreateBicicleta({
 
             <Button
               type="button"
-              onClick={form.handleSubmit(onSubmit)}
+              onClick={handleFormSubmit}
               disabled={isSubmitting || isUploadingImage}
             >
               {(isUploadingImage || isSubmitting) && (
@@ -204,7 +266,7 @@ export function FormCreateBicicleta({
       }
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleFormSubmit} className="space-y-6">
           {errorOrdenes && (
             <div className="flex items-center justify-between text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2.5 rounded-lg">
               <span>{errorOrdenes}</span>
@@ -230,6 +292,7 @@ export function FormCreateBicicleta({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Vincular a orden de trabajo
@@ -241,8 +304,9 @@ export function FormCreateBicicleta({
                     }
                     disabled={cargandoOrdenes}
                   >
-                    <FormControl>
+                    <FormControl aria-invalid={false}>
                       <SelectTrigger
+                        ref={field.ref}
                         aria-label="Seleccionar orden de trabajo"
                         className="w-full"
                       >
@@ -281,7 +345,6 @@ export function FormCreateBicicleta({
                   <p className="text-xs text-muted-foreground">
                     Selecciona la orden a la que pertenece esta bicicleta.
                   </p>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -354,14 +417,14 @@ export function FormCreateBicicleta({
                   <FormItem>
                     <FormLabel
                       required
+                    data-error={false}
                       className="inline-block mb-1.5 font-medium text-foreground"
                     >
                       Marca
                     </FormLabel>
-                    <FormControl>
+                    <FormControl aria-invalid={false}>
                       <Input placeholder="Ej: Specialized" {...field} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -373,14 +436,14 @@ export function FormCreateBicicleta({
                   <FormItem>
                     <FormLabel
                       required
+                    data-error={false}
                       className="inline-block mb-1.5 font-medium text-foreground"
                     >
                       Modelo
                     </FormLabel>
-                    <FormControl>
+                    <FormControl aria-invalid={false}>
                       <Input placeholder="Ej: Tarmac SL7" {...field} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -392,14 +455,14 @@ export function FormCreateBicicleta({
                   <FormItem>
                     <FormLabel
                       required
+                    data-error={false}
                       className="inline-block mb-1.5 font-medium text-foreground"
                     >
                       Color
                     </FormLabel>
-                    <FormControl>
+                    <FormControl aria-invalid={false}>
                       <Input placeholder="Ej: Negro mate" {...field} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -426,7 +489,6 @@ export function FormCreateBicicleta({
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />

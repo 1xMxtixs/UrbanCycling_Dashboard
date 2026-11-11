@@ -47,10 +47,10 @@ export function PaymentInitialSection({
       <div className="space-y-3">
         <div className={`grid content-start gap-3 ${estadoPago === ESTADO_PAGO.PARCIAL ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {/* Tipo de Pago / Estado Pago */}
-        <div className="space-y-1.5">
+        <div>
           <Label
             htmlFor="estadoPago"
-            className="text-muted-foreground text-xs font-semibold"
+            className="inline-block mb-1.5 font-medium text-foreground"
           >
             Tipo de Pago Inicial
           </Label>
@@ -72,10 +72,10 @@ export function PaymentInitialSection({
 
         {/* Método de Pago */}
         {estadoPago !== ESTADO_PAGO.PENDIENTE && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
+          <div className="animate-in duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="metodoPago"
-              className="text-muted-foreground text-xs font-semibold"
+              className="inline-block mb-1.5 font-medium text-foreground"
             >
               Método de Pago
             </Label>
@@ -92,24 +92,25 @@ export function PaymentInitialSection({
 
         {/* Monto del Abono */}
         {estadoPago === ESTADO_PAGO.PARCIAL && (
-          <div className="animate-in space-y-1.5 duration-200 fade-in motion-reduce:animate-none">
+          <div className="animate-in duration-200 fade-in motion-reduce:animate-none">
             <Label
               htmlFor="montoAbono"
-              className="text-muted-foreground text-xs font-semibold"
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
             >
               Monto del Abono
             </Label>
             <Input
               id="montoAbono"
-              type="number"
-              min={1}
-              max={grandTotal - 1}
-              value={montoAbono || ""}
-              onChange={(e) =>
-                onMontoAbonoChange(Math.max(0, Number(e.target.value)))
-              }
-              placeholder="Monto en CLP"
-              required
+              type="text"
+              inputMode="numeric"
+              placeholder="$0"
+              value={montoAbono ? `$${montoAbono.toLocaleString("es-CL")}` : ""}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "")
+                const val = digits ? Math.min(grandTotal > 1 ? grandTotal - 1 : Number(digits), Number(digits)) : 0
+                onMontoAbonoChange(val)
+              }}
             />
           </div>
         )}

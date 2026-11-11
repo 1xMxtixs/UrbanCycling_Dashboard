@@ -12,7 +12,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -134,6 +133,7 @@ export function FormCreateCliente({
   size = "lg",
 }: FormCreateClienteProps) {
   const [errorGeneral, setErrorGeneral] = useState("");
+  const [validationError, setValidationError] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -153,8 +153,74 @@ export function FormCreateCliente({
   });
   const { isSubmitting } = form.formState;
 
+  const resetForm = () => {
+    form.reset(getInitialValues(cliente));
+    setErrorGeneral("");
+    setValidationError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm();
+    onOpenChange?.(nextOpen);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    onCancel?.();
+  };
+
+  const handleInvalid = () => {
+    const values = form.getValues();
+    const requiredFields: Array<{
+      name: keyof FormValues;
+      missing: boolean;
+      message: string;
+    }> = values.tipoCliente === "natural"
+      ? [
+          { name: "nombre" as const, missing: !values.nombre.trim(), message: "El nombre es obligatorio." },
+          { name: "apellido" as const, missing: !values.apellido.trim(), message: "El apellido es obligatorio." },
+        ]
+      : [
+          { name: "razon" as const, missing: !values.razon.trim(), message: "La razón social es obligatoria." },
+        ];
+
+    const rutValidation = validarYFormatearRut(values.rut);
+    const rutError = !values.rut.trim()
+      ? "El RUT es obligatorio."
+      : rutValidation.valid
+        ? null
+        : rutValidation.error;
+    requiredFields.push({
+      name: "rut" as const,
+      missing: Boolean(rutError),
+      message: rutError ?? "El RUT es obligatorio.",
+    });
+    requiredFields.push({
+      name: "telefono" as const,
+      missing: values.telefono.trim().length < 8,
+      message: values.telefono.trim()
+        ? "El teléfono debe tener al menos 8 dígitos."
+        : "El teléfono es obligatorio.",
+    });
+
+    const firstMissingField = requiredFields.find((field) => field.missing);
+    if (firstMissingField) {
+      setValidationError(firstMissingField.message);
+      form.setFocus(firstMissingField.name);
+      return;
+    }
+
+    setValidationError("Revisa los datos ingresados.");
+  };
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setValidationError("");
+    return onSubmit(values);
+  }, handleInvalid);
+
   const onSubmit = async (values: FormValues) => {
     setErrorGeneral("");
+    setValidationError("");
 
     try {
       if (cliente) {
@@ -186,7 +252,7 @@ export function FormCreateCliente({
           throw new Error(errorText || "Error al actualizar el cliente");
         }
 
-        form.reset();
+        resetForm();
         onSuccess();
       } else {
         const response = await fetch("/api/clientes", {
@@ -210,7 +276,7 @@ export function FormCreateCliente({
         }
 
         toast.success("Cliente creado correctamente");
-        form.reset();
+        resetForm();
         onSuccess();
       }
     } catch (error) {
@@ -229,12 +295,17 @@ export function FormCreateCliente({
           {errorGeneral}
         </p>
       )}
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         {onCancel && (
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isSubmitting}
           >
             Cancelar
@@ -242,7 +313,7 @@ export function FormCreateCliente({
         )}
         <Button
           type="button"
-          onClick={form.handleSubmit(onSubmit)}
+          onClick={handleFormSubmit}
           disabled={isSubmitting}
         >
           {isSubmitting && (
@@ -260,7 +331,7 @@ export function FormCreateCliente({
 
   const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormField
           control={form.control}
           name="tipoCliente"
@@ -268,6 +339,7 @@ export function FormCreateCliente({
             <FormItem>
               <FormLabel
                 required
+                data-error={false}
                 className="inline-block mb-1.5 font-medium text-foreground"
               >
                 Tipo de cliente
@@ -278,7 +350,7 @@ export function FormCreateCliente({
                 disabled={Boolean(cliente)}
               >
                 <FormControl>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger ref={field.ref} className="w-full" aria-invalid={false}>
                     <SelectValue placeholder="Selecciona el tipo de cliente" />
                   </SelectTrigger>
                 </FormControl>
@@ -292,7 +364,6 @@ export function FormCreateCliente({
                   No se puede modificar una vez registrado.
                 </FormDescription>
               )}
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -306,14 +377,14 @@ export function FormCreateCliente({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Nombres
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Ej: Juan Andrés" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -324,14 +395,14 @@ export function FormCreateCliente({
                 <FormItem>
                   <FormLabel
                     required
+                    data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
                     Apellidos
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Ej: Pérez Silva" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -346,17 +417,17 @@ export function FormCreateCliente({
               <FormItem>
                 <FormLabel
                   required
+                  data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   Razón social
                 </FormLabel>
-                <FormControl>
+                <FormControl aria-invalid={false}>
                   <Input
                     placeholder="Ej: Transportes y Ciclismo SpA"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -370,11 +441,12 @@ export function FormCreateCliente({
               <FormItem>
                 <FormLabel
                   required
+                  data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   RUT
                 </FormLabel>
-                <FormControl>
+                <FormControl aria-invalid={false}>
                   <Input
                     placeholder="12345678-9"
                     {...field}
@@ -397,7 +469,6 @@ export function FormCreateCliente({
                     No se puede modificar una vez registrado.
                   </FormDescription>
                 )}
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -408,11 +479,12 @@ export function FormCreateCliente({
               <FormItem>
                 <FormLabel
                   required
+                  data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   Teléfono
                 </FormLabel>
-                <FormControl>
+                <FormControl aria-invalid={false}>
                   <Input
                     placeholder="912345678"
                     maxLength={9}
@@ -425,7 +497,6 @@ export function FormCreateCliente({
                     }
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -441,10 +512,9 @@ export function FormCreateCliente({
                   <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
                     Contacto (opcional)
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Persona de contacto" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -456,10 +526,9 @@ export function FormCreateCliente({
                   <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
                     Giro (opcional)
                   </FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Giro comercial" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -473,7 +542,7 @@ export function FormCreateCliente({
     return (
       <FormDialog
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={handleOpenChange}
         title={title ?? (cliente ? "Editar cliente" : "Registrar Nuevo Cliente")}
         description={
           description ??
