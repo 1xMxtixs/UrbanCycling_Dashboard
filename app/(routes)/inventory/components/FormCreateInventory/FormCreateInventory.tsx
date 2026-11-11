@@ -105,7 +105,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   const supplierSummary =
     selectedSupplierIds.length === 0
       ? "Sin proveedor"
-      : `${selectedSupplierIds.length} proveedor(es)`;
+      : selectedSupplierIds.length === 1
+        ? "1 proveedor"
+        : `${selectedSupplierIds.length} proveedores`;
 
   useEffect(() => {
     let isMounted = true;
@@ -311,14 +313,14 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between gap-2 px-3 py-2 text-left text-sm"
+                    className="w-full justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm min-h-11"
                     disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
                   >
                     <span className="truncate">{supplierSummary}</span>
-                    <span className="text-xs text-muted-foreground">▾</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">▾</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-2">
+                <PopoverContent align="start" sideOffset={4} className="w-full max-w-[min(100vw-2rem,40rem)] p-2">
                   <div className="max-h-64 space-y-1 overflow-y-auto">
                     <Button
                       type="button"
@@ -326,7 +328,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                       className="w-full justify-between text-left text-xs"
                       onClick={() => setSelectedSupplierIds([])}
                     >
-                      <span>Sin proveedor</span>
+                      <span className="truncate">Sin proveedor</span>
                       {selectedSupplierIds.length === 0 ? <span>✓</span> : null}
                     </Button>
                     {suppliers.map((supplier) => {
@@ -346,10 +348,10 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
                             )
                           }
                         >
-                          <span className="truncate">
+                          <span className="min-w-0 truncate">
                             {supplier.razonSocial} · {supplier.rut}
                           </span>
-                          {isSelected ? <span>✓</span> : null}
+                          {isSelected ? <span className="shrink-0">✓</span> : null}
                         </Button>
                       );
                     })}
