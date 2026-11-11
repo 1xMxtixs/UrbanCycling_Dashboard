@@ -62,6 +62,26 @@ export function associationId(value: unknown) {
   return id
 }
 
+export function associationIds(value: unknown) {
+  if (value === undefined || value === null) return []
+
+  if (typeof value === "number" || typeof value === "string") {
+    return [associationId(value)]
+  }
+
+  if (!Array.isArray(value)) {
+    throw new ProductSupplierError(
+      "PROVEEDORES_INVALIDOS",
+      "Seleccione un identificador de proveedor válido.",
+      400
+    )
+  }
+
+  if (value.length === 0) return []
+
+  return [...new Set(value.map((entry) => associationId(entry)))].sort((a, b) => a - b)
+}
+
 export function associationProductIds(body: unknown) {
   if (
     !body ||
