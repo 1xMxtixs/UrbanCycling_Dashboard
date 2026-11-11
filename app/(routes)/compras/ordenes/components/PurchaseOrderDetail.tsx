@@ -13,13 +13,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Skeleton } from "@/components/ui/skeleton"
 import { METODO_PAGO_DEFECTO, METODOS_PAGO, getNombreMetodoPago } from "@/lib/payment-methods"
-import { StatusBadge } from "@/components/common/StatusBadge"
-import { DataField } from "@/components/common/DataField"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import { formatCLP, formatDateCL } from "@/lib/formatters"
-import { getNombreEstadoPago, getPaymentStatusBadgeVariant } from "@/lib/payment-status"
 import { StatePill } from "./OrdenesCompra"
 import type { OrderDetail, PurchaseOrder } from "../types"
 import { ESTADO_COMPRA, ESTADO_PAGO_COMPRA, ESTADO_RECEPCION_COMPRA } from "../purchase-status"
@@ -230,40 +226,34 @@ export function PurchaseOrderDetail({
   }
 
   return (
-    <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-h-[96vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-6rem)]"
-        style={{ width: "min(1600px, calc(100vw - 2rem))" }}
-      >
-        <DialogHeader>
-          <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
-          <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
-              {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
-              Copiar al portapapeles
-            </Button>
-            <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf} onClick={() => void downloadPdf()}>
-              {downloadingPdf ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
-            </Button>
-          </div>
-        </DialogHeader>
-        {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
-          <div className="space-y-5">
-            <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-[1.4fr_1fr_1fr_1.1fr] sm:items-end">
-              <div><p className="text-xs text-muted-foreground">Proveedor</p><p className="mt-1 font-semibold">{order.proveedor.razonSocial}</p></div>
-              <div><p className="text-xs text-muted-foreground">Emisión</p><p className="mt-1 font-medium">{date(order.fechaRegistro)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Entrega estimada</p><p className="mt-1 font-medium">{date(order.fechaEntregaEstimada)}</p></div>
-              <div className="flex flex-col items-start justify-end gap-2">
-                <p className="text-xs text-muted-foreground">Estados</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatePill value={order.estado} />
-                  <StatePill value={order.estadoPago} />
-                  <StatePill value={order.estadoRecepcion} />
-                </div>
-              </div>
+    <>
+      <Dialog open={Boolean(orderSummary)} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-h-[96vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-6rem)]"
+          style={{ width: "min(1600px, calc(100vw - 2rem))" }}
+        >
+          <DialogHeader>
+            <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
+            <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || copying} onClick={() => void copyToClipboard()}>
+                {copying ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+                Copiar al portapapeles
+              </Button>
+              <Button type="button" variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2 sm:w-auto" disabled={!order || order.idOrdenDeCompra !== id || loading || busy || downloadingPdf} onClick={() => void downloadPdf()}>
+                {downloadingPdf ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
+              </Button>
             </div>
+          </DialogHeader>
+          {loading && !order ? <div className="space-y-3 py-4"><div className="h-16 animate-pulse rounded-lg bg-muted" /><div className="h-40 animate-pulse rounded-lg bg-muted" /></div> : order ? (
+            <div className="space-y-5">
+              <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-4">
+                <div><p className="text-xs text-muted-foreground">Proveedor</p><p className="mt-1 font-semibold">{order.proveedor.razonSocial}</p></div>
+                <div><p className="text-xs text-muted-foreground">Emisión</p><p className="mt-1 font-medium">{formatDateCL(order.fechaRegistro)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Entrega estimada</p><p className="mt-1 font-medium">{formatDateCL(order.fechaEntregaEstimada)}</p></div>
+                <div className="flex flex-wrap content-start gap-2"><StatePill value={order.estado} /><StatePill value={order.estadoPago} /><StatePill value={order.estadoRecepcion} /></div>
+              </div>
 
             <section className="min-w-0 overflow-hidden rounded-xl border border-border">
               <div className="border-b border-border/70 px-4 py-3">
@@ -416,31 +406,31 @@ export function PurchaseOrderDetail({
           </div>
         )}
 
-        {order && (
-          <StatusToggleDialog
-            open={confirmReceiveOpen}
-            onOpenChange={setConfirmReceiveOpen}
-            title={`¿Completar orden OC-${order.idOrdenDeCompra}?`}
-            description="La orden solo puede cerrarse cuando todos sus productos estén recibidos y completamente pagados. Esta acción es irreversible."
-            confirmLabel="Confirmar cierre"
-            actionVariant="default"
-            isSubmitting={busy}
-            onConfirm={async () => {
-              await runTransition("COMPLETAR")
-              setConfirmReceiveOpen(false)
-            }}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
-    {receptionOpen && order && orderSummary && (
-      <PurchaseOrderReceptionDialog
-        key={order.idOrdenDeCompra}
-        order={order}
-        onClose={() => { setReceptionOpen(false); void loadDetail(order.idOrdenDeCompra) }}
-        onReceived={(message) => { setReceptionOpen(false); setNotice(message); void loadDetail(order.idOrdenDeCompra) }}
-      />
-    )}
+          {order && (
+            <StatusToggleDialog
+              open={confirmReceiveOpen}
+              onOpenChange={setConfirmReceiveOpen}
+              title={`¿Completar orden OC-${order.idOrdenDeCompra}?`}
+              description="La orden solo puede cerrarse cuando todos sus productos estén recibidos y completamente pagados. Esta acción es irreversible."
+              confirmLabel="Confirmar cierre"
+              actionVariant="default"
+              isSubmitting={busy}
+              onConfirm={async () => {
+                await runTransition("COMPLETAR")
+                setConfirmReceiveOpen(false)
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      {receptionOpen && order && orderSummary && (
+        <PurchaseOrderReceptionDialog
+          key={order.idOrdenDeCompra}
+          order={order}
+          onClose={() => { setReceptionOpen(false); void loadDetail(order.idOrdenDeCompra) }}
+          onReceived={(message) => { setReceptionOpen(false); setNotice(message); void loadDetail(order.idOrdenDeCompra) }}
+        />
+      )}
     </>
   )
 }
