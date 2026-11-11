@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -12,11 +12,12 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { FormDialog, type FormDialogSize } from "@/components/forms/FormDialog";
 import {
   Select,
   SelectContent,
@@ -75,9 +76,15 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface FormCreateClienteProps {
+export interface FormCreateClienteProps {
   cliente?: DBCliente;
   onSuccess: () => void;
+  onCancel?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  title?: string;
+  description?: string;
+  size?: FormDialogSize;
 }
 
 function getInitialValues(cliente?: DBCliente): FormValues {
@@ -115,8 +122,18 @@ function getInitialValues(cliente?: DBCliente): FormValues {
   };
 }
 
-export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps) {
+export function FormCreateCliente({
+  cliente,
+  onSuccess,
+  onCancel,
+  open,
+  onOpenChange,
+  title,
+  description,
+  size = "lg",
+}: FormCreateClienteProps) {
   const [errorGeneral, setErrorGeneral] = useState("");
+  const [validationError, setValidationError] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -130,11 +147,80 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
     }
   }, [cliente, form]);
 
-  const tipoCliente = form.watch("tipoCliente");
+  const tipoCliente = useWatch({
+    control: form.control,
+    name: "tipoCliente",
+  });
   const { isSubmitting } = form.formState;
+
+  const resetForm = () => {
+    form.reset(getInitialValues(cliente));
+    setErrorGeneral("");
+    setValidationError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm();
+    onOpenChange?.(nextOpen);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    onCancel?.();
+  };
+
+  const handleInvalid = () => {
+    const values = form.getValues();
+    const requiredFields: Array<{
+      name: keyof FormValues;
+      missing: boolean;
+      message: string;
+    }> = values.tipoCliente === "natural"
+      ? [
+          { name: "nombre" as const, missing: !values.nombre.trim(), message: "El nombre es obligatorio." },
+          { name: "apellido" as const, missing: !values.apellido.trim(), message: "El apellido es obligatorio." },
+        ]
+      : [
+          { name: "razon" as const, missing: !values.razon.trim(), message: "La razón social es obligatoria." },
+        ];
+
+    const rutValidation = validarYFormatearRut(values.rut);
+    const rutError = !values.rut.trim()
+      ? "El RUT es obligatorio."
+      : rutValidation.valid
+        ? null
+        : rutValidation.error;
+    requiredFields.push({
+      name: "rut" as const,
+      missing: Boolean(rutError),
+      message: rutError ?? "El RUT es obligatorio.",
+    });
+    requiredFields.push({
+      name: "telefono" as const,
+      missing: values.telefono.trim().length < 8,
+      message: values.telefono.trim()
+        ? "El teléfono debe tener al menos 8 dígitos."
+        : "El teléfono es obligatorio.",
+    });
+
+    const firstMissingField = requiredFields.find((field) => field.missing);
+    if (firstMissingField) {
+      setValidationError(firstMissingField.message);
+      form.setFocus(firstMissingField.name);
+      return;
+    }
+
+    setValidationError("Revisa los datos ingresados.");
+  };
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setValidationError("");
+    return onSubmit(values);
+  }, handleInvalid);
 
   const onSubmit = async (values: FormValues) => {
     setErrorGeneral("");
+    setValidationError("");
 
     try {
       if (cliente) {
@@ -166,7 +252,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
           throw new Error(errorText || "Error al actualizar el cliente");
         }
 
-        form.reset();
+        resetForm();
         onSuccess();
       } else {
         const response = await fetch("/api/clientes", {
@@ -190,7 +276,7 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
         }
 
         toast.success("Cliente creado correctamente");
-        form.reset();
+        resetForm();
         onSuccess();
       }
     } catch (error) {
@@ -202,22 +288,69 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
     }
   };
 
-  return (
+  const footerContent = (
+    <div className="space-y-3">
+      {errorGeneral && (
+        <p role="alert" className="text-sm text-destructive">
+          {errorGeneral}
+        </p>
+      )}
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+        )}
+        <Button
+          type="button"
+          onClick={handleFormSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+          )}
+          {isSubmitting
+            ? "Guardando..."
+            : cliente
+              ? "Guardar cambios"
+              : "Guardar cliente"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormField
           control={form.control}
           name="tipoCliente"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tipo de cliente</FormLabel>
+              <FormLabel
+                required
+                data-error={false}
+                className="inline-block mb-1.5 font-medium text-foreground"
+              >
+                Tipo de cliente
+              </FormLabel>
               <Select
                 value={field.value}
                 onValueChange={field.onChange}
                 disabled={Boolean(cliente)}
               >
                 <FormControl>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger ref={field.ref} className="w-full" aria-invalid={false}>
                     <SelectValue placeholder="Selecciona el tipo de cliente" />
                   </SelectTrigger>
                 </FormControl>
@@ -226,8 +359,11 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                   <SelectItem value="juridica">Persona Jurídica</SelectItem>
                 </SelectContent>
               </Select>
-              {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
-              <FormMessage />
+              {cliente && (
+                <FormDescription>
+                  No se puede modificar una vez registrado.
+                </FormDescription>
+              )}
             </FormItem>
           )}
         />
@@ -239,11 +375,16 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="nombre"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombres</FormLabel>
-                  <FormControl>
+                  <FormLabel
+                    required
+                    data-error={false}
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Nombres
+                  </FormLabel>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Ej: Juan Andrés" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -252,11 +393,16 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="apellido"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Apellidos</FormLabel>
-                  <FormControl>
+                  <FormLabel
+                    required
+                    data-error={false}
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Apellidos
+                  </FormLabel>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Ej: Pérez Silva" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -269,11 +415,19 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="razon"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Razón social</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: Transportes y Ciclismo SpA" {...field} />
+                <FormLabel
+                  required
+                  data-error={false}
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Razón social
+                </FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input
+                    placeholder="Ej: Transportes y Ciclismo SpA"
+                    {...field}
+                  />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -285,23 +439,36 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="rut"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>RUT</FormLabel>
-                <FormControl>
+                <FormLabel
+                  required
+                  data-error={false}
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  RUT
+                </FormLabel>
+                <FormControl aria-invalid={false}>
                   <Input
                     placeholder="12345678-9"
                     {...field}
                     disabled={Boolean(cliente)}
                     onBlur={(event) => {
                       field.onBlur();
-                      const result = validarYFormatearRut(event.currentTarget.value);
+                      const result = validarYFormatearRut(
+                        event.currentTarget.value
+                      );
                       if (result.valid) {
-                        form.setValue("rut", result.compact, { shouldValidate: true });
+                        form.setValue("rut", result.compact, {
+                          shouldValidate: true,
+                        });
                       }
                     }}
                   />
                 </FormControl>
-                {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
-                <FormMessage />
+                {cliente && (
+                  <FormDescription>
+                    No se puede modificar una vez registrado.
+                  </FormDescription>
+                )}
               </FormItem>
             )}
           />
@@ -310,19 +477,26 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="telefono"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Teléfono</FormLabel>
-                <FormControl>
+                <FormLabel
+                  required
+                  data-error={false}
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Teléfono
+                </FormLabel>
+                <FormControl aria-invalid={false}>
                   <Input
                     placeholder="912345678"
                     maxLength={9}
                     inputMode="numeric"
                     {...field}
                     onChange={(event) =>
-                      field.onChange(event.target.value.replace(/\D/g, "").slice(0, 9))
+                      field.onChange(
+                        event.target.value.replace(/\D/g, "").slice(0, 9)
+                      )
                     }
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -335,11 +509,12 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="nombreContacto"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contacto (opcional)</FormLabel>
-                  <FormControl>
+                  <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
+                    Contacto (opcional)
+                  </FormLabel>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Persona de contacto" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -348,37 +523,45 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="giro"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Giro (opcional)</FormLabel>
-                  <FormControl>
+                  <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
+                    Giro (opcional)
+                  </FormLabel>
+                  <FormControl aria-invalid={false}>
                     <Input placeholder="Giro comercial" {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
           </div>
         )}
-
-        {errorGeneral && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-            {errorGeneral}
-          </div>
-        )}
-
-        <div className="flex justify-end pt-2">
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full font-semibold sm:w-auto"
-          >
-            {isSubmitting
-              ? "Guardando..."
-              : cliente
-                ? "Guardar cambios"
-                : "Guardar cliente"}
-          </Button>
-        </div>
       </form>
     </Form>
+  );
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <FormDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        title={title ?? (cliente ? "Editar cliente" : "Registrar Nuevo Cliente")}
+        description={
+          description ??
+          (cliente
+            ? "Modifica los datos del cliente."
+            : "Ingresa los datos personales o comerciales, teléfonos y direcciones de contacto.")
+        }
+        size={size}
+        footer={footerContent}
+      >
+        {formFields}
+      </FormDialog>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {formFields}
+      {footerContent}
+    </div>
   );
 }

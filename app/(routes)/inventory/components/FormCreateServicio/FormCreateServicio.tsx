@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -11,12 +11,12 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Wrench } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { ESTADO_REGISTRO } from "@/lib/registro-status"
 import { type ServiceColumn } from "../../types"
 
@@ -28,23 +28,34 @@ const formSchema = z.object({
     .string()
     .trim()
     .min(1, "El precio es obligatorio")
-    .refine((value) => !Number.isNaN(Number(value)) && Number(value) >= 0, {
-      message: "Debe ser un monto válido igual o mayor a 0",
-    }),
+    .refine(
+      (value) => {
+        const clean = value.replace(/\D/g, "")
+        return clean.length > 0 && !Number.isNaN(Number(clean)) && Number(clean) >= 0
+      },
+      {
+        message: "Debe ser un monto válido igual o mayor a 0",
+      }
+    ),
 })
 
 type FormValues = z.infer<typeof formSchema>
 
-interface FormCreateServicioProps {
+export interface FormCreateServicioProps {
   setOpenModalCreate: (open: boolean) => void
   onSuccess?: (nuevoServicio: ServiceColumn) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function FormCreateServicio({
   setOpenModalCreate,
   onSuccess,
+  open,
+  onOpenChange,
 }: FormCreateServicioProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [validationError, setValidationError] = useState("")
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -53,9 +64,46 @@ export function FormCreateServicio({
       codigo: "",
       nombre: "",
       descripcion: "",
-      precioVenta: "0",
+      precioVenta: "",
     },
   })
+
+  const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
+
+  const resetForm = () => {
+    form.reset()
+    setValidationError("")
+  }
+
+  const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm()
+    setOpenModalCreate(nextOpen)
+    onOpenChange?.(nextOpen)
+  }
+
+  const handleInvalid = (errors: typeof form.formState.errors) => {
+    const firstInvalid = (["codigo", "nombre", "precioVenta"] as const).find(
+      (field) => errors[field]
+    )
+    if (!firstInvalid) return
+    setValidationError(String(errors[firstInvalid]?.message ?? "Revisa los datos ingresados."))
+    const control = document.getElementById(`create-service-${firstInvalid}`)
+    if (control) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches
+      control.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "nearest",
+      })
+    }
+    requestAnimationFrame(() => form.setFocus(firstInvalid))
+  }
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setValidationError("")
+    return onSubmit(values)
+  }, handleInvalid)
 
   async function onSubmit(values: FormValues) {
     try {
@@ -65,7 +113,7 @@ export function FormCreateServicio({
         codigo: values.codigo,
         nombre: values.nombre,
         descripcion: values.descripcion || null,
-        precioVenta: Number(values.precioVenta),
+        precioVenta: Number(values.precioVenta.replace(/\D/g, "")),
         estado: ESTADO_REGISTRO.ACTIVO,
       }
 
@@ -78,7 +126,8 @@ export function FormCreateServicio({
       if (response.ok) {
         const created = await response.json()
         toast.success("Servicio creado exitosamente en el catálogo")
-        setOpenModalCreate(false)
+        resetForm()
+        handleClose(false)
         onSuccess?.(created)
         return
       }
@@ -92,20 +141,53 @@ export function FormCreateServicio({
     }
   }
 
-  return (
+  const footerContent = (
+    <div className="space-y-3">
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleClose(false)}
+          disabled={isLoading}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          onClick={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />}
+          {isLoading ? "Guardando..." : "Guardar servicio"}
+        </Button>
+      </div>
+    </div>
+  )
+
+  const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="codigo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-semibold">Código</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: SRV-MTN-01" className="h-9" {...field} />
+                <FormLabel
+                  required
+                  data-error={false}
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Código
+                </FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="create-service-codigo" placeholder="Ej: SRV-MTN-01" {...field} />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -115,18 +197,32 @@ export function FormCreateServicio({
             name="precioVenta"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-semibold">Precio de Mano de Obra ($)</FormLabel>
-                <FormControl>
+                <FormLabel
+                  required
+                  data-error={false}
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Precio de mano de obra (CLP)
+                </FormLabel>
+                <FormControl aria-invalid={false}>
                   <Input
-                    type="number"
-                    min="0"
-                    step="500"
-                    placeholder="15000"
-                    className="h-9"
-                    {...field}
+                    id="create-service-precioVenta"
+                    ref={field.ref}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="$0"
+                    value={field.value}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "")
+                      if (!digits) {
+                        field.onChange("")
+                      } else {
+                        const formatted = `$${Number(digits).toLocaleString("es-CL")}`
+                        field.onChange(formatted)
+                      }
+                    }}
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -137,11 +233,16 @@ export function FormCreateServicio({
           name="nombre"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold">Nombre del Servicio / Tarea</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej: Mantención General Completa" className="h-9" {...field} />
+              <FormLabel
+                required
+                data-error={false}
+                className="inline-block mb-1.5 font-medium text-foreground"
+              >
+                Nombre del servicio
+              </FormLabel>
+              <FormControl aria-invalid={false}>
+                <Input id="create-service-nombre" placeholder="Ej: Mantención General Completa" {...field} />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -151,40 +252,47 @@ export function FormCreateServicio({
           name="descripcion"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold">Descripción (Opcional)</FormLabel>
-              <FormControl>
+              <div className="flex items-center justify-between mb-1.5">
+                <FormLabel className="inline-block font-medium text-foreground">
+                  Descripción (opcional)
+                </FormLabel>
+                <span className="text-xs text-muted-foreground">{description.length}/500</span>
+              </div>
+              <FormControl aria-invalid={false}>
                 <Textarea
                   placeholder="Detalles de la labor: incluye centrado de ruedas, regulación de cambios, lubricación..."
                   className="resize-none min-h-[90px] text-sm"
+                  maxLength={500}
                   {...field}
                   value={field.value ?? ""}
                 />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
-
-        <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpenModalCreate(false)}
-            disabled={isLoading}
-            className="rounded-lg h-9"
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="rounded-lg h-9 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Wrench className="h-3.5 w-3.5 mr-1.5" />
-            {isLoading ? "Guardando..." : "Guardar Servicio"}
-          </Button>
-        </div>
       </form>
     </Form>
+  )
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <FormDialog
+        open={open}
+        onOpenChange={handleClose}
+        title="Nuevo Servicio en Catálogo"
+        description="Registra una nueva labor técnica o trabajo de taller con su precio de mano de obra."
+        size="lg"
+        footer={footerContent}
+      >
+        {formFields}
+      </FormDialog>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {formFields}
+      {footerContent}
+    </div>
   )
 }

@@ -141,48 +141,44 @@ export function CreateProveedorDialog({
       title="Nuevo proveedor"
       description="Registra la información comercial, de contacto y dirección del proveedor."
       size="3xl"
-      scrollable
-    >
-      <div className="space-y-6">
-        {error && (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {error}
+      footer={
+        <div className="space-y-3">
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              )}
+              {isSubmitting ? "Registrando..." : "Registrar proveedor"}
+            </Button>
           </div>
-        )}
-
-        {/* PR-01 & PR-02: Campos de formulario unificados con htmlFor/id accesibles */}
-        <ProveedorFormFields
-          form={form}
-          updateField={updateField}
-          disabled={isSubmitting}
-          idPrefix="create-prov"
-        />
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleClose(false)}
-            disabled={isSubmitting}
-            className="cursor-pointer"
-          >
-            Cancelar
-          </Button>
-
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="cursor-pointer"
-          >
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSubmitting ? "Registrando..." : "Registrar proveedor"}
-          </Button>
         </div>
-      </div>
+      }
+    >
+      {/* PR-01 & PR-02: Campos de formulario unificados con htmlFor/id accesibles */}
+      <ProveedorFormFields
+        form={form}
+        updateField={updateField}
+        disabled={isSubmitting}
+        idPrefix="create-prov"
+      />
     </FormDialog>
   )
 }

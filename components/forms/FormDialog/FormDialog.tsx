@@ -20,6 +20,7 @@ export interface FormDialogProps {
   scrollableContentClassName?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  footer?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -37,29 +38,30 @@ export function FormDialog({
   description,
   size = "lg",
   className,
-  scrollable = false,
   scrollableContentClassName,
   open,
   onOpenChange,
+  footer,
   children,
 }: FormDialogProps) {
   const content = (
     <DialogContent
-      className={cn(
-        scrollable && "flex max-h-[min(90dvh,48rem)] flex-col gap-0 overflow-hidden p-0",
-        sizeClasses[size],
-        className
-      )}
+      className={cn("flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0", sizeClasses[size], className)}
     >
-      <DialogHeader className={scrollable ? "shrink-0 px-6 pt-6 pr-12" : undefined}>
+      <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
         <DialogTitle className="text-lg font-bold text-foreground">{title}</DialogTitle>
-        {description && <DialogDescription className="text-xs text-muted-foreground">{description}</DialogDescription>}
+        {description && (
+          <DialogDescription className="text-xs text-muted-foreground">{description}</DialogDescription>
+        )}
       </DialogHeader>
-      {scrollable ? (
-        <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-6 pb-6 pt-4", scrollableContentClassName)}>
-          {children}
+      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5", scrollableContentClassName)}>
+        {children}
+      </div>
+      {footer && (
+        <div className="shrink-0 border-t border-border bg-popover px-6 py-4">
+          {footer}
         </div>
-      ) : children}
+      )}
     </DialogContent>
   )
 

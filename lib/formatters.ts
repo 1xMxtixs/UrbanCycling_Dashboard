@@ -21,22 +21,16 @@ export function formatClientName(cliente: ClienteNombreInput): string {
   return parts.length > 0 ? parts.join(" ").trim() : "Sin cliente"
 }
 
-/** Formatea un monto como moneda chilena sin decimales. */
-export function formatCLP(amount: number): string {
-  return amount.toLocaleString("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  })
+/** Formatea un monto como moneda chilena sin decimales con signo $ y puntos de miles. */
+export function formatCLP(amount: number | string | null | undefined): string {
+  const numeric = Math.round(Number(amount) || 0)
+  return `$${numeric.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`
 }
 
 /** Acepta valores opcionales de formularios para el catálogo de servicios. */
 export function formatCurrency(value: number | string | null | undefined): string {
-  return Number(value || 0).toLocaleString("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  })
+  const numeric = Math.round(Number(value) || 0)
+  return `$${numeric.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`
 }
 
 export type UserNombreInput = {

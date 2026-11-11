@@ -29,13 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreateCliente/FormCreateCliente"
 
 
@@ -55,11 +49,31 @@ import {
 import { PaymentInitialSection } from "./PaymentInitialSection"
 import type { Client } from "@/app/(routes)/punto-ventas/types"
 
-interface FormCreateOrderProps {
-  setOpenModalCreate: (open: boolean) => void
+const focusOrderField = (id: string) => {
+  const control = document.getElementById(id)
+  if (!control) return
+
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches
+  control.scrollIntoView({
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+    block: "nearest",
+  })
+  requestAnimationFrame(() => control.focus())
 }
 
-export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
+interface FormCreateOrderProps {
+  setOpenModalCreate?: (open: boolean) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+export function FormCreateOrder({
+  setOpenModalCreate,
+  open,
+  onOpenChange,
+}: FormCreateOrderProps) {
   const router = useRouter()
 
   const [clients, setClients] = useState<Client[]>([])
@@ -76,6 +90,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [descripcion, setDescripcion] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [validationError, setValidationError] = useState("")
   const [conBicicleta, setConBicicleta] = useState(true)
 
   const [estadoPago, setEstadoPago] = useState<string>(ESTADO_PAGO.PENDIENTE)
@@ -231,47 +246,20 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     setBikes(updated)
   }
 
-  const handleBikeImagesChange = (
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = Array.from(e.target.files || [])
-    e.target.value = ""
-    if (files.length === 0) return
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-    const validFiles: File[] = []
-    for (const file of files) {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(
-          `"${file.name}" no es un formato permitido. Usa JPG, PNG, WEBP o GIF.`
-        )
-        continue
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`"${file.name}" supera el tamaño máximo de 5 MB.`)
-        continue
-      }
-      validFiles.push(file)
-    }
-
-    const available = MAX_BICYCLE_IMAGES - bikes[index].imageFiles.length
-    if (validFiles.length > available) {
+  const handleAddBikeImage = (index: number, file: File, preview: string) => {
+    if (bikes[index].imageFiles.length >= MAX_BICYCLE_IMAGES) {
+      URL.revokeObjectURL(preview)
       toast.warning(
         `Solo se pueden asociar hasta ${MAX_BICYCLE_IMAGES} fotos por bicicleta.`
       )
-      validFiles.splice(Math.max(0, available))
+      return
     }
-    if (validFiles.length === 0) return
 
     const updated = [...bikes]
     updated[index] = {
       ...updated[index],
-      imageFiles: [...updated[index].imageFiles, ...validFiles],
-      imagePreviews: [
-        ...updated[index].imagePreviews,
-        ...validFiles.map((file) => URL.createObjectURL(file)),
-      ],
+      imageFiles: [...updated[index].imageFiles, file],
+      imagePreviews: [...updated[index].imagePreviews, preview],
     }
     setBikes(updated)
   }
@@ -358,9 +346,10 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   const handleCustomServiceChange = (index: number, field: "nombre" | "precioUnitario", value: string) => {
     setSelectedServices((current) => current.map((service, i) => {
       if (i !== index || service.tipo !== "personalizado") return service
+      const cleanVal = field === "precioUnitario" ? value.replace(/\D/g, "") : value
       return field === "nombre"
-        ? { ...service, nombre: value }
-        : { ...service, precioUnitario: value.trim() === "" ? Number.NaN : Number(value) }
+        ? { ...service, nombre: cleanVal }
+        : { ...service, precioUnitario: cleanVal === "" ? Number.NaN : Number(cleanVal) }
     }))
   }
 
@@ -383,16 +372,48 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
   )
   const grandTotal = totalProductsCost + totalServicesCost
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const resetForm = () => {
+    setValidationError("")
+    setSelectedClientId("")
+    setFechaEntrega("")
+    setIsCalendarOpen(false)
+    setDescripcion("")
+    setConBicicleta(true)
+    setBikes([{ ...EMPTY_BIKE }])
+    setSelectedServices([])
+    setSelectedProducts([])
+    setEstadoPago(ESTADO_PAGO.PENDIENTE)
+    setMetodoPago(METODO_PAGO_DEFECTO)
+    setMontoAbono(0)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    setOpenModalCreate?.(false)
+    onOpenChange?.(false)
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetForm()
+    }
+    setOpenModalCreate?.(nextOpen)
+    onOpenChange?.(nextOpen)
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    setValidationError("")
 
     if (!selectedClientId) {
-      toast.error("Debe seleccionar un cliente.")
+      setValidationError("Debe seleccionar un cliente.")
+      focusOrderField("cliente")
       return
     }
 
     if (!fechaEntrega) {
-      toast.error("Debe ingresar una fecha estimada de entrega.")
+      setValidationError("Debe ingresar una fecha estimada de entrega.")
+      focusOrderField("fechaEntrega")
       return
     }
 
@@ -401,12 +422,23 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         (b) => !b.marca.trim() || !b.modelo.trim() || !b.color.trim()
       )
       if (incompleteBikeIdx !== -1) {
-        toast.error(
-          `La bicicleta #${incompleteBikeIdx + 1} está incompleta. Debe indicar Marca, Modelo y Color.`
-        )
+        const bike = bikes[incompleteBikeIdx]
+        const field = !bike.marca.trim()
+          ? { key: "marca", label: "La marca" }
+          : !bike.modelo.trim()
+            ? { key: "modelo", label: "El modelo" }
+            : { key: "color", label: "El color" }
         const updated = [...bikes]
         updated[incompleteBikeIdx].isCollapsed = false
         setBikes(updated)
+        setValidationError(
+          `${field.label} es obligatorio en la bicicleta #${incompleteBikeIdx + 1}.`
+        )
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            focusOrderField(`bike-${incompleteBikeIdx}-${field.key}`)
+          )
+        )
         return
       }
     }
@@ -415,9 +447,21 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       (p) => !p.idProducto
     )
     if (incompleteProductIdx !== -1) {
-      toast.error(
+      setValidationError(
         `Debe seleccionar un producto en la línea #${incompleteProductIdx + 1}.`
       )
+      focusOrderField(`order-product-${incompleteProductIdx}`)
+      return
+    }
+
+    const invalidProductIdx = selectedProducts.findIndex(
+      (product) => !Number.isSafeInteger(product.cantidad) || product.cantidad <= 0
+    )
+    if (invalidProductIdx !== -1) {
+      setValidationError(
+        `La cantidad del producto en la línea #${invalidProductIdx + 1} debe ser un entero mayor que cero.`
+      )
+      focusOrderField(`order-product-quantity-${invalidProductIdx}`)
       return
     }
 
@@ -429,9 +473,18 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
         s.cantidad * s.precioUnitario > 999999999999
     )
     if (incompleteServiceIdx !== -1) {
-      toast.error(
-        `Revise el servicio de la línea #${incompleteServiceIdx + 1}: indique un servicio, cantidad entera positiva y precio válido en pesos.`
+      const service = selectedServices[incompleteServiceIdx]
+      const field = service.tipo === "catalogo" && !service.idServicio
+        ? { id: `order-service-catalog-${incompleteServiceIdx}`, label: "Debe seleccionar un servicio" }
+        : service.tipo === "personalizado" && (!service.nombre.trim() || service.nombre.trim().length > 100)
+          ? { id: `order-service-name-${incompleteServiceIdx}`, label: "Debe ingresar un nombre de servicio válido" }
+          : !Number.isSafeInteger(service.cantidad) || service.cantidad <= 0
+            ? { id: `order-service-quantity-${incompleteServiceIdx}`, label: "La cantidad del servicio debe ser un entero mayor que cero" }
+            : { id: `order-service-price-${incompleteServiceIdx}`, label: "El precio del servicio debe ser válido" }
+      setValidationError(
+        `${field.label} en la línea #${incompleteServiceIdx + 1}.`
       )
+      focusOrderField(field.id)
       return
     }
 
@@ -439,9 +492,10 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       estadoPago === ESTADO_PAGO.PARCIAL &&
       (montoAbono <= 0 || montoAbono >= grandTotal)
     ) {
-      toast.error(
+      setValidationError(
         `El abono debe ser mayor a 0 y menor al total de la orden ($${grandTotal.toLocaleString("es-CL")}).`
       )
+      focusOrderField("montoAbono")
       return
     }
 
@@ -530,7 +584,7 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       toast.success("Orden de trabajo creada correctamente")
       window.dispatchEvent(new Event("work-orders:refresh"))
       router.refresh()
-      setOpenModalCreate(false)
+      handleClose()
     } catch (err: unknown) {
       console.error(err)
       toast.error(
@@ -543,283 +597,331 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
     }
   }
 
-  return (
-    <>
-      <form
-        onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain py-1 pr-2">
-        {/* ── Información General ─────────────────────────────────── */}
-        <div className="space-y-4 rounded-xl border border-border p-4">
-          <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            Información General
-          </h3>
+  const footerContent = (
+    <div className="space-y-3">
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
+      <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleClose}
+          disabled={isSubmitting}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          form="form-create-order"
+          disabled={isSubmitting || (conBicicleta && bikes.some((b) => b.isUploading))}
+        >
+          {isSubmitting ? (
+            <span className="flex items-center gap-1">
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              Guardando orden...
+            </span>
+          ) : (
+            "Crear Orden de Trabajo"
+          )}
+        </Button>
+      </div>
+    </div>
+  )
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Cliente Select */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="cliente"
-                className="text-muted-foreground text-xs font-semibold"
-              >
-                Cliente <span className="text-destructive">*</span>
-              </Label>
-              {isLoadingClients ? (
-                <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/30">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
-                  Cargando clientes...
-                </div>
-              ) : (
-                <>
-                  <Select
-                    value={selectedClientId || undefined}
-                    onValueChange={setSelectedClientId}
-                  >
-                    <SelectTrigger className="h-10 w-full bg-background border-input text-sm">
-                      <SelectValue placeholder="-- Selecciona un Cliente --" />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      {clients.map((c) => {
-                        const label = c.razonSocial
-                          ? `${c.razonSocial} (${c.rut})`
-                          : `${c.primerNombre} ${c.apellidoPaterno || ""} (${c.rut})`.trim()
-                        return (
-                          <SelectItem
-                            key={c.idCliente}
-                            value={String(c.idCliente)}
-                          >
-                            {label}
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <div className="mt-1 flex items-center justify-between px-1 text-[10px]">
-                    <span className="text-muted-foreground">
-                      ¿El cliente no está registrado?
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        type="button"
-                        onClick={() => setOpenQuickCreateClient(true)}
-                        className="h-auto p-0 font-bold"
-                      >
-                        + Registrar aquí
-                      </Button>
-                      <span className="text-muted-foreground/40">|</span>
-                      <a
-                        href="/clientes"
-                        target="_blank"
-                        className="font-bold text-muted-foreground hover:text-foreground hover:underline"
-                      >
-                        Ir a Clientes
-                      </a>
-                    </div>
+  const contentBody = (
+    <form
+      id="form-create-order"
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
+      {/* ── Información General ─────────────────────────────────── */}
+      <div className="space-y-4 rounded-xl border border-border p-4">
+        <h3 className="text-foreground flex items-center gap-2 border-b border-border pb-2 text-sm font-bold">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          Información General
+        </h3>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Cliente Select */}
+          <div>
+            <Label
+              htmlFor="cliente"
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Cliente
+            </Label>
+            {isLoadingClients ? (
+              <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/30">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
+                Cargando clientes...
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={selectedClientId || undefined}
+                  onValueChange={setSelectedClientId}
+                >
+                  <SelectTrigger id="cliente" className="h-10 w-full bg-background border-input text-sm">
+                    <SelectValue placeholder="-- Selecciona un Cliente --" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {clients.map((c) => {
+                      const label = c.razonSocial
+                        ? `${c.razonSocial} (${c.rut})`
+                        : `${c.primerNombre} ${c.apellidoPaterno || ""} (${c.rut})`.trim()
+                      return (
+                        <SelectItem
+                          key={c.idCliente}
+                          value={String(c.idCliente)}
+                        >
+                          {label}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                <div className="mt-1 flex items-center justify-between px-1 text-[10px]">
+                  <span className="text-muted-foreground">
+                    ¿El cliente no está registrado?
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      type="button"
+                      onClick={() => setOpenQuickCreateClient(true)}
+                      className="h-auto p-0 font-bold"
+                    >
+                      + Registrar aquí
+                    </Button>
+                    <span className="text-muted-foreground/40">|</span>
+                    <a
+                      href="/clientes"
+                      target="_blank"
+                      className="font-bold text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      Ir a Clientes
+                    </a>
                   </div>
-                </>
-              )}
-            </div>
-
-            {/* Fecha Ingreso (disabled) */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="fechaIngreso"
-                className="text-muted-foreground text-xs font-semibold"
-              >
-                Fecha de Ingreso
-              </Label>
-              <Input
-                id="fechaIngreso"
-                type="date"
-                value={fechaIngreso}
-                disabled
-                className="cursor-not-allowed bg-muted text-muted-foreground"
-              />
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Fecha Estimada Entrega */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="fechaEntrega"
-                className="text-muted-foreground text-xs font-semibold"
-              >
-                Fecha Estimada de Entrega{" "}
-                <span className="text-destructive">*</span>
-              </Label>
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="fechaEntrega"
-                    type="button"
-                    variant="outline"
-                    aria-label="Elegir fecha estimada de entrega"
-                    aria-required="true"
-                    aria-haspopup="dialog"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {fechaEntrega
-                      ? new Date(`${fechaEntrega}T00:00:00`).toLocaleDateString(
-                          "es-CL",
-                          { dateStyle: "long" }
-                        )
-                      : "Selecciona una fecha"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={
-                      fechaEntrega
-                        ? new Date(`${fechaEntrega}T00:00:00`)
-                        : undefined
-                    }
-                    onSelect={(date) => {
-                      if (!date) return
-                      setFechaEntrega(format(date, "yyyy-MM-dd"))
-                      setIsCalendarOpen(false)
-                    }}
-                    disabled={{ before: new Date(`${fechaIngreso}T00:00:00`) }}
-                    locale={es}
-                    className="rounded-lg border"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {/* Fecha Ingreso (disabled) */}
+          <div>
+            <Label
+              htmlFor="fechaIngreso"
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Fecha de Ingreso
+            </Label>
+            <Input
+              id="fechaIngreso"
+              type="date"
+              value={fechaIngreso}
+              disabled
+              className="cursor-not-allowed bg-muted text-muted-foreground"
+            />
+          </div>
+        </div>
 
-            {/* Descripción del Trabajo */}
-            <div className="space-y-1.5 md:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Fecha Estimada Entrega */}
+          <div>
+            <Label
+              htmlFor="fechaEntrega"
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Fecha Estimada de Entrega
+            </Label>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="fechaEntrega"
+                  type="button"
+                  variant="outline"
+                  aria-label="Elegir fecha estimada de entrega"
+                  aria-required="true"
+                  aria-haspopup="dialog"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                  {fechaEntrega
+                    ? new Date(`${fechaEntrega}T00:00:00`).toLocaleDateString(
+                        "es-CL",
+                        { dateStyle: "long" }
+                      )
+                    : "Selecciona una fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={
+                    fechaEntrega
+                      ? new Date(`${fechaEntrega}T00:00:00`)
+                      : undefined
+                  }
+                  onSelect={(date) => {
+                    if (!date) return
+                    setFechaEntrega(format(date, "yyyy-MM-dd"))
+                    setIsCalendarOpen(false)
+                  }}
+                  disabled={{ before: new Date(`${fechaIngreso}T00:00:00`) }}
+                  locale={es}
+                  className="rounded-lg border"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Descripción del Trabajo */}
+          <div className="md:col-span-2">
+            <div className="flex items-center justify-between mb-1.5">
               <Label
                 htmlFor="descripcion"
-                className="text-muted-foreground text-xs font-semibold"
+                className="inline-block font-medium text-foreground"
               >
-                Descripción del Trabajo a Realizar
+                Descripción del Trabajo a Realizar{" "}
+                <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
               </Label>
-              <Textarea
-                id="descripcion"
-                placeholder="Ej: Mantención general de transmisión, centrado de llantas..."
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Toggle Bicicleta ─────────────────────────────────── */}
-        <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <Bike className="h-4.5 w-4.5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Asociar bicicleta
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {conBicicleta
-                  ? "La orden incluye una o más bicicletas"
-                  : "Venta de servicio rápido sin bicicleta registrada"}
-              </p>
-            </div>
-          </div>
-          <Switch
-            id="toggle-bicicleta"
-            checked={conBicicleta}
-            onCheckedChange={handleToggleBike}
-            disabled={isSubmitting}
-            aria-label="Asociar bicicleta a la orden"
-          />
-        </div>
-
-        {conBicicleta && (
-          <BikesSection
-            bikes={bikes}
-            isSubmitting={isSubmitting}
-            onAddBike={handleAddBike}
-            onRemoveBike={handleRemoveBike}
-            onUpdateBikeField={handleUpdateBikeField}
-            onToggleCollapse={toggleCollapse}
-            onBikeImagesChange={handleBikeImagesChange}
-            onRemoveBikeImage={handleRemoveBikeImage}
-          />
-        )}
-
-        <OrderLinesSection
-          products={products}
-          services={services}
-          selectedProducts={selectedProducts}
-          selectedServices={selectedServices}
-          onAddService={handleAddService}
-          onRemoveService={handleRemoveService}
-          onServiceChange={handleServiceChange}
-          onServiceQuantityChange={handleServiceQuantityChange}
-          onServiceTypeChange={handleServiceTypeChange}
-          onCustomServiceChange={handleCustomServiceChange}
-          onAddProduct={handleAddProduct}
-          onRemoveProduct={handleRemoveProduct}
-          onProductChange={handleProductChange}
-          onProductQuantityChange={handleProductQuantityChange}
-        />
-
-        <PaymentInitialSection
-          estadoPago={estadoPago}
-          metodoPago={metodoPago}
-          montoAbono={montoAbono}
-          totalProductsCost={totalProductsCost}
-          totalServicesCost={totalServicesCost}
-          grandTotal={grandTotal}
-          onEstadoPagoChange={setEstadoPago}
-          onMetodoPagoChange={setMetodoPago}
-          onMontoAbonoChange={setMontoAbono}
-        />
-
-        <div className="flex flex-col-reverse justify-end gap-2.5 border-t border-border/60 px-1 py-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpenModalCreate(false)}
-            disabled={isSubmitting}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting || (conBicicleta && bikes.some((b) => b.isUploading))}
-          >
-            {isSubmitting ? (
-              <span className="flex items-center gap-1">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Guardando orden...
+              <span className="text-xs text-muted-foreground">
+                {descripcion.length}/500
               </span>
-            ) : (
-              "Crear Orden de Trabajo"
-            )}
-          </Button>
+            </div>
+            <Textarea
+              id="descripcion"
+              placeholder="Ej: Mantención general de transmisión, centrado de llantas..."
+              value={descripcion}
+              maxLength={500}
+              onChange={(e) => setDescripcion(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
         </div>
+      </div>
+
+      {/* ── Toggle Bicicleta ─────────────────────────────────── */}
+      <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <Bike className="h-4.5 w-4.5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Asociar bicicleta{" "}
+              <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {conBicicleta
+                ? "La orden incluye una o más bicicletas"
+                : "Venta de servicio rápido sin bicicleta registrada"}
+            </p>
+          </div>
         </div>
-      </form>
+        <Switch
+          id="toggle-bicicleta"
+          checked={conBicicleta}
+          onCheckedChange={handleToggleBike}
+          disabled={isSubmitting}
+          aria-label="Asociar bicicleta a la orden"
+        />
+      </div>
+
+      {conBicicleta && (
+        <BikesSection
+          bikes={bikes}
+          isSubmitting={isSubmitting}
+          onAddBike={handleAddBike}
+          onRemoveBike={handleRemoveBike}
+          onUpdateBikeField={handleUpdateBikeField}
+          onToggleCollapse={toggleCollapse}
+          onAddBikeImage={handleAddBikeImage}
+          onRemoveBikeImage={handleRemoveBikeImage}
+        />
+      )}
+
+      <OrderLinesSection
+        products={products}
+        services={services}
+        selectedProducts={selectedProducts}
+        selectedServices={selectedServices}
+        onAddService={handleAddService}
+        onRemoveService={handleRemoveService}
+        onServiceChange={handleServiceChange}
+        onServiceQuantityChange={handleServiceQuantityChange}
+        onServiceTypeChange={handleServiceTypeChange}
+        onCustomServiceChange={handleCustomServiceChange}
+        onAddProduct={handleAddProduct}
+        onRemoveProduct={handleRemoveProduct}
+        onProductChange={handleProductChange}
+        onProductQuantityChange={handleProductQuantityChange}
+      />
+
+      <PaymentInitialSection
+        estadoPago={estadoPago}
+        metodoPago={metodoPago}
+        montoAbono={montoAbono}
+        totalProductsCost={totalProductsCost}
+        totalServicesCost={totalServicesCost}
+        grandTotal={grandTotal}
+        onEstadoPagoChange={setEstadoPago}
+        onMetodoPagoChange={setMetodoPago}
+        onMontoAbonoChange={setMontoAbono}
+      />
+    </form>
+  )
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <>
+        <FormDialog
+          open={open}
+          onOpenChange={handleOpenChange}
+          title="Ingreso de Orden de Trabajo"
+          description="Completa los datos del cliente, selecciona los vehículos y define los servicios y repuestos requeridos."
+          size="3xl"
+          footer={footerContent}
+        >
+          {contentBody}
+        </FormDialog>
+
+        {/* Diálogo de Registro Rápido de Cliente */}
+        <FormCreateCliente
+          open={openQuickCreateClient}
+          onOpenChange={setOpenQuickCreateClient}
+          title="Registrar cliente rápido"
+          description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+          size="md"
+          onSuccess={handleQuickClientSuccess}
+          onCancel={() => setOpenQuickCreateClient(false)}
+        />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        {contentBody}
+        {footerContent}
+      </div>
 
       {/* Diálogo de Registro Rápido de Cliente */}
-      <Dialog
+      <FormCreateCliente
         open={openQuickCreateClient}
         onOpenChange={setOpenQuickCreateClient}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Registrar Cliente Rápido</DialogTitle>
-            <DialogDescription>
-              Ingresa los datos para registrar un nuevo cliente en el sistema.
-            </DialogDescription>
-          </DialogHeader>
-          <FormCreateCliente onSuccess={handleQuickClientSuccess} />
-        </DialogContent>
-      </Dialog>
+        title="Registrar cliente rápido"
+        description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+        size="md"
+        onSuccess={handleQuickClientSuccess}
+        onCancel={() => setOpenQuickCreateClient(false)}
+      />
     </>
   )
 }

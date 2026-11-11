@@ -29,20 +29,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
+import { FormDialog } from "@/components/forms/FormDialog"
 import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreateCliente/FormCreateCliente"
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
 import type { Client } from "@/app/(routes)/punto-ventas/types"
 import type { SaleCreationResult } from "../../types"
+
+const focusSaleField = (id: string) => {
+  const control = document.getElementById(id)
+  if (!control) return
+
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches
+  control.scrollIntoView({
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+    block: "nearest",
+  })
+  requestAnimationFrame(() => control.focus())
+}
 
 interface Product {
   idProducto: number
@@ -61,11 +67,15 @@ interface SelectedProduct {
 }
 
 interface FormCreateVentaProps {
-  setOpenModalCreate: (open: boolean) => void
+  setOpenModalCreate?: (open: boolean) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function FormCreateVenta({
   setOpenModalCreate,
+  open,
+  onOpenChange,
 }: FormCreateVentaProps) {
   const router = useRouter()
   const { data: session } = useSession()
@@ -89,6 +99,7 @@ export function FormCreateVenta({
   >([])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [validationError, setValidationError] = useState("")
 
   const [saleResult, setSaleResult] = useState<SaleCreationResult | null>(null)
 
@@ -279,6 +290,7 @@ export function FormCreateVenta({
     e: React.FormEvent
   ) => {
     e.preventDefault()
+    setValidationError("")
 
     if (!session?.user?.idUsuario) {
       toast.error("Tu sesión expiró. Vuelve a iniciar sesión.")
@@ -286,9 +298,8 @@ export function FormCreateVenta({
     }
 
     if (selectedProducts.length === 0) {
-      toast.error(
-        "Debe agregar al menos un producto a la venta."
-      )
+      setValidationError("Debe agregar al menos un producto a la venta.")
+      focusSaleField("sale-add-first-product")
       return
     }
 
@@ -298,11 +309,8 @@ export function FormCreateVenta({
       )
 
     if (incompleteProductIdx !== -1) {
-      toast.error(
-        `Debe seleccionar un producto en la línea #${
-          incompleteProductIdx + 1
-        }.`
-      )
+      setValidationError(`Debe seleccionar un producto en la línea #${incompleteProductIdx + 1}.`)
+      focusSaleField(`sale-product-${incompleteProductIdx}`)
       return
     }
 
@@ -319,9 +327,10 @@ export function FormCreateVenta({
         prod &&
         sp.cantidad > prod.stockActual
       ) {
-        toast.error(
-          `Stock insuficiente para ${prod.nombre}. Solicitado: ${sp.cantidad}, Disponible: ${prod.stockActual}`
+        setValidationError(
+          `Stock insuficiente para ${prod.nombre}. Solicitado: ${sp.cantidad}, disponible: ${prod.stockActual}.`
         )
+        focusSaleField(`sale-quantity-${i}`)
         return
       }
     }
@@ -336,11 +345,10 @@ export function FormCreateVenta({
       )
 
     if (invalidDiscountIdx !== -1) {
-      toast.error(
-        `Descuento inválido en la línea #${
-          invalidDiscountIdx + 1
-        }. El descuento no puede superar el precio unitario.`
+      setValidationError(
+        `Descuento inválido en la línea #${invalidDiscountIdx + 1}. No puede superar el precio unitario.`
       )
+      focusSaleField(`sale-discount-${invalidDiscountIdx}`)
       return
     }
 
@@ -350,9 +358,8 @@ export function FormCreateVenta({
       descuentoGlobal >
         subtotalAfterLineDiscounts
     ) {
-      toast.error(
-        "El descuento global no puede superar el subtotal disponible."
-      )
+      setValidationError("El descuento global no puede superar el subtotal disponible.")
+      focusSaleField("descuento")
       return
     }
 
@@ -438,6 +445,30 @@ export function FormCreateVenta({
     }
   }
 
+  const resetForm = () => {
+    setValidationError("")
+    setSelectedClientId("")
+    setDescuento(0)
+    setMetodoPago(METODO_PAGO_DEFECTO)
+    setEstadoPago(ESTADO_PAGO.PAGADA)
+    setSelectedProducts([])
+    setSaleResult(null)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    setOpenModalCreate?.(false)
+    onOpenChange?.(false)
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetForm()
+    }
+    setOpenModalCreate?.(nextOpen)
+    onOpenChange?.(nextOpen)
+  }
+
   const handleCloseSuccess = () => {
     window.dispatchEvent(
       new Event("sales:refresh")
@@ -445,7 +476,7 @@ export function FormCreateVenta({
 
     router.refresh()
 
-    setOpenModalCreate(false)
+    handleClose()
   }
 
   // Vista de recibo
@@ -466,7 +497,7 @@ export function FormCreateVenta({
           }`.trim()
       : "Cliente general"
 
-    return (
+    const receiptContent = (
       <SaleSuccessReceipt
         saleResult={saleResult}
         clientLabel={clientLabel}
@@ -487,33 +518,83 @@ export function FormCreateVenta({
         onClose={handleCloseSuccess}
       />
     )
+
+    if (open !== undefined || onOpenChange !== undefined) {
+      return (
+        <FormDialog
+          open={open}
+          onOpenChange={handleOpenChange}
+          title="Comprobante de Venta"
+          description="Venta procesada con éxito. Puedes imprimir o guardar el comprobante."
+          size="3xl"
+        >
+          {receiptContent}
+        </FormDialog>
+      )
+    }
+
+    return receiptContent
   }
 
-  return (
-    <>
-      <form
-        onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain py-1 pr-2">
-        <section className="space-y-4 rounded-xl border border-border p-4">
-          <h3 className="flex items-center gap-2 border-b border-border pb-2 text-sm font-bold text-foreground">
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-            Información de la venta
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+  const footerContent = (
+    <div className="space-y-3">
+      {validationError && (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      )}
+      <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleClose}
+          disabled={isSubmitting}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          form="form-create-venta"
+          disabled={isSubmitting}
+          className="font-bold"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              Procesando Venta...
+            </>
+          ) : (
+            "Registrar Venta"
+          )}
+        </Button>
+      </div>
+    </div>
+  )
 
-          {/* Selector de Cliente */}
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="cliente"
-              className="text-xs font-semibold text-muted-foreground"
-            >
-              Cliente{" "}
-              <span className="text-xs text-muted-foreground font-normal">
-                (Opcional)
-              </span>
-            </Label>
+  const contentBody = (
+    <form
+      id="form-create-venta"
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
+      <section className="space-y-4 rounded-xl border border-border p-4">
+        <h3 className="flex items-center gap-2 border-b border-border pb-2 text-sm font-bold text-foreground">
+          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          Información de la venta
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+
+        {/* Selector de Cliente */}
+        <div>
+          <Label
+            htmlFor="cliente"
+            className="inline-block mb-1.5 font-medium text-foreground"
+          >
+            Cliente{" "}
+            <span className="text-xs text-muted-foreground font-normal">
+              (Opcional)
+            </span>
+          </Label>
 
             {isLoadingClients ? (
               <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/40">
@@ -605,8 +686,8 @@ export function FormCreateVenta({
           </div>
 
           {/* Fecha */}
-          <div className="space-y-1.5">
-            <Label htmlFor="fechaVenta" className="text-xs font-semibold text-muted-foreground">
+          <div>
+            <Label htmlFor="fechaVenta" className="inline-block mb-1.5 font-medium text-foreground">
               Fecha de Venta
             </Label>
 
@@ -654,6 +735,7 @@ export function FormCreateVenta({
                 variant="outline"
                 size="sm"
                 onClick={handleAddProduct}
+                id="sale-add-first-product"
                 className="text-xs font-semibold"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -676,12 +758,6 @@ export function FormCreateVenta({
                       ? selectedItem.stockActual
                       : 0
 
-                  const isOut =
-                    selectedItem
-                      ? selProd.cantidad >
-                        maxStock
-                      : false
-
                   const subtotalLinea =
                     selProd.cantidad *
                     (
@@ -695,13 +771,13 @@ export function FormCreateVenta({
                       className="space-y-3 rounded-lg border border-border/70 bg-muted/50 p-3 animate-in slide-in-from-top-1 duration-150 motion-reduce:animate-none"
                     >
                       <div className="flex items-end gap-3">
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <Label htmlFor={`sale-product-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                        <div className="min-w-0 flex-1">
+                          <Label htmlFor={`sale-product-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                             Producto
                           </Label>
                         {isLoadingProducts ? (
                           <div className="flex h-9 items-center justify-center rounded-md border border-input px-3 py-1 text-xs text-muted-foreground">
-                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
                             Cargando...
                           </div>
                         ) : (
@@ -763,8 +839,8 @@ export function FormCreateVenta({
                       </div>
 
                       <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4">
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`sale-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                        <div>
+                          <Label htmlFor={`sale-quantity-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                             Cantidad
                           </Label>
                           <div className="flex items-center gap-2">
@@ -772,16 +848,13 @@ export function FormCreateVenta({
                               id={`sale-quantity-${idx}`}
                               type="number"
                               min={1}
-                              max={maxStock || undefined}
                               value={selProd.cantidad}
+                              disabled={!selProd.idProducto}
                               onChange={(e) =>
                                 handleProductQuantityChange(idx, Number(e.target.value))
                               }
-                              className={`h-9 text-xs ${
-                                isOut ? "border-destructive focus-visible:ring-destructive" : ""
-                              }`}
+                              className="h-9 text-xs"
                               aria-label={`Cantidad para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
-                              required
                             />
                             {selectedItem && (
                               <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
@@ -797,32 +870,30 @@ export function FormCreateVenta({
                           className="self-center"
                         />
 
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`sale-discount-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                        <div>
+                          <Label htmlFor={`sale-discount-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                             Descuento por unidad
                           </Label>
-                        <Input
+                          <Input
                             id={`sale-discount-${idx}`}
-                          type="number"
-                          min={0}
-                          max={
-                            selProd.precioUnitario
-                          }
-                          value={
-                            selProd.descuentoUnitario
-                          }
-                          onChange={(e) =>
-                            handleProductDiscountChange(
-                              idx,
-                              Number(
-                                e.target.value
-                              )
-                            )
-                          }
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="$0"
+                            disabled={!selProd.idProducto}
+                            value={
+                              selProd.descuentoUnitario > 0
+                                ? `$${selProd.descuentoUnitario.toLocaleString("es-CL")}`
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "")
+                              const val = digits ? Math.min(selProd.precioUnitario, Number(digits)) : 0
+                              handleProductDiscountChange(idx, val)
+                            }}
                             className="h-9 text-xs"
-                          aria-label={`Descuento unitario para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
-                        />
-                      </div>
+                            aria-label={`Descuento unitario para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
+                          />
+                        </div>
 
                         <DataField
                           label="Subtotal de línea"
@@ -831,11 +902,6 @@ export function FormCreateVenta({
                         />
                       </div>
 
-                      {isOut && (
-                        <div className="w-full rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
-                          Stock insuficiente.
-                        </div>
-                      )}
                     </div>
                   )
                 }
@@ -854,13 +920,13 @@ export function FormCreateVenta({
               Pago y descuentos
             </h3>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
 
               {/* Método */}
-              <div className="space-y-1.5">
+              <div>
                 <Label
                   htmlFor="metodoPago"
-                  className="text-xs font-semibold text-muted-foreground"
+                  className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   Método de Pago
                 </Label>
@@ -869,7 +935,7 @@ export function FormCreateVenta({
                   value={metodoPago}
                   onValueChange={setMetodoPago}
                 >
-                  <SelectTrigger className="h-10 w-full border-input bg-background text-sm">
+                  <SelectTrigger className="h-10 data-[size=default]:h-10 w-full border-input bg-background text-sm">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -884,10 +950,10 @@ export function FormCreateVenta({
               </div>
 
               {/* Estado */}
-              <div className="space-y-1.5">
+              <div>
                 <Label
                   htmlFor="estadoPago"
-                  className="text-xs font-semibold text-muted-foreground"
+                  className="inline-block mb-1.5 font-medium text-foreground"
                 >
                   Estado del Pago
                 </Label>
@@ -896,7 +962,7 @@ export function FormCreateVenta({
                   value={estadoPago}
                   onValueChange={setEstadoPago}
                 >
-                  <SelectTrigger className="h-10 w-full border-input bg-background text-sm">
+                  <SelectTrigger className="h-10 data-[size=default]:h-10 w-full border-input bg-background text-sm">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -911,38 +977,26 @@ export function FormCreateVenta({
                 </Select>
               </div>
             {/* Descuento global */}
-            <div className="space-y-1.5">
+            <div>
               <Label
                 htmlFor="descuento"
-                className="flex items-center gap-1 text-xs font-semibold text-muted-foreground"
+                className="inline-block mb-1.5 font-medium text-foreground"
               >
-                <DollarSign className="h-3 w-3" />
-                Descuento Global ($)
+                Descuento Global
               </Label>
 
               <Input
                 id="descuento"
-                type="number"
-                min={0}
-                max={
-                  subtotalAfterLineDiscounts
-                }
-                value={descuento}
-                onChange={(e) =>
-                  setDescuento(
-                    Math.min(
-                      subtotalAfterLineDiscounts,
-                      Math.max(
-                        0,
-                        Number(
-                          e.target.value
-                        )
-                      )
-                    )
-                  )
-                }
-                className="h-8 text-sm"
-                placeholder="Descuento CLP"
+                type="text"
+                inputMode="numeric"
+                placeholder="$0"
+                value={descuento > 0 ? `$${descuento.toLocaleString("es-CL")}` : ""}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "")
+                  const val = digits ? Math.min(subtotalAfterLineDiscounts, Number(digits)) : 0
+                  setDescuento(val)
+                }}
+                className="h-10 text-sm"
               />
             </div>
           </div>
@@ -1033,76 +1087,54 @@ export function FormCreateVenta({
             </div>
           </div>
         </section>
-
-        {/* Botones al final del contenido desplazable */}
-        <div className="flex flex-col-reverse justify-end gap-2 border-t border-border/60 px-1 py-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpenModalCreate(false)}
-            disabled={isSubmitting}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              isSubmitting ||
-              selectedProducts.some(
-                (p) => {
-                  const matched =
-                    products.find(
-                      (pr) =>
-                        pr.idProducto.toString() ===
-                        p.idProducto
-                    )
-
-                  return (
-                    matched &&
-                    p.cantidad >
-                      matched.stockActual
-                  )
-                }
-              )
-            }
-            className="font-bold"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Procesando Venta...
-              </>
-            ) : (
-              "Registrar Venta"
-            )}
-          </Button>
-        </div>
-        </div>
       </form>
+  )
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <>
+        <FormDialog
+          open={open}
+          onOpenChange={handleOpenChange}
+          title="Registrar Venta Directa"
+          description="Selecciona el cliente, añade los productos y registra el pago para completar la transacción."
+          size="3xl"
+          footer={footerContent}
+        >
+          {contentBody}
+        </FormDialog>
+
+        {/* Registro rápido de cliente */}
+        <FormCreateCliente
+          open={openQuickCreateClient}
+          onOpenChange={setOpenQuickCreateClient}
+          title="Registrar cliente rápido"
+          description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+          size="md"
+          onSuccess={handleQuickClientSuccess}
+          onCancel={() => setOpenQuickCreateClient(false)}
+        />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        {contentBody}
+        {footerContent}
+      </div>
 
       {/* Registro rápido de cliente */}
-      <Dialog
+      <FormCreateCliente
         open={openQuickCreateClient}
-        onOpenChange={
-          setOpenQuickCreateClient
-        }
-      >
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Registrar Cliente Rápido
-            </DialogTitle>
-
-            <DialogDescription>
-              Ingresa los datos para registrar un nuevo cliente en el sistema.
-            </DialogDescription>
-          </DialogHeader>
-
-          <FormCreateCliente
-            onSuccess={handleQuickClientSuccess}
-          />
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setOpenQuickCreateClient}
+        title="Registrar cliente rápido"
+        description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+        size="md"
+        onSuccess={handleQuickClientSuccess}
+        onCancel={() => setOpenQuickCreateClient(false)}
+      />
     </>
   )
 }

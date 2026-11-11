@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AlertCircle, LoaderCircle, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -8,6 +8,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { FormSection } from "@/components/forms/FormLayout"
+import { FormDialog } from "@/components/forms/FormDialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCLP } from "@/lib/formatters"
@@ -18,12 +20,30 @@ const localISODate = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 }
 
+const focusOrderField = (id: string) => {
+  const control = document.getElementById(id)
+  if (!control) return
+
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches
+  control.scrollIntoView({
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+    block: "nearest",
+  })
+  requestAnimationFrame(() => control.focus())
+}
+
 export function CreatePurchaseOrderForm({
   onCreated,
   onCancel,
+  open,
+  onOpenChange,
 }: {
   onCreated: (order: PurchaseOrder) => void
   onCancel: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
   const [providers, setProviders] = useState<Provider[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -38,6 +58,29 @@ export function CreatePurchaseOrderForm({
   const [lines, setLines] = useState<CreatePurchaseOrderLine[]>([])
   const [error, setError] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+
+  const resetForm = useCallback(() => {
+    setProviderId("")
+    setEmissionDate(localISODate())
+    setDeliveryDate(localISODate())
+    setProductId("")
+    setQuantity("1")
+    setUnitCost("")
+    setLines([])
+    setError("")
+  }, [])
+
+  const handleCancel = () => {
+    resetForm()
+    onCancel()
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetForm()
+    }
+    onOpenChange?.(nextOpen)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -95,7 +138,23 @@ export function CreatePurchaseOrderForm({
   const addLine = () => {
     const product = products.find((item) => item.idProducto === Number(productId))
     const parsedQuantity = Number(quantity)
-    const parsedCost = Number(unitCost)
+    const rawCost = unitCost.replace(/\D/g, "")
+    const parsedCost = rawCost ? Number(rawCost) : 0
+    if (!product) {
+      setError("Selecciona un producto.")
+      focusOrderField("purchase-product-select")
+      return
+    }
+    if (!Number.isSafeInteger(parsedQuantity) || parsedQuantity <= 0) {
+      setError("Ingresa una cantidad entera mayor que cero.")
+      focusOrderField("purchase-quantity")
+      return
+    }
+    if (!Number.isFinite(parsedCost) || parsedCost < 0) {
+      setError("Ingresa un costo unitario vÃ¡lido.")
+      focusOrderField("purchase-unit-cost")
+      return
+    }
     if (
       !product ||
       !Number.isSafeInteger(parsedQuantity) ||
@@ -103,7 +162,7 @@ export function CreatePurchaseOrderForm({
       !Number.isFinite(parsedCost) ||
       parsedCost < 0
     ) {
-      setError("Selecciona un producto e ingresa una cantidad y costo unitario válidos.")
+      setError("Selecciona un producto e ingresa una cantidad válida.")
       return
     }
     setLines((current) => [
@@ -119,12 +178,41 @@ export function CreatePurchaseOrderForm({
   const handleProductChange = (value: string) => {
     setProductId(value)
     const product = products.find((item) => item.idProducto === Number(value))
-    setUnitCost(product ? String(Number(product.costoPromedio)) : "")
+    if (product) {
+      setUnitCost(`$${Number(product.costoPromedio || 0).toLocaleString("es-CL")}`)
+    } else {
+      setUnitCost("")
+    }
   }
 
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    if (event) event.preventDefault()
     setError("")
+    if (!providerId) {
+      setError("Selecciona un proveedor.")
+      focusOrderField("purchase-provider")
+      return
+    }
+    if (!emissionDate) {
+      setError("La fecha de emisión es obligatoria.")
+      focusOrderField("emission-date")
+      return
+    }
+    if (!deliveryDate) {
+      setError("La fecha estimada de entrega es obligatoria.")
+      focusOrderField("delivery-date")
+      return
+    }
+    if (deliveryDate < emissionDate) {
+      setError("La fecha estimada de entrega no puede ser anterior a la fecha de emisión.")
+      focusOrderField("delivery-date")
+      return
+    }
+    if (lines.length === 0) {
+      setError("Agrega al menos un producto a la orden.")
+      focusOrderField("purchase-product-select")
+      return
+    }
     if (!providerId || lines.length === 0 || !emissionDate || !deliveryDate) {
       setError("Completa el proveedor, agrega al menos un producto e ingresa ambas fechas.")
       return
@@ -147,8 +235,10 @@ export function CreatePurchaseOrderForm({
       })
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.message || "No fue posible registrar la orden de compra.")
+      const orderPayload = { ...result.purchaseOrder, _count: { lineas: lines.length } }
+      resetForm()
       toast.success("Orden de compra creada en borrador")
-      onCreated({ ...result.purchaseOrder, _count: { lineas: lines.length } })
+      onCreated(orderPayload)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible registrar la orden de compra.")
     } finally {
@@ -156,27 +246,50 @@ export function CreatePurchaseOrderForm({
     }
   }
 
+  const footerContent = (
+    <div className="space-y-3">
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          onClick={() => void submit()}
+          disabled={isSaving || !products.length}
+        >
+          {isSaving && (
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+          )}
+          {isSaving ? "Guardando borrador…" : "Crear orden en borrador"}
+        </Button>
+      </div>
+    </div>
+  )
+
+  let contentBody: React.ReactNode
+
   if (loading) {
-    return (
+    contentBody = (
       <div className="space-y-3 py-2 animate-pulse motion-reduce:animate-none" aria-busy="true">
         <Skeleton className="h-10" />
         <Skeleton className="h-24" />
         <Skeleton className="h-40" />
       </div>
     )
-  }
-
-  if (loadError) {
-    return (
+  } else if (loadError) {
+    contentBody = (
       <div role="alert" className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         {loadError}
       </div>
     )
-  }
-
-  if (providers.length === 0) {
-    return (
+  } else if (providers.length === 0) {
+    contentBody = (
       <div className="space-y-4 rounded-lg border border-amber-500/30 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-400/10 p-5">
         <div className="flex gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -192,167 +305,220 @@ export function CreatePurchaseOrderForm({
         </Button>
       </div>
     )
-  }
+  } else {
+    contentBody = (
+      <form onSubmit={submit}>
+        <div className="space-y-6">
+          <FormSection title="Datos de la orden">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="purchase-provider"
+                  required
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Proveedor
+                </Label>
+                <Select value={providerId} onValueChange={setProviderId}>
+                  <SelectTrigger id="purchase-provider" aria-label="Seleccionar proveedor" className="w-full">
+                    <SelectValue placeholder="Selecciona proveedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map((provider) => (
+                      <SelectItem key={provider.idProveedor} value={String(provider.idProveedor)}>
+                        {provider.razonSocial}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-  return (
-    <form onSubmit={submit} className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2 sm:col-span-1">
-          <Label htmlFor="purchase-provider">
-            Proveedor <span className="text-destructive">*</span>
-          </Label>
-          <Select value={providerId} onValueChange={setProviderId}>
-            <SelectTrigger id="purchase-provider" aria-label="Seleccionar proveedor">
-              <SelectValue placeholder="Selecciona proveedor" />
-            </SelectTrigger>
-            <SelectContent>
-              {providers.map((provider) => (
-                <SelectItem key={provider.idProveedor} value={String(provider.idProveedor)}>
-                  {provider.razonSocial}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="emission-date">
-            Fecha de emisión <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="emission-date"
-            type="date"
-            required
-            value={emissionDate}
-            onChange={(event) => setEmissionDate(event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="delivery-date">
-            Entrega estimada <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="delivery-date"
-            type="date"
-            min={emissionDate}
-            required
-            value={deliveryDate}
-            onChange={(event) => setDeliveryDate(event.target.value)}
-          />
-        </div>
-      </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="emission-date"
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Fecha de emisión
+                  </Label>
+                  <Input
+                    id="emission-date"
+                    type="date"
+                    value={emissionDate}
+                    onChange={(event) => setEmissionDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="delivery-date"
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Entrega estimada
+                  </Label>
+                  <Input
+                    id="delivery-date"
+                    type="date"
+                    min={emissionDate}
+                    value={deliveryDate}
+                    onChange={(event) => setDeliveryDate(event.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </FormSection>
 
-      <section className="space-y-3 rounded-xl border border-border p-4">
-        <div>
-          <h3 className="font-semibold">Productos de la orden</h3>
-          <p className="text-sm text-muted-foreground">
-            Solo se muestran productos activos; cada producto se agrega una vez.
-          </p>
-        </div>
-        {products.length === 0 ? (
-          <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-            No hay productos activos disponibles en el inventario.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px_150px_auto] sm:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="purchase-product-select">Producto</Label>
-              <Select value={productId} onValueChange={handleProductChange}>
-                <SelectTrigger id="purchase-product-select" aria-label="Seleccionar producto">
-                  <SelectValue placeholder="Selecciona un producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProducts.map((product) => (
-                    <SelectItem key={product.idProducto} value={String(product.idProducto)}>
-                      #{product.idProducto} · {product.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="purchase-quantity">Cantidad</Label>
-              <Input
-                id="purchase-quantity"
-                type="number"
-                min="1"
-                step="1"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="purchase-unit-cost">Costo unitario (CLP)</Label>
-              <Input
-                id="purchase-unit-cost"
-                type="number"
-                min="0"
-                step="1"
-                value={unitCost}
-                onChange={(event) => setUnitCost(event.target.value)}
-              />
-            </div>
-            <Button type="button" variant="outline" onClick={addLine} disabled={!productId}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Agregar
-            </Button>
-          </div>
-        )}
-        {lines.length > 0 && (
-          <div className="divide-y divide-border/60 rounded-lg border border-border/70">
-            {lines.map((line) => {
-              const product = products.find((item) => item.idProducto === line.idProducto)
-              const productName = product?.nombre ?? `Producto #${line.idProducto}`
-              return (
-                <div key={line.idProducto} className="flex flex-wrap items-center gap-3 px-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{productName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {line.cantidadOrdenada} × {formatCLP(line.precioCostoUnitario)}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold">
-                    {formatCLP(line.cantidadOrdenada * line.precioCostoUnitario)}
+          <FormSection
+            title="Productos de la orden"
+            description="Solo se muestran productos activos; cada producto se agrega una vez."
+          >
+            {products.length === 0 ? (
+              <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+                No hay productos activos disponibles en el inventario.
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_150px_auto] items-start">
+                <div className="flex flex-col">
+                  <Label
+                    htmlFor="purchase-product-select"
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Producto
+                  </Label>
+                  <Select value={productId} onValueChange={handleProductChange}>
+                    <SelectTrigger id="purchase-product-select" aria-label="Seleccionar producto" className="w-full">
+                      <SelectValue placeholder="Selecciona un producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProducts.map((product) => (
+                        <SelectItem key={product.idProducto} value={String(product.idProducto)}>
+                          #{product.idProducto} · {product.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <Label
+                    htmlFor="purchase-quantity"
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Cantidad
+                  </Label>
+                  <Input
+                    id="purchase-quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    disabled={!productId}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <Label
+                    htmlFor="purchase-unit-cost"
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Costo unitario
+                  </Label>
+                  <Input
+                    id="purchase-unit-cost"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="$0"
+                    value={unitCost}
+                    disabled
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span
+                    className="hidden sm:inline-block mb-1.5 text-sm font-medium invisible select-none"
+                    aria-hidden="true"
+                  >
+                    &nbsp;
                   </span>
                   <Button
                     type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={`Quitar ${productName}`}
-                    onClick={() => setLines((current) => current.filter((item) => item.idProducto !== line.idProducto))}
+                    variant="outline"
+                    onClick={addLine}
+                    disabled={!productId}
+                    className="w-full sm:w-auto"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Agregar
                   </Button>
                 </div>
-              )
-            })}
-          </div>
-        )}
-        <div className="flex justify-end border-t border-border/60 pt-3 text-sm">
-          Total estimado: <strong className="ml-2 text-foreground">{formatCLP(total)}</strong>
-        </div>
-      </section>
+              </div>
+            )}
 
-      {error && (
-        <p role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          {error}
-        </p>
-      )}
-      <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-4 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSaving || !products.length}>
-          {isSaving ? (
-            <>
-              <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
-              Guardando borrador…
-            </>
-          ) : (
-            "Crear orden en borrador"
-          )}
-        </Button>
-      </div>
-    </form>
+            {lines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Agrega al menos un producto para crear la orden.
+              </p>
+            ) : (
+              <div className="divide-y divide-border/60 rounded-lg border border-border/70">
+                {lines.map((line) => {
+                  const product = products.find((item) => item.idProducto === line.idProducto)
+                  const productName = product?.nombre ?? `Producto #${line.idProducto}`
+                  return (
+                    <div key={line.idProducto} className="flex flex-wrap items-center gap-3 px-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {line.cantidadOrdenada} × {formatCLP(line.precioCostoUnitario)}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold">
+                        {formatCLP(line.cantidadOrdenada * line.precioCostoUnitario)}
+                      </span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Quitar ${productName}`}
+                        onClick={() => setLines((current) => current.filter((item) => item.idProducto !== line.idProducto))}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {lines.length > 0 && (
+              <div className="flex justify-end border-t border-border/60 pt-3 text-sm">
+                Total estimado: <strong className="ml-2 text-foreground">{formatCLP(total)}</strong>
+              </div>
+            )}
+          </FormSection>
+        </div>
+      </form>
+    )
+  }
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <FormDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Nueva orden de compra"
+        description="Selecciona un proveedor activo, agrega productos y define las fechas de la orden."
+        size="3xl"
+        footer={!loading && !loadError && providers.length > 0 ? footerContent : undefined}
+      >
+        {contentBody}
+      </FormDialog>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {contentBody}
+      {!loading && !loadError && providers.length > 0 && footerContent}
+    </div>
   )
 }
