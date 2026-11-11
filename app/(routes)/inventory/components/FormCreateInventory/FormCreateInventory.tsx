@@ -408,97 +408,93 @@ export function FormCreateInventory({
           />
         </FormSection>
 
-        <FormSection title="Clasificación">
-          {canAssociateSupplier && (
-            <div className="space-y-2">
-              <FormLabel>Proveedor/es (opcional)</FormLabel>
-              {suppliers.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                  No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
-                </p>
-              ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
+        {canAssociateSupplier && (
+          <div className="space-y-2">
+            <FormLabel>Proveedor/es (opcional)</FormLabel>
+            {suppliers.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
+              </p>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
+                    disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                  >
+                    <span className="truncate">{supplierSummary}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">▾</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
+                  <div className="max-h-64 space-y-1 overflow-y-auto">
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
-                      disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                      className={cn(
+                        "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                        selectedSupplierIds.length === 0 && "border-primary bg-primary/10 text-primary"
+                      )}
+                      onClick={() => setSelectedSupplierIds([])}
                     >
-                      <span className="truncate">{supplierSummary}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">▾</span>
+                      <span className="truncate">Sin proveedor</span>
+                      {selectedSupplierIds.length === 0 ? (
+                        <Check className="h-4 w-4 shrink-0" />
+                      ) : null}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
-                    <div className="max-h-64 space-y-1 overflow-y-auto">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                          selectedSupplierIds.length === 0 &&
-                            "border-primary bg-primary/10 text-primary"
-                        )}
-                        onClick={() => setSelectedSupplierIds([])}
-                      >
-                        <span className="truncate">Sin proveedor</span>
-                        {selectedSupplierIds.length === 0 ? (
-                          <Check className="h-4 w-4 shrink-0" />
-                        ) : null}
-                      </Button>
-                      {suppliers.map((supplier) => {
-                        const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
+                    {suppliers.map((supplier) => {
+                      const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
 
-                        return (
-                          <Button
-                            key={supplier.idProveedor}
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                              isSelected &&
-                                "border-primary bg-primary/10 text-primary"
-                            )}
-                            onClick={() =>
-                              setSelectedSupplierIds((current) =>
-                                current.includes(supplier.idProveedor)
-                                  ? current.filter((id) => id !== supplier.idProveedor)
-                                  : [...current, supplier.idProveedor],
-                              )
-                            }
-                          >
-                            <span className="min-w-0 truncate">
-                              {supplier.razonSocial} · {supplier.rut}
-                            </span>
-                            {isSelected ? (
-                              <Check className="h-4 w-4 shrink-0" />
-                            ) : null}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {loadingSuppliers ? (
-                <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
-              ) : supplierError ? (
-                <div className="space-y-1">
-                  <p role="alert" className="text-xs text-destructive">{supplierError}</p>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
-                    Reintentar carga de proveedores
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {selectedSupplierIds.length > 0
-                    ? `${selectedSupplierIds.length} proveedor(es) seleccionado(s).`
-                    : "Puedes asociar uno o varios proveedores antes de guardar el producto."}
-                </p>
-              )}
-            </div>
-          )}
-        </FormSection>
+                      return (
+                        <Button
+                          key={supplier.idProveedor}
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                            isSelected && "border-primary bg-primary/10 text-primary"
+                          )}
+                          onClick={() =>
+                            setSelectedSupplierIds((current) =>
+                              current.includes(supplier.idProveedor)
+                                ? current.filter((id) => id !== supplier.idProveedor)
+                                : [...current, supplier.idProveedor],
+                            )
+                          }
+                        >
+                          <span className="min-w-0 truncate">
+                            {supplier.razonSocial} · {supplier.rut}
+                          </span>
+                          {isSelected ? (
+                            <Check className="h-4 w-4 shrink-0" />
+                          ) : null}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {loadingSuppliers ? (
+              <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
+            ) : supplierError ? (
+              <div className="space-y-1">
+                <p role="alert" className="text-xs text-destructive">{supplierError}</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
+                  Reintentar carga de proveedores
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {selectedSupplierIds.length > 0
+                  ? `${selectedSupplierIds.length} proveedor(es) seleccionado(s).`
+                  : "Puedes asociar uno o varios proveedores antes de guardar el producto."}
+              </p>
+            )}
+          </div>
+        )}
 
         <FormSection title="Inventario y precio">
           <div className="grid gap-4 sm:grid-cols-2 items-start">
