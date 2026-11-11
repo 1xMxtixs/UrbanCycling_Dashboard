@@ -11,9 +11,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Dialog } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/common/EmptyState"
-import { FormDialog } from "@/components/forms/FormDialog"
 import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import { DataTable } from "./data-table"
 import { getColumns } from "./columns"
@@ -256,19 +254,13 @@ export function ListServicios() {
 
       {/* Modal de Edición */}
       {serviceToEdit && (
-        <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-          <FormDialog
-            title="Editar Servicio"
-            description="Modifica los datos del servicio seleccionado."
-            size="lg"
-          >
-            <FormEditServicio
-              service={serviceToEdit}
-              setOpenModalEdit={setOpenEdit}
-              onSuccess={handleServiceUpdated}
-            />
-          </FormDialog>
-        </Dialog>
+        <FormEditServicio
+          open={openEdit}
+          onOpenChange={setOpenEdit}
+          service={serviceToEdit}
+          setOpenModalEdit={setOpenEdit}
+          onSuccess={handleServiceUpdated}
+        />
       )}
 
       {/* Diálogo de Confirmación para Inactivar/Reactivar */}

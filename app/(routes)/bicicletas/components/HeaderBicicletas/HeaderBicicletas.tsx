@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FormDialog } from "@/components/forms/FormDialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Plus } from "lucide-react";
 import { FormCreateBicicleta } from "../FormCreateBicicleta/FormCreateBicicleta";
@@ -70,22 +69,16 @@ export function HeaderBicicletas() {
         <Plus className="h-4 w-4 mr-1.5" /> Registrar Bicicleta
       </Button>
 
-      <FormDialog
+      <FormCreateBicicleta
         open={openModalCreate}
         onOpenChange={handleOpenChange}
-        title="Registrar Nueva Bicicleta"
-        description="Ingresa los datos técnicos de la bicicleta y vincúlala a una orden de trabajo existente."
-        size="2xl"
-      >
-        <FormCreateBicicleta
-          ordenes={ordenes}
-          cargandoOrdenes={cargandoOrdenes}
-          errorOrdenes={errorOrdenes}
-          onRetryOrdenes={fetchOrdenes}
-          onCancel={() => setOpenModalCreate(false)}
-          onSuccess={() => setOpenModalCreate(false)}
-        />
-      </FormDialog>
+        ordenes={ordenes}
+        cargandoOrdenes={cargandoOrdenes}
+        errorOrdenes={errorOrdenes}
+        onRetryOrdenes={fetchOrdenes}
+        onCancel={() => setOpenModalCreate(false)}
+        onSuccess={() => setOpenModalCreate(false)}
+      />
     </PageHeader>
   );
 }

@@ -26,6 +26,8 @@ export type ProductColumn = {
 
 export interface FormCreateInventoryProps {
   setOpenModalCreate: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export type ServiceColumn = {

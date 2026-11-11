@@ -1,6 +1,15 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { FormSection } from "@/components/forms/FormLayout"
 import { validarYFormatearRut } from "@/lib/client-rut"
+import { REGIONES_CHILE, getRegionChile } from "@/lib/chile-data"
 import type { ProveedorFormData } from "./types"
 
 interface ProveedorFormFieldsProps {
@@ -14,17 +23,17 @@ export function focusProveedorField(
   idPrefix: string,
   field: keyof ProveedorFormData
 ) {
-  const input = document.getElementById(`${idPrefix}-${field}`)
-  if (!(input instanceof HTMLInputElement)) return
+  const element = document.getElementById(`${idPrefix}-${field}`)
+  if (!element) return
 
   const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches
-  input.scrollIntoView({
+  element.scrollIntoView({
     behavior: prefersReducedMotion ? "auto" : "smooth",
     block: "nearest",
   })
-  requestAnimationFrame(() => input.focus())
+  requestAnimationFrame(() => element.focus())
 }
 
 export function ProveedorFormFields({
@@ -33,17 +42,28 @@ export function ProveedorFormFields({
   disabled = false,
   idPrefix = "prov",
 }: ProveedorFormFieldsProps) {
+  const regionSeleccionada = getRegionChile(form.region)
+  const ciudadesDisponibles = regionSeleccionada?.ciudades ?? []
+
+  const handleRegionChange = (nombreRegion: string) => {
+    updateField("region", nombreRegion)
+    const nuevaRegion = getRegionChile(nombreRegion)
+    if (!nuevaRegion?.ciudades.includes(form.ciudad)) {
+      updateField("ciudad", "")
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          Información del proveedor
-        </h3>
-
+      <FormSection title="Información del proveedor">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor={`${idPrefix}-razonSocial`}>
-              Razón social <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-razonSocial`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Razón social
             </Label>
             <Input
               id={`${idPrefix}-razonSocial`}
@@ -55,8 +75,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-rut`}>
-              RUT <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-rut`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              RUT
             </Label>
             <Input
               id={`${idPrefix}-rut`}
@@ -72,7 +96,10 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-nombreFantasia`}>
+            <Label
+              htmlFor={`${idPrefix}-nombreFantasia`}
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
               Nombre fantasía
             </Label>
             <Input
@@ -85,8 +112,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-giro`}>
-              Giro <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-giro`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Giro
             </Label>
             <Input
               id={`${idPrefix}-giro`}
@@ -98,8 +129,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-condicionesDePago`}>
-              Condiciones de pago <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-condicionesDePago`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Condiciones de pago
             </Label>
             <Input
               id={`${idPrefix}-condicionesDePago`}
@@ -111,7 +146,10 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor={`${idPrefix}-nombreContacto`}>
+            <Label
+              htmlFor={`${idPrefix}-nombreContacto`}
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
               Nombre de contacto
             </Label>
             <Input
@@ -123,17 +161,17 @@ export function ProveedorFormFields({
             />
           </div>
         </div>
-      </section>
+      </FormSection>
 
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          Datos de contacto
-        </h3>
-
+      <FormSection title="Datos de contacto">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-telefono`}>
-              Teléfono <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-telefono`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Teléfono
             </Label>
             <Input
               id={`${idPrefix}-telefono`}
@@ -154,8 +192,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-correo`}>
-              Correo electrónico <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-correo`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Correo electrónico
             </Label>
             <Input
               id={`${idPrefix}-correo`}
@@ -167,41 +209,86 @@ export function ProveedorFormFields({
             />
           </div>
         </div>
-      </section>
+      </FormSection>
 
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Dirección</h3>
-
+      <FormSection title="Dirección">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-region`}>
-              Región <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-region`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Región
             </Label>
-            <Input
-              id={`${idPrefix}-region`}
-              value={form.region}
-              onChange={(e) => updateField("region", e.target.value)}
-              placeholder="Región Metropolitana"
+            <Select
+              value={regionSeleccionada?.nombre ?? form.region}
+              onValueChange={handleRegionChange}
               disabled={disabled}
-            />
+            >
+              <SelectTrigger
+                id={`${idPrefix}-region`}
+                aria-label="Seleccionar región"
+                className="w-full"
+              >
+                <SelectValue placeholder="Selecciona una región" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {REGIONES_CHILE.map((region) => (
+                  <SelectItem key={region.nombre} value={region.nombre}>
+                    {region.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-ciudad`}>
-              Ciudad <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-ciudad`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Ciudad
             </Label>
-            <Input
-              id={`${idPrefix}-ciudad`}
+            <Select
               value={form.ciudad}
-              onChange={(e) => updateField("ciudad", e.target.value)}
-              placeholder="Santiago"
-              disabled={disabled}
-            />
+              onValueChange={(value) => updateField("ciudad", value)}
+              disabled={disabled || !regionSeleccionada}
+            >
+              <SelectTrigger
+                id={`${idPrefix}-ciudad`}
+                aria-label="Seleccionar ciudad"
+                className="w-full"
+              >
+                <SelectValue
+                  placeholder={
+                    !regionSeleccionada
+                      ? "Primero selecciona una región"
+                      : "Selecciona una ciudad"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {ciudadesDisponibles.map((ciudad) => (
+                  <SelectItem key={ciudad} value={ciudad}>
+                    {ciudad}
+                  </SelectItem>
+                ))}
+                {form.ciudad && !ciudadesDisponibles.includes(form.ciudad) && (
+                  <SelectItem value={form.ciudad}>{form.ciudad}</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-comuna`}>
-              Comuna <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-comuna`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Comuna
             </Label>
             <Input
               id={`${idPrefix}-comuna`}
@@ -213,8 +300,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-calle`}>
-              Calle <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-calle`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Calle
             </Label>
             <Input
               id={`${idPrefix}-calle`}
@@ -226,8 +317,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-numero`}>
-              Número <span className="text-destructive">*</span>
+            <Label
+              htmlFor={`${idPrefix}-numero`}
+              required
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Número
             </Label>
             <Input
               id={`${idPrefix}-numero`}
@@ -239,7 +334,12 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-unidad`}>Unidad / oficina</Label>
+            <Label
+              htmlFor={`${idPrefix}-unidad`}
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Unidad / oficina
+            </Label>
             <Input
               id={`${idPrefix}-unidad`}
               value={form.unidad}
@@ -250,8 +350,11 @@ export function ProveedorFormFields({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor={`${idPrefix}-direccionDescripcion`}>
-              Descripción dirección
+            <Label
+              htmlFor={`${idPrefix}-direccionDescripcion`}
+              className="inline-block mb-1.5 font-medium text-foreground"
+            >
+              Nombre de la dirección
             </Label>
             <Input
               id={`${idPrefix}-direccionDescripcion`}
@@ -264,7 +367,7 @@ export function ProveedorFormFields({
             />
           </div>
         </div>
-      </section>
+      </FormSection>
     </div>
   )
 }
