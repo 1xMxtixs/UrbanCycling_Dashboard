@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { FormDialog, type FormDialogSize } from "@/components/forms/FormDialog";
 import {
   Select,
   SelectContent,
@@ -75,9 +77,15 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface FormCreateClienteProps {
+export interface FormCreateClienteProps {
   cliente?: DBCliente;
   onSuccess: () => void;
+  onCancel?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  title?: string;
+  description?: string;
+  size?: FormDialogSize;
 }
 
 function getInitialValues(cliente?: DBCliente): FormValues {
@@ -115,7 +123,16 @@ function getInitialValues(cliente?: DBCliente): FormValues {
   };
 }
 
-export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps) {
+export function FormCreateCliente({
+  cliente,
+  onSuccess,
+  onCancel,
+  open,
+  onOpenChange,
+  title,
+  description,
+  size = "lg",
+}: FormCreateClienteProps) {
   const [errorGeneral, setErrorGeneral] = useState("");
 
   const form = useForm<FormValues>({
@@ -130,7 +147,10 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
     }
   }, [cliente, form]);
 
-  const tipoCliente = form.watch("tipoCliente");
+  const tipoCliente = useWatch({
+    control: form.control,
+    name: "tipoCliente",
+  });
   const { isSubmitting } = form.formState;
 
   const onSubmit = async (values: FormValues) => {
@@ -202,15 +222,56 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
     }
   };
 
-  return (
+  const footerContent = (
+    <div className="space-y-3">
+      {errorGeneral && (
+        <p role="alert" className="text-sm text-destructive">
+          {errorGeneral}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+        )}
+        <Button
+          type="button"
+          onClick={form.handleSubmit(onSubmit)}
+          disabled={isSubmitting}
+        >
+          {isSubmitting && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+          )}
+          {isSubmitting
+            ? "Guardando..."
+            : cliente
+              ? "Guardar cambios"
+              : "Guardar cliente"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="tipoCliente"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tipo de cliente</FormLabel>
+              <FormLabel
+                required
+                className="inline-block mb-1.5 font-medium text-foreground"
+              >
+                Tipo de cliente
+              </FormLabel>
               <Select
                 value={field.value}
                 onValueChange={field.onChange}
@@ -226,7 +287,11 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                   <SelectItem value="juridica">Persona Jurídica</SelectItem>
                 </SelectContent>
               </Select>
-              {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
+              {cliente && (
+                <FormDescription>
+                  No se puede modificar una vez registrado.
+                </FormDescription>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -239,7 +304,12 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="nombre"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombres</FormLabel>
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Nombres
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Ej: Juan Andrés" {...field} />
                   </FormControl>
@@ -252,7 +322,12 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="apellido"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Apellidos</FormLabel>
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Apellidos
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Ej: Pérez Silva" {...field} />
                   </FormControl>
@@ -269,9 +344,17 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="razon"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Razón social</FormLabel>
+                <FormLabel
+                  required
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Razón social
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Ej: Transportes y Ciclismo SpA" {...field} />
+                  <Input
+                    placeholder="Ej: Transportes y Ciclismo SpA"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -285,7 +368,12 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="rut"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>RUT</FormLabel>
+                <FormLabel
+                  required
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  RUT
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="12345678-9"
@@ -293,14 +381,22 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                     disabled={Boolean(cliente)}
                     onBlur={(event) => {
                       field.onBlur();
-                      const result = validarYFormatearRut(event.currentTarget.value);
+                      const result = validarYFormatearRut(
+                        event.currentTarget.value
+                      );
                       if (result.valid) {
-                        form.setValue("rut", result.compact, { shouldValidate: true });
+                        form.setValue("rut", result.compact, {
+                          shouldValidate: true,
+                        });
                       }
                     }}
                   />
                 </FormControl>
-                {cliente && <FormDescription>No se puede modificar una vez registrado.</FormDescription>}
+                {cliente && (
+                  <FormDescription>
+                    No se puede modificar una vez registrado.
+                  </FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -310,7 +406,12 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             name="telefono"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Teléfono</FormLabel>
+                <FormLabel
+                  required
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Teléfono
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="912345678"
@@ -318,7 +419,9 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
                     inputMode="numeric"
                     {...field}
                     onChange={(event) =>
-                      field.onChange(event.target.value.replace(/\D/g, "").slice(0, 9))
+                      field.onChange(
+                        event.target.value.replace(/\D/g, "").slice(0, 9)
+                      )
                     }
                   />
                 </FormControl>
@@ -335,7 +438,9 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="nombreContacto"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contacto (opcional)</FormLabel>
+                  <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
+                    Contacto (opcional)
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Persona de contacto" {...field} />
                   </FormControl>
@@ -348,7 +453,9 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
               name="giro"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Giro (opcional)</FormLabel>
+                  <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
+                    Giro (opcional)
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Giro comercial" {...field} />
                   </FormControl>
@@ -358,27 +465,34 @@ export function FormCreateCliente({ cliente, onSuccess }: FormCreateClienteProps
             />
           </div>
         )}
-
-        {errorGeneral && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-            {errorGeneral}
-          </div>
-        )}
-
-        <div className="flex justify-end pt-2">
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full font-semibold sm:w-auto"
-          >
-            {isSubmitting
-              ? "Guardando..."
-              : cliente
-                ? "Guardar cambios"
-                : "Guardar cliente"}
-          </Button>
-        </div>
       </form>
     </Form>
+  );
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title ?? (cliente ? "Editar cliente" : "Registrar Nuevo Cliente")}
+        description={
+          description ??
+          (cliente
+            ? "Modifica los datos del cliente."
+            : "Ingresa los datos personales o comerciales, teléfonos y direcciones de contacto.")
+        }
+        size={size}
+        footer={footerContent}
+      >
+        {formFields}
+      </FormDialog>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {formFields}
+      {footerContent}
+    </div>
   );
 }

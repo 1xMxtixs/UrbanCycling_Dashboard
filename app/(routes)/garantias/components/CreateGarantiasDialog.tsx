@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
-  ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 import { FormDialog } from "@/components/forms/FormDialog";
@@ -350,245 +350,22 @@ export function CreateGarantiasDialog({
     <FormDialog
       open={open}
       onOpenChange={handleClose}
-      title={
-        <span className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" />
-          Registrar Solicitud de Garantía
-        </span>
-      }
+      title="Registrar Solicitud de Garantía"
       description="Ingresa la orden de trabajo asociada y los antecedentes del reclamo."
       size="2xl"
-    >
-      <div className="space-y-6 py-2">
-
-          {/* =================================================
-              ORDEN DE TRABAJO
-          ================================================= */}
-
-          <div className="space-y-2">
-            <Label htmlFor="orden">
-              Orden de Trabajo{" "}
-              <span className="text-destructive">
-                *
-              </span>
-            </Label>
-
-            <Select
-              value={ordenSeleccionada}
-              onValueChange={(value) => {
-                setOrdenSeleccionada(value);
-                setError("");
-              }}
-              disabled={isLoadingOrdenes || ordenesDisponibles.length === 0}
-            >
-              <SelectTrigger
-                id="orden"
-                className="w-full cursor-pointer"
-              >
-                <SelectValue
-                  placeholder={
-                    isLoadingOrdenes
-                      ? "Cargando órdenes..."
-                      : ordenesDisponibles.length === 0
-                      ? "No hay órdenes disponibles"
-                      : "Seleccionar orden de trabajo"
-                  }
-                />
-              </SelectTrigger>
-
-              <SelectContent>
-                {isLoadingOrdenes ? (
-                  <SelectItem
-                    value="loading"
-                    disabled
-                  >
-                    Cargando órdenes...
-                  </SelectItem>
-                ) : ordenesDisponibles.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No hay órdenes disponibles
-                  </div>
-                ) : (
-                  ordenesDisponibles.map(
-                    (item) => (
-                      <SelectItem
-                        key={item.idOrdenDeTrabajo}
-                        value={String(
-                          item.idOrdenDeTrabajo
-                        )}
-                      >
-                        OT #{item.idOrdenDeTrabajo} —{" "}
-                        {item.cliente.nombre}
-                      </SelectItem>
-                    )
-                  )
-                )}
-              </SelectContent>
-            </Select>
-
-            <p className="text-xs text-muted-foreground">
-              Solo se muestran órdenes de trabajo
-              disponibles para solicitar garantía.
-            </p>
-          </div>
-
-          {/* =================================================
-              INFORMACIÓN AUTOMÁTICA
-          ================================================= */}
-
-          {orden && (
-            <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-
-                <p className="text-sm font-semibold">
-                  Información de la Orden
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-
-                {/* CLIENTE */}
-
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Cliente
-                  </p>
-
-                  <p className="text-sm font-semibold">
-                    {orden.cliente.nombre}
-                  </p>
-
-                  <p className="text-xs text-muted-foreground">
-                    RUT: {orden.cliente.rut}
-                  </p>
-                </div>
-
-                {/* BICICLETA */}
-
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Bicicleta
-                  </p>
-
-                  <p className="text-sm font-semibold">
-                    {orden.bicicletas?.[0]?.marca ??
-                      "Sin bicicleta"}
-                  </p>
-
-                  <p className="text-xs text-muted-foreground">
-                    Modelo:{" "}
-                    {orden.bicicletas?.[0]?.modelo ??
-                      "Sin modelo"}
-                  </p>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* =================================================
-              FECHA DE INGRESO
-          ================================================= */}
-
-          <div className="space-y-2">
-            <span className="text-sm font-medium leading-none text-foreground select-none">
-              Fecha de Ingreso
-            </span>
-
-            <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-
-              <span className="text-sm">
-                {fechaFormateada}
-              </span>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              La fecha se registra automáticamente.
-            </p>
-          </div>
-
-          {/* =================================================
-              MOTIVO DEL RECLAMO
-          ================================================= */}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="motivo">
-                Motivo del Reclamo{" "}
-                <span className="text-destructive">
-                  *
-                </span>
-              </Label>
-
-              <span className="text-xs text-muted-foreground">
-                {motivoReclamo.length}/500
-              </span>
-            </div>
-
-            <Textarea
-              id="motivo"
-              placeholder="Describe el problema o falla que presenta nuevamente la bicicleta..."
-              value={motivoReclamo}
-              onChange={(event) => {
-                setMotivoReclamo(
-                  event.target.value
-                );
-
-                setError("");
-              }}
-              maxLength={500}
-              rows={5}
-              className="resize-none"
-            />
-          </div>
-
-          {/* =================================================
-              ESTADO INICIAL
-          ================================================= */}
-
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <p className="text-xs text-muted-foreground">
-              Estado inicial
-            </p>
-
-            <p className="mt-1 text-sm font-semibold text-primary">
-              Ingresado
-            </p>
-
-            <p className="mt-1 text-xs text-muted-foreground">
-              La solicitud quedará ingresada y podrá
-              ser modificada antes de pasar a revisión.
-            </p>
-          </div>
-
-          {/* =================================================
-              ERROR
-          ================================================= */}
-
+      footer={
+        <div className="space-y-3">
           {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
-              <p className="text-sm text-destructive">
-                {error}
-              </p>
-            </div>
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
           )}
-
-          {/* =================================================
-              BOTONES
-          ================================================= */}
-
-          <div className="flex justify-end gap-3 border-t pt-4">
-
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                handleClose(false)
-              }
+              onClick={() => handleClose(false)}
               disabled={isSubmitting}
-              className="cursor-pointer"
             >
               Cancelar
             </Button>
@@ -596,20 +373,205 @@ export function CreateGarantiasDialog({
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={
-                isSubmitting ||
-                isLoadingOrdenes
-              }
-              className="cursor-pointer"
+              disabled={isSubmitting || isLoadingOrdenes}
             >
-              {isSubmitting
-                ? "Registrando..."
-                : "Registrar Solicitud"}
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              )}
+              {isSubmitting ? "Registrando..." : "Registrar Solicitud"}
             </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-6">
 
+        {/* =================================================
+            ORDEN DE TRABAJO
+        ================================================= */}
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="orden"
+            required
+            className="inline-block mb-1.5 font-medium text-foreground"
+          >
+            Orden de Trabajo
+          </Label>
+
+          <Select
+            value={ordenSeleccionada}
+            onValueChange={(value) => {
+              setOrdenSeleccionada(value);
+              setError("");
+            }}
+            disabled={isLoadingOrdenes || ordenesDisponibles.length === 0}
+          >
+            <SelectTrigger
+              id="orden"
+              className="w-full cursor-pointer"
+            >
+              <SelectValue
+                placeholder={
+                  isLoadingOrdenes
+                    ? "Cargando órdenes..."
+                    : ordenesDisponibles.length === 0
+                    ? "No hay órdenes disponibles"
+                    : "Seleccionar orden de trabajo"
+                }
+              />
+            </SelectTrigger>
+
+            <SelectContent>
+              {isLoadingOrdenes ? (
+                <SelectItem
+                  value="loading"
+                  disabled
+                >
+                  Cargando órdenes...
+                </SelectItem>
+              ) : ordenesDisponibles.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  No hay órdenes disponibles
+                </div>
+              ) : (
+                ordenesDisponibles.map(
+                  (item) => (
+                    <SelectItem
+                      key={item.idOrdenDeTrabajo}
+                      value={String(
+                        item.idOrdenDeTrabajo
+                      )}
+                    >
+                      OT #{item.idOrdenDeTrabajo} —{" "}
+                      {item.cliente.nombre}
+                    </SelectItem>
+                  )
+                )
+              )}
+            </SelectContent>
+          </Select>
+
+          <p className="text-xs text-muted-foreground">
+            Solo se muestran órdenes de trabajo
+            disponibles para solicitar garantía.
+          </p>
+        </div>
+
+        {/* =================================================
+            INFORMACIÓN AUTOMÁTICA
+        ================================================= */}
+
+        {orden && (
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+
+              <p className="text-sm font-semibold">
+                Información de la Orden
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+
+              {/* CLIENTE */}
+
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Cliente
+                </p>
+
+                <p className="text-sm font-semibold">
+                  {orden.cliente.nombre}
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  RUT: {orden.cliente.rut}
+                </p>
+              </div>
+
+              {/* BICICLETA */}
+
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Bicicleta
+                </p>
+
+                <p className="text-sm font-semibold">
+                  {orden.bicicletas?.[0]?.marca ??
+                    "Sin bicicleta"}
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  Modelo:{" "}
+                  {orden.bicicletas?.[0]?.modelo ??
+                    "Sin modelo"}
+                </p>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* =================================================
+            FECHA DE INGRESO
+        ================================================= */}
+
+        <div className="space-y-2">
+          <span className="inline-block mb-1.5 text-sm font-medium text-foreground select-none">
+            Fecha de Ingreso
+          </span>
+
+          <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+
+            <span className="text-sm">
+              {fechaFormateada}
+            </span>
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            La fecha se registra automáticamente.
+          </p>
         </div>
+
+        {/* =================================================
+            MOTIVO DEL RECLAMO
+        ================================================= */}
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <Label
+              htmlFor="motivo"
+              required
+              className="inline-block font-medium text-foreground"
+            >
+              Motivo del Reclamo
+            </Label>
+
+            <span className="text-xs text-muted-foreground">
+              {motivoReclamo.length}/500
+            </span>
+          </div>
+
+          <Textarea
+            id="motivo"
+            placeholder="Describe el problema o falla que presenta nuevamente la bicicleta..."
+            value={motivoReclamo}
+            onChange={(event) => {
+              setMotivoReclamo(
+                event.target.value
+              );
+
+              setError("");
+            }}
+            maxLength={500}
+            rows={5}
+            className="resize-none"
+          />
+        </div>
+
+      </div>
     </FormDialog>
   );
 }

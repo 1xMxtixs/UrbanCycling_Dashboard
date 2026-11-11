@@ -23,7 +23,7 @@ const DEFAULT_ALLOWED_TYPES = [
 ];
 
 export function ImageUpload({
-  label = "Imagen (Opcional)",
+  label = "Imagen (opcional)",
   imagePreview,
   onChange,
   maxSizeInMB = 5,
@@ -63,7 +63,7 @@ export function ImageUpload({
 
   return (
     <div className="space-y-2">
-      {label && <Label className="text-xs font-semibold text-muted-foreground">{label}</Label>}
+      {label && <Label className="text-sm font-medium text-foreground">{label}</Label>}
 
       {imagePreview ? (
         <div className="group relative h-36 w-36 overflow-hidden rounded-lg border border-border bg-muted">

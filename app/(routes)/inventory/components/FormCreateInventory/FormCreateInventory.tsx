@@ -27,35 +27,59 @@ import {
   SelectContent,
 } from "@/components/ui/select";
 import { ImageUpload } from "@/components/forms/ImageUpload";
+import { FormSection } from "@/components/forms/FormLayout";
+import { FormDialog } from "@/components/forms/FormDialog";
+import { Loader2 } from "lucide-react";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 
-const DESCRIPTION_MAX_LENGTH = 50;
+const DESCRIPTION_MAX_LENGTH = 500;
 type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
 
 const numericField = (fieldName: string) =>
   z
     .string()
     .min(1, `${fieldName} es obligatorio`)
-    .refine((value) => !Number.isNaN(Number(value)), {
-      message: `${fieldName} debe ser un número válido`,
-    })
-    .refine((value) => Number(value) >= 0, {
-      message: `${fieldName} debe ser mayor o igual a 0`,
-    });
+    .refine(
+      (value) => {
+        const clean = value.replace(/\D/g, "");
+        return clean.length > 0 && !Number.isNaN(Number(clean));
+      },
+      {
+        message: `${fieldName} debe ser un número válido`,
+      }
+    )
+    .refine(
+      (value) => {
+        const clean = value.replace(/\D/g, "");
+        return Number(clean) >= 0;
+      },
+      {
+        message: `${fieldName} debe ser mayor o igual a 0`,
+      }
+    );
 
 const integerField = (fieldName: string) =>
-  numericField(fieldName).refine((value) => Number.isInteger(Number(value)), {
-    message: `${fieldName} debe ser un número entero`,
-  });
+  numericField(fieldName).refine(
+    (value) => {
+      const clean = value.replace(/\D/g, "");
+      return Number.isInteger(Number(clean));
+    },
+    {
+      message: `${fieldName} debe ser un número entero`,
+    }
+  );
 
 const formSchema = z.object({
   tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
-  descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
+  descripcion: z
+    .string()
+    .max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 500 caracteres")
+    .optional(),
   precioVenta: numericField("El precio"),
   stockActual: integerField("El stock actual"),
   stockMinimo: integerField("El stock mínimo"),
@@ -64,7 +88,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryProps) {
+export function FormCreateInventory({
+  setOpenModalCreate,
+  open,
+  onOpenChange,
+}: FormCreateInventoryProps) {
   const router = useRouter();
   const { hasPermission } = useUserPermissions();
   const canAssociateSupplier = [
@@ -92,9 +120,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       tipoProducto: "",
       nombre: "",
       descripcion: "",
-      precioVenta: "0",
-      stockActual: "0",
-      stockMinimo: "0",
+      precioVenta: "",
+      stockActual: "",
+      stockMinimo: "",
       estado: ESTADO_REGISTRO.ACTIVO,
     },
   });
@@ -197,6 +225,10 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
         if (!imageUrl) return;
       }
 
+      const cleanPrecio = Number(values.precioVenta.replace(/\D/g, ""));
+      const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
+      const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
+
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: {
@@ -206,9 +238,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
           ...values,
           tipoProducto: canonicalTipoProducto(values.tipoProducto),
           descripcion: values.descripcion || null,
-          precioVenta: Number(values.precioVenta),
-          stockActual: Number(values.stockActual),
-          stockMinimo: Number(values.stockMinimo),
+          precioVenta: cleanPrecio,
+          stockActual: cleanStockActual,
+          stockMinimo: cleanStockMinimo,
           categoriaIds: selectedCategoryIds,
           ...(selectedSupplierId !== "none" ? { idProveedor: Number(selectedSupplierId) } : {}),
           imageUrl,
@@ -236,26 +268,289 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
     }
   };
 
-  return (
+  const footerContent = (
+    <div className="space-y-3">
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpenModalCreate(false)}
+          disabled={isSubmitting || uploadingImage}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          onClick={form.handleSubmit(onSubmit)}
+          disabled={!isValid || isSubmitting || uploadingImage}
+        >
+          {(uploadingImage || isSubmitting) && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+          )}
+          {uploadingImage
+            ? "Subiendo imagen..."
+            : isSubmitting
+              ? "Guardando..."
+              : "Guardar producto"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const formFields = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormSection title="Información básica">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+            <FormField
+              control={form.control}
+              name="tipoProducto"
+              render={({ field }) => (
+                <FormItem className="col-span-1">
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Tipo de producto
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecciona un tipo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {getTipoProductoOptions().map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="nombre"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Nombre
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Cadena Shimano 11v" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           <FormField
             control={form.control}
-            name="tipoProducto"
+            name="descripcion"
             render={({ field }) => (
-              <FormItem className="col-span-1">
-                <FormLabel>Tipo de producto</FormLabel>
+              <FormItem>
+                <div className="flex items-center justify-between mb-1.5">
+                  <FormLabel className="inline-block font-medium text-foreground">
+                    Descripción (opcional)
+                  </FormLabel>
+
+                  <span className="text-xs text-muted-foreground">
+                    {description.length}/{DESCRIPTION_MAX_LENGTH}
+                  </span>
+                </div>
+                <FormControl>
+                  <Textarea
+                    placeholder="Descripción opcional del producto"
+                    maxLength={DESCRIPTION_MAX_LENGTH}
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </FormSection>
+
+        <FormSection title="Clasificación">
+          <div className="space-y-2">
+            <FormLabel className="inline-block mb-1.5 font-medium text-foreground">
+              Categorías (opcional)
+            </FormLabel>
+            <CategoryMultiSelect
+              categories={categories}
+              value={selectedCategoryIds}
+              onChange={setSelectedCategoryIds}
+              disabled={isSubmitting || uploadingImage}
+            />
+            <p className="text-xs text-muted-foreground">
+              Selecciona una o más categorías para facilitar el filtrado del inventario.
+            </p>
+          </div>
+
+          {canAssociateSupplier && (
+            <div className="space-y-2">
+              <FormLabel
+                htmlFor="create-product-supplier"
+                className="inline-block mb-1.5 font-medium text-foreground"
+              >
+                Proveedor (opcional)
+              </FormLabel>
+              <Select
+                value={selectedSupplierId}
+                onValueChange={setSelectedSupplierId}
+                disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+              >
+                <SelectTrigger id="create-product-supplier" className="w-full">
+                  <SelectValue placeholder="Selecciona un proveedor" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="none">Sin proveedor</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
+                      {supplier.razonSocial} · {supplier.rut}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {loadingSuppliers ? (
+                <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
+              ) : supplierError ? (
+                <div className="space-y-1">
+                  <p role="alert" className="text-xs text-destructive">{supplierError}</p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
+                    Reintentar carga de proveedores
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {suppliers.length
+                    ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
+                    : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
+                </p>
+              )}
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection title="Inventario y precio">
+          <div className="grid gap-4 sm:grid-cols-3 items-start">
+            <FormField
+              control={form.control}
+              name="precioVenta"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Precio de venta (CLP)
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="$0"
+                      value={field.value}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        if (!digits) {
+                          field.onChange("");
+                        } else {
+                          const formatted = `$${Number(digits).toLocaleString("es-CL")}`;
+                          field.onChange(formatted);
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="stockActual"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Stock actual
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={field.value}
+                      onChange={(e) => {
+                        field.onChange(e.target.value.replace(/\D/g, ""));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="stockMinimo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel
+                    required
+                    className="inline-block mb-1.5 font-medium text-foreground"
+                  >
+                    Stock mínimo
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={field.value}
+                      onChange={(e) => {
+                        field.onChange(e.target.value.replace(/\D/g, ""));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </FormSection>
+
+        <FormSection title="Estado e imagen">
+          <FormField
+            control={form.control}
+            name="estado"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel
+                  required
+                  className="inline-block mb-1.5 font-medium text-foreground"
+                >
+                  Estado
+                </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecciona un tipo" />
+                      <SelectValue placeholder="Selecciona un estado" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    {getTipoProductoOptions().map((type) => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
+                    <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Activo</SelectItem>
+                    <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -263,182 +558,39 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="nombre"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Nombre</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: Cadena Shimano 11v" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <FormLabel>Categorías</FormLabel>
-          <CategoryMultiSelect
-            categories={categories}
-            value={selectedCategoryIds}
-            onChange={setSelectedCategoryIds}
+          <ImageUpload
+            label="Imagen (opcional)"
+            imagePreview={imagePreview}
+            onChange={(file, previewUrl) => {
+              setImageFile(file);
+              setImagePreview(previewUrl);
+            }}
             disabled={isSubmitting || uploadingImage}
           />
-          <p className="text-xs text-muted-foreground">
-            Selecciona una o más categorías para facilitar el filtrado del inventario.
-          </p>
-        </div>
-
-        {canAssociateSupplier && (
-          <div className="space-y-2">
-            <FormLabel htmlFor="create-product-supplier">Proveedor (opcional)</FormLabel>
-            <Select
-              value={selectedSupplierId}
-              onValueChange={setSelectedSupplierId}
-              disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-            >
-              <SelectTrigger id="create-product-supplier" className="w-full">
-                <SelectValue placeholder="Selecciona un proveedor" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="none">Sin proveedor</SelectItem>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
-                    {supplier.razonSocial} · {supplier.rut}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loadingSuppliers ? (
-              <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
-            ) : supplierError ? (
-              <div className="space-y-1">
-                <p role="alert" className="text-xs text-destructive">{supplierError}</p>
-                <Button type="button" variant="outline" size="sm" onClick={() => setSupplierRetry((value) => value + 1)}>
-                  Reintentar carga de proveedores
-                </Button>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {suppliers.length
-                  ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
-                  : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
-              </p>
-            )}
-          </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="descripcion"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Descripción opcional del producto"
-                  maxLength={DESCRIPTION_MAX_LENGTH}
-                  {...field}
-                />
-              </FormControl>
-              <p className="text-right text-xs text-muted-foreground">{description.length}/{DESCRIPTION_MAX_LENGTH}</p>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="precioVenta"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Precio venta</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="stockActual"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Stock actual</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="stockMinimo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Stock mínimo</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="estado"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Estado</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona un estado" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent position="popper">
-                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>Activo</SelectItem>
-                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <ImageUpload
-          label="Imagen del producto (Opcional)"
-          imagePreview={imagePreview}
-          onChange={(file, previewUrl) => {
-            setImageFile(file);
-            setImagePreview(previewUrl);
-          }}
-          disabled={isSubmitting || uploadingImage}
-        />
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            type="submit"
-            disabled={!isValid || isSubmitting || uploadingImage}
-            className="w-full sm:w-auto"
-          >
-            {uploadingImage
-              ? "Subiendo imagen..."
-              : isSubmitting
-                ? "Guardando..."
-                : "Guardar producto"}
-          </Button>
-        </div>
+        </FormSection>
       </form>
     </Form>
+  );
+
+  if (open !== undefined || onOpenChange !== undefined) {
+    return (
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Nuevo Producto en Catálogo"
+        description="Completa la información técnica, categoría, precio de venta y niveles de stock mínimos."
+        size="2xl"
+        footer={footerContent}
+      >
+        {formFields}
+      </FormDialog>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {formFields}
+      {footerContent}
+    </div>
   );
 }

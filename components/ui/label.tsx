@@ -12,15 +12,25 @@ const labelVariants = cva(
 
 function Label({
   className,
+  required,
+  children,
   ...props
 }: React.ComponentProps<typeof LabelPrimitive.Root> &
-  VariantProps<typeof labelVariants>) {
+  VariantProps<typeof labelVariants> & { required?: boolean }) {
   return (
     <LabelPrimitive.Root
       data-slot="label"
       className={cn(labelVariants(), className)}
       {...props}
-    />
+    >
+      {children}
+      {required && (
+        <>
+          <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>
+          <span className="sr-only"> (obligatorio)</span>
+        </>
+      )}
+    </LabelPrimitive.Root>
   )
 }
 

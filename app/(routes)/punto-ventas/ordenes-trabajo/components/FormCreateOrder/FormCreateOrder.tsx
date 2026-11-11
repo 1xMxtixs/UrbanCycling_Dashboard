@@ -29,13 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreateCliente/FormCreateCliente"
 
 
@@ -806,20 +799,15 @@ export function FormCreateOrder({ setOpenModalCreate }: FormCreateOrderProps) {
       </form>
 
       {/* Diálogo de Registro Rápido de Cliente */}
-      <Dialog
+      <FormCreateCliente
         open={openQuickCreateClient}
         onOpenChange={setOpenQuickCreateClient}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Registrar Cliente Rápido</DialogTitle>
-            <DialogDescription>
-              Ingresa los datos para registrar un nuevo cliente en el sistema.
-            </DialogDescription>
-          </DialogHeader>
-          <FormCreateCliente onSuccess={handleQuickClientSuccess} />
-        </DialogContent>
-      </Dialog>
+        title="Registrar cliente rápido"
+        description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+        size="md"
+        onSuccess={handleQuickClientSuccess}
+        onCancel={() => setOpenQuickCreateClient(false)}
+      />
     </>
   )
 }

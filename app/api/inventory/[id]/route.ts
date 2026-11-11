@@ -343,7 +343,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       if (data.descripcion === null) {
         updateData.descripcion = null
       } else {
-        const value = parseRequiredText(data.descripcion, 50)
+        const value = parseRequiredText(data.descripcion, 500)
         if (value) updateData.descripcion = value
         else invalidFields.push("descripción")
       }

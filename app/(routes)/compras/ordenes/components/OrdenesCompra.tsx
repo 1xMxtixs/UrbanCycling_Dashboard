@@ -38,7 +38,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { FormDialog } from "@/components/forms/FormDialog"
 import { PERMISSIONS } from "@/lib/permissions"
 import { includesNormalizedText } from "@/lib/search-normalization"
 import { formatCLP } from "@/lib/formatters"
@@ -577,18 +576,12 @@ export function OrdenesCompra() {
         ) : null}
       </DataTableContainer>
 
-      <FormDialog
+      <CreatePurchaseOrderForm
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title="Nueva orden de compra"
-        description="Selecciona un proveedor activo, agrega productos y define las fechas de la orden."
-        size="3xl"
-      >
-        <CreatePurchaseOrderForm
-          onCreated={handleCreated}
-          onCancel={() => setCreateOpen(false)}
-        />
-      </FormDialog>
+        onCreated={handleCreated}
+        onCancel={() => setCreateOpen(false)}
+      />
 
       <PurchaseOrderDetail
         orderSummary={selected}

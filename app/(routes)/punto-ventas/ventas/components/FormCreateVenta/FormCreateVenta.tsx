@@ -32,14 +32,6 @@ import {
 
 import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreateCliente/FormCreateCliente"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
 import type { Client } from "@/app/(routes)/punto-ventas/types"
 import type { SaleCreationResult } from "../../types"
@@ -1081,28 +1073,15 @@ export function FormCreateVenta({
       </form>
 
       {/* Registro rápido de cliente */}
-      <Dialog
+      <FormCreateCliente
         open={openQuickCreateClient}
-        onOpenChange={
-          setOpenQuickCreateClient
-        }
-      >
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Registrar Cliente Rápido
-            </DialogTitle>
-
-            <DialogDescription>
-              Ingresa los datos para registrar un nuevo cliente en el sistema.
-            </DialogDescription>
-          </DialogHeader>
-
-          <FormCreateCliente
-            onSuccess={handleQuickClientSuccess}
-          />
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setOpenQuickCreateClient}
+        title="Registrar cliente rápido"
+        description="Ingresa los datos para registrar un nuevo cliente en el sistema."
+        size="md"
+        onSuccess={handleQuickClientSuccess}
+        onCancel={() => setOpenQuickCreateClient(false)}
+      />
     </>
   )
 }
