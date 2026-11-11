@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -80,7 +81,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState("none");
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -101,6 +102,12 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
 
   const { isSubmitting, isValid } = form.formState;
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
+  const supplierSummary =
+    selectedSupplierIds.length === 0
+      ? "Sin proveedor"
+      : selectedSupplierIds.length === 1
+        ? "1 proveedor"
+        : `${selectedSupplierIds.length} proveedores`;
 
   useEffect(() => {
     let isMounted = true;
@@ -185,8 +192,8 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (selectedSupplierId !== "none" && values.estado !== ESTADO_REGISTRO.ACTIVO) {
-      toast.error("El producto debe estar activo para asociarlo a un proveedor.");
+    if (selectedSupplierIds.length > 0 && values.estado !== ESTADO_REGISTRO.ACTIVO) {
+      toast.error("El producto debe estar activo para asociarlo a uno o más proveedores.");
       return;
     }
     try {
@@ -210,7 +217,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
           stockActual: Number(values.stockActual),
           stockMinimo: Number(values.stockMinimo),
           categoriaIds: selectedCategoryIds,
-          ...(selectedSupplierId !== "none" ? { idProveedor: Number(selectedSupplierId) } : {}),
+          ...(selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {}),
           imageUrl,
         }),
       });
@@ -228,7 +235,7 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
       setImageFile(null);
       setImagePreview(null);
       setSelectedCategoryIds([]);
-      setSelectedSupplierId("none");
+      setSelectedSupplierIds([]);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el producto"
@@ -293,24 +300,63 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
 
         {canAssociateSupplier && (
           <div className="space-y-2">
-            <FormLabel htmlFor="create-product-supplier">Proveedor (opcional)</FormLabel>
-            <Select
-              value={selectedSupplierId}
-              onValueChange={setSelectedSupplierId}
-              disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-            >
-              <SelectTrigger id="create-product-supplier" className="w-full">
-                <SelectValue placeholder="Selecciona un proveedor" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="none">Sin proveedor</SelectItem>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.idProveedor} value={String(supplier.idProveedor)}>
-                    {supplier.razonSocial} · {supplier.rut}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FormLabel>Proveedor/es (opcional)</FormLabel>
+            {suppliers.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
+              </p>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
+                    disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+                  >
+                    <span className="truncate">{supplierSummary}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">▾</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
+                  <div className="max-h-64 space-y-1 overflow-y-auto">
+                    <Button
+                      type="button"
+                      variant={selectedSupplierIds.length === 0 ? "default" : "ghost"}
+                      className="w-full justify-between text-left text-xs"
+                      onClick={() => setSelectedSupplierIds([])}
+                    >
+                      <span className="truncate">Sin proveedor</span>
+                      {selectedSupplierIds.length === 0 ? <span>✓</span> : null}
+                    </Button>
+                    {suppliers.map((supplier) => {
+                      const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
+
+                      return (
+                        <Button
+                          key={supplier.idProveedor}
+                          type="button"
+                          variant={isSelected ? "default" : "ghost"}
+                          className="w-full justify-between text-left text-xs"
+                          onClick={() =>
+                            setSelectedSupplierIds((current) =>
+                              current.includes(supplier.idProveedor)
+                                ? current.filter((id) => id !== supplier.idProveedor)
+                                : [...current, supplier.idProveedor],
+                            )
+                          }
+                        >
+                          <span className="min-w-0 truncate">
+                            {supplier.razonSocial} · {supplier.rut}
+                          </span>
+                          {isSelected ? <span className="shrink-0">✓</span> : null}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             {loadingSuppliers ? (
               <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
             ) : supplierError ? (
@@ -322,9 +368,9 @@ export function FormCreateInventory({ setOpenModalCreate }: FormCreateInventoryP
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {suppliers.length
-                  ? "El proveedor quedará vinculado al guardar el producto. Puedes agregar otros desde su ficha."
-                  : "No hay proveedores activos disponibles. Puedes crear el producto sin proveedor."}
+                {selectedSupplierIds.length > 0
+                  ? `${selectedSupplierIds.length} proveedor(es) seleccionado(s).`
+                  : "Puedes asociar uno o varios proveedores antes de guardar el producto."}
               </p>
             )}
           </div>
