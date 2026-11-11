@@ -7,17 +7,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
+import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ESTADO_GARANTIA_CODIGO, NOMBRES_ESTADO_GARANTIA } from "@/lib/garantia-status";
 
 import {
   Select,
@@ -144,9 +138,12 @@ export function CreateGarantiasDialog({
    * =====================================================
    */
 
-  const fechaIngreso = new Date()
-    .toISOString()
-    .split("T")[0];
+  const hoy = new Date();
+  const anioLocal = hoy.getFullYear();
+  const mesLocal = String(hoy.getMonth() + 1).padStart(2, "0");
+  const diaLocal = String(hoy.getDate()).padStart(2, "0");
+  const fechaIngreso = `${anioLocal}-${mesLocal}-${diaLocal}`;
+  const fechaParaBackend = `${diaLocal}-${mesLocal}-${anioLocal}`;
 
   /*
    * =====================================================
@@ -245,14 +242,6 @@ export function CreateGarantiasDialog({
        * motivo
        */
 
-      const fechaParaBackend = new Date(
-        `${fechaIngreso}T00:00:00`
-      ).toLocaleDateString("es-CL", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-
       const response = await fetch(
         "/api/garantias",
         {
@@ -311,9 +300,9 @@ export function CreateGarantiasDialog({
         fechaIngreso:
           data.garantia.fechaIngreso,
 
-        estado: "Ingresado",
+        estado: NOMBRES_ESTADO_GARANTIA.INGRESADO,
 
-        estadoCodigo: "INGRESADO",
+        estadoCodigo: ESTADO_GARANTIA_CODIGO.INGRESADO,
 
         veredicto: null,
 
@@ -358,25 +347,19 @@ export function CreateGarantiasDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
       onOpenChange={handleClose}
+      title={
+        <span className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          Registrar Solicitud de Garantía
+        </span>
+      }
+      description="Ingresa la orden de trabajo asociada y los antecedentes del reclamo."
+      size="2xl"
     >
-      <DialogContent className="w-[95vw] !max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-
-            Registrar Solicitud de Garantía
-          </DialogTitle>
-
-          <DialogDescription>
-            Ingresa la orden de trabajo asociada y los
-            antecedentes del reclamo.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6 py-2">
+      <div className="space-y-6 py-2">
 
           {/* =================================================
               ORDEN DE TRABAJO
@@ -396,16 +379,18 @@ export function CreateGarantiasDialog({
                 setOrdenSeleccionada(value);
                 setError("");
               }}
-              disabled={isLoadingOrdenes}
+              disabled={isLoadingOrdenes || ordenesDisponibles.length === 0}
             >
               <SelectTrigger
                 id="orden"
-                className="w-full"
+                className="w-full cursor-pointer"
               >
                 <SelectValue
                   placeholder={
                     isLoadingOrdenes
                       ? "Cargando órdenes..."
+                      : ordenesDisponibles.length === 0
+                      ? "No hay órdenes disponibles"
                       : "Seleccionar orden de trabajo"
                   }
                 />
@@ -420,12 +405,9 @@ export function CreateGarantiasDialog({
                     Cargando órdenes...
                   </SelectItem>
                 ) : ordenesDisponibles.length === 0 ? (
-                  <SelectItem
-                    value="empty"
-                    disabled
-                  >
+                  <div className="p-4 text-center text-sm text-muted-foreground">
                     No hay órdenes disponibles
-                  </SelectItem>
+                  </div>
                 ) : (
                   ordenesDisponibles.map(
                     (item) => (
@@ -510,9 +492,9 @@ export function CreateGarantiasDialog({
           ================================================= */}
 
           <div className="space-y-2">
-            <Label>
+            <span className="text-sm font-medium leading-none text-foreground select-none">
               Fecha de Ingreso
-            </Label>
+            </span>
 
             <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3">
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -628,7 +610,6 @@ export function CreateGarantiasDialog({
           </div>
 
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

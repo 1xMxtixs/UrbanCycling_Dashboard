@@ -1,144 +1,64 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react"
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-type AuthMode = "login" | "register"
-
-function formatRut(value: string) {
-  const cleaned = value
-    .toUpperCase()
-    .replace(/[^0-9K]/g, "")
-    .slice(0, 9)
-
-  if (cleaned.length <= 1) {
-    return cleaned
-  }
-
-  const body = cleaned.slice(0, -1)
-  const checkDigit = cleaned.slice(-1)
-  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-
-  return `${formattedBody}-${checkDigit}`
-}
-
-function splitNames(value: string) {
-  const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean)
-
-  return {
-    primerNombre: parts[0] ?? "",
-    segundoNombre: parts.slice(1).join(" ") || null,
-  }
-}
-
-function splitSurnames(value: string) {
-  const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean)
-
-  return {
-    apellidoPaterno: parts[0] ?? "",
-    apellidoMaterno: parts.slice(1).join(" "),
-  }
-}
-
 export function AuthForm() {
   const router = useRouter()
-  const [mode, setMode] = useState<AuthMode>("login")
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [rut, setRut] = useState("")
-  const [names, setNames] = useState("")
-  const [surnames, setSurnames] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
-  const isLogin = mode === "login"
-  const submitLabel = useMemo(
-    () => (isLogin ? "Acceder al Panel" : "Crear cuenta"),
-    [isLogin]
-  )
-
-  const handleModeChange = (nextMode: AuthMode) => {
-    setMode(nextMode)
-    setShowPassword(false)
-  }
-
-  const handleLogin = async () => {
+  /**
+   * Inicia la sesión con credenciales y redirige al panel cuando NextAuth
+   * confirma la identidad del usuario.
+   */
+  async function handleLogin() {
     const response = await signIn("credentials", {
-      email,
+      email: email.trim().toLowerCase(),
       password,
       redirect: false,
     })
 
     if (response?.error) {
-      throw new Error("Correo o contrasena incorrectos")
+      throw new Error("Correo o contraseña incorrectos.")
     }
 
     router.push("/")
     router.refresh()
   }
 
-  const handleRegister = async () => {
-    const { primerNombre, segundoNombre } = splitNames(names)
-    const { apellidoPaterno, apellidoMaterno } = splitSurnames(surnames)
-
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        rut,
-        primerNombre,
-        segundoNombre,
-        apellidoPaterno,
-        apellidoMaterno,
-        correoElectronico: email,
-        contrasena: password,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(errorText || "No se pudo crear la cuenta")
-    }
-
-    toast.success("Cuenta creada correctamente")
-    await handleLogin()
-  }
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  /**
+   * Valida los campos mínimos y controla el estado visual durante el inicio de
+   * sesión. La creación pública de cuentas ya no forma parte de este flujo.
+   */
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const { primerNombre } = splitNames(names)
-    const { apellidoPaterno, apellidoMaterno } = splitSurnames(surnames)
 
-    const missingRegisterFields =
-      !isLogin && (!rut || !primerNombre || !apellidoPaterno || !apellidoMaterno)
-
-    if (!email || !password || missingRegisterFields) {
-      toast.error("Completa los campos obligatorios")
+    if (!email.trim() || !password) {
+      toast.error("Ingresa tu correo y contraseña.")
       return
     }
 
     setIsLoading(true)
 
     try {
-      if (isLogin) {
-        await handleLogin()
-      } else {
-        await handleRegister()
-      }
+      await handleLogin()
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "No se pudo procesar la solicitud"
+        error instanceof Error
+          ? error.message
+          : "No fue posible iniciar sesión."
       )
     } finally {
       setIsLoading(false)
@@ -161,99 +81,57 @@ export function AuthForm() {
             </div>
             <h1 className="text-lg font-semibold">Urban Cycling</h1>
             <p className="mt-2 text-base text-zinc-300">
-              Gestion inteligente para el ciclista moderno
+              Gestión inteligente para el ciclista moderno
             </p>
           </div>
 
           <div className="w-full rounded-lg border border-white/10 bg-[#2d2d2d] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.4)] sm:p-7">
-            <div className="mb-6 grid grid-cols-2 rounded-md border border-white/10 bg-[#1b1b1b] p-1">
-              <button
-                type="button"
-                className={cn(
-                  "h-9 rounded-sm text-sm font-medium text-zinc-400 transition",
-                  isLogin && "bg-white text-zinc-950"
-                )}
-                onClick={() => handleModeChange("login")}
-              >
-                Iniciar sesion
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "h-9 rounded-sm text-sm font-medium text-zinc-400 transition",
-                  !isLogin && "bg-white text-zinc-950"
-                )}
-                onClick={() => handleModeChange("register")}
-              >
-                Registro
-              </button>
+            <div className="mb-6 text-center">
+              <h2 className="text-lg font-semibold text-white">
+                Acceso administrativo
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Ingresa tus credenciales para acceder al sistema.
+              </p>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
-              {!isLogin && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <AuthField
-                    icon={<User className="size-4" />}
-                    label="Rut"
-                    name="rut"
-                    placeholder="11.111.111-1"
-                    value={rut}
-                    onChange={(event) => setRut(formatRut(event.target.value))}
-                  />
-                  <AuthField
-                    icon={<User className="size-4" />}
-                    label="Nombre(s)"
-                    name="names"
-                    placeholder="Nombre"
-                    value={names}
-                    onChange={(event) => setNames(event.target.value)}
-                  />
-                  <AuthField
-                    icon={<User className="size-4" />}
-                    label="Apellidos"
-                    name="surnames"
-                    placeholder="Paterno Materno"
-                    value={surnames}
-                    onChange={(event) => setSurnames(event.target.value)}
-                    wrapperClassName="sm:col-span-2"
-                  />
-                </div>
-              )}
-
               <AuthField
                 icon={<Mail className="size-4" />}
-                label="Correo electronico"
+                label="Correo electrónico"
                 name="email"
                 placeholder="nombre@ejemplo.com"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
 
               <div className="space-y-2">
                 <label
-                  className="text-sm font-medium uppercase text-zinc-200"
+                  className="text-sm font-medium text-zinc-200 uppercase"
                   htmlFor="password"
                 >
-                  Contrasena
+                  Contraseña
                 </label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                  <Lock className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-zinc-500" />
                   <Input
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="********"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="h-14 rounded-sm border-white/5 bg-[#191919] pl-12 pr-12 text-base text-white placeholder:text-zinc-600 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+                    className="h-14 rounded-sm border-white/5 bg-[#191919] pr-12 pl-12 text-base text-white placeholder:text-zinc-600 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
                   />
                   <button
                     type="button"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 transition hover:text-white"
+                    className="absolute top-1/2 right-4 -translate-y-1/2 rounded-md p-1 text-zinc-500 transition hover:bg-white/5 hover:text-white"
                     onClick={() => setShowPassword((value) => !value)}
                     aria-label={
-                      showPassword ? "Ocultar contrasena" : "Mostrar contrasena"
+                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                     }
                   >
                     {showPassword ? (
@@ -265,49 +143,27 @@ export function AuthForm() {
                 </div>
               </div>
 
-              {isLogin && (
-                <div className="-mt-2 text-right">
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-blue-400 transition hover:text-blue-300 hover:underline"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
-              )}
+              <div className="-mt-2 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-blue-400 transition hover:text-blue-300 hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
                 className="h-14 w-full rounded-sm bg-white text-base font-semibold text-zinc-950 hover:bg-zinc-200"
               >
-                {isLoading ? "Procesando..." : submitLabel}
+                {isLoading ? "Accediendo..." : "Acceder al panel"}
                 {!isLoading && <ArrowRight className="size-5" />}
               </Button>
             </form>
-
-            {!isLogin && (
-              <>
-                <div className="my-7 h-px bg-white/10" />
-
-                <div className="text-center">
-                  <p className="text-sm text-zinc-300">
-                    Ya tienes una cuenta administrativa?
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-5 h-11 rounded-md border-white/15 bg-transparent px-8 text-sm font-medium uppercase text-white hover:bg-white hover:text-zinc-950"
-                    onClick={() => handleModeChange("login")}
-                  >
-                    Iniciar sesion
-                  </Button>
-                </div>
-              </>
-            )}
           </div>
 
-          <footer className="mt-10 text-center text-sm uppercase tracking-[0.18em] text-zinc-600">
+          <footer className="mt-10 text-center text-sm tracking-[0.18em] text-zinc-600 uppercase">
             <span className="text-blue-700">-</span> UC-Core v2.4.0
             <span className="mx-4">Copyright 2026 Urban Cycling Inc.</span>
           </footer>
@@ -323,6 +179,10 @@ type AuthFieldProps = React.ComponentProps<"input"> & {
   wrapperClassName?: string
 }
 
+/**
+ * Renderiza un campo visual del formulario de acceso manteniendo icono,
+ * etiqueta, foco y estilos coherentes con la pantalla de autenticación.
+ */
 function AuthField({
   icon,
   label,
@@ -333,13 +193,13 @@ function AuthField({
   return (
     <div className={cn("space-y-2", wrapperClassName)}>
       <label
-        className="text-sm font-medium uppercase text-zinc-200"
+        className="text-sm font-medium text-zinc-200 uppercase"
         htmlFor={props.name}
       >
         {label}
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+        <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-zinc-500">
           {icon}
         </span>
         <Input

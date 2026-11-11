@@ -1,9 +1,20 @@
 // Utilidades para normalizar y calcular datos de documentos tributarios.
 export type TaxDocumentOrigin = "venta" | "orden-trabajo"
 
-export const DEFAULT_TAX_DOCUMENT_TYPE = 39
+export const TIPO_DTE = {
+  FACTURA: 33,
+  BOLETA: 39,
+} as const
+
+export const DEFAULT_TAX_DOCUMENT_TYPE = TIPO_DTE.BOLETA
 export const DEFAULT_TAX_DOCUMENT_STATUS = "emitido"
 export const IVA_RATE = 0.19
+
+export function getTipoDteLabel(tipo: number): string {
+  if (tipo === TIPO_DTE.BOLETA) return "Boleta Electrónica"
+  if (tipo === TIPO_DTE.FACTURA) return "Factura Electrónica"
+  return `DTE Tipo ${tipo}`
+}
 
 export function parsePositiveInteger(value: unknown) {
   const parsedValue = Number(value)
@@ -29,11 +40,11 @@ export function normalizeTaxDocumentType(value: unknown) {
   }
 
   if (rawType === "boleta") {
-    return 39
+    return TIPO_DTE.BOLETA
   }
 
   if (rawType === "factura") {
-    return 33
+    return TIPO_DTE.FACTURA
   }
 
   const numericType = Number(rawType)

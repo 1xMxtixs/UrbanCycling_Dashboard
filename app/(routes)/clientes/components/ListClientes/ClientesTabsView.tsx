@@ -49,6 +49,7 @@ export function ClientesTabsView({
 
         <TabsContent value="natural" className="mt-0 focus-visible:outline-none">
           <DataTable
+            title="Personas naturales"
             columns={columnsNaturales}
             data={clientesNaturales}
             initialSearch={initialSearch}
@@ -61,6 +62,7 @@ export function ClientesTabsView({
 
         <TabsContent value="juridica" className="mt-0 focus-visible:outline-none">
           <DataTable
+            title="Personas jurídicas"
             columns={columnsJuridicas}
             data={clientesJuridicas}
             initialSearch={initialSearch}

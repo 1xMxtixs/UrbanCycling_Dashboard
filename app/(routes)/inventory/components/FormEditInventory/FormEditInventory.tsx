@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -29,6 +29,9 @@ import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
 import type { InventoryCategory } from "../../types"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
+import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types"
+
+const DESCRIPTION_MAX_LENGTH = 50;
 
 type FormEditInventoryProps = {
   product: ProductColumn
@@ -51,7 +54,7 @@ const nonNegativeNumber = (label: string) =>
 const formSchema = z.object({
   tipoProducto: z.string().trim().min(1, "El tipo de producto es obligatorio"),
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100),
-  descripcion: z.string().max(50, "La descripción no puede superar 50 caracteres"),
+  descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
   precioVenta: nonNegativeNumber("El precio de venta").refine(
     (value) => Number.isInteger(Number(value)),
     "El precio de venta debe ser un número entero",
@@ -107,24 +110,34 @@ export function FormEditInventory({
   )
 
   useEffect(() => {
+    let isMounted = true
+
     async function loadCategories() {
       try {
         const response = await fetch("/api/inventory/categories", { cache: "no-store" })
         const result = await response.json().catch(() => null)
-        setCategories(response.ok ? result?.categories ?? [] : [])
+        if (isMounted) {
+          setCategories(response.ok ? result?.categories ?? [] : [])
+        }
       } catch {
-        setCategories([])
+        if (isMounted) {
+          setCategories([])
+        }
       }
     }
 
-    loadCategories()
+    void loadCategories()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: product.tipoProducto,
+      tipoProducto: canonicalTipoProducto(product.tipoProducto),
       nombre: product.nombre,
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
@@ -133,6 +146,8 @@ export function FormEditInventory({
       estado: isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO,
     },
   })
+  const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
+  const productTypeOptions = getTipoProductoOptions(product.tipoProducto)
 
   const handleImageChange = (file: File | null, previewUrl: string | null) => {
     setImageFile(file)
@@ -156,7 +171,7 @@ export function FormEditInventory({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tipoProducto: values.tipoProducto,
+          tipoProducto: canonicalTipoProducto(values.tipoProducto),
           nombre: values.nombre,
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
@@ -198,7 +213,7 @@ export function FormEditInventory({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-semibold tracking-tight text-muted-foreground">
             ID del producto
           </p>
           <p className="text-sm font-semibold text-foreground">
@@ -220,8 +235,9 @@ export function FormEditInventory({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    <SelectItem value="Repuesto">Repuesto</SelectItem>
-                    <SelectItem value="Accesorio">Accesorio</SelectItem>
+                    {productTypeOptions.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -288,9 +304,11 @@ export function FormEditInventory({
               <FormControl>
                 <Textarea
                   placeholder="Descripción opcional del producto"
+                  maxLength={DESCRIPTION_MAX_LENGTH}
                   {...field}
                 />
               </FormControl>
+              <p className="text-right text-xs text-muted-foreground">{description.length}/{DESCRIPTION_MAX_LENGTH}</p>
               <FormMessage />
             </FormItem>
           )}

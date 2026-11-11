@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 
 import { EstadoRegistro } from "@/generated/prisma"
 import { db } from "@/lib/db"
+import { productSuppliersInclude, supplierSummaries, type ProductSupplierSummary } from "@/lib/product-suppliers"
+import { associationId, lockSupplier, ProductSupplierError, productSupplierErrorResponse, requireProductSupplierPermission } from "@/lib/product-suppliers"
 import {
   productSearchQuerySchema,
   sortArticleSearchResults,
@@ -16,6 +18,7 @@ function withImageAlias(product: {
   idProducto: number
   nombre: string
   urlImagen: string
+  Proveedores?: Array<{ proveedor: ProductSupplierSummary }>
   categoriasProducto?: Array<{
     categoria: {
       idCategoria: number
@@ -23,9 +26,11 @@ function withImageAlias(product: {
       descripcion: string | null
     }
   }>
-}) {
+}, canReadSuppliers = false) {
+  const { Proveedores, ...record } = product
   return {
-    ...product,
+    ...record,
+    proveedores: canReadSuppliers ? supplierSummaries(Proveedores) : undefined,
     categoriasProducto: product.categoriasProducto?.map(({ categoria }) => categoria) ?? [],
     imagenesProducto: product.urlImagen
       ? [
@@ -56,6 +61,7 @@ function parseCategoryIds(value: unknown): number[] | null | undefined {
 }
 
 const productCategoriesInclude = {
+  ...productSuppliersInclude,
   categoriasProducto: {
     include: {
       categoria: {
@@ -147,17 +153,30 @@ function validateStockMinimum(stockMinimo: unknown) {
 /**
  * GET /api/inventory
  * Lista productos o consulta uno por ID. Admite filtros combinables por
- * categoriaId y codigoProveedor para consultar asociaciones del inventario.
+ * categoriaId, idProveedor y codigoProveedor (código comercial del producto).
  */
 export async function GET(request: Request) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
+    const { session, response } = await requirePermission(PERMISSIONS.INVENTORY_READ)
 
     if (response) {
       return response
     }
 
     const { searchParams } = new URL(request.url)
+    const supplierIdInput = searchParams.get("idProveedor")
+    const idProveedor = supplierIdInput === null ? null : Number(supplierIdInput)
+    if (idProveedor !== null) {
+      const { response: supplierResponse } = await requirePermission(PERMISSIONS.SUPPLIERS_READ)
+      if (supplierResponse) return supplierResponse
+      if (!/^\d+$/.test(supplierIdInput!) || !Number.isSafeInteger(idProveedor) || idProveedor <= 0 || idProveedor > 4294967295) {
+        return NextResponse.json({ code: "ID_PROVEEDOR_INVALIDO", message: "Indique un ID de proveedor válido." }, { status: 400 })
+      }
+      const supplier = await db.proveedor.findUnique({ where: { idProveedor }, select: { idProveedor: true } })
+      if (!supplier) return NextResponse.json({ code: "PROVEEDOR_NO_EXISTE", message: "El proveedor no existe." }, { status: 404 })
+    }
+    const supplierWhere = idProveedor === null ? {} : { Proveedores: { some: { idProveedor } } }
+
     const hasProductId =
       searchParams.has("idProducto") || searchParams.has("id")
 
@@ -203,7 +222,7 @@ export async function GET(request: Request) {
         include: productCategoriesInclude,
       })
 
-      if (!product) {
+      if (!product || (idProveedor !== null && !product.Proveedores.some(({ proveedor }) => proveedor.idProveedor === idProveedor))) {
         return NextResponse.json(
           {
             code: "PRODUCTO_NO_ENCONTRADO",
@@ -213,7 +232,7 @@ export async function GET(request: Request) {
         )
       }
 
-      return NextResponse.json(withImageAlias(product))
+      return NextResponse.json(withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ)))
     }
 
     const searchQuery = searchParams.get("q")
@@ -269,7 +288,7 @@ export async function GET(request: Request) {
 
       const [products, services] = await Promise.all([
         db.producto.findMany({
-          where:
+          where: { AND: [supplierWhere,
             categoryId === null
               ? { nombre: { contains: query } }
               : {
@@ -282,10 +301,11 @@ export async function GET(request: Request) {
                     },
                   ],
                 },
+          ] },
           orderBy: { nombre: "asc" },
           include: productCategoriesInclude,
         }),
-        categoryId === null
+        categoryId === null && idProveedor === null
           ? db.servicio.findMany({
               where: { nombre: { contains: query } },
               orderBy: { nombre: "asc" },
@@ -297,7 +317,7 @@ export async function GET(request: Request) {
         [
           ...products.map((product) => ({
             tipo: "producto" as const,
-            ...withImageAlias(product),
+            ...withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ)),
           })),
           ...services.map((service) => ({
             tipo: "servicio" as const,
@@ -382,9 +402,10 @@ export async function GET(request: Request) {
     const hasCategoryFilter = categoryId !== null
     const hasSupplierCodeFilter = supplierCode !== null
 
-    if (hasCategoryFilter || hasSupplierCodeFilter) {
+    if (hasCategoryFilter || hasSupplierCodeFilter || idProveedor !== null) {
       const products = await db.producto.findMany({
         where: {
+          ...supplierWhere,
           ...(supplierCode !== null
             ? { codigoProveedor: supplierCode }
             : {}),
@@ -400,16 +421,24 @@ export async function GET(request: Request) {
         include: productCategoriesInclude,
       })
 
+      if (idProveedor !== null) {
+        return NextResponse.json({
+          code: "PRODUCTOS_PROVEEDOR_CARGADOS",
+          idProveedor,
+          products: products.map((product) => withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ))),
+          count: products.length,
+        })
+      }
       if (supplierCode !== null) {
         return NextResponse.json({
           code: "PRODUCTOS_PROVEEDOR_CARGADOS",
           message:
             products.length > 0
-              ? `Productos asociados al código ${supplierCode}.`
-              : `No existen productos asociados al código ${supplierCode}.`,
+              ? `Productos con código comercial ${supplierCode}.`
+              : `No existen productos con código comercial ${supplierCode}.`,
           codigoProveedor: supplierCode,
           ...(category ? { category } : {}),
-          products: products.map(withImageAlias),
+          products: products.map((product) => withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ))),
           count: products.length,
         })
       }
@@ -431,7 +460,7 @@ export async function GET(request: Request) {
         code: "PRODUCTOS_FILTRADOS",
         message: `Productos de la categoría ${category!.nombre}.`,
         category,
-        products: products.map(withImageAlias),
+        products: products.map((product) => withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ))),
         count: products.length,
       })
     }
@@ -443,7 +472,7 @@ export async function GET(request: Request) {
       },
     })
 
-    return NextResponse.json(products.map(withImageAlias))
+    return NextResponse.json(products.map((product) => withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ))))
   } catch (error) {
     console.log("[INVENTORY_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -457,7 +486,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)
+    const { session, response } = await requirePermission(PERMISSIONS.INVENTORY_CREATE)
 
     if (response) {
       return response
@@ -485,6 +514,13 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       )
+    }
+
+    const idProveedor = data.idProveedor === undefined || data.idProveedor === null
+      ? null : associationId(data.idProveedor)
+    if (idProveedor !== null) {
+      const associationResponse = await requireProductSupplierPermission(true)
+      if (associationResponse) return associationResponse
     }
 
     const supplierCodeResult = parseProductSupplierCode(
@@ -555,7 +591,12 @@ export async function POST(request: Request) {
       )
     }
 
+    if (idProveedor !== null && estado !== EstadoRegistro.ACTIVO) {
+      throw new ProductSupplierError("PRODUCTO_INACTIVO", "El producto debe estar activo para asociarlo a un proveedor.", 409)
+    }
+
     const product = await db.$transaction(async (tx) => {
+      if (idProveedor !== null) await lockSupplier(tx, idProveedor, true)
       const createdProduct = await tx.producto.create({
         data: {
           tipoProducto: data.tipoProducto,
@@ -571,6 +612,7 @@ export async function POST(request: Request) {
           stockMinimo: data.stockMinimo,
           estado,
           urlImagen: data.urlImagen ?? data.imageUrl ?? "",
+          Proveedores: idProveedor !== null ? { create: { idProveedor } } : undefined,
         },
       })
 
@@ -589,8 +631,9 @@ export async function POST(request: Request) {
       })
     })
 
-    return NextResponse.json(withImageAlias(product), { status: 201 })
+    return NextResponse.json(withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ)), { status: 201 })
   } catch (error) {
+    if (error instanceof ProductSupplierError) return productSupplierErrorResponse(error)
     console.log("[INVENTORY_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

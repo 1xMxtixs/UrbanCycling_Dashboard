@@ -13,7 +13,7 @@ export function FinancialSummaryCards({ data }: FinancialSummaryCardsProps) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <MetricCard title="Recaudación del período" value={formatCLP(data.totalRevenue)} description="Pagos registrados en ventas y órdenes de trabajo" icon={DollarSign} />
       <MetricCard title="Ingresos de hoy" value={formatCLP(data.todayRevenue)} description="Ventas y órdenes registradas en la jornada actual" icon={Calendar} />
-      <MetricCard title="Órdenes de trabajo" value={data.totalWorkOrders} description={`${data.workOrdersFinished} entregadas en el período`} icon={Wrench} />
+      <MetricCard title="Órdenes entregadas" value={data.workOrdersFinished} description="Órdenes de trabajo entregadas en el período" icon={Wrench} />
     </div>
   )
 }

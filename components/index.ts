@@ -32,6 +32,7 @@ export * from "./common/StatusBadge";
 export * from "./common/EmptyState";
 export * from "./common/DataField";
 export * from "./common/DataTableContainer";
+export * from "./common/RowActionsMenu";
 
 // Formularios e inputs compuestos
 export * from "./forms/FormDialog";

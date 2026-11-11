@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog"
 import { FormDialog } from "@/components/forms/FormDialog"
 import { PageHeader } from "@/components/common/PageHeader"
-import { Plus, Wrench } from "lucide-react"
+import { Plus } from "lucide-react"
 import { FormCreateOrder } from "../FormCreateOrder"
 
 export function HeaderOrdenesTrabajo() {
@@ -30,6 +30,8 @@ export function HeaderOrdenesTrabajo() {
           title="Ingreso de Orden de Trabajo"
           description="Completa los datos del cliente, selecciona los vehículos y define los servicios y repuestos requeridos."
           size="3xl"
+          scrollable
+          scrollableContentClassName="pb-3"
         >
           <FormCreateOrder setOpenModalCreate={setOpenModalCreate} />
         </FormDialog>

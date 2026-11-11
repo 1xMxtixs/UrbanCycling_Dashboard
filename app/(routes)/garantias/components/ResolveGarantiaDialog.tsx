@@ -8,18 +8,12 @@ import {
   XCircle,
 } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
+import { FormDialog } from "@/components/forms/FormDialog";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import type { Garantia } from "../types";
 
@@ -75,6 +69,7 @@ export function ResolveGarantiaDialog({
     }
 
     if (!garantia) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVeredicto("");
       setObservaciones("");
       return;
@@ -203,29 +198,8 @@ export function ResolveGarantiaDialog({
       setIsSaving(true);
 
       try {
-        /*
-         * ====================================================
-         * URL CORRECTA
-         * ====================================================
-         */
-
         const url =
           `/api/garantias/${idGarantia}/resolucion`;
-
-        console.log(
-          "[RESOLVER_GARANTIA] Enviando:",
-          {
-            url,
-            idGarantia,
-            veredicto,
-          }
-        );
-
-        /*
-         * ====================================================
-         * PETICIÓN
-         * ====================================================
-         */
 
         const response =
           await fetch(
@@ -249,25 +223,29 @@ export function ResolveGarantiaDialog({
             }
           );
 
-        /*
-         * ====================================================
-         * LEER RESPUESTA DE FORMA SEGURA
-         * ====================================================
-         *
-         * Esto evita:
-         *
-         * Unexpected token '<'
-         *
-         * cuando Next devuelve una página HTML
-         * de error.
-         */
-
         const contentType =
           response.headers.get(
             "content-type"
           ) ?? "";
 
-        let data: any = null;
+        let data: {
+          message?: string;
+          garantia?: {
+            idGarantia?: number;
+            idReclamoGarantia?: number;
+            idOrdenDeTrabajo?: number;
+            estado?: string;
+            veredicto?: string;
+            fechaIngreso?: string;
+            motivo?: string;
+            motivoReclamo?: string;
+            observaciones?: string | null;
+            observacionesResolucion?: string | null;
+            justificacionResolucion?: string | null;
+            fechaResolucion?: string | null;
+            [key: string]: unknown;
+          };
+        } | null = null;
 
         if (
           contentType.includes(
@@ -290,24 +268,12 @@ export function ResolveGarantiaDialog({
           );
         }
 
-        /*
-         * ====================================================
-         * ERROR HTTP
-         * ====================================================
-         */
-
         if (!response.ok) {
           throw new Error(
             data?.message ??
               "No fue posible resolver la garantía."
           );
         }
-
-        /*
-         * ====================================================
-         * GARANTÍA DEVUELTA
-         * ====================================================
-         */
 
         const garantiaRespuesta =
           data?.garantia;
@@ -319,20 +285,6 @@ export function ResolveGarantiaDialog({
             "La garantía fue procesada, pero el servidor no devolvió sus datos."
           );
         }
-
-        /*
-         * ====================================================
-         * OBTENER ID DEVUELTO
-         * ====================================================
-         *
-         * La API devuelve:
-         *
-         * idReclamoGarantia
-         *
-         * mientras el frontend usa:
-         *
-         * idGarantia
-         */
 
         const idRespuesta =
           Number(
@@ -352,23 +304,11 @@ export function ResolveGarantiaDialog({
           );
         }
 
-        /*
-         * ====================================================
-         * ESTADO FINAL
-         * ====================================================
-         */
-
         const estadoFinal =
           veredicto ===
           "APROBADA"
             ? "Aprobado"
             : "Rechazado";
-
-        /*
-         * ====================================================
-         * OBSERVACIONES
-         * ====================================================
-         */
 
         const observacionesFinales =
           garantiaRespuesta.observacionesResolucion ??
@@ -377,39 +317,21 @@ export function ResolveGarantiaDialog({
           (observaciones.trim() ||
             null);
 
-        /*
-         * ====================================================
-         * CONSTRUIR GARANTÍA PARA EL FRONTEND
-         * ====================================================
-         */
-
         const garantiaActualizada: Garantia =
           {
             ...garantia,
 
-            /*
-             * ID REAL
-             */
             idGarantia:
               idRespuesta,
 
-            /*
-             * OT
-             */
             idOrdenDeTrabajo:
               garantiaRespuesta.idOrdenDeTrabajo ??
               garantia.idOrdenDeTrabajo,
 
-            /*
-             * FECHA
-             */
             fechaIngreso:
               garantiaRespuesta.fechaIngreso ??
               garantia.fechaIngreso,
 
-            /*
-             * ESTADO
-             */
             estado:
               estadoFinal,
 
@@ -418,47 +340,21 @@ export function ResolveGarantiaDialog({
                 ? "APROBADO"
                 : "RECHAZADO",
 
-            /*
-             * MOTIVO
-             */
             motivoReclamo:
               garantiaRespuesta.motivoReclamo ??
               garantiaRespuesta.motivo ??
               garantia.motivoReclamo,
 
-            /*
-             * OBSERVACIONES DE RESOLUCIÓN
-             */
             observacionesResolucion:
               observacionesFinales,
 
-            /*
-             * VEREDICTO
-             */
             veredicto:
               estadoFinal,
           };
 
-        console.log(
-          "[RESOLVER_GARANTIA] Garantía actualizada:",
-          garantiaActualizada
-        );
-
-        /*
-         * ====================================================
-         * ACTUALIZAR TABLA
-         * ====================================================
-         */
-
         onResolved(
           garantiaActualizada
         );
-
-        /*
-         * ====================================================
-         * MENSAJE
-         * ====================================================
-         */
 
         toast.success(
           veredicto ===
@@ -466,12 +362,6 @@ export function ResolveGarantiaDialog({
             ? "Garantía aprobada correctamente."
             : "Garantía rechazada correctamente."
         );
-
-        /*
-         * ====================================================
-         * CERRAR
-         * ====================================================
-         */
 
         onOpenChange(false);
       } catch (error) {
@@ -497,38 +387,22 @@ export function ResolveGarantiaDialog({
    */
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
-      onOpenChange={
-        handleOpenChange
+      onOpenChange={handleOpenChange}
+      title={
+        <span className="flex items-center gap-2">
+          <Gavel className="h-5 w-5" />
+          Resolver solicitud de garantía
+        </span>
       }
+      description="Selecciona el veredicto de la solicitud y agrega observaciones si corresponde."
+      size="xl"
     >
-      <DialogContent className="sm:max-w-[600px]">
-
-        <DialogHeader>
-
-          <DialogTitle className="flex items-center gap-2">
-
-            <Gavel className="h-5 w-5" />
-
-            Resolver solicitud de garantía
-
-          </DialogTitle>
-
-          <DialogDescription>
-            Selecciona el veredicto de la
-            solicitud y agrega observaciones
-            si corresponde.
-          </DialogDescription>
-
-        </DialogHeader>
-
-        <form
-          onSubmit={
-            handleSubmit
-          }
-          className="space-y-6"
-        >
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
 
           {/* ==================================================
               VEREDICTO
@@ -540,35 +414,30 @@ export function ResolveGarantiaDialog({
               Veredicto
             </Label>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div
+              className="grid grid-cols-2 gap-4"
+              role="radiogroup"
+              aria-label="Veredicto"
+            >
 
               {/* APROBAR */}
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={veredicto === "APROBADA"}
                 disabled={isSaving}
                 onClick={() =>
                   setVeredicto(
                     "APROBADA"
                   )
                 }
-                className={`
-                  flex
-                  items-center
-                  gap-3
-                  rounded-xl
-                  border
-                  p-4
-                  text-left
-                  transition-all
-                  cursor-pointer
-                  ${
-                    veredicto ===
-                    "APROBADA"
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-border hover:border-emerald-500/50"
-                  }
-                `}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4 text-left transition-all motion-reduce:transition-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  veredicto === "APROBADA"
+                    ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                    : "border-border hover:border-primary/50 hover:bg-muted/30"
+                )}
               >
 
                 <div
@@ -583,7 +452,7 @@ export function ResolveGarantiaDialog({
                     ${
                       veredicto ===
                       "APROBADA"
-                        ? "bg-emerald-500/20"
+                        ? "bg-primary/20"
                         : "bg-muted"
                     }
                   `}
@@ -596,7 +465,7 @@ export function ResolveGarantiaDialog({
                       ${
                         veredicto ===
                         "APROBADA"
-                          ? "text-emerald-500"
+                          ? "text-primary"
                           : "text-muted-foreground"
                       }
                     `}
@@ -606,7 +475,7 @@ export function ResolveGarantiaDialog({
 
                 <div>
 
-                  <p className="font-semibold">
+                  <p className="font-semibold text-foreground">
                     Aprobar
                   </p>
 
@@ -622,29 +491,20 @@ export function ResolveGarantiaDialog({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={veredicto === "RECHAZADA"}
                 disabled={isSaving}
                 onClick={() =>
                   setVeredicto(
                     "RECHAZADA"
                   )
                 }
-                className={`
-                  flex
-                  items-center
-                  gap-3
-                  rounded-xl
-                  border
-                  p-4
-                  text-left
-                  transition-all
-                  cursor-pointer
-                  ${
-                    veredicto ===
-                    "RECHAZADA"
-                      ? "border-red-500 bg-red-500/10"
-                      : "border-border hover:border-red-500/50"
-                  }
-                `}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4 text-left transition-all motion-reduce:transition-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  veredicto === "RECHAZADA"
+                    ? "border-destructive bg-destructive/10 shadow-xs ring-1 ring-destructive/40"
+                    : "border-border hover:border-destructive/50 hover:bg-muted/30"
+                )}
               >
 
                 <div
@@ -659,7 +519,7 @@ export function ResolveGarantiaDialog({
                     ${
                       veredicto ===
                       "RECHAZADA"
-                        ? "bg-red-500/20"
+                        ? "bg-destructive/20"
                         : "bg-muted"
                     }
                   `}
@@ -672,7 +532,7 @@ export function ResolveGarantiaDialog({
                       ${
                         veredicto ===
                         "RECHAZADA"
-                          ? "text-red-500"
+                          ? "text-destructive"
                           : "text-muted-foreground"
                       }
                     `}
@@ -682,7 +542,7 @@ export function ResolveGarantiaDialog({
 
                 <div>
 
-                  <p className="font-semibold">
+                  <p className="font-semibold text-foreground">
                     Rechazar
                   </p>
 
@@ -697,6 +557,10 @@ export function ResolveGarantiaDialog({
             </div>
 
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            La resolución es definitiva: una vez registrada no podrá modificarse.
+          </p>
 
           {/* ==================================================
               OBSERVACIONES
@@ -742,13 +606,13 @@ export function ResolveGarantiaDialog({
               FOOTER
           ================================================== */}
 
-          <DialogFooter>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-2">
 
             <Button
               type="button"
               variant="outline"
               onClick={() =>
-                onOpenChange(
+                handleOpenChange(
                   false
                 )
               }
@@ -766,16 +630,19 @@ export function ResolveGarantiaDialog({
                 !veredicto
               }
             >
-              {isSaving
-                ? "Procesando..."
-                : "Confirmar resolución"}
+              {isSaving ? (
+                <>
+                  <Spinner className="mr-2" />
+                  Procesando...
+                </>
+              ) : (
+                "Confirmar resolución"
+              )}
             </Button>
 
-          </DialogFooter>
+          </div>
 
         </form>
-
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

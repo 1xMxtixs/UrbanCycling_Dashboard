@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -10,12 +11,12 @@ import {
   Loader2,
   ShoppingBag,
   DollarSign,
-  Percent,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DataField } from "@/components/common/DataField"
 import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_VENTA } from "@/lib/sale-status"
 import { isRegistroActivo } from "@/lib/registro-status"
@@ -40,17 +41,8 @@ import {
 } from "@/components/ui/dialog"
 
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
-
-interface Client {
-  idCliente: number
-  tipoCliente: string
-  rut: string
-  primerNombre: string | null
-  segundoNombre: string | null
-  apellidoPaterno: string | null
-  apellidoMaterno: string | null
-  razonSocial: string | null
-}
+import type { Client } from "@/app/(routes)/punto-ventas/types"
+import type { SaleCreationResult } from "../../types"
 
 interface Product {
   idProducto: number
@@ -61,6 +53,7 @@ interface Product {
 }
 
 interface SelectedProduct {
+  keyId?: string
   idProducto: string
   cantidad: number
   precioUnitario: number
@@ -75,6 +68,7 @@ export function FormCreateVenta({
   setOpenModalCreate,
 }: FormCreateVentaProps) {
   const router = useRouter()
+  const { data: session } = useSession()
 
   const [clients, setClients] = useState<Client[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
@@ -96,7 +90,7 @@ export function FormCreateVenta({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [saleResult, setSaleResult] = useState<any>(null)
+  const [saleResult, setSaleResult] = useState<SaleCreationResult | null>(null)
 
   const [openQuickCreateClient, setOpenQuickCreateClient] =
     useState(false)
@@ -145,14 +139,17 @@ export function FormCreateVenta({
   }
 
   useEffect(() => {
-    fetchClients()
-    fetchProducts()
+    void Promise.resolve().then(() => {
+      void fetchClients()
+      void fetchProducts()
+    })
   }, [])
 
   const handleAddProduct = () => {
     setSelectedProducts([
       ...selectedProducts,
       {
+        keyId: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}-${Math.random()}`,
         idProducto: "",
         cantidad: 1,
         precioUnitario: 0,
@@ -274,7 +271,6 @@ export function FormCreateVenta({
   const handleQuickClientSuccess = () => {
     setOpenQuickCreateClient(false)
 
-    toast.success("Cliente creado correctamente.")
 
     fetchClients(true)
   }
@@ -283,6 +279,11 @@ export function FormCreateVenta({
     e: React.FormEvent
   ) => {
     e.preventDefault()
+
+    if (!session?.user?.idUsuario) {
+      toast.error("Tu sesión expiró. Vuelve a iniciar sesión.")
+      return
+    }
 
     if (selectedProducts.length === 0) {
       toast.error(
@@ -366,7 +367,7 @@ export function FormCreateVenta({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            id_usuario: 1,
+            id_usuario: session.user.idUsuario,
             id_cliente: selectedClientId
               ? Number(selectedClientId)
               : null,
@@ -391,6 +392,8 @@ export function FormCreateVenta({
               })),
 
             metodo_pago: metodoPago,
+            // El POST rechaza monto 0 junto con metodo_pago y crea un pago con este importe.
+            // Por eso no se cambia a 0 aquí; el backend puede finalizar como pagada una venta pendiente.
             monto_pagado: finalTotal,
             estado_venta: ESTADO_VENTA.COMPLETADA,
           }),
@@ -405,9 +408,10 @@ export function FormCreateVenta({
           responseData.code ===
           "STOCK_INSUFICIENTE"
         ) {
-          toast.error(
-            `Excepción 1: Stock insuficiente. ${responseData.message} (Disponibles: ${responseData.cantidadDisponible})`
-          )
+          const availableSuffix = responseData.cantidadDisponible !== undefined
+            ? ` (disponibles: ${responseData.cantidadDisponible})`
+            : ""
+          toast.error(`Stock insuficiente. ${responseData.message}${availableSuffix}`)
         } else {
           toast.error(
             responseData.message ||
@@ -460,7 +464,7 @@ export function FormCreateVenta({
         : `${clientData.primerNombre} ${
             clientData.apellidoPaterno || ""
           }`.trim()
-      : "Cliente General"
+      : "Cliente general"
 
     return (
       <SaleSuccessReceipt
@@ -479,6 +483,7 @@ export function FormCreateVenta({
         finalTotal={finalTotal}
         metodoPago={metodoPago}
         estadoPago={estadoPago}
+        vendedor={session?.user?.name ?? "—"}
         onClose={handleCloseSuccess}
       />
     )
@@ -488,15 +493,21 @@ export function FormCreateVenta({
     <>
       <form
         onSubmit={handleSubmit}
-        className="space-y-6 py-2"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain py-1 pr-2">
+        <section className="space-y-4 rounded-xl border border-border p-4">
+          <h3 className="flex items-center gap-2 border-b border-border pb-2 text-sm font-bold text-foreground">
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+            Información de la venta
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
 
           {/* Selector de Cliente */}
           <div className="space-y-1.5">
             <Label
               htmlFor="cliente"
-              className="text-xs font-semibold text-slate-700 dark:text-slate-400"
+              className="text-xs font-semibold text-muted-foreground"
             >
               Cliente{" "}
               <span className="text-xs text-muted-foreground font-normal">
@@ -505,8 +516,8 @@ export function FormCreateVenta({
             </Label>
 
             {isLoadingClients ? (
-              <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-slate-50/50 dark:bg-slate-800/20">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+              <div className="flex h-10 items-center justify-center rounded-lg border border-input px-3 py-2 text-xs text-muted-foreground bg-muted/40">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
                 Cargando clientes...
               </div>
             ) : (
@@ -524,7 +535,7 @@ export function FormCreateVenta({
                     )
                   }
                 >
-                  <SelectTrigger className="w-full h-10 border border-slate-200 bg-background text-sm">
+                  <SelectTrigger className="w-full h-10 border-input bg-background text-sm">
                     <SelectValue placeholder="-- Venta sin asociar (Cliente General) --" />
                   </SelectTrigger>
 
@@ -576,14 +587,14 @@ export function FormCreateVenta({
                       + Registrar aquí
                     </Button>
 
-                    <span className="text-slate-300">
+                    <span className="text-muted-foreground/40">
                       |
                     </span>
 
                     <a
                       href="/clientes"
                       target="_blank"
-                      className="text-muted-foreground hover:text-slate-700 hover:underline font-bold"
+                      className="text-muted-foreground hover:text-foreground hover:underline font-bold"
                     >
                       Ir a Clientes
                     </a>
@@ -595,55 +606,58 @@ export function FormCreateVenta({
 
           {/* Fecha */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-400">
+            <Label htmlFor="fechaVenta" className="text-xs font-semibold text-muted-foreground">
               Fecha de Venta
             </Label>
 
             <Input
+              id="fechaVenta"
               type="text"
-              value={new Date().toLocaleDateString(
-                "es-ES"
-              )}
+              value={new Date().toLocaleDateString("es-CL")}
               disabled
-              className="bg-slate-100/50 dark:bg-slate-800/50 cursor-not-allowed font-medium text-sm"
+              className="cursor-not-allowed bg-muted text-sm font-medium text-muted-foreground"
             />
           </div>
-        </div>
+          </div>
+        </section>
 
         {/* Productos */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-            <Label className="text-sm font-bold flex items-center gap-1">
-              <ShoppingBag className="h-4 w-4 text-primary" />
+        <section className="space-y-4 rounded-xl border border-border p-4">
+          <div className="flex flex-col gap-2 border-b border-border pb-2 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
               Productos / Accesorios a Vender
-            </Label>
+            </h3>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddProduct}
-              className="h-8 text-xs font-semibold flex items-center gap-1"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Añadir Línea
-            </Button>
+            {selectedProducts.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddProduct}
+                className="h-8 text-xs font-semibold flex items-center gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Añadir línea
+              </Button>
+            )}
           </div>
 
           {selectedProducts.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/10">
-              <p className="text-xs text-muted-foreground italic">
-                No se han agregado productos a la venta en mostrador.
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+              <p className="max-w-sm text-xs text-muted-foreground">
+                Al agregar una línea podrás elegir el producto, definir la cantidad y el descuento por unidad.
               </p>
 
               <Button
                 type="button"
-                variant="link"
+                variant="outline"
                 size="sm"
                 onClick={handleAddProduct}
-                className="mt-1 text-xs text-primary font-bold"
+                className="text-xs font-semibold"
               >
-                Comienza agregando un producto
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Añadir primer producto
               </Button>
             </div>
           ) : (
@@ -677,11 +691,14 @@ export function FormCreateVenta({
 
                   return (
                     <div
-                      key={idx}
-                      className="flex flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs animate-in slide-in-from-top-1 duration-150"
+                      key={selProd.keyId || `prod-${selProd.idProducto || idx}-${idx}`}
+                      className="space-y-3 rounded-lg border border-border/70 bg-muted/50 p-3 animate-in slide-in-from-top-1 duration-150 motion-reduce:animate-none"
                     >
-                      {/* Producto */}
-                      <div className="flex-1 min-w-52">
+                      <div className="flex items-end gap-3">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <Label htmlFor={`sale-product-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                            Producto
+                          </Label>
                         {isLoadingProducts ? (
                           <div className="flex h-9 items-center justify-center rounded-md border border-input px-3 py-1 text-xs text-muted-foreground">
                             <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -700,7 +717,11 @@ export function FormCreateVenta({
                               )
                             }
                           >
-                            <SelectTrigger className="h-9 w-full text-xs bg-background border border-slate-200">
+                            <SelectTrigger
+                              id={`sale-product-${idx}`}
+                              aria-label={`Producto ${idx + 1}`}
+                              className="h-9 w-full border-input bg-background text-xs"
+                            >
                               <SelectValue placeholder="-- Selecciona un Producto --" />
                             </SelectTrigger>
 
@@ -715,11 +736,7 @@ export function FormCreateVenta({
                                       p.idProducto
                                     )}
                                   >
-                                    {p.nombre}{" "}
-                                    (Stock:{" "}
-                                    {
-                                      p.stockActual
-                                    }) - $
+                                    {p.nombre} - $
                                     {Number(
                                       p.precioVenta
                                     ).toLocaleString(
@@ -732,56 +749,60 @@ export function FormCreateVenta({
                           </Select>
                         )}
                       </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Eliminar ${selectedItem?.nombre || `producto #${idx + 1}`}`}
+                          onClick={() => handleRemoveProduct(idx)}
+                          className="h-8 w-8 shrink-0 cursor-pointer rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Eliminar {selectedItem?.nombre || `producto #${idx + 1}`}</span>
+                        </Button>
+                      </div>
 
-                      {/* Cantidad */}
-                      <div className="w-24">
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={
-                              maxStock ||
-                              undefined
-                            }
-                            value={
-                              selProd.cantidad
-                            }
-                            onChange={(e) =>
-                              handleProductQuantityChange(
-                                idx,
-                                Number(
-                                  e.target.value
-                                )
-                              )
-                            }
-                            className={`h-9 text-xs pr-6 ${
-                              isOut
-                                ? "border-red-500 focus-visible:ring-red-500"
-                                : ""
-                            }`}
-                            placeholder="Cant."
-                            required
-                          />
-
-                          {maxStock > 0 && (
-                            <span className="absolute right-2 top-2.5 text-[9px] text-muted-foreground font-semibold">
-                              /{maxStock}
-                            </span>
-                          )}
+                      <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`sale-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                            Cantidad
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id={`sale-quantity-${idx}`}
+                              type="number"
+                              min={1}
+                              max={maxStock || undefined}
+                              value={selProd.cantidad}
+                              onChange={(e) =>
+                                handleProductQuantityChange(idx, Number(e.target.value))
+                              }
+                              className={`h-9 text-xs ${
+                                isOut ? "border-destructive focus-visible:ring-destructive" : ""
+                              }`}
+                              aria-label={`Cantidad para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
+                              required
+                            />
+                            {selectedItem && (
+                              <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+                                / {maxStock}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Precio unitario */}
-                      <div className="text-xs font-semibold w-24">
-                        Uni: $
-                        {selProd.precioUnitario.toLocaleString(
-                          "es-CL"
-                        )}
-                      </div>
+                        <DataField
+                          label="Precio unitario"
+                          value={`$${selProd.precioUnitario.toLocaleString("es-CL")}`}
+                          className="self-center"
+                        />
 
-                      {/* Descuento unitario */}
-                      <div className="w-24">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`sale-discount-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                            Descuento por unidad
+                          </Label>
                         <Input
+                            id={`sale-discount-${idx}`}
                           type="number"
                           min={0}
                           max={
@@ -798,39 +819,21 @@ export function FormCreateVenta({
                               )
                             )
                           }
-                          className="h-9 text-xs"
-                          placeholder="Desc."
+                            className="h-9 text-xs"
+                          aria-label={`Descuento unitario para ${selectedItem?.nombre || `producto #${idx + 1}`}`}
                         />
                       </div>
 
-                      {/* Subtotal */}
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 w-24 text-right">
-                        Sub: $
-                        {subtotalLinea.toLocaleString(
-                          "es-CL"
-                        )}
+                        <DataField
+                          label="Subtotal de línea"
+                          value={`$${subtotalLinea.toLocaleString("es-CL")}`}
+                          className="self-center"
+                        />
                       </div>
 
-                      {/* Eliminar */}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          handleRemoveProduct(
-                            idx
-                          )
-                        }
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 rounded-md cursor-pointer transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Stock */}
                       {isOut && (
-                        <div className="w-full text-[10px] text-red-500 font-bold px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 animate-in fade-in slide-in-from-top-1 duration-150">
-                          Advertencia de Caso de Uso: No hay suficiente stock disponible. (Stock Máximo:{" "}
-                          {maxStock})
+                        <div className="w-full rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
+                          Stock insuficiente.
                         </div>
                       )}
                     </div>
@@ -839,25 +842,25 @@ export function FormCreateVenta({
               )}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Detalles financieros y pago */}
-        <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <section className="space-y-3 rounded-xl border border-border p-4">
 
           {/* Pago */}
-          <div className="space-y-4">
-            <Label className="text-sm font-bold flex items-center gap-1">
-              <DollarSign className="h-4 w-4 text-primary" />
-              Información del Pago
-            </Label>
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-2 border-b border-border pb-2 text-sm font-bold text-foreground">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              Pago y descuentos
+            </h3>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
               {/* Método */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="metodoPago"
-                  className="text-xs font-semibold"
+                  className="text-xs font-semibold text-muted-foreground"
                 >
                   Método de Pago
                 </Label>
@@ -866,7 +869,7 @@ export function FormCreateVenta({
                   value={metodoPago}
                   onValueChange={setMetodoPago}
                 >
-                  <SelectTrigger className="h-9 w-full text-xs bg-background border border-slate-200">
+                  <SelectTrigger className="h-10 w-full border-input bg-background text-sm">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -884,7 +887,7 @@ export function FormCreateVenta({
               <div className="space-y-1.5">
                 <Label
                   htmlFor="estadoPago"
-                  className="text-xs font-semibold"
+                  className="text-xs font-semibold text-muted-foreground"
                 >
                   Estado del Pago
                 </Label>
@@ -893,7 +896,7 @@ export function FormCreateVenta({
                   value={estadoPago}
                   onValueChange={setEstadoPago}
                 >
-                  <SelectTrigger className="h-9 w-full text-xs bg-background border border-slate-200">
+                  <SelectTrigger className="h-10 w-full border-input bg-background text-sm">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -907,13 +910,11 @@ export function FormCreateVenta({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
             {/* Descuento global */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="descuento"
-                className="text-xs font-semibold flex items-center gap-1"
+                className="flex items-center gap-1 text-xs font-semibold text-muted-foreground"
               >
                 <DollarSign className="h-3 w-3" />
                 Descuento Global ($)
@@ -940,15 +941,16 @@ export function FormCreateVenta({
                     )
                   )
                 }
-                className="h-9 text-xs"
+                className="h-8 text-sm"
                 placeholder="Descuento CLP"
               />
             </div>
           </div>
+          </div>
 
           {/* Resumen */}
-          <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-3 text-xs font-semibold">
-            <h4 className="text-xs uppercase font-bold text-slate-500 tracking-wider border-b border-slate-200/50 dark:border-slate-800 pb-1.5">
+          <div className="space-y-3 rounded-lg border border-border/70 bg-muted/50 p-4 text-xs font-semibold">
+            <h4 className="border-b border-border pb-1.5 text-xs font-semibold tracking-tight text-foreground">
               Resumen de Totales
             </h4>
 
@@ -957,7 +959,7 @@ export function FormCreateVenta({
                 Subtotal Productos:
               </span>
 
-              <span className="font-bold text-slate-700 dark:text-slate-300">
+              <span className="font-bold text-foreground">
                 $
                 {subtotal.toLocaleString(
                   "es-CL"
@@ -966,7 +968,7 @@ export function FormCreateVenta({
             </div>
 
             {totalLineDiscounts > 0 && (
-              <div className="flex justify-between text-red-500">
+              <div className="flex justify-between text-destructive">
                 <span className="font-bold">
                   Descuentos por Productos:
                 </span>
@@ -981,7 +983,7 @@ export function FormCreateVenta({
             )}
 
             {descuentoGlobal > 0 && (
-              <div className="flex justify-between text-red-500">
+              <div className="flex justify-between text-destructive">
                 <span className="font-bold">
                   Descuento Global:
                 </span>
@@ -1019,10 +1021,10 @@ export function FormCreateVenta({
               </span>
             </div>
 
-            <div className="flex justify-between text-sm font-bold border-t border-slate-200/60 dark:border-slate-800 pt-2.5 text-primary">
-              <span>TOTAL FINAL:</span>
+            <div className="flex justify-between text-sm font-bold border-t border-border pt-2.5 text-foreground">
+              <span>Total final:</span>
 
-              <span className="text-base">
+              <span className="text-sm">
                 $
                 {finalTotal.toLocaleString(
                   "es-CL"
@@ -1030,21 +1032,18 @@ export function FormCreateVenta({
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Botones */}
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
+        {/* Botones al final del contenido desplazable */}
+        <div className="flex flex-col-reverse justify-end gap-2 border-t border-border/60 px-1 py-3 sm:flex-row">
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              setOpenModalCreate(false)
-            }
+            onClick={() => setOpenModalCreate(false)}
             disabled={isSubmitting}
           >
             Cancelar
           </Button>
-
           <Button
             type="submit"
             disabled={
@@ -1077,6 +1076,7 @@ export function FormCreateVenta({
               "Registrar Venta"
             )}
           </Button>
+        </div>
         </div>
       </form>
 

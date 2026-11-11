@@ -46,6 +46,7 @@ import type { ProductColumn } from "./columns"
 import type { InventoryCategory } from "../../types"
 import { KpiCards } from "./kpi-cards"
 import { ESTADO_REGISTRO } from "@/lib/registro-status"
+import { includesNormalizedText } from "@/lib/search-normalization"
 
 interface DataTableProps {
   columns: ColumnDef<ProductColumn>[]
@@ -96,7 +97,7 @@ export function DataTable({
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [{ id: "estado", value: ESTADO_REGISTRO.ACTIVO }]
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
   const [productSearch, setProductSearch] = React.useState(initialSearch)
@@ -185,8 +186,10 @@ export function DataTable({
       )
     }
 
-    return productsByCategory.filter((product) =>
-      product.nombre.toLowerCase().includes(productSearchState.query)
+    return productsByCategory.filter(
+      (product) =>
+        includesNormalizedText(product.nombre, productSearchState.query) ||
+        includesNormalizedText(product.tipoProducto, productSearchState.query)
     )
   }, [data, productSearchState, selectedCategoryId])
 
@@ -225,93 +228,95 @@ export function DataTable({
               {selectedProductIds.length} seleccionados
             </span>
           ) : (
-            <Button size="sm" onClick={() => setIsSelectingProducts(true)}>
+            <Button variant="outline" size="sm" onClick={() => setIsSelectingProducts(true)}>
               <Truck className="mr-2 h-4 w-4" />
               Asociar proveedor
             </Button>
           ))
         }
         toolbar={
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-describedby={
-                  productSearchState.type === "invalid-id"
-                    ? "product-search-help product-search-error"
-                    : "product-search-help"
-                }
-                aria-invalid={productSearchState.type === "invalid-id"}
-                placeholder="Buscar por nombre o #ID..."
-                value={productSearch}
-                onChange={(event) => setProductSearch(event.target.value)}
-                className="pl-9"
-              />
-            </div>
+          <div className="space-y-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  aria-label="Buscar productos por nombre o ID"
+                  aria-describedby={
+                    productSearchState.type === "invalid-id"
+                      ? "product-search-help product-search-error"
+                      : "product-search-help"
+                  }
+                  aria-invalid={productSearchState.type === "invalid-id"}
+                  placeholder="Buscar por nombre o #ID..."
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  className="h-10 w-full rounded-xl border-border/80 bg-background pl-10 text-sm shadow-2xs focus-visible:ring-primary/30"
+                />
+              </div>
 
-            <div className="space-y-1">
+            <div className="sr-only">
               <p
                 id="product-search-help"
                 className="text-xs text-muted-foreground"
               >
                 Usa # seguido del ID para una búsqueda exacta.
               </p>
-              {productSearchState.type === "invalid-id" && (
-                <p
-                  id="product-search-error"
-                  className="text-xs text-destructive"
+            </div>
+
+              <div className="w-full shrink-0 sm:w-56">
+                <Select
+                  value={
+                    (table.getColumn("estado")?.getFilterValue() as string) ||
+                    "all"
+                  }
+                  onValueChange={(value) =>
+                    table
+                      .getColumn("estado")
+                      ?.setFilterValue(value === "all" ? "" : value)
+                  }
                 >
-                  {productSearchState.message}
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <Select
-                value={
-                  (table.getColumn("estado")?.getFilterValue() as string) ??
-                  "all"
-                }
-                onValueChange={(value) =>
-                  table
-                    .getColumn("estado")
-                    ?.setFilterValue(value === "all" ? "" : value)
-                }
-              >
-                <SelectTrigger className="h-9 w-full sm:w-40">
-                  <SelectValue placeholder="Estado: Todos" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value={ESTADO_REGISTRO.ACTIVO}>
-                    Solo Activos
-                  </SelectItem>
-                  <SelectItem value={ESTADO_REGISTRO.INACTIVO}>
-                    Solo Inactivos
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={selectedCategoryId}
-                onValueChange={setSelectedCategoryId}
-              >
-                <SelectTrigger className="h-9 w-full sm:w-48">
-                  <SelectValue placeholder="Categoría: Todas" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem
-                      key={category.idCategoria}
-                      value={String(category.idCategoria)}
-                    >
-                      {category.nombre}
+                  <SelectTrigger aria-label="Filtrar productos por estado" className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56">
+                    <SelectValue placeholder="Estado: Todos" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value={ESTADO_REGISTRO.ACTIVO}>
+                      Solo Activos
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <SelectItem value={ESTADO_REGISTRO.INACTIVO}>
+                      Solo Inactivos
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full shrink-0 sm:w-56">
+                <Select
+                  value={selectedCategoryId}
+                  onValueChange={setSelectedCategoryId}
+                >
+                  <SelectTrigger aria-label="Filtrar productos por categoría" className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56">
+                    <SelectValue placeholder="Categoría: Todas" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem
+                        key={category.idCategoria}
+                        value={String(category.idCategoria)}
+                      >
+                        {category.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {productSearchState.type === "invalid-id" && (
+              <p id="product-search-error" className="text-xs text-destructive">
+                {productSearchState.message}
+              </p>
+            )}
           </div>
         }
         footer={
@@ -328,6 +333,7 @@ export function DataTable({
                     Cancelar
                   </Button>
                   <Button
+                    variant="outline"
                     size="sm"
                     disabled={selectedProductIds.length === 0}
                     onClick={acceptProductSelection}

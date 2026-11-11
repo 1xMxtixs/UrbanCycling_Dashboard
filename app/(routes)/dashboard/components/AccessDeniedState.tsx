@@ -13,7 +13,7 @@ export function AccessDeniedState({
   description = "No tienes los permisos necesarios para visualizar el módulo de Reportes y Analítica Financiera. Esta sección está reservada exclusivamente para el rol Administrador."
 }: AccessDeniedStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-8 sm:p-16 text-center min-h-[460px] border border-border/80 rounded-3xl bg-card shadow-xs animate-in fade-in-50 duration-300">
+    <div className="flex flex-col items-center justify-center p-8 sm:p-16 text-center min-h-[460px] border border-border/80 rounded-3xl bg-card shadow-xs animate-in fade-in-50 duration-300 motion-reduce:animate-none">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive mb-5 shadow-xs">
         <ShieldAlert className="h-8 w-8 stroke-[1.8]" />
       </div>
@@ -27,9 +27,9 @@ export function AccessDeniedState({
         {description}
       </p>
       <Button asChild variant="outline" className="rounded-xl font-semibold gap-2 border-border/80">
-        <Link href="/dashboard">
+        <Link href="/taller">
           <ArrowLeft className="h-4 w-4" />
-          Volver al Dashboard
+          Ir al Taller
         </Link>
       </Button>
     </div>

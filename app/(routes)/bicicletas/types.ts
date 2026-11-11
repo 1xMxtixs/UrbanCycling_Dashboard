@@ -18,8 +18,8 @@ export type Bicicleta = {
       apellidoMaterno: string | null;
       razonSocial: string | null;
       rut: string;
-    };
-  };
+    } | null;
+  } | null;
 };
 
 export type OrdenTrabajoResumen = {

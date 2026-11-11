@@ -70,10 +70,10 @@ export function BikesSection({
   onRemoveBikeImage,
 }: BikesSectionProps) {
   return (
-    <div className="space-y-4">
+    <section className="space-y-4 rounded-xl border border-border p-4">
       <div className="flex items-center justify-between border-b border-border pb-2">
         <div className="flex items-center gap-2">
-          <Wrench className="h-4.5 w-4.5 text-primary" />
+          <Wrench className="h-4.5 w-4.5 text-muted-foreground" />
 
           <h3 className="text-foreground font-bold">
             Bicicletas Asociadas
@@ -109,7 +109,7 @@ export function BikesSection({
           return (
             <div
               key={idx}
-              className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs transition-all"
+              className="overflow-hidden rounded-xl border border-border transition-colors"
             >
               {/* Encabezado */}
               <div
@@ -117,7 +117,7 @@ export function BikesSection({
                 className="flex cursor-pointer items-center justify-between bg-muted/40 p-3 transition-colors hover:bg-muted/70"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                     {idx + 1}
                   </span>
 
@@ -132,7 +132,7 @@ export function BikesSection({
                   )}
 
                   {bike.imagePreviews.length > 0 && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {bike.imagePreviews.length}{" "}
                       {bike.imagePreviews.length === 1
                         ? "foto"
@@ -277,7 +277,7 @@ export function BikesSection({
 
                     <label
                       htmlFor={`bike-images-${idx}`}
-                      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/20 px-4 py-6 text-center transition-colors hover:border-primary/50 hover:bg-muted/40 ${
+                      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 px-4 py-6 text-center transition-colors hover:border-border hover:bg-muted/50 ${
                         isSubmitting
                           ? "pointer-events-none opacity-50"
                           : ""
@@ -361,6 +361,6 @@ export function BikesSection({
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

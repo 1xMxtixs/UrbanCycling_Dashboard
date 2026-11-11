@@ -8,47 +8,54 @@ import {
 import { FormDialog } from "@/components/forms/FormDialog";
 import { useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { FormCreateCliente } from "../FormCreateCliente";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { PERMISSIONS } from "@/lib/permissions";
 
-export function HeaderClientes() {
+interface HeaderClientesProps {
+  title?: string;
+  description?: string;
+}
+
+export function HeaderClientes({
+  title = "Directorio de Clientes",
+  description = "Administración de fichas de clientes, historial de visitas y convenios comerciales.",
+}: HeaderClientesProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const puedeCrearCliente = session?.user?.permisos?.includes(PERMISSIONS.CLIENTS_CREATE) ?? false;
   const [openModalCreate, setOpenModalCreate] = useState(false);
 
   const handleSuccess = () => {
     setOpenModalCreate(false);
     window.dispatchEvent(new Event("clientes:refresh"));
     router.refresh();
-    toast.success("Cliente registrado correctamente");
   };
 
   return (
     <PageHeader
-      title="Directorio de Clientes"
-      description="Administración de fichas de clientes, historial de visitas y convenios comerciales."
+      title={title}
+      description={description}
     >
-      <Dialog
-        open={openModalCreate}
-        onOpenChange={setOpenModalCreate}
-      >
-        <DialogTrigger asChild>
-          <Button className="rounded-xl font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
-            <Plus className="h-4 w-4 mr-1.5" /> Registrar Cliente
-          </Button>
-        </DialogTrigger>
+      {puedeCrearCliente && (
+        <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
+          <DialogTrigger asChild>
+            <Button className="rounded-xl font-semibold shadow-xs cursor-pointer">
+              <Plus className="h-4 w-4 mr-1.5" /> Registrar Cliente
+            </Button>
+          </DialogTrigger>
 
-        <FormDialog
-          title="Registrar Nuevo Cliente"
-          description="Ingresa los datos personales o comerciales, teléfonos y direcciones de contacto."
-          size="lg"
-        >
-          <FormCreateCliente
-            onSuccess={handleSuccess}
-          />
-        </FormDialog>
-      </Dialog>
+          <FormDialog
+            title="Registrar Nuevo Cliente"
+            description="Ingresa los datos personales o comerciales, teléfonos y direcciones de contacto."
+            size="lg"
+          >
+            <FormCreateCliente onSuccess={handleSuccess} />
+          </FormDialog>
+        </Dialog>
+      )}
     </PageHeader>
   );
 }
