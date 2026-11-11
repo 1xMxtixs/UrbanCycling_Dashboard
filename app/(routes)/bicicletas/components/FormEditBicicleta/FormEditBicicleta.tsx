@@ -516,7 +516,7 @@ export function FormEditBicicleta({
                     <img
                       src={image.urlImagen}
                       alt="Imagen actual de la bicicleta"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     <button
                       type="button"
@@ -537,7 +537,7 @@ export function FormEditBicicleta({
                     <img
                       src={preview}
                       alt="Nueva imagen de la bicicleta"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     <button
                       type="button"
@@ -551,7 +551,7 @@ export function FormEditBicicleta({
                 ))}
 
                 {existingImages.length + newImagePreviews.length < MAX_BICYCLE_IMAGES && (
-                  <div className="w-full sm:w-auto">
+                  <div className="w-full">
                     <ImageUpload
                       label=""
                       imagePreview={null}
