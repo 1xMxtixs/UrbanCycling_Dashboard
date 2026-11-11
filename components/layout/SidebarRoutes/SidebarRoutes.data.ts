@@ -40,7 +40,7 @@ export const dataOperationSidebar = [
       },
       {
         icon: Store,
-        label: "Ventas en caja",
+        label: "Ventas en mostrador",
         href: "/punto-ventas/ventas",
         permission: PERMISSIONS.SALES_READ,
       },

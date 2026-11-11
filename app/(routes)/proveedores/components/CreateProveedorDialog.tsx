@@ -141,6 +141,7 @@ export function CreateProveedorDialog({
       title="Nuevo proveedor"
       description="Registra la información comercial, de contacto y dirección del proveedor."
       size="3xl"
+      scrollable
     >
       <div className="space-y-6">
         {error && (

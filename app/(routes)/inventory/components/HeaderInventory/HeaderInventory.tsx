@@ -78,6 +78,7 @@ export function HeaderInventory({
                   title="Nuevo Producto en Catálogo"
                   description="Completa la información técnica, categoría, precio de venta y niveles de stock mínimos."
                   size="2xl"
+                  scrollable
                 >
                   <FormCreateInventory setOpenModalCreate={setOpenModalProduct} />
                 </FormDialog>
