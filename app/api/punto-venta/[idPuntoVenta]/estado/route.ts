@@ -4,14 +4,49 @@
 // - orden-8
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
-import { ESTADOS_OT_DISPONIBLES, estadoOrdenInclude, resolverEstadoOt, resolverEstadoPago, resolverEstadoVenta, respuestaInvalida } from "@/lib/point-of-sale-status"
+import {
+  ESTADOS_OT_DISPONIBLES,
+  estadoOrdenInclude,
+  resolverEstadoOt,
+  resolverEstadoPago,
+  resolverEstadoVenta,
+  respuestaInvalida,
+} from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
-import { EstadoPago, EstadoPagoVenta, EstadoRegistro, Prisma } from "@/generated/prisma"
-import { ESTADO_OT, ESTADOS_OT_CERRADOS, ESTADOS_OT_FINALIZADOS, TRANSICIONES_OT, type EstadoOt } from "@/lib/work-order-status"
+import {
+  EstadoPago,
+  EstadoPagoVenta,
+  EstadoRegistro,
+  Prisma,
+} from "@/generated/prisma"
+import {
+  ESTADO_OT,
+  ESTADOS_OT_CERRADOS,
+  ESTADOS_OT_FINALIZADOS,
+  TRANSICIONES_OT,
+  type EstadoOt,
+} from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
 
+import { bloquearOrdenesTrabajo } from "@/app/api/_lib/work-order-lock"
+import {
+  eliminarBicicletasOrden,
+  limpiarArchivosOrdenAnulada,
+} from "@/app/api/_lib/cancelled-order-cleanup"
+
 const prisma = db
+const ordenRespuestaInclude = {
+  venta: {
+    include: {
+      usuario: true,
+      cliente: true,
+      asignacionesPago: { include: { pago: true } },
+    },
+  },
+  mecanico: true,
+  estadoOrden: estadoOrdenInclude,
+} as const
 
 function parseIdPuntoVenta(idPuntoVenta: string) {
   const [tipo, id] = idPuntoVenta.split("-")
@@ -141,7 +176,10 @@ export async function PATCH(
     const montoPago = data.monto_pagado ?? data.montoPagado ?? data.monto
 
     if (estadoPagoInput && !estadoPago) {
-      return respuestaInvalida("ESTADO_PAGO_INVALIDO", "Estado de pago inválido")
+      return respuestaInvalida(
+        "ESTADO_PAGO_INVALIDO",
+        "Estado de pago inválido"
+      )
     }
 
     if (metodoPago) {
@@ -155,7 +193,10 @@ export async function PATCH(
         !metodoRegistrado ||
         metodoRegistrado.estado !== EstadoRegistro.ACTIVO
       ) {
-        return respuestaInvalida("METODO_PAGO_INVALIDO", "Método de pago inválido")
+        return respuestaInvalida(
+          "METODO_PAGO_INVALIDO",
+          "Método de pago inválido"
+        )
       }
     }
 
@@ -167,7 +208,10 @@ export async function PATCH(
         : null
 
       if (estadoVentaInput && !estadoVenta) {
-        return respuestaInvalida("ESTADO_VENTA_INVALIDO", "Estado de venta inválido")
+        return respuestaInvalida(
+          "ESTADO_VENTA_INVALIDO",
+          "Estado de venta inválido"
+        )
       }
 
       if (!estadoVenta && !estadoPago) {
@@ -291,7 +335,8 @@ export async function PATCH(
       })
     }
 
-    const estadoOrdenInput = data.estado_orden ?? data.estadoOrden ?? data.estado
+    const estadoOrdenInput =
+      data.estado_orden ?? data.estadoOrden ?? data.estado
     const estadoOrden = estadoOrdenInput
       ? resolverEstadoOt(estadoOrdenInput)
       : null
@@ -313,88 +358,123 @@ export async function PATCH(
       )
     }
 
-    const ordenTrabajo = await prisma.ordenDeTrabajo.findUnique({
-      where: {
-        idOrdenDeTrabajo: parsed.id,
-      },
-      include: {
-        venta: {
-          include: {
-            asignacionesPago: true,
+    const resultado = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        await bloquearOrdenesTrabajo(tx, [parsed.id])
+        const ordenTrabajo = await tx.ordenDeTrabajo.findUnique({
+          where: {
+            idOrdenDeTrabajo: parsed.id,
           },
-        },
-      },
-    })
+          include: {
+            venta: {
+              include: {
+                asignacionesPago: true,
+              },
+            },
+          },
+        })
 
-    if (!ordenTrabajo) {
-      return NextResponse.json(
-        {
-          code: "ORDEN_NO_EXISTE",
-          message: "La orden no existe",
-        },
-        { status: 404 }
-      )
-    }
-
-    if (estadoOrden) {
-      // La anulación se permite desde cualquier estado abierto; el resto sigue la matriz común.
-      if (estadoOrden === ESTADO_OT.ANULADA) {
-        if (
-          ESTADOS_OT_CERRADOS.some(
-            (estadoCerrado) => estadoCerrado === ordenTrabajo.estado
+        if (!ordenTrabajo) {
+          return NextResponse.json(
+            {
+              code: "ORDEN_NO_EXISTE",
+              message: "La orden no existe",
+            },
+            { status: 404 }
           )
+        }
+
+        const reanulacion =
+          estadoOrden === ESTADO_OT.ANULADA &&
+          ordenTrabajo.estado === ESTADO_OT.ANULADA
+        if (
+          reanulacion &&
+          (estadoPagoInput != null ||
+            metodoPagoInput != null ||
+            montoPago != null)
         ) {
           return NextResponse.json(
             {
-              code: "ANULACION_NO_PERMITIDA",
-              message: "La orden ya se encuentra Entregada o Anulada",
+              code: "ANULACION_REPETIDA_CON_PAGO",
+              message:
+                "Para reintentar la limpieza de una orden anulada envíe únicamente el estado ANULADA",
             },
             { status: 409 }
           )
         }
-      } else {
-        const estadosSiguientes =
-          TRANSICIONES_OT[ordenTrabajo.estado as EstadoOt] ?? []
 
-        if (!estadosSiguientes.some((estado) => estado === estadoOrden)) {
-          return NextResponse.json(
-            {
-              code: "CAMBIO_ESTADO_NO_PERMITIDO",
-              message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
-            },
-            { status: 409 }
+        if (estadoOrden) {
+          // La anulación se permite desde cualquier estado abierto; el resto sigue la matriz común.
+          if (estadoOrden === ESTADO_OT.ANULADA) {
+            if (
+              !reanulacion &&
+              ESTADOS_OT_CERRADOS.some(
+                (estadoCerrado) => estadoCerrado === ordenTrabajo.estado
+              )
+            ) {
+              return NextResponse.json(
+                {
+                  code: "ANULACION_NO_PERMITIDA",
+                  message: "La orden ya se encuentra Entregada o Anulada",
+                },
+                { status: 409 }
+              )
+            }
+          } else {
+            const estadosSiguientes =
+              TRANSICIONES_OT[ordenTrabajo.estado as EstadoOt] ?? []
+
+            if (!estadosSiguientes.some((estado) => estado === estadoOrden)) {
+              return NextResponse.json(
+                {
+                  code: "CAMBIO_ESTADO_NO_PERMITIDO",
+                  message: `No se puede cambiar una orden desde "${ordenTrabajo.estado}" a "${estadoOrden}"`,
+                },
+                { status: 409 }
+              )
+            }
+          }
+        }
+
+        let finalEstadoPago = estadoPago
+        const totalOrden = Number(ordenTrabajo.montoTotal)
+        const totalPagadoPrev =
+          ordenTrabajo.venta?.asignacionesPago?.reduce(
+            (sum: number, ap: { montoAsociado: unknown }) =>
+              sum + Number(ap.montoAsociado),
+            0
+          ) ?? 0
+        const saldoPendiente = Math.max(0, totalOrden - totalPagadoPrev)
+        const montoAPagar =
+          montoPago !== undefined && montoPago !== null
+            ? Number(montoPago)
+            : saldoPendiente
+
+        if (metodoPago && (!Number.isFinite(montoAPagar) || montoAPagar <= 0)) {
+          return respuestaInvalida(
+            "MONTO_PAGO_INVALIDO",
+            "Monto de pago inválido"
           )
         }
-      }
-    }
 
-    let finalEstadoPago = estadoPago
-    const totalOrden = Number(ordenTrabajo.montoTotal)
-    const totalPagadoPrev =
-      ordenTrabajo.venta?.asignacionesPago?.reduce(
-        (sum: number, ap: { montoAsociado: unknown }) =>
-          sum + Number(ap.montoAsociado),
-        0
-      ) ?? 0
-    const saldoPendiente = Math.max(0, totalOrden - totalPagadoPrev)
-    const montoAPagar =
-      montoPago !== undefined && montoPago !== null
-        ? Number(montoPago)
-        : saldoPendiente
+        if (metodoPago) {
+          finalEstadoPago =
+            totalPagadoPrev + montoAPagar >= totalOrden
+              ? EstadoPagoVenta.PAGADA
+              : EstadoPagoVenta.PARCIAL
+        }
 
-    if (metodoPago && (!Number.isFinite(montoAPagar) || montoAPagar <= 0)) {
-      return respuestaInvalida("MONTO_PAGO_INVALIDO", "Monto de pago inválido")
-    }
-
-    if (metodoPago) {
-      finalEstadoPago =
-        totalPagadoPrev + montoAPagar >= totalOrden
-          ? EstadoPagoVenta.PAGADA
-          : EstadoPagoVenta.PARCIAL
-    }
-
-    const resultado = await prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
+        const { bicicletas, archivosPendientes } =
+          estadoOrden === ESTADO_OT.ANULADA
+            ? await eliminarBicicletasOrden(tx, parsed.id)
+            : { bicicletas: [], archivosPendientes: [] }
+        if (reanulacion && bicicletas.length === 0) {
+          const orden = await tx.ordenDeTrabajo.findUniqueOrThrow({
+            where: { idOrdenDeTrabajo: parsed.id },
+            include: ordenRespuestaInclude,
+          })
+          return { orden, pago: null, bicicletasEliminadas: 0 }
+        }
         let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
 
         if (metodoPago && montoAPagar > 0) {
@@ -443,21 +523,7 @@ export async function PATCH(
                 ? new Date()
                 : undefined,
           },
-          include: {
-            venta: {
-              include: {
-                usuario: true,
-                cliente: true,
-                asignacionesPago: {
-                  include: {
-                    pago: true,
-                  },
-                },
-              },
-            },
-            mecanico: true,
-            estadoOrden: estadoOrdenInclude,
-          },
+          include: ordenRespuestaInclude,
         })
 
         if (estadoOrden) {
@@ -472,11 +538,18 @@ export async function PATCH(
               estado: ordenTrabajo.estado,
               estadoPago: ordenTrabajo.venta.estadoPago,
               fechaEntregaReal: ordenTrabajo.fechaEntregaReal,
+              ...(estadoOrden === ESTADO_OT.ANULADA ? { bicicletas } : {}),
             },
             valorNuevo: {
               estado: ordenActualizada.estado,
               estadoPago: ordenActualizada.venta.estadoPago,
               fechaEntregaReal: ordenActualizada.fechaEntregaReal,
+              ...(estadoOrden === ESTADO_OT.ANULADA
+                ? {
+                    archivosPendientes,
+                    bicicletasEliminadas: bicicletas.length,
+                  }
+                : {}),
             },
             detalleCambio:
               estadoOrden === ESTADO_OT.ANULADA
@@ -485,15 +558,48 @@ export async function PATCH(
           })
         }
 
-        return { orden: ordenActualizada, pago: nuevoPago }
+        return {
+          orden: ordenActualizada,
+          pago: nuevoPago,
+          bicicletasEliminadas: bicicletas.length,
+        }
       }
     )
+    if (resultado instanceof NextResponse) return resultado
+    let limpiezaArchivos
+    if (estadoOrden === ESTADO_OT.ANULADA) {
+      try {
+        const limpieza = await limpiarArchivosOrdenAnulada(
+          parsed.id,
+          session.user.idUsuario
+        )
+        limpiezaArchivos = {
+          ...limpieza,
+          estado: limpieza.pendientes ? "pendiente" : "completada",
+        }
+      } catch (error) {
+        console.error("[ANULACION_LIMPIEZA_PENDIENTE]", error)
+        limpiezaArchivos = { estado: "pendiente" }
+      }
+    }
 
     return NextResponse.json({
       idPuntoVenta,
       tipoOperacion: "orden_trabajo",
       ordenTrabajo: adaptarOrdenTrabajo(resultado.orden),
       pago: resultado.pago,
+      ...(estadoOrden === ESTADO_OT.ANULADA
+        ? {
+            bicicletasEliminadas: resultado.bicicletasEliminadas,
+            limpiezaArchivos,
+            ...(limpiezaArchivos?.estado === "pendiente"
+              ? {
+                  advertencia:
+                    "La orden fue anulada. Hay archivos pendientes de limpieza; repita la solicitud para reintentar.",
+                }
+              : {}),
+          }
+        : {}),
     })
   } catch (error) {
     console.log("[PUNTO_VENTA_ESTADO_PATCH]", error)
