@@ -29,6 +29,9 @@ export interface FormCreateInventoryProps {
   setOpenModalCreate: (open: boolean) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  product?: import("./components/ListInventory/columns").ProductColumn;
+  onCompleted?: () => void;
+  onCancel?: () => void;
 }
 
 export type ServiceColumn = {
