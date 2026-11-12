@@ -628,7 +628,7 @@ export async function POST(request: Request) {
 
       const createdProduct = await tx.producto.create({
         data: {
-          tipoProducto: data.tipoProducto,
+          tipoProducto: data.tipoProducto ?? "Almacenable",
           codigoProveedor:
             supplierCodeResult.status === "valid"
               ? supplierCodeResult.value

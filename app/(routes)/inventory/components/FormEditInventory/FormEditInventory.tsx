@@ -12,6 +12,7 @@ type FormEditInventoryProps = {
 export function FormEditInventory(props: FormEditInventoryProps) {
   return (
     <FormCreateInventory
+      key={props.product.idProducto}
       setOpenModalCreate={() => undefined}
       product={props.product}
       onCompleted={props.onCompleted}

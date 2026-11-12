@@ -229,6 +229,7 @@ export function FormCreateCliente({
       if (cliente) {
         const body: Record<string, unknown> = {
           telefono: values.telefono,
+          rut: values.rut,
         };
 
         if (cliente.telefonos?.[0]?.idTelefonoCliente) {
@@ -452,7 +453,6 @@ export function FormCreateCliente({
                   <Input
                     placeholder="12345678-9"
                     {...field}
-                    disabled={Boolean(cliente)}
                     onBlur={(event) => {
                       field.onBlur();
                       const result = validarYFormatearRut(
@@ -466,11 +466,6 @@ export function FormCreateCliente({
                     }}
                   />
                 </FormControl>
-                {cliente && (
-                  <FormDescription>
-                    No se puede modificar una vez registrado.
-                  </FormDescription>
-                )}
               </FormItem>
             )}
           />

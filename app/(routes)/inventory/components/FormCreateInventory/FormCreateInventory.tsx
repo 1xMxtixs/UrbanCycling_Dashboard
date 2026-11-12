@@ -30,9 +30,9 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Check, Loader2 } from "lucide-react";
-import type { FormCreateInventoryProps } from "../../types";
+import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
+import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status";
-import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,6 @@ const integerField = (fieldName: string) =>
   );
 
 const formSchema = z.object({
-  tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
   descripcion: z
     .string()
@@ -100,7 +99,8 @@ export function FormCreateInventory({
   onCompleted,
   onCancel,
 }: FormCreateInventoryProps) {
-  const isEditing = Boolean(product)
+  const isEditing = Boolean(product);
+  const initialImage = product?.imagenesProducto?.[0]?.url ?? null;
   const router = useRouter();
   const { hasPermission } = useUserPermissions();
   const canAssociateSupplier = [
@@ -111,11 +111,15 @@ export function FormCreateInventory({
   ].every(hasPermission);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(product?.imagenesProducto?.[0]?.url ?? null);
+  const [imagePreview, setImagePreview] = useState<string | null>(initialImage);
   const [imageRemoved, setImageRemoved] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+    product?.categoriasProducto?.map((category) => category.idCategoria) ?? [],
+  );
+  const [categoryOptions, setCategoryOptions] = useState<InventoryCategory[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -125,19 +129,19 @@ export function FormCreateInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: product ? canonicalTipoProducto(product.tipoProducto) : "",
       nombre: product?.nombre ?? "",
       descripcion: product?.descripcion ?? "",
       precioVenta: product ? `$${Number(product.precioVenta).toLocaleString("es-CL")}` : "",
       precioCompra: product ? `$${Number(product.precioCompra ?? 0).toLocaleString("es-CL")}` : "",
       stockActual: String(product?.stockActual ?? ""),
       stockMinimo: String(product?.stockMinimo ?? ""),
-      estado: product ? (isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO) : ESTADO_REGISTRO.ACTIVO,
+      estado: product
+        ? (isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO)
+        : ESTADO_REGISTRO.ACTIVO,
     },
   });
 
   const { isSubmitting } = form.formState;
-  const productTypeOptions = getTipoProductoOptions(product?.tipoProducto);
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
   const supplierSummary =
     selectedSupplierIds.length === 0
@@ -150,20 +154,23 @@ export function FormCreateInventory({
     form.reset();
     setValidationError("");
     setImageFile(null);
-    setImagePreview(null);
+    setImagePreview(initialImage);
+    setImageRemoved(false);
     setSelectedSupplierIds([]);
+    setSelectedCategoryIds(product?.categoriasProducto?.map((category) => category.idCategoria) ?? []);
   };
 
   const handleClose = (nextOpen: boolean) => {
-    if (!nextOpen) resetForm();
-    if (!nextOpen && isEditing) onCancel?.();
+    if (!nextOpen) {
+      resetForm();
+      if (isEditing) onCancel?.();
+    }
     setOpenModalCreate(nextOpen);
     onOpenChange?.(nextOpen);
   };
 
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
-      "tipoProducto",
       "nombre",
       "precioVenta",
       "precioCompra",
@@ -192,7 +199,42 @@ export function FormCreateInventory({
   }, handleInvalid);
 
   useEffect(() => {
-    if (!canAssociateSupplier) return;
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", {
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(result?.message || "No fue posible cargar las categorías.");
+        }
+
+        const nextCategories: InventoryCategory[] = Array.isArray(result?.categories)
+          ? result.categories
+          : [];
+
+        if (isMounted) {
+          setCategoryOptions(nextCategories);
+        }
+      } catch {
+        if (isMounted) {
+          setCategoryOptions([]);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isEditing || !canAssociateSupplier) return;
     const controller = new AbortController();
 
     async function loadSuppliers() {
@@ -219,7 +261,7 @@ export function FormCreateInventory({
 
     void loadSuppliers();
     return () => controller.abort();
-  }, [canAssociateSupplier, supplierRetry]);
+  }, [isEditing, canAssociateSupplier, supplierRetry]);
 
   const uploadImage = async (file: File): Promise<string | null> => {
     setUploadingImage(true);
@@ -266,22 +308,22 @@ export function FormCreateInventory({
       const cleanPrecioCompra = Number(values.precioCompra.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
-
-      const res = await fetch(isEditing ? `/api/inventory/${product!.idProducto}` : "/api/inventory", {
+      const res = await fetch(product ? `/api/inventory/${product.idProducto}` : "/api/inventory", {
         method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...values,
-          tipoProducto: canonicalTipoProducto(values.tipoProducto),
+          nombre: values.nombre,
+          estado: values.estado,
+          categoriaIds: selectedCategoryIds,
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
           precioCompra: cleanPrecioCompra,
-          ...(isEditing ? {} : { costoPromedio: 0, stockActual: cleanStockActual }),
+          ...(!isEditing ? { costoPromedio: 0, stockActual: cleanStockActual } : {}),
           stockMinimo: cleanStockMinimo,
-          ...(isEditing ? (imageRemoved && !imageFile ? { imageUrl: null } : {}) : (selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {})),
-          ...(imageUrl ? { imageUrl } : {}),
+          ...(!isEditing && selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {}),
+          ...(imageUrl ? { imageUrl } : imageRemoved ? { imageUrl: null } : {}),
         }),
       });
 
@@ -293,8 +335,11 @@ export function FormCreateInventory({
       toast.success(isEditing ? "Producto actualizado correctamente" : "Producto creado correctamente");
       window.dispatchEvent(new Event("inventory:refresh"));
       router.refresh();
-      if (isEditing) onCompleted?.();
-      handleClose(false);
+      if (isEditing) {
+        onCompleted?.();
+      } else {
+        handleClose(false);
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : (isEditing ? "No se pudieron guardar los cambios." : "No se pudo crear el producto")
@@ -341,33 +386,15 @@ export function FormCreateInventory({
       <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormSection title="Información básica">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-            <FormField
-              control={form.control}
-              name="tipoProducto"
-              render={({ field }) => (
-                <FormItem className="col-span-1">
-                  <FormLabel
-                    required
-                    data-error={false}
-                    className="inline-block mb-1.5 font-medium text-foreground"
-                  >
-                    Tipo de producto
-                  </FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl aria-invalid={false}>
-                      <SelectTrigger id="create-product-tipoProducto" ref={field.ref} className="w-full">
-                        <SelectValue placeholder="Selecciona un tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {productTypeOptions.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
+        <div className="space-y-2 col-span-1">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categoryOptions}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSubmitting || uploadingImage}
+          />
+        </div>
 
             <FormField
               control={form.control}
@@ -670,7 +697,7 @@ export function FormCreateInventory({
             onChange={(file, previewUrl) => {
               setImageFile(file);
               setImagePreview(previewUrl);
-              setImageRemoved(!file && Boolean(product?.imagenesProducto?.length));
+              setImageRemoved(!file && Boolean(initialImage));
             }}
             disabled={isSubmitting || uploadingImage}
           />
