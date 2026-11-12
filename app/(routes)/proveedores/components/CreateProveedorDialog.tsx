@@ -42,11 +42,13 @@ export function CreateProveedorDialog({
     setIsSubmitting(false)
   }
 
-  const handleClose = (value: boolean) => {
-    if (!value) {
-      resetForm()
-    }
-    onOpenChange(value)
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen)
+  }
+
+  const handleDiscardDraft = () => {
+    resetForm()
+    onOpenChange(false)
   }
 
   const validate = () => {
@@ -137,7 +139,7 @@ export function CreateProveedorDialog({
   return (
     <FormDialog
       open={open}
-      onOpenChange={handleClose}
+      onOpenChange={handleOpenChange}
       title="Nuevo proveedor"
       description="Registra la información comercial, de contacto y dirección del proveedor."
       size="3xl"
@@ -152,10 +154,10 @@ export function CreateProveedorDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleClose(false)}
+              onClick={handleDiscardDraft}
               disabled={isSubmitting}
             >
-              Cancelar
+              Descartar borrador
             </Button>
 
             <Button

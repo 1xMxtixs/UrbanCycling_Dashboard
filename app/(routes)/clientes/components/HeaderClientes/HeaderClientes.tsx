@@ -48,6 +48,7 @@ export function HeaderClientes({
             onOpenChange={setOpenModalCreate}
             onSuccess={handleSuccess}
             onCancel={() => setOpenModalCreate(false)}
+            preserveDraftOnClose
           />
         </>
       )}

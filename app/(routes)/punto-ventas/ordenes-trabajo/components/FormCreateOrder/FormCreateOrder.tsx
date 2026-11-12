@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -48,6 +48,18 @@ import {
 } from "./OrderLinesSection"
 import { PaymentInitialSection } from "./PaymentInitialSection"
 import type { Client } from "@/app/(routes)/punto-ventas/types"
+
+const createEmptyBike = (): BikeInput => ({
+  marca: "",
+  modelo: "",
+  color: "",
+  descripcion: "",
+  imagenUrl: "",
+  imageFiles: [],
+  imagePreviews: [],
+  isUploading: false,
+  isCollapsed: false,
+})
 
 const focusOrderField = (id: string) => {
   const control = document.getElementById(id)
@@ -99,24 +111,12 @@ export function FormCreateOrder({
 
   const [openQuickCreateClient, setOpenQuickCreateClient] = useState(false)
 
-  const EMPTY_BIKE: BikeInput = {
-    marca: "",
-    modelo: "",
-    color: "",
-    descripcion: "",
-    imagenUrl: "",
-    imageFiles: [],
-    imagePreviews: [],
-    isUploading: false,
-    isCollapsed: false,
-  }
-
-  const [bikes, setBikes] = useState<BikeInput[]>([{ ...EMPTY_BIKE }])
+  const [bikes, setBikes] = useState<BikeInput[]>([createEmptyBike()])
 
   const handleToggleBike = (checked: boolean) => {
     setConBicicleta(checked)
     if (checked && bikes.length === 0) {
-      setBikes([{ ...EMPTY_BIKE }])
+      setBikes([createEmptyBike()])
     }
   }
 
@@ -379,7 +379,7 @@ export function FormCreateOrder({
     setIsCalendarOpen(false)
     setDescripcion("")
     setConBicicleta(true)
-    setBikes([{ ...EMPTY_BIKE }])
+    setBikes([createEmptyBike()])
     setSelectedServices([])
     setSelectedProducts([])
     setEstadoPago(ESTADO_PAGO.PENDIENTE)
@@ -387,18 +387,23 @@ export function FormCreateOrder({
     setMontoAbono(0)
   }
 
-  const handleClose = () => {
-    resetForm()
+  const closeModal = () => {
     setOpenModalCreate?.(false)
     onOpenChange?.(false)
   }
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      resetForm()
-    }
     setOpenModalCreate?.(nextOpen)
     onOpenChange?.(nextOpen)
+  }
+
+  const clearDraftAndReset = () => {
+    resetForm()
+  }
+
+  const handleDiscardDraft = () => {
+    clearDraftAndReset()
+    closeModal()
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -582,9 +587,10 @@ export function FormCreateOrder({
       }
 
       toast.success("Orden de trabajo creada correctamente")
+      clearDraftAndReset()
+      closeModal()
       window.dispatchEvent(new Event("work-orders:refresh"))
       router.refresh()
-      handleClose()
     } catch (err: unknown) {
       console.error(err)
       toast.error(
@@ -608,10 +614,10 @@ export function FormCreateOrder({
         <Button
           type="button"
           variant="outline"
-          onClick={handleClose}
+          onClick={handleDiscardDraft}
           disabled={isSubmitting}
         >
-          Cancelar
+          Descartar borrador
         </Button>
         <Button
           type="submit"
