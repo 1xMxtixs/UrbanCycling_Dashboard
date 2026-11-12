@@ -31,7 +31,7 @@ import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Check, Loader2 } from "lucide-react";
 import type { FormCreateInventoryProps } from "../../types";
-import { ESTADO_REGISTRO } from "@/lib/registro-status";
+import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status";
 import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -96,7 +96,11 @@ export function FormCreateInventory({
   setOpenModalCreate,
   open,
   onOpenChange,
+  product,
+  onCompleted,
+  onCancel,
 }: FormCreateInventoryProps) {
+  const isEditing = Boolean(product)
   const router = useRouter();
   const { hasPermission } = useUserPermissions();
   const canAssociateSupplier = [
@@ -107,7 +111,8 @@ export function FormCreateInventory({
   ].every(hasPermission);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(product?.imagenesProducto?.[0]?.url ?? null);
+  const [imageRemoved, setImageRemoved] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
@@ -120,18 +125,19 @@ export function FormCreateInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: "",
-      nombre: "",
-      descripcion: "",
-      precioVenta: "",
-      precioCompra: "",
-      stockActual: "",
-      stockMinimo: "",
-      estado: ESTADO_REGISTRO.ACTIVO,
+      tipoProducto: product ? canonicalTipoProducto(product.tipoProducto) : "",
+      nombre: product?.nombre ?? "",
+      descripcion: product?.descripcion ?? "",
+      precioVenta: product ? `$${Number(product.precioVenta).toLocaleString("es-CL")}` : "",
+      precioCompra: product ? `$${Number(product.precioCompra ?? 0).toLocaleString("es-CL")}` : "",
+      stockActual: String(product?.stockActual ?? ""),
+      stockMinimo: String(product?.stockMinimo ?? ""),
+      estado: product ? (isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO) : ESTADO_REGISTRO.ACTIVO,
     },
   });
 
   const { isSubmitting } = form.formState;
+  const productTypeOptions = getTipoProductoOptions(product?.tipoProducto);
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
   const supplierSummary =
     selectedSupplierIds.length === 0
@@ -150,6 +156,7 @@ export function FormCreateInventory({
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) resetForm();
+    if (!nextOpen && isEditing) onCancel?.();
     setOpenModalCreate(nextOpen);
     onOpenChange?.(nextOpen);
   };
@@ -260,8 +267,8 @@ export function FormCreateInventory({
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
 
-      const res = await fetch("/api/inventory", {
-        method: "POST",
+      const res = await fetch(isEditing ? `/api/inventory/${product!.idProducto}` : "/api/inventory", {
+        method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -271,26 +278,26 @@ export function FormCreateInventory({
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
           precioCompra: cleanPrecioCompra,
-          costoPromedio: 0,
-          stockActual: cleanStockActual,
+          ...(isEditing ? {} : { costoPromedio: 0, stockActual: cleanStockActual }),
           stockMinimo: cleanStockMinimo,
-          ...(selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {}),
-          imageUrl,
+          ...(isEditing ? (imageRemoved && !imageFile ? { imageUrl: null } : {}) : (selectedSupplierIds.length > 0 ? { idProveedores: selectedSupplierIds } : {})),
+          ...(imageUrl ? { imageUrl } : {}),
         }),
       });
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(errorText || "No se pudo crear el producto");
+        throw new Error(errorText || (isEditing ? "No se pudieron guardar los cambios." : "No se pudo crear el producto"));
       }
 
-      toast.success("Producto creado correctamente");
+      toast.success(isEditing ? "Producto actualizado correctamente" : "Producto creado correctamente");
       window.dispatchEvent(new Event("inventory:refresh"));
       router.refresh();
+      if (isEditing) onCompleted?.();
       handleClose(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "No se pudo crear el producto"
+        error instanceof Error ? error.message : (isEditing ? "No se pudieron guardar los cambios." : "No se pudo crear el producto")
       );
     }
   };
@@ -323,7 +330,7 @@ export function FormCreateInventory({
             ? "Subiendo imagen..."
             : isSubmitting
               ? "Guardando..."
-              : "Guardar producto"}
+              : isEditing ? "Guardar cambios" : "Guardar producto"}
         </Button>
       </div>
     </div>
@@ -353,7 +360,7 @@ export function FormCreateInventory({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent position="popper">
-                      {getTipoProductoOptions().map((type) => (
+                      {productTypeOptions.map((type) => (
                         <SelectItem key={type} value={type}>{type}</SelectItem>
                       ))}
                     </SelectContent>
@@ -409,7 +416,7 @@ export function FormCreateInventory({
           />
         </FormSection>
 
-        {canAssociateSupplier && (
+        {!isEditing && canAssociateSupplier && (
           <div className="space-y-2">
             <FormLabel>Proveedor/es (opcional)</FormLabel>
             {suppliers.length === 0 ? (
@@ -584,6 +591,7 @@ export function FormCreateInventory({
                     <Input
                       id="create-product-stockActual"
                       ref={field.ref}
+                      disabled={isEditing}
                       type="text"
                       inputMode="numeric"
                       placeholder="0"
@@ -662,6 +670,7 @@ export function FormCreateInventory({
             onChange={(file, previewUrl) => {
               setImageFile(file);
               setImagePreview(previewUrl);
+              setImageRemoved(!file && Boolean(product?.imagenesProducto?.length));
             }}
             disabled={isSubmitting || uploadingImage}
           />
