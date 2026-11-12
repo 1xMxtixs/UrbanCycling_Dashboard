@@ -466,7 +466,7 @@ export async function PATCH(
 
         const { bicicletas, archivosPendientes } =
           estadoOrden === ESTADO_OT.ANULADA
-            ? await eliminarBicicletasOrden(tx, parsed.id)
+            ? await eliminarBicicletasOrden(tx, parsed.id, session.user.idUsuario)
             : { bicicletas: [], archivosPendientes: [] }
         if (reanulacion && bicicletas.length === 0) {
           const orden = await tx.ordenDeTrabajo.findUniqueOrThrow({

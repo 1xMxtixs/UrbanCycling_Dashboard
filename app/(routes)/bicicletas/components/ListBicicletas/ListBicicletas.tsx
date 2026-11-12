@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BikeCard } from "./BikeCard";
+import { FormEditBicicleta } from "../FormEditBicicleta/FormEditBicicleta";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Bike, Wrench, CheckCircle2, Tag, RefreshCw, Search } from "lucide-react";
+import {
+  Bike,
+  Wrench,
+  CheckCircle2,
+  Tag,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { formatClientName } from "@/lib/formatters";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Bicicleta } from "../../types";
+import type { Bicicleta, OrdenTrabajoResumen } from "../../types";
+import {
+  normalizarOrdenesAbiertas,
+  ordenAbierta,
+  solicitarBicicletaApi,
+} from "../../lib/bicycle-editor";
+import { useUserPermissions } from "@/components/providers";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   ESTADO_OT,
   ESTADOS_OT_FINALIZADOS,
@@ -27,14 +42,25 @@ import {
 } from "@/lib/work-order-status";
 
 export function ListBicicletas() {
+  const { hasPermission } = useUserPermissions();
+  const canEdit = hasPermission(PERMISSIONS.BICYCLES_UPDATE);
+  const peticionOrdenes = useRef(0);
+  const peticionBicicletas = useRef(0);
   const [bicicletas, setBicicletas] = useState<Bicicleta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("all");
+  const [selectedBicicleta, setSelectedBicicleta] = useState<Bicicleta | null>(
+    null
+  );
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [ordenes, setOrdenes] = useState<OrdenTrabajoResumen[]>([]);
+  const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
+  const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
 
   const fetchBicicletas = useCallback(async () => {
-    setIsLoading(true);
+    const peticion = ++peticionBicicletas.current;
     setError(null);
 
     try {
@@ -45,8 +71,9 @@ export function ListBicicletas() {
       }
 
       const data = (await response.json()) as Bicicleta[];
-      setBicicletas(data);
+      if (peticion === peticionBicicletas.current) setBicicletas(data);
     } catch (err) {
+      if (peticion !== peticionBicicletas.current) return;
       setError(
         err instanceof Error
           ? err.message
@@ -54,38 +81,36 @@ export function ListBicicletas() {
       );
       setBicicletas([]);
     } finally {
-      setIsLoading(false);
+      if (peticion === peticionBicicletas.current) setIsLoading(false);
+    }
+  }, []);
+
+  const fetchOrdenes = useCallback(async () => {
+    const peticion = ++peticionOrdenes.current;
+    setCargandoOrdenes(true);
+    setErrorOrdenes(null);
+    setOrdenes([]);
+
+    try {
+      const data = await solicitarBicicletaApi<unknown>("/api/punto-venta");
+      if (peticion === peticionOrdenes.current)
+        setOrdenes(normalizarOrdenesAbiertas(data));
+    } catch (error) {
+      if (peticion === peticionOrdenes.current) {
+        setErrorOrdenes(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar las órdenes de trabajo"
+        );
+      }
+    } finally {
+      if (peticion === peticionOrdenes.current) setCargandoOrdenes(false);
     }
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    fetch("/api/bicycles", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("No fue posible cargar el catálogo de bicicletas.");
-        }
-        const data = (await response.json()) as Bicicleta[];
-        if (isMounted) {
-          setBicicletas(data);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Ocurrió un error inesperado al cargar las bicicletas."
-          );
-          setBicicletas([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
+    let activo = true;
+    queueMicrotask(() => { if (activo) void fetchBicicletas(); });
 
     const handleRefresh = () => {
       void fetchBicicletas();
@@ -94,10 +119,21 @@ export function ListBicicletas() {
     window.addEventListener("bicicletas:refresh", handleRefresh);
 
     return () => {
-      isMounted = false;
+      activo = false;
       window.removeEventListener("bicicletas:refresh", handleRefresh);
     };
   }, [fetchBicicletas]);
+
+  const handleEditBicicleta = useCallback(
+    (bicicleta: Bicicleta) => {
+      if (!canEdit || !ordenAbierta(bicicleta.ordenDeTrabajo?.estadoOrden))
+        return;
+      setSelectedBicicleta(bicicleta);
+      setOpenEditModal(true);
+      void fetchOrdenes();
+    },
+    [canEdit, fetchOrdenes]
+  );
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredBicicletas = useMemo(() => {
@@ -156,18 +192,21 @@ export function ListBicicletas() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
+      <div className="animate-pulse space-y-6">
         {/* Skeleton de KPIs */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={`metric-skeleton-${i}`} className="h-24 rounded-2xl" />
+            <Skeleton
+              key={`metric-skeleton-${i}`}
+              className="h-24 rounded-2xl"
+            />
           ))}
         </div>
 
         {/* Skeleton de DataTableContainer y Grilla de Tarjetas */}
         <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
-          <div className="space-y-4 p-5 md:p-6 border-b border-border/60 bg-muted/15">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-4 border-b border-border/60 bg-muted/15 p-5 md:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-6 w-48 rounded-lg" />
                 <Skeleton className="h-4 w-36 rounded-md" />
@@ -181,13 +220,13 @@ export function ListBicicletas() {
               {[...Array(8)].map((_, i) => (
                 <div
                   key={`card-skeleton-${i}`}
-                  className="rounded-2xl border border-border/80 bg-card overflow-hidden space-y-3 p-0"
+                  className="space-y-3 overflow-hidden rounded-2xl border border-border/80 bg-card p-0"
                 >
                   <Skeleton className="aspect-[16/10] w-full rounded-none" />
-                  <div className="p-4 space-y-3">
+                  <div className="space-y-3 p-4">
                     <Skeleton className="h-5 w-3/4 rounded-md" />
                     <Skeleton className="h-4 w-1/2 rounded-md" />
-                    <div className="pt-2 border-t border-border/60 flex justify-between items-center">
+                    <div className="flex items-center justify-between border-t border-border/60 pt-2">
                       <Skeleton className="h-4 w-24 rounded-md" />
                       <Skeleton className="h-5 w-20 rounded-full" />
                     </div>
@@ -202,10 +241,10 @@ export function ListBicicletas() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="animate-in space-y-6 duration-300 fade-in">
       {/* Banner de error cuando hay fallo */}
       {error && (
-        <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between text-card-foreground">
+        <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-card-foreground sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-destructive">
               No fue posible cargar el catálogo de bicicletas
@@ -217,7 +256,7 @@ export function ListBicicletas() {
             variant="outline"
             size="sm"
             onClick={() => void fetchBicicletas()}
-            className="border-destructive/30 hover:bg-destructive/10 text-destructive cursor-pointer shrink-0"
+            className="shrink-0 cursor-pointer border-destructive/30 text-destructive hover:bg-destructive/10"
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Reintentar
@@ -259,7 +298,10 @@ export function ListBicicletas() {
         toolbar={
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
               <Input
                 aria-label="Buscar bicicletas por marca, modelo, cliente u orden"
                 placeholder="Buscar por marca, modelo, cliente u orden..."
@@ -272,7 +314,7 @@ export function ListBicicletas() {
               <Select value={estadoFiltro} onValueChange={setEstadoFiltro}>
                 <SelectTrigger
                   aria-label="Filtrar bicicletas por estado de la orden"
-                  className="h-10 data-[size=default]:h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56"
+                  className="h-10 w-full cursor-pointer rounded-xl border-border/80 bg-background text-sm shadow-2xs data-[size=default]:h-10 sm:w-56"
                 >
                   <SelectValue placeholder="Todos los estados" />
                 </SelectTrigger>
@@ -321,12 +363,44 @@ export function ListBicicletas() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredBicicletas.map((bicicleta) => (
-                <BikeCard key={bicicleta.idBicicleta} bicicleta={bicicleta} />
+                <BikeCard
+                  key={bicicleta.idBicicleta}
+                  bicicleta={bicicleta}
+                  onEdit={canEdit ? handleEditBicicleta : undefined}
+                />
               ))}
             </div>
           )}
         </div>
       </DataTableContainer>
+
+      {selectedBicicleta && (
+        <FormEditBicicleta
+          key={selectedBicicleta.idBicicleta}
+          bicicleta={selectedBicicleta}
+          open={openEditModal}
+          onOpenChange={(open) => {
+            setOpenEditModal(open);
+            if (!open) {
+              setSelectedBicicleta(null);
+            }
+          }}
+          ordenes={ordenes}
+          cargandoOrdenes={cargandoOrdenes}
+          errorOrdenes={errorOrdenes}
+          onRetryOrdenes={fetchOrdenes}
+          onRefresh={fetchBicicletas}
+          onCancel={() => {
+            setOpenEditModal(false);
+            setSelectedBicicleta(null);
+          }}
+          onSuccess={() => {
+            setOpenEditModal(false);
+            setSelectedBicicleta(null);
+            void fetchBicicletas();
+          }}
+        />
+      )}
     </div>
   );
 }

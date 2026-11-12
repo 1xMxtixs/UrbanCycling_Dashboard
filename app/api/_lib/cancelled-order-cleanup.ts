@@ -2,11 +2,13 @@ import { db } from "@/lib/db"
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { eliminarArchivoSubido } from "./delete-upload"
 import type { Prisma } from "@/generated/prisma"
+import { encolarBorrado } from "./image-jobs"
 
 // Compartido por la API de OT y la API que utiliza punto de venta.
 export async function eliminarBicicletasOrden(
   tx: Prisma.TransactionClient,
-  idOrdenDeTrabajo: number
+  idOrdenDeTrabajo: number,
+  idUsuario: number
 ) {
   const bicicletas = await tx.bicicleta.findMany({
     where: { idOrdenDeTrabajo },
@@ -15,6 +17,8 @@ export async function eliminarBicicletasOrden(
   const archivosPendientes = [
     ...new Set(bicicletas.flatMap((b) => b.imagenes.map((i) => i.urlImagen))),
   ]
+  // La limpieza administrativa también recupera fallos de las anulaciones.
+  await encolarBorrado(tx, archivosPendientes, idUsuario, 0)
   await tx.imagenBicicleta.deleteMany({
     where: { bicicleta: { idOrdenDeTrabajo } },
   })
