@@ -112,6 +112,7 @@ export function FormCreateInventory({
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
   const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -206,6 +207,43 @@ export function FormCreateInventory({
     setValidationError("");
     return onSubmit(values);
   }, handleInvalid);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", {
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(result?.message || "No fue posible cargar las categorías.");
+        }
+
+        const nextCategories = Array.isArray(result?.categories)
+          ? result.categories
+              .map((category: { nombre?: string }) => category?.nombre)
+              .filter((name: string | undefined): name is string => Boolean(name?.trim()))
+          : [];
+
+        if (isMounted) {
+          setCategoryOptions(nextCategories);
+        }
+      } catch {
+        if (isMounted) {
+          setCategoryOptions([]);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!canAssociateSupplier) return;
@@ -407,27 +445,33 @@ export function FormCreateInventory({
                             <Check className="h-4 w-4 shrink-0" />
                           ) : null}
                         </Button>
-                        {getTipoProductoOptions().map((type) => {
-                          const isSelected = selectedProductTypes.includes(type);
+                        {categoryOptions.length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-muted-foreground">
+                            No hay categorías disponibles.
+                          </div>
+                        ) : (
+                          categoryOptions.map((type) => {
+                            const isSelected = selectedProductTypes.includes(type);
 
-                          return (
-                            <Button
-                              key={type}
-                              type="button"
-                              variant="outline"
-                              className={cn(
-                                "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                                isSelected && "border-primary bg-primary/10 text-primary"
-                              )}
-                              onClick={() => handleProductTypeToggle(type)}
-                            >
-                              <span className="truncate">{type}</span>
-                              {isSelected ? (
-                                <Check className="h-4 w-4 shrink-0" />
-                              ) : null}
-                            </Button>
-                          );
-                        })}
+                            return (
+                              <Button
+                                key={type}
+                                type="button"
+                                variant="outline"
+                                className={cn(
+                                  "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                                  isSelected && "border-primary bg-primary/10 text-primary"
+                                )}
+                                onClick={() => handleProductTypeToggle(type)}
+                              >
+                                <span className="truncate">{type}</span>
+                                {isSelected ? (
+                                  <Check className="h-4 w-4 shrink-0" />
+                                ) : null}
+                              </Button>
+                            );
+                          })
+                        )}
                       </div>
                     </PopoverContent>
                   </Popover>

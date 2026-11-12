@@ -165,7 +165,9 @@ export function FormEditInventory({
     },
   })
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
-  const productTypeOptions = getTipoProductoOptions(product.tipoProducto)
+  const productTypeOptions = categories.length > 0
+    ? categories.map((category) => category.nombre)
+    : getTipoProductoOptions(product.tipoProducto)
   const productTypeSummary =
     selectedProductTypes.length === 0
       ? "Sin tipo"
@@ -326,25 +328,31 @@ export function FormEditInventory({
                           <Check className="h-4 w-4 shrink-0" />
                         ) : null}
                       </Button>
-                      {productTypeOptions.map((type) => {
-                        const isSelected = selectedProductTypes.includes(type)
+                      {productTypeOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          No hay categorías disponibles.
+                        </div>
+                      ) : (
+                        productTypeOptions.map((type) => {
+                          const isSelected = selectedProductTypes.includes(type)
 
-                        return (
-                          <Button
-                            key={type}
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                              isSelected && "border-primary bg-primary/10 text-primary",
-                            )}
-                            onClick={() => handleProductTypeToggle(type)}
-                          >
-                            <span className="truncate">{type}</span>
-                            {isSelected ? <Check className="h-4 w-4 shrink-0" /> : null}
-                          </Button>
-                        )
-                      })}
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant="outline"
+                              className={cn(
+                                "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                                isSelected && "border-primary bg-primary/10 text-primary",
+                              )}
+                              onClick={() => handleProductTypeToggle(type)}
+                            >
+                              <span className="truncate">{type}</span>
+                              {isSelected ? <Check className="h-4 w-4 shrink-0" /> : null}
+                            </Button>
+                          )
+                        })
+                      )}
                     </div>
                   </PopoverContent>
                 </Popover>
