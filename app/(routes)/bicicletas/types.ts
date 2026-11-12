@@ -21,7 +21,7 @@ export type Bicicleta = {
       apellidoPaterno: string | null;
       apellidoMaterno: string | null;
       razonSocial: string | null;
-      rut: string;
+      rut: string | null;
     } | null;
   } | null;
 };
@@ -38,7 +38,7 @@ export type OrdenTrabajoResumen = {
     primerNombre: string | null;
     apellidoPaterno: string | null;
     apellidoMaterno: string | null;
-    rut: string;
+    rut: string | null;
   };
   bicicletas?: Array<{ marca: string; modelo: string }>;
 };
