@@ -70,15 +70,12 @@ export function CreatePurchaseOrderForm({
     setError("")
   }, [])
 
-  const handleCancel = () => {
+  const handleDiscardDraft = () => {
     resetForm()
     onCancel()
   }
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      resetForm()
-    }
     onOpenChange?.(nextOpen)
   }
 
@@ -254,8 +251,8 @@ export function CreatePurchaseOrderForm({
         </p>
       )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
-          Cancelar
+        <Button type="button" variant="outline" onClick={handleDiscardDraft} disabled={isSaving}>
+          Descartar borrador
         </Button>
         <Button
           type="button"

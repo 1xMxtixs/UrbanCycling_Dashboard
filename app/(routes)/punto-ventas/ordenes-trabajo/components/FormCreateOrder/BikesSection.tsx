@@ -177,6 +177,7 @@ export function BikesSection({
                       <Input
                         id={`bike-${idx}-marca`}
                         placeholder="Ej: Trek, Giant"
+                        maxLength={50}
                         value={bike.marca}
                         onChange={(e) =>
                           onUpdateBikeField(
@@ -196,6 +197,7 @@ export function BikesSection({
                       <Input
                         id={`bike-${idx}-modelo`}
                         placeholder="Ej: Marlin 7"
+                        maxLength={50}
                         value={bike.modelo}
                         onChange={(e) =>
                           onUpdateBikeField(
@@ -215,6 +217,7 @@ export function BikesSection({
                       <Input
                         id={`bike-${idx}-color`}
                         placeholder="Ej: Negro/Rojo"
+                        maxLength={50}
                         value={bike.color}
                         onChange={(e) =>
                           onUpdateBikeField(

@@ -87,6 +87,7 @@ export interface FormCreateClienteProps {
   title?: string;
   description?: string;
   size?: FormDialogSize;
+  preserveDraftOnClose?: boolean;
 }
 
 function getInitialValues(cliente?: DBCliente): FormValues {
@@ -133,6 +134,7 @@ export function FormCreateCliente({
   title,
   description,
   size = "lg",
+  preserveDraftOnClose = false,
 }: FormCreateClienteProps) {
   const [errorGeneral, setErrorGeneral] = useState("");
   const [validationError, setValidationError] = useState("");
@@ -162,11 +164,11 @@ export function FormCreateCliente({
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) resetForm();
+    if (!nextOpen && !preserveDraftOnClose) resetForm();
     onOpenChange?.(nextOpen);
   };
 
-  const handleCancel = () => {
+  const handleDiscardDraft = () => {
     resetForm();
     onCancel?.();
   };
@@ -306,10 +308,10 @@ export function FormCreateCliente({
           <Button
             type="button"
             variant="outline"
-            onClick={handleCancel}
+            onClick={handleDiscardDraft}
             disabled={isSubmitting}
           >
-            Cancelar
+            {preserveDraftOnClose ? "Descartar borrador" : "Cancelar"}
           </Button>
         )}
         <Button

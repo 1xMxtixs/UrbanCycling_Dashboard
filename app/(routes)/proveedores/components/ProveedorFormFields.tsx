@@ -68,6 +68,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-razonSocial`}
               value={form.razonSocial}
+              maxLength={100}
               onChange={(e) => updateField("razonSocial", e.target.value)}
               placeholder="Ej. Distribuidora de Bicicletas Ltda."
               disabled={disabled}
@@ -85,6 +86,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-rut`}
               value={form.rut}
+              maxLength={20}
               onChange={(e) => updateField("rut", e.target.value)}
               onBlur={(e) => {
                 const result = validarYFormatearRut(e.target.value)
@@ -105,6 +107,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-nombreFantasia`}
               value={form.nombreFantasia}
+              maxLength={150}
               onChange={(e) => updateField("nombreFantasia", e.target.value)}
               placeholder="Ej. Bike Parts Chile"
               disabled={disabled}
@@ -122,6 +125,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-giro`}
               value={form.giro}
+              maxLength={100}
               onChange={(e) => updateField("giro", e.target.value)}
               placeholder="Ej. Venta de repuestos"
               disabled={disabled}
@@ -139,6 +143,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-condicionesDePago`}
               value={form.condicionesDePago}
+              maxLength={100}
               onChange={(e) => updateField("condicionesDePago", e.target.value)}
               placeholder="Ej. 30 días"
               disabled={disabled}
@@ -155,6 +160,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-nombreContacto`}
               value={form.nombreContacto}
+              maxLength={100}
               onChange={(e) => updateField("nombreContacto", e.target.value)}
               placeholder="Ej. Juan Pérez"
               disabled={disabled}
@@ -176,6 +182,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-telefono`}
               value={form.telefono}
+              maxLength={20}
               inputMode="tel"
               onChange={(e) =>
                 updateField(
@@ -203,6 +210,7 @@ export function ProveedorFormFields({
               id={`${idPrefix}-correo`}
               type="email"
               value={form.correo}
+              maxLength={255}
               onChange={(e) => updateField("correo", e.target.value)}
               placeholder="contacto@proveedor.cl"
               disabled={disabled}
@@ -293,6 +301,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-comuna`}
               value={form.comuna}
+              maxLength={100}
               onChange={(e) => updateField("comuna", e.target.value)}
               placeholder="Providencia"
               disabled={disabled}
@@ -310,6 +319,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-calle`}
               value={form.calle}
+              maxLength={150}
               onChange={(e) => updateField("calle", e.target.value)}
               placeholder="Av. Providencia"
               disabled={disabled}
@@ -327,6 +337,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-numero`}
               value={form.numero}
+              maxLength={20}
               onChange={(e) => updateField("numero", e.target.value)}
               placeholder="1234"
               disabled={disabled}
@@ -343,6 +354,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-unidad`}
               value={form.unidad}
+              maxLength={20}
               onChange={(e) => updateField("unidad", e.target.value)}
               placeholder="Oficina 402"
               disabled={disabled}
@@ -359,6 +371,7 @@ export function ProveedorFormFields({
             <Input
               id={`${idPrefix}-direccionDescripcion`}
               value={form.direccionDescripcion}
+              maxLength={50}
               onChange={(e) =>
                 updateField("direccionDescripcion", e.target.value)
               }
