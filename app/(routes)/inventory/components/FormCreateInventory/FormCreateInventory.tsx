@@ -111,6 +111,7 @@ export function FormCreateInventory({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
+  const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -139,6 +140,12 @@ export function FormCreateInventory({
       : selectedSupplierIds.length === 1
         ? "1 proveedor"
         : `${selectedSupplierIds.length} proveedores`;
+  const productTypeSummary =
+    selectedProductTypes.length === 0
+      ? "Sin tipo"
+      : selectedProductTypes.length === 1
+        ? selectedProductTypes[0]
+        : `${selectedProductTypes.length} tipos`;
 
   const resetForm = () => {
     form.reset();
@@ -146,6 +153,7 @@ export function FormCreateInventory({
     setImageFile(null);
     setImagePreview(null);
     setSelectedSupplierIds([]);
+    setSelectedProductTypes([]);
   };
 
   const handleClose = (nextOpen: boolean) => {
@@ -153,6 +161,21 @@ export function FormCreateInventory({
     setOpenModalCreate(nextOpen);
     onOpenChange?.(nextOpen);
   };
+
+  const handleProductTypeToggle = (type: string) => {
+    setSelectedProductTypes((current) => {
+      const next = current.includes(type)
+        ? current.filter((item) => item !== type)
+        : [...current, type];
+
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const nextValue = selectedProductTypes.join(", ");
+    form.setValue("tipoProducto", nextValue, { shouldValidate: true });
+  }, [selectedProductTypes, form]);
 
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
@@ -259,6 +282,10 @@ export function FormCreateInventory({
       const cleanPrecioCompra = Number(values.precioCompra.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
+      const rawTipoProducto =
+        selectedProductTypes.length > 0
+          ? selectedProductTypes.join(", ")
+          : values.tipoProducto;
 
       const res = await fetch("/api/inventory", {
         method: "POST",
@@ -267,7 +294,7 @@ export function FormCreateInventory({
         },
         body: JSON.stringify({
           ...values,
-          tipoProducto: canonicalTipoProducto(values.tipoProducto),
+          tipoProducto: canonicalTipoProducto(rawTipoProducto),
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
           precioCompra: cleanPrecioCompra,
@@ -346,18 +373,73 @@ export function FormCreateInventory({
                   >
                     Tipo de producto
                   </FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl aria-invalid={false}>
-                      <SelectTrigger id="create-product-tipoProducto" ref={field.ref} className="w-full">
-                        <SelectValue placeholder="Selecciona un tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {getTipoProductoOptions().map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl aria-invalid={false}>
+                        <Button
+                          id="create-product-tipoProducto"
+                          type="button"
+                          variant="outline"
+                          className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
+                          ref={field.ref}
+                        >
+                          <span className="truncate">{productTypeSummary}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">▾</span>
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
+                      <div className="max-h-64 space-y-1 overflow-y-auto">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                            selectedProductTypes.length === 0 && "border-primary bg-primary/10 text-primary"
+                          )}
+                          onClick={() => {
+                            setSelectedProductTypes([]);
+                            form.setValue("tipoProducto", "", { shouldValidate: true });
+                          }}
+                        >
+                          <span className="truncate">Sin tipo</span>
+                          {selectedProductTypes.length === 0 ? (
+                            <Check className="h-4 w-4 shrink-0" />
+                          ) : null}
+                        </Button>
+                        {getTipoProductoOptions().map((type) => {
+                          const isSelected = selectedProductTypes.includes(type);
+
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant="outline"
+                              className={cn(
+                                "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
+                                isSelected && "border-primary bg-primary/10 text-primary"
+                              )}
+                              onClick={() => handleProductTypeToggle(type)}
+                            >
+                              <span className="truncate">{type}</span>
+                              {isSelected ? (
+                                <Check className="h-4 w-4 shrink-0" />
+                              ) : null}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {selectedProductTypes.length > 0 ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {selectedProductTypes.length} tipo(s) seleccionado(s).
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Puedes seleccionar uno o varios tipos antes de guardar.
+                    </p>
+                  )}
                 </FormItem>
               )}
             />
