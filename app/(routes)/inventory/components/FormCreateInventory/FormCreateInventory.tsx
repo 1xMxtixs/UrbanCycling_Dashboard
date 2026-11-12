@@ -30,9 +30,9 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Check, Loader2 } from "lucide-react";
-import type { FormCreateInventoryProps } from "../../types";
+import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
+import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
-import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,6 @@ const integerField = (fieldName: string) =>
   );
 
 const formSchema = z.object({
-  tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
   descripcion: z
     .string()
@@ -111,6 +110,8 @@ export function FormCreateInventory({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<InventoryCategory[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -120,7 +121,6 @@ export function FormCreateInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: "",
       nombre: "",
       descripcion: "",
       precioVenta: "",
@@ -146,6 +146,7 @@ export function FormCreateInventory({
     setImageFile(null);
     setImagePreview(null);
     setSelectedSupplierIds([]);
+    setSelectedCategoryIds([]);
   };
 
   const handleClose = (nextOpen: boolean) => {
@@ -156,7 +157,6 @@ export function FormCreateInventory({
 
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
-      "tipoProducto",
       "nombre",
       "precioVenta",
       "precioCompra",
@@ -183,6 +183,41 @@ export function FormCreateInventory({
     setValidationError("");
     return onSubmit(values);
   }, handleInvalid);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/inventory/categories", {
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(result?.message || "No fue posible cargar las categorías.");
+        }
+
+        const nextCategories: InventoryCategory[] = Array.isArray(result?.categories)
+          ? result.categories
+          : [];
+
+        if (isMounted) {
+          setCategoryOptions(nextCategories);
+        }
+      } catch {
+        if (isMounted) {
+          setCategoryOptions([]);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!canAssociateSupplier) return;
@@ -259,7 +294,6 @@ export function FormCreateInventory({
       const cleanPrecioCompra = Number(values.precioCompra.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
-
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: {
@@ -267,7 +301,7 @@ export function FormCreateInventory({
         },
         body: JSON.stringify({
           ...values,
-          tipoProducto: canonicalTipoProducto(values.tipoProducto),
+          categoriaIds: selectedCategoryIds,
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
           precioCompra: cleanPrecioCompra,
@@ -334,33 +368,15 @@ export function FormCreateInventory({
       <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormSection title="Información básica">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-            <FormField
-              control={form.control}
-              name="tipoProducto"
-              render={({ field }) => (
-                <FormItem className="col-span-1">
-                  <FormLabel
-                    required
-                    data-error={false}
-                    className="inline-block mb-1.5 font-medium text-foreground"
-                  >
-                    Tipo de producto
-                  </FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl aria-invalid={false}>
-                      <SelectTrigger id="create-product-tipoProducto" ref={field.ref} className="w-full">
-                        <SelectValue placeholder="Selecciona un tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {getTipoProductoOptions().map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
+        <div className="space-y-2 col-span-1">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categoryOptions}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSubmitting || uploadingImage}
+          />
+        </div>
 
             <FormField
               control={form.control}

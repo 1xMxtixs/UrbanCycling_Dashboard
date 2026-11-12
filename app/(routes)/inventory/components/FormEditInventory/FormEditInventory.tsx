@@ -28,7 +28,6 @@ import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
 import type { InventoryCategory } from "../../types"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
-import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types"
 
 const DESCRIPTION_MAX_LENGTH = 50;
 
@@ -51,7 +50,6 @@ const nonNegativeNumber = (label: string) =>
     })
 
 const formSchema = z.object({
-  tipoProducto: z.string().trim().min(1, "El tipo de producto es obligatorio"),
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100),
   descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
   precioVenta: nonNegativeNumber("El precio de venta").refine(
@@ -141,7 +139,6 @@ export function FormEditInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: canonicalTipoProducto(product.tipoProducto),
       nombre: product.nombre,
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
@@ -152,11 +149,9 @@ export function FormEditInventory({
     },
   })
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
-  const productTypeOptions = getTipoProductoOptions(product.tipoProducto)
 
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
-      "tipoProducto",
       "estado",
       "nombre",
       "precioVenta",
@@ -206,7 +201,6 @@ export function FormEditInventory({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tipoProducto: canonicalTipoProducto(values.tipoProducto),
           nombre: values.nombre,
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
@@ -258,27 +252,7 @@ export function FormEditInventory({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="tipoProducto"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel data-error={false}>Tipo de producto</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl aria-invalid={false}>
-                    <SelectTrigger id="edit-product-tipoProducto" ref={field.ref} className="w-full">
-                      <SelectValue placeholder="Selecciona un tipo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {productTypeOptions.map((type) => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
+
 
           <FormField
             control={form.control}
