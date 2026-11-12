@@ -1,12 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { FormDialog } from "@/components/forms/FormDialog";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Plus } from "lucide-react";
 import { FormCreateCliente } from "../FormCreateCliente";
@@ -40,21 +35,21 @@ export function HeaderClientes({
       description={description}
     >
       {puedeCrearCliente && (
-        <Dialog open={openModalCreate} onOpenChange={setOpenModalCreate}>
-          <DialogTrigger asChild>
-            <Button className="rounded-xl font-semibold shadow-xs cursor-pointer">
-              <Plus className="h-4 w-4 mr-1.5" /> Registrar Cliente
-            </Button>
-          </DialogTrigger>
-
-          <FormDialog
-            title="Registrar Nuevo Cliente"
-            description="Ingresa los datos personales o comerciales, teléfonos y direcciones de contacto."
-            size="lg"
+        <>
+          <Button
+            onClick={() => setOpenModalCreate(true)}
+            className="rounded-xl font-semibold shadow-xs cursor-pointer"
           >
-            <FormCreateCliente onSuccess={handleSuccess} />
-          </FormDialog>
-        </Dialog>
+            <Plus className="h-4 w-4 mr-1.5" /> Registrar Cliente
+          </Button>
+
+          <FormCreateCliente
+            open={openModalCreate}
+            onOpenChange={setOpenModalCreate}
+            onSuccess={handleSuccess}
+            onCancel={() => setOpenModalCreate(false)}
+          />
+        </>
       )}
     </PageHeader>
   );

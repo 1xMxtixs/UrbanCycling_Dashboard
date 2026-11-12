@@ -124,16 +124,16 @@ export function OrderLinesSection({
                 key={idx}
                 className="space-y-3 rounded-lg border border-border/70 bg-muted/50 p-3 animate-in slide-in-from-top-1 duration-150 motion-reduce:animate-none"
               >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`order-service-type-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor={`order-service-type-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                       Tipo de servicio
                     </Label>
                     <Select
                       value={selService.tipo}
                       onValueChange={(value: SelectedService["tipo"]) => onServiceTypeChange(idx, value)}
                     >
-                      <SelectTrigger id={`order-service-type-${idx}`} aria-label={`Tipo de servicio ${idx + 1}`} className="h-9 w-full text-xs">
+                      <SelectTrigger id={`order-service-type-${idx}`} aria-label={`Tipo de servicio ${idx + 1}`} className="h-9 data-[size=default]:h-9 w-full border-input bg-background text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -143,17 +143,16 @@ export function OrderLinesSection({
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div>
                     {selService.tipo === "personalizado" ? (
                       <>
-                        <Label htmlFor={`order-service-name-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                        <Label htmlFor={`order-service-name-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                           Nombre del servicio
                         </Label>
                         <Input
                           id={`order-service-name-${idx}`}
                           aria-label={`Nombre del servicio ${idx + 1}`}
                           maxLength={100}
-                          required
                           value={selService.nombre}
                           onChange={(e) => onCustomServiceChange(idx, "nombre", e.target.value)}
                           className="h-9 text-xs"
@@ -161,7 +160,7 @@ export function OrderLinesSection({
                       </>
                     ) : (
                       <>
-                        <Label htmlFor={`order-service-catalog-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                        <Label htmlFor={`order-service-catalog-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                           Servicio
                         </Label>
                         <Select
@@ -171,7 +170,7 @@ export function OrderLinesSection({
                           <SelectTrigger
                             id={`order-service-catalog-${idx}`}
                             aria-label={`Servicio de catálogo ${idx + 1}`}
-                            className="h-9 w-full border-input bg-background text-xs"
+                            className="h-9 data-[size=default]:h-9 w-full border-input bg-background text-xs"
                           >
                             <SelectValue placeholder="Selecciona un servicio" />
                           </SelectTrigger>
@@ -189,8 +188,8 @@ export function OrderLinesSection({
                 </div>
 
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`order-service-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                  <div>
+                    <Label htmlFor={`order-service-quantity-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                       Cantidad
                     </Label>
                     <Input
@@ -200,26 +199,32 @@ export function OrderLinesSection({
                       step={1}
                       aria-label={`Cantidad del servicio ${idx + 1}`}
                       value={selService.cantidad}
+                      disabled={selService.tipo === "catalogo" && !selService.idServicio}
                       onChange={(e) => onServiceQuantityChange(idx, Number(e.target.value))}
                       className="h-9 text-xs"
                     />
                   </div>
 
                   {selService.tipo === "personalizado" ? (
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`order-service-price-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                    <div>
+                      <Label htmlFor={`order-service-price-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                         Precio unitario
                       </Label>
                       <Input
                         id={`order-service-price-${idx}`}
                         aria-label={`Precio unitario del servicio ${idx + 1}`}
-                        type="number"
-                        min={0}
-                        max={999999999999}
-                        step={1}
-                        required
-                        value={Number.isFinite(selService.precioUnitario) ? selService.precioUnitario : ""}
-                        onChange={(e) => onCustomServiceChange(idx, "precioUnitario", e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="$0"
+                        value={
+                          Number.isFinite(selService.precioUnitario) && selService.precioUnitario > 0
+                            ? `$${selService.precioUnitario.toLocaleString("es-CL")}`
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "")
+                          onCustomServiceChange(idx, "precioUnitario", digits)
+                        }}
                         className="h-9 text-xs"
                       />
                     </div>
@@ -298,8 +303,8 @@ export function OrderLinesSection({
                 className="space-y-3 rounded-lg border border-border/70 bg-muted/50 p-3 animate-in slide-in-from-top-1 duration-150 motion-reduce:animate-none"
               >
                 <div className="flex items-end gap-3">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <Label htmlFor={`order-product-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                  <div className="min-w-0 flex-1">
+                    <Label htmlFor={`order-product-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                       Producto o repuesto
                     </Label>
                   <Select
@@ -339,8 +344,8 @@ export function OrderLinesSection({
                 </div>
 
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`order-product-quantity-${idx}`} className="text-xs font-semibold text-muted-foreground">
+                  <div>
+                    <Label htmlFor={`order-product-quantity-${idx}`} className="inline-block mb-1.5 font-medium text-foreground">
                       Cantidad
                     </Label>
                   <div className="flex items-center gap-2">
@@ -351,6 +356,7 @@ export function OrderLinesSection({
                       max={products.find((p) => String(p.idProducto) === selProd.idProducto)?.stockActual}
                       aria-label={`Cantidad del producto ${idx + 1}`}
                       value={selProd.cantidad}
+                      disabled={!selProd.idProducto}
                       onChange={(e) =>
                         onProductQuantityChange(
                           idx,

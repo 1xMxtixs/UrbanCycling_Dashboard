@@ -9,6 +9,21 @@ export type RutValidationResult =
       error: string
     }
 
+/** Normaliza la ausencia de RUT; los valores informados conservan su validación. */
+export function validarRutOpcional(value: unknown): RutValidationResult | {
+  valid: true
+  formatted: null
+  compact: null
+} {
+  if (value == null || (typeof value === "string" && !value.trim())) {
+    return { valid: true, formatted: null, compact: null }
+  }
+  if (typeof value !== "string") {
+    return { valid: false, error: "El RUT debe ser texto" }
+  }
+  return validarYFormatearRut(value)
+}
+
 export function validarYFormatearRut(value: string): RutValidationResult {
   const rutIngresado = value.trim().toUpperCase()
 

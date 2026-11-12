@@ -8,6 +8,12 @@ import {
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import {
+  BicycleOrderError,
+  bloquearOrdenesTrabajo,
+  exigirOrdenAbierta,
+  respuestaErrorBicicleta,
+} from "@/app/api/_lib/work-order-lock"
 
 type RouteContext = {
   params: Promise<{
@@ -116,25 +122,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
 
-    if (
-      data.idOrdenDeTrabajo &&
-      data.idOrdenDeTrabajo !== bicycleExists.idOrdenDeTrabajo
-    ) {
-      const idOrdenDeTrabajo = Number(data.idOrdenDeTrabajo)
-
-      if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
-        return new NextResponse("Invalid work order id", { status: 400 })
-      }
-
-      const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
-        where: {
-          idOrdenDeTrabajo,
-        },
-      })
-
-      if (!existingWorkOrder) {
-        return new NextResponse("Work order not found", { status: 404 })
-      }
+    const idOrdenDeTrabajo =
+      data.idOrdenDeTrabajo === undefined
+        ? bicycleExists.idOrdenDeTrabajo
+        : Number(data.idOrdenDeTrabajo)
+    if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+      return new NextResponse("Invalid work order id", { status: 400 })
     }
 
     const imagenes = normalizarImagenesBicicleta(data)
@@ -154,34 +147,59 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const bicycle = await db.bicicleta.update({
-      where: {
-        idBicicleta: bicycleId,
-      },
-      data: {
-        idOrdenDeTrabajo: data.idOrdenDeTrabajo,
-        tipo: data.tipo,
-        marca: data.marca,
-        modelo: data.modelo,
-        color: data.color,
-        descripcionAdicional:
-          data.descripcionAdicional ?? data.descripcion ?? undefined,
-        imagenes: replaceImages
-          ? {
-              deleteMany: {},
-              create: imagenes.map((urlImagen) => ({
-                urlImagen,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        imagenes: true,
-      },
+    const bicycle = await db.$transaction(async (tx) => {
+      await bloquearOrdenesTrabajo(tx, [
+        bicycleExists.idOrdenDeTrabajo,
+        idOrdenDeTrabajo,
+      ])
+      const actual = await tx.bicicleta.findUnique({
+        where: { idBicicleta: bicycleId },
+      })
+      if (!actual)
+        throw new BicycleOrderError(
+          404,
+          "BICICLETA_NO_EXISTE",
+          "La bicicleta no existe"
+        )
+      if (actual.idOrdenDeTrabajo !== bicycleExists.idOrdenDeTrabajo) {
+        throw new BicycleOrderError(
+          409,
+          "BICICLETA_MODIFICADA",
+          "La bicicleta cambió de orden; vuelva a intentar"
+        )
+      }
+      await exigirOrdenAbierta(tx, actual.idOrdenDeTrabajo)
+      await exigirOrdenAbierta(tx, idOrdenDeTrabajo)
+      return tx.bicicleta.update({
+        where: {
+          idBicicleta: bicycleId,
+        },
+        data: {
+          idOrdenDeTrabajo,
+          tipo: data.tipo,
+          marca: data.marca,
+          modelo: data.modelo,
+          color: data.color,
+          descripcionAdicional:
+            data.descripcionAdicional ?? data.descripcion ?? undefined,
+          imagenes: replaceImages
+            ? {
+                deleteMany: {},
+                create: imagenes.map((urlImagen) => ({
+                  urlImagen,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          imagenes: true,
+        },
+      })
     })
-
     return NextResponse.json(mapBicycleResponse(bicycle))
   } catch (error) {
+    const response = respuestaErrorBicicleta(error)
+    if (response) return response
     console.log("[BICYCLES_ID_PATCH]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

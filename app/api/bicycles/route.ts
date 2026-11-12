@@ -8,6 +8,11 @@ import {
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import {
+  bloquearOrdenesTrabajo,
+  exigirOrdenAbierta,
+  respuestaErrorBicicleta,
+} from "@/app/api/_lib/work-order-lock"
 
 function getErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error) {
@@ -30,7 +35,7 @@ type BicycleWithRelations = Awaited<
         apellidoPaterno: string | null
         apellidoMaterno: string | null
         razonSocial: string | null
-        rut: string
+        rut: string | null
       } | null
     }
   }
@@ -132,48 +137,44 @@ export async function POST(request: Request) {
       )
     }
 
-    const existingWorkOrder = await db.ordenDeTrabajo.findUnique({
-      where: {
-        idOrdenDeTrabajo,
-      },
-    })
-
-    if (!existingWorkOrder) {
-      return new NextResponse("Work order not found", { status: 404 })
-    }
-
-    const bicycle = await db.bicicleta.create({
-      data: {
-        idOrdenDeTrabajo,
-        tipo,
-        marca,
-        modelo,
-        color,
-        descripcionAdicional: data.descripcion ?? data.descripcionAdicional ?? null,
-        imagenes: imagenes.length
-          ? {
-              create: imagenes.map((urlImagen) => ({
-                urlImagen,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        imagenes: true,
-        ordenDeTrabajo: {
-          include: {
-            venta: {
-              include: {
-                cliente: true,
+    const bicycle = await db.$transaction(async (tx) => {
+      await bloquearOrdenesTrabajo(tx, [idOrdenDeTrabajo])
+      await exigirOrdenAbierta(tx, idOrdenDeTrabajo)
+      return tx.bicicleta.create({
+        data: {
+          idOrdenDeTrabajo,
+          tipo,
+          marca,
+          modelo,
+          color,
+          descripcionAdicional:
+            data.descripcion ?? data.descripcionAdicional ?? null,
+          imagenes: imagenes.length
+            ? {
+                create: imagenes.map((urlImagen) => ({
+                  urlImagen,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          imagenes: true,
+          ordenDeTrabajo: {
+            include: {
+              venta: {
+                include: {
+                  cliente: true,
+                },
               },
             },
           },
         },
-      },
+      })
     })
-
     return NextResponse.json(mapBicycleResponse(bicycle), { status: 201 })
   } catch (error) {
+    const response = respuestaErrorBicicleta(error)
+    if (response) return response
     console.log("[BICYCLES_POST]", error)
 
     const errorCode = getErrorCode(error)

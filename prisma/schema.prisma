@@ -212,7 +212,7 @@ model Auditoria {
 model Cliente {
   idCliente       Int           @id @default(autoincrement()) @db.UnsignedInt @map("id_cliente")
   tipoCliente     String        @db.VarChar(20)  @map("tipo_cliente")
-  rut             String        @db.VarChar(12)  @unique
+  rut             String?        @db.VarChar(12)  @unique
   fechaRegistro   DateTime      @default(now()) @db.Timestamp(0) @map("fecha_registro")
   estado          EstadoRegistro @default(ACTIVO) @map("estado")
   primerNombre    String?       @db.VarChar(50)  @map("primer_nombre")
@@ -395,6 +395,7 @@ model Producto {
   descripcion   String?         @db.VarChar(50)
   estado        EstadoRegistro  @default(ACTIVO) @map("estado")
   precioVenta   Decimal         @db.Decimal(12, 0) @map("precio_venta")
+  precioCompra  Decimal         @db.Decimal(12,0) @map("precio_compra") @default(0.0)
   costoPromedio Decimal         @db.Decimal(12, 4) @map("costo_promedio")
   stockMinimo   Int             @db.UnsignedInt @map("stock_minimo")
   stockActual   Int             @db.UnsignedInt @map("stock_actual")

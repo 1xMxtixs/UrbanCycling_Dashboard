@@ -206,54 +206,51 @@ export function EditProveedorDialog({
       title="Editar proveedor"
       description="Modifica los datos registrados del proveedor."
       size="3xl"
+      footer={
+        !isLoading ? (
+          <div className="space-y-3">
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+                )}
+                {isSubmitting ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </div>
+          </div>
+        ) : undefined
+      }
     >
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center">
           <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="space-y-6">
-          {error && (
-            <div
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            >
-              {error}
-            </div>
-          )}
-
-          {/* PR-01 & PR-02: Campos de formulario unificados con htmlFor/id accesibles */}
-          <ProveedorFormFields
-            form={form}
-            updateField={updateField}
-            disabled={isSubmitting}
-            idPrefix="edit-prov"
-          />
-
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {isSubmitting ? "Guardando..." : "Guardar cambios"}
-            </Button>
-          </div>
-        </div>
+        /* PR-01 & PR-02: Campos de formulario unificados con htmlFor/id accesibles */
+        <ProveedorFormFields
+          form={form}
+          updateField={updateField}
+          disabled={isSubmitting}
+          idPrefix="edit-prov"
+        />
       )}
     </FormDialog>
   )

@@ -315,6 +315,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       nombre?: string
       descripcion?: string | null
       precioVenta?: number
+      precioCompra?: number
       costoPromedio?: number
       stockActual?: number
       stockMinimo?: number
@@ -353,6 +354,14 @@ export async function PATCH(request: Request, context: RouteContext) {
       const value = parseNonNegativeNumber(data.precioVenta, true)
       if (value !== null) updateData.precioVenta = value
       else invalidFields.push("precio de venta entero")
+    }
+
+    const purchaseCostField =
+      "precioCompra" in data ? "precioCompra" : "precio_compra"
+    if (purchaseCostField in data) {
+      const value = parseNonNegativeNumber(data[purchaseCostField], true)
+      if (value !== null) updateData.precioCompra = value
+      else invalidFields.push("precio de compra entero")
     }
 
     const costField = "costoPromedio" in data ? "costoPromedio" : "precioCosto"

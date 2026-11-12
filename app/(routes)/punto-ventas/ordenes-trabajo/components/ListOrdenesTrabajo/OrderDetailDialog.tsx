@@ -18,11 +18,29 @@ import {
   History,
   Maximize2,
   Image as ImageIcon,
+  Check,
+  X,
+  Loader2,
+  UserCheck,
+  PlusCircle,
+  XCircle,
+  Info,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 import { PERMISSIONS } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { WorkOrderStatusBadge } from "@/components/common/WorkOrderStatusBadge"
 import {
@@ -52,6 +70,7 @@ import { formatClientName, formatCLP } from "@/lib/formatters"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
+import { isRegistroActivo } from "@/lib/registro-status"
 import { WorkOrder, WorkOrderPayment, WorkOrderServiceLine } from "../../types"
 import {
   buildWorkOrderContent,
@@ -59,15 +78,45 @@ import {
   workOrderFileName,
 } from "@/components/common/WorkOrderDocument"
 
+interface EditableLineState {
+  draftPrice: string
+  draftDiscount: string
+  isEditing: boolean
+  isSaving: boolean
+}
+
+interface UserApiResponse {
+  idUsuario: number
+  primerNombre?: string
+  apellidoPaterno?: string
+  correoElectronico?: string
+  estado?: string
+}
+
+interface MechanicOption {
+  idUsuario: number
+  nombre: string
+  correo: string
+}
+
+interface CatalogService {
+  idServicio: number
+  codigo: string
+  nombre: string
+  precioVenta: number
+  estado: string
+}
+
 interface OrderDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: WorkOrder | null
+  isEditing: boolean
+  onEditingChange: (isEditing: boolean) => void
+  onEditSuccess?: () => void
   onPayClick?: (order: WorkOrder) => void
   onGenerateReceipt?: (order: WorkOrder) => void
-  onAssignSuppliesClick?: (order: WorkOrder) => void
   onAuditClick?: (order: WorkOrder) => void
-  onModifyServiceClick?: (order: WorkOrder) => void
 }
 
 interface LightboxState {
@@ -76,23 +125,134 @@ interface LightboxState {
   title: string
 }
 
+function formatDateForInput(dateVal: string | Date | undefined): string {
+  if (!dateVal) return ""
+  const d = new Date(dateVal)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toISOString().split("T")[0]
+}
+
 export function OrderDetailDialog({
   open,
   onOpenChange,
   order,
+  isEditing,
+  onEditingChange,
+  onEditSuccess,
   onPayClick,
   onGenerateReceipt,
-  onAssignSuppliesClick,
   onAuditClick,
-  onModifyServiceClick,
 }: OrderDetailDialogProps) {
   const { data: session } = useSession()
   const isAdmin = session?.user?.rol === "Administrador"
-  const canUpdateOrders = session?.user?.permisos?.includes(
-    PERMISSIONS.WORK_ORDERS_UPDATE
-  )
+
   const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+
+  // Descuento global
+  const [descuentoDraft, setDescuentoDraft] = useState<string>("")
+  const [isEditingDescuento, setIsEditingDescuento] = useState(false)
+  const [isSavingDescuento, setIsSavingDescuento] = useState(false)
+
+  // Datos generales: Mecánico, Fecha y Observaciones
+  const [mechanics, setMechanics] = useState<MechanicOption[]>([])
+  const [selectedMechanicId, setSelectedMechanicId] = useState<string>("none")
+  const [isSavingMechanic, setIsSavingMechanic] = useState(false)
+
+  const [deliveryDateDraft, setDeliveryDateDraft] = useState<string>("")
+  const [isSavingDeliveryDate, setIsSavingDeliveryDate] = useState(false)
+
+  const [observationsDraft, setObservationsDraft] = useState<string>("")
+  const [isSavingObservations, setIsSavingObservations] = useState(false)
+
+  // Agregar nuevo servicio a la orden
+  const [catalogServices, setCatalogServices] = useState<CatalogService[]>([])
+  const [selectedNewServiceId, setSelectedNewServiceId] = useState<string>("")
+  const [newServiceQuantity, setNewServiceQuantity] = useState<number>(1)
+  const [isAddingService, setIsAddingService] = useState(false)
+
+  // Edición por línea (precio y descuento unitario)
+  const [lineStates, setLineStates] = useState<Record<number, EditableLineState>>({})
+
+  // Anular Orden de Trabajo
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
+
+  // Cargar recursos de edición (mecánicos y catálogo de servicios)
+  useEffect(() => {
+    if (!open) return
+
+    async function loadResources() {
+      try {
+        const [usersRes, servicesRes] = await Promise.all([
+          fetch("/api/users"),
+          fetch("/api/servicios?estado=activo"),
+        ])
+
+        if (usersRes.ok) {
+          const usersData: unknown = await usersRes.json()
+          if (Array.isArray(usersData)) {
+            const mechs = (usersData as UserApiResponse[])
+              .filter((u) => isRegistroActivo(u.estado))
+              .map((u) => ({
+                idUsuario: u.idUsuario,
+                nombre: `${u.primerNombre ?? ""} ${u.apellidoPaterno ?? ""}`.trim() || u.correoElectronico || `Usuario #${u.idUsuario}`,
+                correo: u.correoElectronico || "",
+              }))
+            setMechanics(mechs)
+          }
+        }
+
+        if (servicesRes.ok) {
+          const srvData = await servicesRes.json()
+          if (Array.isArray(srvData)) {
+            setCatalogServices(srvData)
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar recursos para edición de orden:", err)
+      }
+    }
+
+    loadResources()
+  }, [open])
+
+  // Sincronizar estados locales con la orden activa
+  const syncKey = open && order
+    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}`
+    : null
+
+  useEffect(() => {
+    if (!syncKey || !order) return
+
+    const initialLineStates: Record<number, EditableLineState> = {}
+    for (const linea of order.lineasDeOrdenDeTrabajo ?? []) {
+      initialLineStates[linea.idLineaDeOrdenDeTrabajo] = {
+        draftPrice: String(Number(linea.precioUnitario ?? 0)),
+        draftDiscount: String(Number(linea.descuentoUnitario ?? 0)),
+        isEditing: false,
+        isSaving: false,
+      }
+    }
+
+    const draftDesc = String(Number(order.descuento ?? 0))
+    const mechId = order.idMecanicoAsignado ? String(order.idMecanicoAsignado) : "none"
+    const dateFormatted = formatDateForInput(order.fechaEntregaEstimada)
+    const obs = order.observacionesIngreso ?? ""
+
+    Promise.resolve().then(() => {
+      setDescuentoDraft(draftDesc)
+      setIsEditingDescuento(false)
+      setSelectedMechanicId(mechId)
+      setDeliveryDateDraft(dateFormatted)
+      setObservationsDraft(obs)
+      setLineStates(initialLineStates)
+      setSelectedNewServiceId("")
+      setNewServiceQuantity(1)
+    })
+  }, [syncKey, order])
+
+  if (!order) return null
 
   const showImage = (step: number) =>
     setLightbox((prev) =>
@@ -105,17 +265,20 @@ export function OrderDetailDialog({
         : prev
     )
 
-  if (!order) return null
-
   const efectivo = (line: WorkOrderServiceLine) =>
     Math.max(0, Number(line.precioUnitario || 0) - Number(line.descuentoUnitario || 0))
 
-  const laborCost = (order.lineasDeOrdenDeTrabajo || [])
-    .filter((l) => l.idServicio !== null && l.idServicio !== undefined)
-    .reduce((sum, l) => sum + efectivo(l) * Number(l.cantidad || 1), 0)
+  const serviceLines = (order.lineasDeOrdenDeTrabajo || []).filter(
+    (l) => l.idServicio !== null && l.idServicio !== undefined
+  )
 
   const productLines = (order.lineasDeOrdenDeTrabajo || []).filter(
     (l) => l.idProducto !== null && l.idProducto !== undefined
+  )
+
+  const laborCost = serviceLines.reduce(
+    (sum, l) => sum + efectivo(l) * Number(l.cantidad || 1),
+    0
   )
 
   const productsCost = productLines.reduce(
@@ -132,24 +295,440 @@ export function OrderDetailDialog({
     order.estadoPago === ESTADO_PAGO.PAGADA ||
     Math.max(0, total - totalPagado) === 0
 
+  const assignedMechanic = mechanics.find(
+    (m) => m.idUsuario === order.idMecanicoAsignado
+  )
+
+  // ─── Operaciones Backend ───────────────────────────────────────────────────
+
+  // 1. Guardar Descuento Global
+  async function handleSaveDescuento() {
+    const newDescuento = Number(descuentoDraft)
+    if (!Number.isFinite(newDescuento) || newDescuento < 0) {
+      toast.error("El descuento debe ser un número válido mayor o igual a 0.")
+      return
+    }
+
+    setIsSavingDescuento(true)
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${order!.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descuentoGlobal: newDescuento }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || `Error al guardar descuento (${res.status})`)
+      }
+      toast.success("Descuento global actualizado.")
+      setIsEditingDescuento(false)
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el descuento.")
+    } finally {
+      setIsSavingDescuento(false)
+    }
+  }
+
+  // 2. Asignar Mecánico
+  async function handleSaveMechanic(newVal: string) {
+    setSelectedMechanicId(newVal)
+    setIsSavingMechanic(true)
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${order!.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idMecanicoAsignado: newVal === "none" ? null : Number(newVal),
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || "Error al actualizar mecánico asignado")
+      }
+      toast.success("Mecánico asignado actualizado.")
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo reasignar mecánico.")
+      setSelectedMechanicId(order!.idMecanicoAsignado ? String(order!.idMecanicoAsignado) : "none")
+    } finally {
+      setIsSavingMechanic(false)
+    }
+  }
+
+  // 3. Fecha de Entrega Estimada
+  async function handleSaveDeliveryDate() {
+    if (!deliveryDateDraft) {
+      toast.error("Debe seleccionar una fecha estimada de entrega.")
+      return
+    }
+
+    setIsSavingDeliveryDate(true)
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${order!.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fechaEntregaEstimada: deliveryDateDraft,
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || "Error al reprogramar fecha de entrega")
+      }
+      toast.success("Fecha estimada de entrega actualizada.")
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar fecha de entrega.")
+    } finally {
+      setIsSavingDeliveryDate(false)
+    }
+  }
+
+  // 4. Observaciones / Diagnóstico de ingreso
+  async function handleSaveObservations() {
+    setIsSavingObservations(true)
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${order!.idOrdenDeTrabajo}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          observacionesIngreso: observationsDraft,
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || "Error al actualizar observaciones")
+      }
+      toast.success("Observaciones de la orden actualizadas.")
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudieron actualizar observaciones.")
+    } finally {
+      setIsSavingObservations(false)
+    }
+  }
+
+  // 5. Agregar Nuevo Servicio a la orden
+  async function handleAddServiceToOrder() {
+    const srvId = Number(selectedNewServiceId)
+    if (!srvId || srvId <= 0) {
+      toast.error("Selecciona un servicio válido de la lista.")
+      return
+    }
+    if (!newServiceQuantity || newServiceQuantity <= 0) {
+      toast.error("La cantidad debe ser mayor a 0.")
+      return
+    }
+
+    setIsAddingService(true)
+    try {
+      const res = await fetch(`/api/ordenes-trabajo/${order!.idOrdenDeTrabajo}/servicios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idServicio: srvId,
+          cantidad: newServiceQuantity,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.message || "No se pudo agregar el servicio a la orden")
+      }
+
+      toast.success("Servicio agregado correctamente a la orden.")
+      setSelectedNewServiceId("")
+      setNewServiceQuantity(1)
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al agregar servicio.")
+    } finally {
+      setIsAddingService(false)
+    }
+  }
+
+  // 6. Guardar Precio y Descuento de una Línea
+  async function handleSaveLine(linea: WorkOrderServiceLine) {
+    const lineId = linea.idLineaDeOrdenDeTrabajo
+    const state = lineStates[lineId]
+    const newPrice = Number(state?.draftPrice ?? "")
+    const newDiscount = Number(state?.draftDiscount ?? 0)
+
+    if (!Number.isFinite(newPrice) || newPrice < 0) {
+      toast.error("El precio debe ser un número válido mayor o igual a 0.")
+      return
+    }
+    if (!Number.isFinite(newDiscount) || newDiscount < 0) {
+      toast.error("El descuento unitario debe ser un número mayor o igual a 0.")
+      return
+    }
+    if (newDiscount > newPrice) {
+      toast.error("El descuento no puede superar el precio unitario.")
+      return
+    }
+
+    setLineStates((prev) => ({
+      ...prev,
+      [lineId]: { ...prev[lineId], isSaving: true },
+    }))
+
+    try {
+      const res = await fetch(
+        `/api/punto-venta/orden-${order!.idOrdenDeTrabajo}/lineas/${lineId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            precioUnitario: newPrice,
+            descuentoUnitario: newDiscount,
+          }),
+        }
+      )
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || `Error al actualizar línea (${res.status})`)
+      }
+      toast.success("Línea actualizada correctamente.")
+      setLineStates((prev) => ({
+        ...prev,
+        [lineId]: { ...prev[lineId], isEditing: false, isSaving: false },
+      }))
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar la línea.")
+      setLineStates((prev) => ({
+        ...prev,
+        [lineId]: { ...prev[lineId], isSaving: false },
+      }))
+    }
+  }
+
+  // 7. Anular Orden
+  async function handleConfirmCancelOrder() {
+    setIsCancellingOrder(true)
+    try {
+      const res = await fetch(`/api/punto-venta/orden-${order!.idOrdenDeTrabajo}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: ESTADO_OT.ANULADA }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(
+          err.code === "ANULACION_NO_PERMITIDA"
+            ? "No es posible anular esta orden"
+            : err.message || "No se pudo anular la orden"
+        )
+        return
+      }
+
+      toast.success("Orden de trabajo anulada correctamente.")
+      setShowCancelConfirm(false)
+      onEditingChange(false)
+      onOpenChange(false)
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch {
+      toast.error("No se pudo anular la orden.")
+    } finally {
+      setIsCancellingOrder(false)
+    }
+  }
+
+  // Renderizar fila de edición/visualización de línea (servicio o producto)
+  const renderLineRow = (linea: WorkOrderServiceLine, label: string) => {
+    const lineId = linea.idLineaDeOrdenDeTrabajo
+    const state = lineStates[lineId] || {
+      draftPrice: String(Number(linea.precioUnitario ?? 0)),
+      draftDiscount: String(Number(linea.descuentoUnitario ?? 0)),
+      isEditing: false,
+      isSaving: false,
+    }
+
+    const subtotal = efectivo(linea) * Number(linea.cantidad || 1)
+    const unitPrice = Number(linea.precioUnitario || 0)
+    const lineDiscount = Number(linea.descuentoUnitario || 0)
+
+    return (
+      <div
+        key={lineId}
+        className="rounded-lg border border-border bg-background p-3 space-y-2 transition-colors duration-150"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span className="font-semibold text-foreground text-xs block">
+              {label}
+            </span>
+            <span className="text-muted-foreground font-mono text-[11px]">
+              Cantidad: ×{linea.cantidad}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-[10px] text-muted-foreground block">Subtotal</span>
+              <span className="font-mono font-bold text-foreground text-xs">
+                {formatCLP(subtotal)}
+              </span>
+            </div>
+
+            {isEditing && canEdit && !state.isEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 cursor-pointer"
+                onClick={() =>
+                  setLineStates((prev) => ({
+                    ...prev,
+                    [lineId]: { ...state, isEditing: true },
+                  }))
+                }
+              >
+                <Pencil className="h-3 w-3" />
+                Editar Valor
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Campos de edición inline para la línea */}
+        {isEditing && state.isEditing && canEdit ? (
+          <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-border/60 bg-muted/40 p-2.5 rounded-md">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Precio Unitario ($)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={state.draftPrice}
+                onChange={(e) =>
+                  setLineStates((prev) => ({
+                    ...prev,
+                    [lineId]: { ...prev[lineId], draftPrice: e.target.value },
+                  }))
+                }
+                className="h-7 w-28 text-xs bg-background"
+                disabled={state.isSaving}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Descuento Unit. ($)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={state.draftDiscount}
+                onChange={(e) =>
+                  setLineStates((prev) => ({
+                    ...prev,
+                    [lineId]: { ...prev[lineId], draftDiscount: e.target.value },
+                  }))
+                }
+                className="h-7 w-28 text-xs bg-background"
+                disabled={state.isSaving}
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 pb-0.5">
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 gap-1 text-xs cursor-pointer font-semibold"
+                disabled={state.isSaving}
+                onClick={() => handleSaveLine(linea)}
+              >
+                {state.isSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+                Guardar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs cursor-pointer"
+                disabled={state.isSaving}
+                onClick={() =>
+                  setLineStates((prev) => ({
+                    ...prev,
+                    [lineId]: {
+                      draftPrice: String(Number(linea.precioUnitario ?? 0)),
+                      draftDiscount: String(Number(linea.descuentoUnitario ?? 0)),
+                      isEditing: false,
+                      isSaving: false,
+                    },
+                  }))
+                }
+              >
+                <X className="h-3 w-3" />
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
+            <span>Precio Unit.: {formatCLP(unitPrice)}</span>
+            {lineDiscount > 0 && (
+              <span className="text-primary font-semibold">
+                Desc.: −{formatCLP(lineDiscount)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between border-b border-border pb-2 text-xl font-black">
-            <span>Orden de Trabajo #{order.idOrdenDeTrabajo}</span>
-            <div className="mr-6">
-              <WorkOrderStatusBadge estado={order.estadoOrden} nombre={order.estadoOrdenNombre} fechaEntregaEstimada={order.fechaEntregaEstimada} />
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onEditingChange(false)
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent className="flex max-h-[min(90dvh,48rem)] w-[calc(100%-2rem)] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 px-6 pt-6 pr-12">
+          <DialogTitle className="flex flex-col gap-2 border-b border-border pb-2 text-xl font-black sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Orden de Trabajo #{order.idOrdenDeTrabajo}</span>
+              {isEditing && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-bold text-primary">
+                  <Pencil className="h-3 w-3" />
+                  Modo Edición
+                </span>
+              )}
+            </div>
+            <div className="self-start sm:mr-6 sm:self-auto">
+              <WorkOrderStatusBadge
+                estado={order.estadoOrden}
+                nombre={order.estadoOrdenNombre}
+                fechaEntregaEstimada={order.fechaEntregaEstimada}
+              />
             </div>
           </DialogTitle>
           <DialogDescription>
-            Detalles completos de la orden cargada en el sistema
+            {isEditing
+              ? "Edita directamente el responsable, fecha de entrega, diagnóstico, servicios e insumos de la orden."
+              : "Detalles completos de la orden cargada en el sistema"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 py-4 pr-1 space-y-5 text-sm">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6 pt-4 text-sm">
           {/* 1. Datos Cliente */}
-          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
+          <div className="space-y-2 rounded-xl border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <User className="h-4 w-4 text-primary" />
               Información del Cliente
@@ -169,213 +748,187 @@ export function OrderDetailDialog({
             </div>
           </div>
 
-          {/* 2. Detalles de Fechas */}
-          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
+          {/* 2. Detalles de Fechas y Responsable */}
+          <div className="space-y-3 rounded-xl border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <Calendar className="h-4 w-4 text-primary" />
-              Fechas y Registro
+              Fechas y Responsable
             </h4>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <DataField
-                label="Fecha Recepción"
-                value={new Date(
-                  order.fechaRecepcion || order.fechaCreacion || ""
-                ).toLocaleDateString("es-ES", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                })}
-              />
-              <DataField
-                label="Fecha Entrega Estimada"
-                value={new Date(order.fechaEntregaEstimada).toLocaleDateString(
-                  "es-ES",
-                  {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  }
-                )}
-              />
-              <DataField
-                label="Fecha Entrega Real"
-                value={
-                  order.fechaEntregaReal
-                    ? new Date(order.fechaEntregaReal).toLocaleDateString("es-ES", {
+
+            {isEditing && canEdit ? (
+              <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                {/* Mecánico Asignado editable */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-primary" />
+                    Mecánico Asignado
+                  </Label>
+                  <Select
+                    value={selectedMechanicId}
+                    onValueChange={handleSaveMechanic}
+                    disabled={isSavingMechanic}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Sin mecánico asignado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin mecánico asignado</SelectItem>
+                      {mechanics.map((m) => (
+                        <SelectItem key={m.idUsuario} value={String(m.idUsuario)}>
+                          {m.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {isSavingMechanic ? "Guardando mecánico..." : "El cambio se guarda automáticamente al seleccionarlo."}
+                  </span>
+                </div>
+
+                {/* Fecha Estimada de Entrega editable */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Fecha Estimada de Entrega</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={deliveryDateDraft}
+                      onChange={(e) => setDeliveryDateDraft(e.target.value)}
+                      className="h-9 text-xs"
+                      disabled={isSavingDeliveryDate}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 text-xs cursor-pointer font-semibold"
+                      onClick={handleSaveDeliveryDate}
+                      disabled={isSavingDeliveryDate}
+                    >
+                      {isSavingDeliveryDate ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Reprogramar"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 sm:col-span-2 pt-2 border-t border-border/60">
+                  <DataField
+                    label="Fecha Recepción"
+                    value={new Date(
+                      order.fechaRecepcion || order.fechaCreacion || ""
+                    ).toLocaleDateString("es-ES", {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",
                       timeZone: "UTC",
-                    })
-                    : "Pendiente de finalizar"
-                }
-              />
-              <DataField
-                label="Tiempo de Servicio"
-                value={
-                  order.diasServicio != null
-                    ? `${order.diasServicio} ${order.diasServicio === 1 ? "día" : "días"}`
-                    : "Pendiente de entrega"
-                }
-              />
-            </div>
-          </div>
-
-          {/* 3. Trabajo a Realizar */}
-          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
-              <FileText className="h-4 w-4 text-primary" />
-              Descripción del Trabajo
-            </h4>
-            <p className="text-foreground italic bg-background p-3 rounded-lg border border-border leading-relaxed">
-              {order.observacionesIngreso || "No se especificaron observaciones adicionales."}
-            </p>
-          </div>
-
-          {/* 3.5. Costos y Repuestos */}
-          <div className="space-y-3 rounded-xl bg-muted/30 border border-border p-4">
-            <div className="flex items-center justify-between border-b border-border pb-1.5">
-              <h4 className="flex items-center gap-1.5 font-bold text-foreground">
-                <ShoppingBag className="h-4 w-4 text-primary" />
-                Detalle de Costos y Insumos
-              </h4>
-            </div>
-
-            {productLines.length > 0 ? (
-              <div className="space-y-2">
-                <span className="text-xs text-muted-foreground block font-bold">
-                  Insumos y Repuestos Utilizados:
-                </span>
-                <div className="rounded-lg border border-border bg-background overflow-hidden">
-                  <Table className="text-xs">
-                    <TableHeader>
-                      <TableRow className="border-b border-border">
-                        <TableHead className="px-3 py-2">Producto / Insumo</TableHead>
-                        <TableHead className="px-3 py-2 text-center">Cant</TableHead>
-                        <TableHead className="px-3 py-2 text-right">Precio Unit.</TableHead>
-                        <TableHead className="px-3 py-2 text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {productLines.map((line) => {
-                        const subtotal = efectivo(line) * Number(line.cantidad || 1)
-                        const unitPrice = Number(line.precioUnitario || 0)
-                        const lineDiscount = Number(line.descuentoUnitario || 0)
-                        return (
-                          <TableRow key={line.idLineaDeOrdenDeTrabajo}>
-                            <TableCell className="px-3 py-2 font-medium text-foreground">
-                              {line.producto?.nombre || `Producto #${line.idProducto}`}
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-center font-bold text-foreground">
-                              {line.cantidad}
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-right text-foreground font-mono">
-                              <span className="block">{formatCLP(unitPrice)}</span>
-                              {lineDiscount > 0 && <span className="block text-[10px] text-muted-foreground">−{formatCLP(lineDiscount)}</span>}
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-right font-bold text-foreground font-mono">
-                              {formatCLP(subtotal)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+                    })}
+                  />
+                  <DataField
+                    label="Fecha Entrega Real"
+                    value={
+                      order.fechaEntregaReal
+                        ? new Date(order.fechaEntregaReal).toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            timeZone: "UTC",
+                          })
+                        : "Pendiente de finalizar"
+                    }
+                  />
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
-                No se han cargado insumos o repuestos adicionales a esta orden.
-              </p>
-            )}
-
-            <Separator className="my-3" />
-
-            <div className={`grid grid-cols-2 gap-3 pt-1 ${Number(order.descuento) > 0 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
-              <DataField
-                label="Total Repuestos"
-                value={formatCLP(productsCost)}
-              />
-              <DataField
-                label="Monto Servicio"
-                value={formatCLP(laborCost)}
-              />
-              <DataField
-                label="Monto Neto"
-                value={formatCLP(montoNeto)}
-              />
-              {Number(order.descuento) > 0 && <DataField label="Descuento global" value={formatCLP(Number(order.descuento))} />}
-              <DataField
-                label="Monto Total"
-                value={<span className="font-black text-primary">{formatCLP(Number(order.total))}</span>}
-              />
-            </div>
-          </div>
-
-          {/* 3.6. Historial de Pagos */}
-          <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-4">
-            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
-              <Coins className="h-4 w-4 text-primary" />
-              Estado de Pago e Historial
-            </h4>
-            <div className="grid gap-4 sm:grid-cols-2 text-xs">
-              <div>
-                <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">
-                  Estado de Pago
-                </span>
-                <StatusBadge
-                  status={
-                    isPaid
-                      ? "success"
-                      : order.estadoPago === ESTADO_PAGO.PARCIAL
-                        ? "info"
-                        : "warning"
+              <div className="grid gap-3 sm:grid-cols-3">
+                <DataField
+                  label="Fecha Recepción"
+                  value={new Date(
+                    order.fechaRecepcion || order.fechaCreacion || ""
+                  ).toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })}
+                />
+                <DataField
+                  label="Fecha Entrega Estimada"
+                  value={new Date(order.fechaEntregaEstimada).toLocaleDateString(
+                    "es-ES",
+                    {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    }
+                  )}
+                />
+                <DataField
+                  label="Mecánico Asignado"
+                  value={assignedMechanic?.nombre || "Sin mecánico asignado"}
+                />
+                <DataField
+                  label="Fecha Entrega Real"
+                  value={
+                    order.fechaEntregaReal
+                      ? new Date(order.fechaEntregaReal).toLocaleDateString("es-ES", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          timeZone: "UTC",
+                        })
+                      : "Pendiente de finalizar"
                   }
-                  label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
-                  showDot={false}
+                />
+                <DataField
+                  label="Tiempo de Servicio"
+                  value={
+                    order.diasServicio != null
+                      ? `${order.diasServicio} ${order.diasServicio === 1 ? "día" : "días"}`
+                      : "Pendiente de entrega"
+                  }
                 />
               </div>
-              <div>
-                <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">
-                  Saldo Restante
-                </span>
-                <span
-                  className={`text-sm font-bold ${isPaid ? "text-primary" : "text-destructive"}`}
-                >
-                  {formatCLP(isPaid ? 0 : Math.max(0, total - totalPagado))}
-                </span>
-              </div>
-            </div>
+            )}
+          </div>
 
-            {order.pagos && order.pagos.length > 0 ? (
-              <div className="mt-3 space-y-1.5 border-t border-dashed border-border pt-2 font-mono">
-                <span className="text-xs font-semibold tracking-tight text-muted-foreground font-sans block mb-1">
-                  Pagos Registrados:
-                </span>
-                {order.pagos.map((pago: WorkOrderPayment, idx: number) => (
-                  <div
-                    key={pago.idPago ? `pago-${pago.idPago}` : `pago-${idx}-${pago.fechaRegistro}`}
-                    className="flex justify-between items-center text-xs bg-background p-2 rounded border border-border"
+          {/* 3. Trabajo a Realizar / Diagnóstico */}
+          <div className="space-y-2 rounded-xl border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
+              <FileText className="h-4 w-4 text-primary" />
+              Descripción del Trabajo / Diagnóstico Técnico
+            </h4>
+
+            {isEditing && canEdit ? (
+              <div className="space-y-2.5 pt-1">
+                <Textarea
+                  value={observationsDraft}
+                  onChange={(e) => setObservationsDraft(e.target.value)}
+                  placeholder="Detalla las observaciones de ingreso, fallas reportadas o diagnóstico técnico..."
+                  className="min-h-24 text-xs resize-y bg-background"
+                  disabled={isSavingObservations}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs cursor-pointer font-semibold"
+                    onClick={handleSaveObservations}
+                    disabled={isSavingObservations}
                   >
-                    <div className="space-y-0.5">
-                      <span className="font-semibold block capitalize font-sans text-foreground">
-                        Pago #{idx + 1} ({getNombreMetodoPago(pago.metodoPago)})
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(pago.fechaRegistro).toLocaleString("es-CL")}
-                      </span>
-                    </div>
-                    <span className="font-bold text-primary">
-                      +{formatCLP(Number(pago.monto))}
-                    </span>
-                  </div>
-                ))}
+                    {isSavingObservations ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                    Guardar Diagnóstico
+                  </Button>
+                </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground italic mt-2">
-                No se registran pagos para esta orden.
+              <p className="text-foreground italic bg-background p-3 rounded-lg border border-border leading-relaxed">
+                {order.observacionesIngreso || "No se especificaron observaciones adicionales."}
               </p>
             )}
           </div>
@@ -391,7 +944,7 @@ export function OrderDetailDialog({
               {order.bicicletas?.map((bike) => (
                 <div
                   key={bike.idBicicleta}
-                  className="rounded-xl border border-border bg-muted/30 p-4 transition-colors duration-200 motion-reduce:transition-none"
+                  className="rounded-xl border border-border p-4 transition-colors duration-200 motion-reduce:transition-none"
                 >
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -518,13 +1071,260 @@ export function OrderDetailDialog({
               ))}
             </div>
           </div>
+
+          {/* 5. Costos, Servicios e Insumos */}
+          <div className="space-y-4 rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between border-b border-border pb-1.5">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground">
+                <ShoppingBag className="h-4 w-4 text-primary" />
+                Detalle de Costos, Servicios e Insumos
+              </h4>
+            </div>
+
+            {/* Agregar nuevo servicio en modo edición */}
+            {isEditing && canEdit && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+                <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <PlusCircle className="h-4 w-4" />
+                  Agregar Servicio Técnico a la Orden
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-8 space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Servicio Técnico</Label>
+                    <Select
+                      value={selectedNewServiceId}
+                      onValueChange={setSelectedNewServiceId}
+                      disabled={isAddingService}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background">
+                        <SelectValue placeholder="Seleccionar servicio del catálogo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {catalogServices.map((srv) => (
+                          <SelectItem key={srv.idServicio} value={String(srv.idServicio)}>
+                            {srv.nombre} — {formatCLP(srv.precioVenta)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Cantidad</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={newServiceQuantity}
+                      onChange={(e) => setNewServiceQuantity(Math.max(1, Number(e.target.value)))}
+                      className="h-9 text-xs bg-background"
+                      disabled={isAddingService}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 w-full text-xs font-semibold cursor-pointer gap-1"
+                      onClick={handleAddServiceToOrder}
+                      disabled={isAddingService || !selectedNewServiceId}
+                    >
+                      {isAddingService ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <PlusCircle className="h-3.5 w-3.5" />
+                      )}
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Servicios Técnicos */}
+            <div className="space-y-2">
+              <span className="text-xs text-muted-foreground block font-bold">
+                Mano de Obra y Servicios Técnicos:
+              </span>
+              {serviceLines.length > 0 ? (
+                <div className="space-y-2">
+                  {serviceLines.map((line) =>
+                    renderLineRow(
+                      line,
+                      line.servicio?.nombre || `Servicio Técnico #${line.idServicio}`
+                    )
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                  No se registran servicios técnicos cargados en esta orden.
+                </p>
+              )}
+            </div>
+
+            {/* Insumos y Repuestos */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <span className="text-xs text-muted-foreground block font-bold">
+                Insumos y Repuestos Utilizados:
+              </span>
+              {productLines.length > 0 ? (
+                <div className="space-y-2">
+                  {productLines.map((line) =>
+                    renderLineRow(
+                      line,
+                      line.producto?.nombre || `Producto / Insumo #${line.idProducto}`
+                    )
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                  No se han cargado insumos o repuestos adicionales a esta orden.
+                </p>
+              )}
+            </div>
+
+            <Separator className="my-3" />
+
+            {/* Resumen Económico */}
+            <div className="space-y-3">
+              {isEditing && canEdit && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 p-2.5 rounded-lg border border-border">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-foreground block">
+                      Descuento Global de la Orden
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Aplica un descuento general al subtotal de la orden.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={descuentoDraft}
+                      onChange={(e) => setDescuentoDraft(e.target.value)}
+                      className="h-8 w-28 text-xs bg-background"
+                      disabled={isSavingDescuento}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-xs font-semibold cursor-pointer"
+                      onClick={handleSaveDescuento}
+                      disabled={isSavingDescuento}
+                    >
+                      {isSavingDescuento ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Aplicar"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`grid grid-cols-2 gap-3 pt-1 ${
+                  Number(order.descuento) > 0
+                    ? "sm:grid-cols-3 lg:grid-cols-5"
+                    : "sm:grid-cols-4"
+                }`}
+              >
+                <DataField label="Total Repuestos" value={formatCLP(productsCost)} />
+                <DataField label="Monto Servicio" value={formatCLP(laborCost)} />
+                <DataField label="Monto Neto" value={formatCLP(montoNeto)} />
+                {Number(order.descuento) > 0 && (
+                  <DataField
+                    label="Descuento global"
+                    value={`−${formatCLP(Number(order.descuento))}`}
+                  />
+                )}
+                <DataField
+                  label="Monto Total"
+                  value={
+                    <span className="font-black text-primary">
+                      {formatCLP(Number(order.total))}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Historial de Pagos */}
+          <div className="space-y-2 rounded-xl border border-border p-4">
+            <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
+              <Coins className="h-4 w-4 text-primary" />
+              Estado de Pago e Historial
+            </h4>
+            <div className="grid gap-4 sm:grid-cols-2 text-xs">
+              <div>
+                <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">
+                  Estado de Pago
+                </span>
+                <StatusBadge
+                  status={
+                    isPaid
+                      ? "success"
+                      : order.estadoPago === ESTADO_PAGO.PARCIAL
+                        ? "info"
+                        : "warning"
+                  }
+                  label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
+                  showDot={false}
+                />
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-xs font-semibold tracking-tight mb-0.5">
+                  Saldo Restante
+                </span>
+                <span
+                  className={`text-sm font-bold ${
+                    isPaid ? "text-primary" : "text-destructive"
+                  }`}
+                >
+                  {formatCLP(isPaid ? 0 : Math.max(0, total - totalPagado))}
+                </span>
+              </div>
+            </div>
+
+            {order.pagos && order.pagos.length > 0 ? (
+              <div className="mt-3 space-y-1.5 border-t border-dashed border-border pt-2 font-mono">
+                <span className="text-xs font-semibold tracking-tight text-muted-foreground font-sans block mb-1">
+                  Pagos Registrados:
+                </span>
+                {order.pagos.map((pago: WorkOrderPayment, idx: number) => (
+                  <div
+                    key={pago.idPago ? `pago-${pago.idPago}` : `pago-${idx}-${pago.fechaRegistro}`}
+                    className="flex justify-between items-center text-xs bg-background p-2 rounded border border-border"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="font-semibold block capitalize font-sans text-foreground">
+                        Pago #{idx + 1} ({getNombreMetodoPago(pago.metodoPago)})
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(pago.fechaRegistro).toLocaleString("es-CL")}
+                      </span>
+                    </div>
+                    <span className="font-bold text-primary">
+                      +{formatCLP(Number(pago.monto))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic mt-2">
+                No se registran pagos para esta orden.
+              </p>
+            )}
+          </div>
         </div>
 
         <Separator />
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        {/* Pie de Acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 shrink-0">
           <div>
-            {!isPaid && onPayClick && (
+            {!isPaid && !isEditing && onPayClick && (
               <Button
                 variant="default"
                 size="sm"
@@ -535,10 +1335,23 @@ export function OrderDetailDialog({
                 Registrar Pago Restante
               </Button>
             )}
+
+            {isEditing && canEdit && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowCancelConfirm(true)}
+                className="gap-1.5 cursor-pointer font-semibold"
+              >
+                <XCircle className="h-4 w-4" />
+                Anular Orden
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {isPaid && onGenerateReceipt && (
+            {isPaid && !isEditing && onGenerateReceipt && (
               <Button
                 variant="outline"
                 size="sm"
@@ -550,27 +1363,24 @@ export function OrderDetailDialog({
               </Button>
             )}
 
-            {order.estadoOrden === ESTADO_OT.EN_CURSO && canUpdateOrders && onModifyServiceClick && (
+            {canEdit && (
               <Button
-                variant="outline"
+                variant={isEditing ? "default" : "outline"}
                 size="sm"
-                onClick={() => onModifyServiceClick(order)}
-                className="gap-1.5 cursor-pointer font-semibold text-primary"
-              >
-                <Wrench className="h-4 w-4" />
-                Modificar servicio
-              </Button>
-            )}
-
-            {canEdit && onAssignSuppliesClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onAssignSuppliesClick(order)}
+                onClick={() => onEditingChange(!isEditing)}
                 className="gap-1.5 cursor-pointer font-semibold"
               >
-                <Pencil className="h-4 w-4" />
-                Editar
+                {isEditing ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Finalizar edición
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-4 w-4" />
+                    Editar orden
+                  </>
+                )}
               </Button>
             )}
 
@@ -586,7 +1396,7 @@ export function OrderDetailDialog({
               </Button>
             )}
 
-            {/* [Exportar ▾] */}
+            {/* Exportar */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer font-semibold">
@@ -642,6 +1452,71 @@ export function OrderDetailDialog({
           </div>
         </div>
 
+        {/* Diálogo de Confirmación de Anulación */}
+        <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg font-black text-destructive">
+                <XCircle className="h-5 w-5" />
+                Anular Orden de Trabajo
+              </DialogTitle>
+              <DialogDescription>
+                ¿Estás seguro de que deseas anular esta orden? Esta acción no se puede deshacer.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3">
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs space-y-2">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Orden</span>
+                  <span className="font-bold text-foreground">#{order.idOrdenDeTrabajo}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Estado actual</span>
+                  <span className="font-bold text-foreground">
+                    {getNombreEstadoOtVisible(
+                      order.estadoOrden,
+                      order.fechaEntregaEstimada,
+                      order.estadoOrdenNombre
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={isCancellingOrder}
+                  className="cursor-pointer"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleConfirmCancelOrder}
+                  disabled={isCancellingOrder}
+                  className="font-bold cursor-pointer"
+                >
+                  {isCancellingOrder ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Anulando...
+                    </span>
+                  ) : (
+                    "Confirmar Anulación"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Lightbox para Fotografías */}
         <Dialog
           open={lightbox !== null}
           onOpenChange={(isOpen) => {
@@ -703,7 +1578,6 @@ function printWorkOrder(order: WorkOrder) {
     iframe.remove()
   }
 
-  // Guardar elemento con foco previo
   const previouslyFocused = document.activeElement as HTMLElement | null
 
   iframe = document.createElement("iframe")
@@ -722,13 +1596,12 @@ function printWorkOrder(order: WorkOrder) {
 
   const cleanup = () => {
     document.getElementById(iframeId)?.remove()
-    // Liberar estilos de bloqueo si Radix quedó en estado inconsistente
     document.body.style.pointerEvents = ""
     document.body.style.overflow = ""
     try {
       previouslyFocused?.focus()
     } catch {
-      // Si el elemento ya no existe o cambió, no bloquea
+      // Ignorar si el elemento ya no está
     }
   }
 
@@ -750,8 +1623,6 @@ function printWorkOrder(order: WorkOrder) {
       }
       document.addEventListener("visibilitychange", onVisibility)
 
-      // Pequeño retardo para permitir que el DropdownMenu termine su transición de cierre
-      // antes de que el browser suspenda el hilo principal con el diálogo nativo de impresión
       setTimeout(() => {
         try {
           iframeWindow.focus()
@@ -772,25 +1643,21 @@ function printWorkOrder(order: WorkOrder) {
   doc.write(buildWorkOrderHtml(order))
   doc.close()
 
-  // Fallback de seguridad si onload no dispara
   setTimeout(triggerPrint, 350)
-  // Red de seguridad máxima: asegura cleanup pasados 60s
   setTimeout(cleanup, 60000)
 }
 
 async function downloadWorkOrderPdf(order: WorkOrder) {
-  // html2canvas-pro soporta lab()/oklch() de Tailwind v4; html2pdf.js usa html2canvas legacy que falla
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas-pro"),
     import("jspdf"),
   ])
 
-  // Contenedor aislado (no heredará estilos del DOM principal con colores lab/oklch)
   const container = document.createElement("div")
   container.style.position = "fixed"
   container.style.left = "-9999px"
   container.style.top = "0"
-  container.style.width = "794px" // ≈ letter width en 96dpi
+  container.style.width = "794px"
   container.style.background = "#ffffff"
   container.style.fontFamily = "Arial, sans-serif"
   container.innerHTML = buildWorkOrderContent(order)
@@ -810,7 +1677,7 @@ async function downloadWorkOrderPdf(order: WorkOrder) {
     const imgData = canvas.toDataURL("image/jpeg", 0.98)
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" })
 
-    const pageWidth = 215.9 // letter en mm
+    const pageWidth = 215.9
     const pageHeight = 279.4
     const margin = 10
     const contentWidth = pageWidth - margin * 2
@@ -841,6 +1708,3 @@ async function downloadWorkOrderPdf(order: WorkOrder) {
     container.remove()
   }
 }
-
-// buildWorkOrderContent, buildWorkOrderHtml, isWorkOrderPaid e workOrderFileName
-// estan definidos en @/components/common/WorkOrderDocument - modulo reutilizable.

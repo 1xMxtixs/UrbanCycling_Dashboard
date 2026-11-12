@@ -36,6 +36,7 @@ export * from "./common/RowActionsMenu";
 
 // Formularios e inputs compuestos
 export * from "./forms/FormDialog";
+export * from "./forms/FormLayout";
 export * from "./forms/ImageUpload";
 export * from "./forms/SegmentedTabs";
 

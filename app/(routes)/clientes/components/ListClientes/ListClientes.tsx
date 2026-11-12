@@ -12,7 +12,6 @@ import { Users, UserCheck, UserX, ClipboardList, AlertCircle, RotateCcw } from "
 import { ClientHistoryDialog, ClientHistoryView } from "../ClientHistory";
 import { ClientDetailDialog } from "../ClientDetailDialog";
 import { FormCreateCliente } from "../FormCreateCliente";
-import { FormDialog } from "@/components/forms/FormDialog";
 import { toast } from "sonner";
 import type { DBCliente, ClienteNatural, ClienteJuridica } from "../../types";
 import { useDismissedSearchParam } from "@/hooks/use-dismissed-search-param";
@@ -341,25 +340,29 @@ export function ListClientes({ initialTab = "directorio" }: { initialTab?: "dire
       />
 
       {/* Modal de Edición del Cliente */}
-      <FormDialog
-        open={openEditModal}
-        onOpenChange={setOpenEditModal}
-        title="Editar cliente"
-        description="Modifica los datos del cliente."
-        size="lg"
-      >
-        {clienteToEdit && (
-          <FormCreateCliente
-            cliente={clienteToEdit}
-            onSuccess={() => {
-              toast.success("Cliente actualizado correctamente");
-              setOpenEditModal(false);
-              setClienteToEdit(null);
-              window.dispatchEvent(new Event("clientes:refresh"));
-            }}
-          />
-        )}
-      </FormDialog>
+      {clienteToEdit && (
+        <FormCreateCliente
+          open={openEditModal}
+          onOpenChange={(open) => {
+            setOpenEditModal(open);
+            if (!open) setClienteToEdit(null);
+          }}
+          cliente={clienteToEdit}
+          title="Editar cliente"
+          description="Modifica los datos del cliente."
+          size="lg"
+          onSuccess={() => {
+            toast.success("Cliente actualizado correctamente");
+            setOpenEditModal(false);
+            setClienteToEdit(null);
+            window.dispatchEvent(new Event("clientes:refresh"));
+          }}
+          onCancel={() => {
+            setOpenEditModal(false);
+            setClienteToEdit(null);
+          }}
+        />
+      )}
     </div>
   );
 }

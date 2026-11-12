@@ -13,7 +13,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -59,6 +58,10 @@ const formSchema = z.object({
     (value) => Number.isInteger(Number(value)),
     "El precio de venta debe ser un número entero",
   ),
+  precioCompra: nonNegativeNumber("El precio de compra").refine(
+    (value) => Number.isInteger(Number(value)),
+    "El precio de compra debe ser un número entero",
+  ),
   costoPromedio: nonNegativeNumber("El costo promedio"),
   stockMinimo: z
     .string()
@@ -103,6 +106,7 @@ export function FormEditInventory({
   const [imagePreview, setImagePreview] = useState<string | null>(initialImage)
   const [imageRemoved, setImageRemoved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [validationError, setValidationError] = useState("")
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
@@ -141,6 +145,7 @@ export function FormEditInventory({
       nombre: product.nombre,
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
+      precioCompra: String(product.precioCompra ?? 0),
       costoPromedio: String(product.costoPromedio ?? 0),
       stockMinimo: String(product.stockMinimo),
       estado: isRegistroActivo(product.estado) ? ESTADO_REGISTRO.ACTIVO : ESTADO_REGISTRO.INACTIVO,
@@ -148,6 +153,36 @@ export function FormEditInventory({
   })
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
   const productTypeOptions = getTipoProductoOptions(product.tipoProducto)
+
+  const handleInvalid = (errors: typeof form.formState.errors) => {
+    const firstInvalid = ([
+      "tipoProducto",
+      "estado",
+      "nombre",
+      "precioVenta",
+      "precioCompra",
+      "costoPromedio",
+      "stockMinimo",
+    ] as const).find((field) => errors[field])
+    if (!firstInvalid) return
+    setValidationError(String(errors[firstInvalid]?.message ?? "Revisa los datos ingresados."))
+    const control = document.getElementById(`edit-product-${firstInvalid}`)
+    if (control) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches
+      control.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "nearest",
+      })
+    }
+    requestAnimationFrame(() => form.setFocus(firstInvalid))
+  }
+
+  const handleFormSubmit = form.handleSubmit((values) => {
+    setValidationError("")
+    return onSubmit(values)
+  }, handleInvalid)
 
   const handleImageChange = (file: File | null, previewUrl: string | null) => {
     setImageFile(file)
@@ -175,6 +210,7 @@ export function FormEditInventory({
           nombre: values.nombre,
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
+          precioCompra: Number(values.precioCompra),
           costoPromedio: Number(values.costoPromedio),
           stockMinimo: Number(values.stockMinimo),
           categoriaIds: selectedCategoryIds,
@@ -211,7 +247,7 @@ export function FormEditInventory({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleFormSubmit} className="space-y-5">
         <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5">
           <p className="text-xs font-semibold tracking-tight text-muted-foreground">
             ID del producto
@@ -227,10 +263,10 @@ export function FormEditInventory({
             name="tipoProducto"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tipo de producto</FormLabel>
+                <FormLabel data-error={false}>Tipo de producto</FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
+                  <FormControl aria-invalid={false}>
+                    <SelectTrigger id="edit-product-tipoProducto" ref={field.ref} className="w-full">
                       <SelectValue placeholder="Selecciona un tipo" />
                     </SelectTrigger>
                   </FormControl>
@@ -240,7 +276,6 @@ export function FormEditInventory({
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -250,10 +285,10 @@ export function FormEditInventory({
             name="estado"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Estado</FormLabel>
+                <FormLabel data-error={false}>Estado</FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
+                  <FormControl aria-invalid={false}>
+                    <SelectTrigger id="edit-product-estado" ref={field.ref} className="w-full">
                       <SelectValue placeholder="Selecciona un estado" />
                     </SelectTrigger>
                   </FormControl>
@@ -262,7 +297,6 @@ export function FormEditInventory({
                     <SelectItem value={ESTADO_REGISTRO.INACTIVO}>Inactivo</SelectItem>
                   </SelectContent>
                 </Select>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -286,11 +320,10 @@ export function FormEditInventory({
           name="nombre"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre del producto</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej: Cadena Shimano 11v" {...field} />
+              <FormLabel data-error={false}>Nombre del producto</FormLabel>
+              <FormControl aria-invalid={false}>
+                <Input id="edit-product-nombre" placeholder="Ej: Cadena Shimano 11v" {...field} />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -300,8 +333,8 @@ export function FormEditInventory({
           name="descripcion"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Descripción</FormLabel>
-              <FormControl>
+              <FormLabel data-error={false}>Descripción</FormLabel>
+              <FormControl aria-invalid={false}>
                 <Textarea
                   placeholder="Descripción opcional del producto"
                   maxLength={DESCRIPTION_MAX_LENGTH}
@@ -309,7 +342,6 @@ export function FormEditInventory({
                 />
               </FormControl>
               <p className="text-right text-xs text-muted-foreground">{description.length}/{DESCRIPTION_MAX_LENGTH}</p>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -320,11 +352,23 @@ export function FormEditInventory({
             name="precioVenta"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Precio de venta</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} {...field} />
+                <FormLabel data-error={false}>Precio de venta</FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="edit-product-precioVenta" type="number" min={0} {...field} />
                 </FormControl>
-                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="precioCompra"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel data-error={false}>Precio de compra</FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="edit-product-precioCompra" type="number" min={0} step={1} {...field} />
+                </FormControl>
               </FormItem>
             )}
           />
@@ -334,11 +378,10 @@ export function FormEditInventory({
             name="costoPromedio"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Costo promedio</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} step="0.01" {...field} />
+                <FormLabel data-error={false}>Costo promedio</FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="edit-product-costoPromedio" type="number" min={0} step="0.01" {...field} />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -348,14 +391,13 @@ export function FormEditInventory({
             name="stockMinimo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Stock mínimo</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} step={1} {...field} />
+                <FormLabel data-error={false}>Stock mínimo</FormLabel>
+                <FormControl aria-invalid={false}>
+                  <Input id="edit-product-stockMinimo" type="number" min={0} step={1} {...field} />
                 </FormControl>
                 <p className="text-xs text-muted-foreground">
                   Los productos iguales o inferiores a este valor se mostrarán como stock bajo.
                 </p>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -368,18 +410,27 @@ export function FormEditInventory({
           disabled={isSaving || isUploadingImage}
         />
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-4 sm:flex-row sm:justify-end">
+        <div className="space-y-3 border-t border-border/60 pt-4">
+          {validationError && (
+            <p role="alert" className="text-sm text-destructive">
+              {validationError}
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel}
+            onClick={() => {
+              setValidationError("")
+              onCancel()
+            }}
             disabled={isSaving || isUploadingImage}
           >
             Cancelar
           </Button>
           <Button
             type="submit"
-            disabled={!form.formState.isValid || isSaving || isUploadingImage}
+            disabled={isSaving || isUploadingImage}
           >
             {isUploadingImage
               ? "Subiendo imagen..."
@@ -387,6 +438,7 @@ export function FormEditInventory({
                 ? "Guardando cambios..."
                 : "Guardar cambios"}
           </Button>
+          </div>
         </div>
       </form>
     </Form>

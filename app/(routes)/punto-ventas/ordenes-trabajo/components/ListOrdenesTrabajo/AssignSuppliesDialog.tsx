@@ -15,6 +15,7 @@ import {
   FileText,
   PlusCircle,
   XCircle,
+  ChevronLeft,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -640,12 +641,10 @@ export function AssignSuppliesDialog({
     }
   }
 
-  return (
+  const editContent = (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-6">
-          <DialogHeader className="border-b border-border pb-3">
-            <div className="flex items-center justify-between">
+          <DialogHeader className="shrink-0 border-b border-border px-6 pb-3 pt-6 pr-12">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-lg bg-primary/10 text-primary">
                   <Wrench className="h-5 w-5" />
@@ -662,13 +661,19 @@ export function AssignSuppliesDialog({
                   </DialogDescription>
                 </div>
               </div>
-              <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status="neutral" label={getNombreEstadoOtVisible(order.estadoOrden, order.fechaEntregaEstimada, order.estadoOrdenNombre)} />
+                <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="gap-1">
+                  <ChevronLeft className="h-4 w-4" />
+                  Volver al detalle
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-6 py-4 pr-1">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-4">
             {/* SECCIÓN 1: Datos Generales (Mecánico, Fecha Estimada, Diagnóstico) */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-xs">
+            <div className="rounded-xl border border-border p-4 space-y-4">
               <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
                 <UserCheck className="h-4 w-4 text-primary" />
                 Gestión de Responsable, Entrega y Diagnóstico
@@ -1057,7 +1062,7 @@ export function AssignSuppliesDialog({
           </div>
 
           {/* Pie del diálogo */}
-          <div className="flex items-center justify-between border-t border-border pt-4">
+          <div className="mx-6 mb-6 flex shrink-0 items-center justify-between border-t border-border pt-4">
             <div>
               {canEdit && (
                 <Button
@@ -1079,11 +1084,15 @@ export function AssignSuppliesDialog({
               onClick={() => onOpenChange(false)}
               className="cursor-pointer"
             >
-              Cerrar
+              Volver al detalle
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+    </>
+  )
+
+  return (
+    <>
+      {open && <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{editContent}</div>}
 
       {/* Diálogo de Confirmación de Anulación */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>

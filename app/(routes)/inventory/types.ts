@@ -16,6 +16,7 @@ export type ProductColumn = {
   nombre: string;
   descripcion: string | null;
   precioVenta: number | string;
+  precioCompra: number | string;
   costoPromedio: number | string;
   stockActual: number;
   stockMinimo: number;
@@ -26,6 +27,8 @@ export type ProductColumn = {
 
 export interface FormCreateInventoryProps {
   setOpenModalCreate: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export type ServiceColumn = {
