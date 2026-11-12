@@ -14,6 +14,16 @@ import {
   exigirOrdenAbierta,
   respuestaErrorBicicleta,
 } from "@/app/api/_lib/work-order-lock"
+import {
+  ImagenError,
+  prepararImagenes,
+  confirmarPreparadas,
+  liberarPreparadas,
+  limpiarConfirmadas,
+  encolarBorrado,
+  intentarBorrado,
+  type Preparada,
+} from "@/app/api/_lib/image-jobs"
 
 type RouteContext = {
   params: Promise<{
@@ -97,11 +107,15 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  let preparadas: Preparada[] = []
+  let guardada = false
   try {
-    const { response } = await requirePermission(PERMISSIONS.BICYCLES_UPDATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.BICYCLES_UPDATE
+    )
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response ?? new NextResponse("No autorizado", { status: 401 })
     }
 
     const { id } = await context.params
@@ -132,12 +146,27 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const imagenes = normalizarImagenesBicicleta(data)
     const replaceImages =
+      data.imagenesTemporales !== undefined ||
       "imagenes" in data ||
       "imagenesUrl" in data ||
       "imagenesUrls" in data ||
       "imagenUrl" in data
 
-    if (replaceImages && imagenes.length > MAX_BICYCLE_IMAGES) {
+    if (imagenes.some((url) => url.includes("/tmp/bicicletas/")))
+      throw new ImagenError(
+        "Las imágenes temporales deben confirmarse mediante su identificador firmado"
+      )
+    if (
+      data.imagenesTemporales !== undefined &&
+      (!Array.isArray(data.imagenesTemporales) ||
+        data.imagenesTemporales.length > MAX_BICYCLE_IMAGES)
+    )
+      throw new ImagenError("Lista de imágenes temporales inválida")
+    if (
+      replaceImages &&
+      imagenes.length + (data.imagenesTemporales?.length ?? 0) >
+        MAX_BICYCLE_IMAGES
+    ) {
       return NextResponse.json(
         {
           code: "MAX_IMAGENES_BICICLETA",
@@ -147,13 +176,22 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const bicycle = await db.$transaction(async (tx) => {
+    preparadas = await prepararImagenes(
+      data.imagenesTemporales,
+      session.user.idUsuario,
+      bicycleId
+    )
+    const finales = [
+      ...new Set([...imagenes, ...preparadas.map((p) => p.job.url)]),
+    ]
+    const resultado = await db.$transaction(async (tx) => {
       await bloquearOrdenesTrabajo(tx, [
         bicycleExists.idOrdenDeTrabajo,
         idOrdenDeTrabajo,
       ])
       const actual = await tx.bicicleta.findUnique({
         where: { idBicicleta: bicycleId },
+        include: { imagenes: true },
       })
       if (!actual)
         throw new BicycleOrderError(
@@ -170,7 +208,28 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
       await exigirOrdenAbierta(tx, actual.idOrdenDeTrabajo)
       await exigirOrdenAbierta(tx, idOrdenDeTrabajo)
-      return tx.bicicleta.update({
+      if (
+        data.imagenesTemporales !== undefined &&
+        imagenes.some(
+          (url) => !actual.imagenes.some((i) => i.urlImagen === url)
+        )
+      )
+        throw new ImagenError(
+          "Solo se pueden conservar imágenes actuales o confirmar nuevas subidas",
+          409
+        )
+      await confirmarPreparadas(tx, preparadas, bicycleId)
+      const limpiezaId = await encolarBorrado(
+        tx,
+        replaceImages
+          ? actual.imagenes
+              .map((i) => i.urlImagen)
+              .filter((url) => !finales.includes(url))
+          : [],
+        session.user.idUsuario,
+        bicycleId
+      )
+      const bicycle = await tx.bicicleta.update({
         where: {
           idBicicleta: bicycleId,
         },
@@ -185,7 +244,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           imagenes: replaceImages
             ? {
                 deleteMany: {},
-                create: imagenes.map((urlImagen) => ({
+                create: finales.map((urlImagen) => ({
                   urlImagen,
                 })),
               }
@@ -195,9 +254,22 @@ export async function PATCH(request: Request, context: RouteContext) {
           imagenes: true,
         },
       })
+      return { bicycle, limpiezaId }
     })
-    return NextResponse.json(mapBicycleResponse(bicycle))
+    guardada = true
+    await limpiarConfirmadas(preparadas)
+    const limpiezaArchivos = await intentarBorrado(resultado.limpiezaId)
+    return NextResponse.json({
+      ...mapBicycleResponse(resultado.bicycle),
+      limpiezaArchivos,
+    })
   } catch (error) {
+    if (!guardada) await liberarPreparadas(preparadas)
+    if (error instanceof ImagenError)
+      return NextResponse.json(
+        { message: error.message },
+        { status: error.status }
+      )
     const response = respuestaErrorBicicleta(error)
     if (response) return response
     console.log("[BICYCLES_ID_PATCH]", error)
@@ -207,10 +279,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.BICYCLES_DELETE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.BICYCLES_DELETE
+    )
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response ?? new NextResponse("No autorizado", { status: 401 })
     }
 
     const { id } = await context.params
@@ -230,14 +304,37 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
 
-    await db.bicicleta.delete({
-      where: {
-        idBicicleta: bicycleId,
-      },
+    const limpiezaId = await db.$transaction(async (tx) => {
+      await bloquearOrdenesTrabajo(tx, [bicycle.idOrdenDeTrabajo])
+      const actual = await tx.bicicleta.findUnique({
+        where: { idBicicleta: bicycleId },
+        include: { imagenes: true },
+      })
+      if (!actual) return null
+      if (actual.idOrdenDeTrabajo !== bicycle.idOrdenDeTrabajo)
+        throw new BicycleOrderError(
+          409,
+          "BICICLETA_MODIFICADA",
+          "La bicicleta cambió de orden; vuelva a intentar"
+        )
+      const job = await encolarBorrado(
+        tx,
+        actual.imagenes.map((i) => i.urlImagen),
+        session.user.idUsuario,
+        bicycleId
+      )
+      await tx.imagenBicicleta.deleteMany({ where: { idBicicleta: bicycleId } })
+      await tx.bicicleta.delete({ where: { idBicicleta: bicycleId } })
+      return job
     })
+    const limpieza = await intentarBorrado(limpiezaId)
+    if (limpieza.pendientes !== 0)
+      return NextResponse.json({ eliminada: true, limpiezaArchivos: limpieza })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
+    const response = respuestaErrorBicicleta(error)
+    if (response) return response
     console.log("[BICYCLES_ID_DELETE]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

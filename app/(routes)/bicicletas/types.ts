@@ -6,6 +6,10 @@ export type Bicicleta = {
   color: string;
   descripcion: string | null;
   imagenUrl: string | null;
+  imagenes?: Array<{
+    idImagenBicicleta: number;
+    urlImagen: string;
+  }>;
   ordenDeTrabajo: {
     estadoOrden: string;
     estadoOrdenNombre?: string | null;
@@ -17,7 +21,7 @@ export type Bicicleta = {
       apellidoPaterno: string | null;
       apellidoMaterno: string | null;
       razonSocial: string | null;
-      rut: string;
+      rut: string | null;
     } | null;
   } | null;
 };
@@ -34,7 +38,7 @@ export type OrdenTrabajoResumen = {
     primerNombre: string | null;
     apellidoPaterno: string | null;
     apellidoMaterno: string | null;
-    rut: string;
+    rut: string | null;
   };
   bicicletas?: Array<{ marca: string; modelo: string }>;
 };

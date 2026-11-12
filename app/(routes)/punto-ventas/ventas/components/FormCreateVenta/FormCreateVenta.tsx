@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -35,6 +35,11 @@ import { FormCreateCliente } from "@/app/(routes)/clientes/components/FormCreate
 import { SaleSuccessReceipt } from "./SaleSuccessReceipt"
 import type { Client } from "@/app/(routes)/punto-ventas/types"
 import type { SaleCreationResult } from "../../types"
+
+const createSaleLineKey = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `prod-${Date.now()}-${Math.random()}`
 
 const focusSaleField = (id: string) => {
   const control = document.getElementById(id)
@@ -160,7 +165,7 @@ export function FormCreateVenta({
     setSelectedProducts([
       ...selectedProducts,
       {
-        keyId: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}-${Math.random()}`,
+        keyId: createSaleLineKey(),
         idProducto: "",
         cantidad: 1,
         precioUnitario: 0,
@@ -455,28 +460,35 @@ export function FormCreateVenta({
     setSaleResult(null)
   }
 
-  const handleClose = () => {
-    resetForm()
+  const closeModal = () => {
     setOpenModalCreate?.(false)
     onOpenChange?.(false)
   }
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      resetForm()
-    }
-    setOpenModalCreate?.(nextOpen)
-    onOpenChange?.(nextOpen)
+  const handleDiscardDraft = () => {
+    resetForm()
+    closeModal()
   }
 
   const handleCloseSuccess = () => {
+    resetForm()
+    closeModal()
+
     window.dispatchEvent(
       new Event("sales:refresh")
     )
 
     router.refresh()
+  }
 
-    handleClose()
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && saleResult) {
+      handleCloseSuccess()
+      return
+    }
+
+    setOpenModalCreate?.(nextOpen)
+    onOpenChange?.(nextOpen)
   }
 
   // Vista de recibo
@@ -547,10 +559,10 @@ export function FormCreateVenta({
         <Button
           type="button"
           variant="outline"
-          onClick={handleClose}
+          onClick={handleDiscardDraft}
           disabled={isSubmitting}
         >
-          Cancelar
+          Descartar borrador
         </Button>
         <Button
           type="submit"

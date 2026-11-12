@@ -165,7 +165,7 @@ export async function PATCH(
 
       const { bicicletas, archivosPendientes } =
         estado === ESTADO_OT.ANULADA
-          ? await eliminarBicicletasOrden(tx, idOrdenDeTrabajo)
+          ? await eliminarBicicletasOrden(tx, idOrdenDeTrabajo, session.user.idUsuario)
           : { bicicletas: [], archivosPendientes: [] }
       // También permite limpiar bicicletas de anulaciones hechas por la API antigua.
       if (reanulacion && bicicletas.length === 0) {

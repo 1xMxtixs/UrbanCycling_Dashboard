@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ChevronDown,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { DataField } from "@/components/common/DataField";
@@ -33,16 +34,18 @@ import {
   type EstadoOt,
 } from "@/lib/work-order-status";
 import type { Bicicleta } from "../../types";
+import { ordenAbierta } from "../../lib/bicycle-editor";
 
 type BikeCardProps = {
   bicicleta: Bicicleta;
+  onEdit?: (bicicleta: Bicicleta) => void;
 };
 
 const ETIQUETA_CORTA_ESTADO: Partial<Record<string, string>> = {
   [ESTADO_OT.LISTO_PARA_ENTREGAR]: "Por entregar",
 };
 
-export function BikeCard({ bicicleta }: BikeCardProps) {
+export function BikeCard({ bicicleta, onEdit }: BikeCardProps) {
   const cliente = bicicleta.ordenDeTrabajo?.cliente;
   const nombreCliente = formatClientName(cliente);
   const estadoOrden = bicicleta.ordenDeTrabajo?.estadoOrden ?? "Sin estado";
@@ -57,11 +60,33 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
   );
   const descripcion = bicicleta.descripcion || "Sin observaciones registradas";
   const statusType = getOtStatusBadgeVariant(estadoOrden);
-  const estadoFinalizado = ESTADOS_OT_CERRADOS.includes(estadoOrden as EstadoOt);
-  const mostrarPuntoEstado = Boolean(bicicleta.ordenDeTrabajo?.estadoOrden) && !estadoFinalizado;
+  const estadoFinalizado = ESTADOS_OT_CERRADOS.includes(
+    estadoOrden as EstadoOt
+  );
+  const mostrarPuntoEstado =
+    Boolean(bicicleta.ordenDeTrabajo?.estadoOrden) && !estadoFinalizado;
 
   return (
-    <article className="group relative @container flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+    <article className="group @container relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      {onEdit && ordenAbierta(estadoOrden) && (
+        <div className="absolute top-3 right-3 z-10">
+          <Button
+            type="button"
+            aria-label={`Editar bicicleta ${bicicleta.marca} ${bicicleta.modelo}`}
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 cursor-pointer rounded-full border border-border/80 bg-background/90 text-foreground shadow-sm backdrop-blur-sm hover:bg-accent"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onEdit?.(bicicleta);
+            }}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
         {bicicleta.imagenUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -81,7 +106,7 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
         {/* Badge de Orden accesible como enlace */}
         <Link
           href={`/punto-ventas/ordenes-trabajo?search=${bicicleta.idOrdenDeTrabajo}`}
-          className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-foreground border border-border/80 shadow-2xs hover:bg-background hover:text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 py-1 text-xs font-bold tracking-wider text-foreground uppercase shadow-2xs backdrop-blur-md transition-colors hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           title={`Ir a orden #${bicicleta.idOrdenDeTrabajo}`}
           aria-label={`Ver orden de trabajo #${bicicleta.idOrdenDeTrabajo}`}
         >
@@ -122,11 +147,13 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
                 variant="ghost"
                 size="sm"
                 aria-label="Ver diagnóstico"
-                className="group/button -ml-2 h-8 min-w-0 max-w-full shrink-0 justify-start gap-1.5 px-2 text-xs text-muted-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
+                className="group/button -ml-2 h-8 max-w-full min-w-0 shrink-0 justify-start gap-1.5 px-2 text-xs text-muted-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
               >
                 <Wrench className="h-3.5 w-3.5 text-primary" />
-                <span className="truncate @max-[17rem]:hidden">Diagnóstico</span>
-                <ChevronDown className="h-3.5 w-3.5 transition-transform motion-reduce:transition-none group-data-[state=open]/button:rotate-180" />
+                <span className="truncate @max-[17rem]:hidden">
+                  Diagnóstico
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]/button:rotate-180 motion-reduce:transition-none" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -138,11 +165,11 @@ export function BikeCard({ bicicleta }: BikeCardProps) {
             >
               <div className="flex items-center gap-2 border-b border-border/60 pb-2 text-primary">
                 <Wrench className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">
+                <span className="text-xs font-bold tracking-wider uppercase">
                   Diagnóstico & Taller
                 </span>
               </div>
-              <div className="max-h-56 overflow-y-auto whitespace-pre-wrap pr-1 text-xs leading-relaxed text-muted-foreground">
+              <div className="max-h-56 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
                 {descripcion}
               </div>
             </PopoverContent>

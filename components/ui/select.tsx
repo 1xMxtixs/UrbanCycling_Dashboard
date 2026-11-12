@@ -6,6 +6,22 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
+function normalizeSelectChildren(children: React.ReactNode) {
+  return React.Children.toArray(children).map((child, index) => {
+    if (!React.isValidElement(child)) {
+      return child
+    }
+
+    if (child.key != null) {
+      return child
+    }
+
+    return React.cloneElement(child, {
+      key: `select-child-${index}`,
+    })
+  })
+}
+
 function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -86,7 +102,7 @@ function SelectContent({
             position === "popper" && "w-full min-w-(--radix-select-trigger-width)"
           )}
         >
-          {children}
+          {normalizeSelectChildren(children)}
         </SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
