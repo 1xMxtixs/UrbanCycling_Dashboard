@@ -7,6 +7,12 @@ import {
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import {
+  BicycleOrderError,
+  bloquearOrdenesTrabajo,
+  exigirOrdenAbierta,
+  respuestaErrorBicicleta,
+} from "@/app/api/_lib/work-order-lock"
 
 type RouteContext = {
   params: Promise<{
@@ -60,43 +66,62 @@ export async function POST(req: Request, context: RouteContext) {
       )
     }
 
-    const created = await db.$transaction(async (tx) => {
-      // El bloqueo de la bicicleta serializa POST concurrentes/simultaneos, incluso entre instancias.
-      const bicycles = await tx.$queryRaw<Array<{ idBicicleta: number }>>`
+    const bicicleta = await db.bicicleta.findUnique({
+      where: { idBicicleta: bicycleId },
+    })
+    if (!bicicleta) throw new BicycleNotFoundError()
+    const created = await db.$transaction(
+      async (tx) => {
+        await bloquearOrdenesTrabajo(tx, [bicicleta.idOrdenDeTrabajo])
+        await exigirOrdenAbierta(tx, bicicleta.idOrdenDeTrabajo)
+        // El bloqueo de la bicicleta serializa POST concurrentes/simultaneos, incluso entre instancias.
+        const bicycles = await tx.$queryRaw<Array<{ idBicicleta: number }>>`
         SELECT id_bicicleta AS idBicicleta
         FROM bicicletas
         WHERE id_bicicleta = ${bicycleId}
         FOR UPDATE
       `
 
-      if (bicycles.length === 0) {
-        throw new BicycleNotFoundError()
-      }
+        if (bicycles.length === 0) {
+          throw new BicycleNotFoundError()
+        }
+        const actual = await tx.bicicleta.findUnique({
+          where: { idBicicleta: bicycleId },
+        })
+        if (!actual || actual.idOrdenDeTrabajo !== bicicleta.idOrdenDeTrabajo) {
+          throw new BicycleOrderError(
+            409,
+            "BICICLETA_MODIFICADA",
+            "La bicicleta cambió de orden; vuelva a intentar"
+          )
+        }
 
-      await esperar(POST_DELAY_MS)
+        await esperar(POST_DELAY_MS)
 
-      const imagenesActuales = await tx.imagenBicicleta.count({
-        where: { idBicicleta: bicycleId },
-      })
+        const imagenesActuales = await tx.imagenBicicleta.count({
+          where: { idBicicleta: bicycleId },
+        })
 
-      if (imagenesActuales + imagenes.length > MAX_BICYCLE_IMAGES) {
-        throw new BicycleImagesLimitError()
-      }
+        if (imagenesActuales + imagenes.length > MAX_BICYCLE_IMAGES) {
+          throw new BicycleImagesLimitError()
+        }
 
-      return Promise.all(
-        imagenes.map((urlImagen) =>
-          tx.imagenBicicleta.create({
-            data: {
-              idBicicleta: bicycleId,
-              urlImagen,
-            },
-          })
+        return Promise.all(
+          imagenes.map((urlImagen) =>
+            tx.imagenBicicleta.create({
+              data: {
+                idBicicleta: bicycleId,
+                urlImagen,
+              },
+            })
+          )
         )
-      )
-    }, {
-      maxWait: 30_000,
-      timeout: 30_000,
-    })
+      },
+      {
+        maxWait: 30_000,
+        timeout: 30_000,
+      }
+    )
 
     return NextResponse.json(
       created.map((imagen) => ({
@@ -106,6 +131,8 @@ export async function POST(req: Request, context: RouteContext) {
       { status: 201 }
     )
   } catch (error) {
+    const response = respuestaErrorBicicleta(error)
+    if (response) return response
     if (error instanceof BicycleNotFoundError) {
       return new NextResponse("Bicycle not found", { status: 404 })
     }
