@@ -30,9 +30,9 @@ import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
 import { Check, Loader2 } from "lucide-react";
-import type { FormCreateInventoryProps } from "../../types";
+import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
+import { CategoryMultiSelect } from "../CategoryMultiSelect";
 import { ESTADO_REGISTRO } from "@/lib/registro-status";
-import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,6 @@ const integerField = (fieldName: string) =>
   );
 
 const formSchema = z.object({
-  tipoProducto: z.string().min(2, "El tipo de producto es obligatorio"),
   nombre: z.string().min(2, "El nombre es obligatorio"),
   descripcion: z
     .string()
@@ -111,8 +110,8 @@ export function FormCreateInventory({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
-  const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>([]);
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<InventoryCategory[]>([]);
   const [supplierError, setSupplierError] = useState("");
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierRetry, setSupplierRetry] = useState(0);
@@ -122,7 +121,6 @@ export function FormCreateInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: "",
       nombre: "",
       descripcion: "",
       precioVenta: "",
@@ -141,12 +139,6 @@ export function FormCreateInventory({
       : selectedSupplierIds.length === 1
         ? "1 proveedor"
         : `${selectedSupplierIds.length} proveedores`;
-  const productTypeSummary =
-    selectedProductTypes.length === 0
-      ? "Sin tipo"
-      : selectedProductTypes.length === 1
-        ? selectedProductTypes[0]
-        : `${selectedProductTypes.length} tipos`;
 
   const resetForm = () => {
     form.reset();
@@ -154,7 +146,7 @@ export function FormCreateInventory({
     setImageFile(null);
     setImagePreview(null);
     setSelectedSupplierIds([]);
-    setSelectedProductTypes([]);
+    setSelectedCategoryIds([]);
   };
 
   const handleClose = (nextOpen: boolean) => {
@@ -163,24 +155,8 @@ export function FormCreateInventory({
     onOpenChange?.(nextOpen);
   };
 
-  const handleProductTypeToggle = (type: string) => {
-    setSelectedProductTypes((current) => {
-      const next = current.includes(type)
-        ? current.filter((item) => item !== type)
-        : [...current, type];
-
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    const nextValue = selectedProductTypes.join(", ");
-    form.setValue("tipoProducto", nextValue, { shouldValidate: true });
-  }, [selectedProductTypes, form]);
-
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
-      "tipoProducto",
       "nombre",
       "precioVenta",
       "precioCompra",
@@ -222,10 +198,8 @@ export function FormCreateInventory({
           throw new Error(result?.message || "No fue posible cargar las categorías.");
         }
 
-        const nextCategories = Array.isArray(result?.categories)
+        const nextCategories: InventoryCategory[] = Array.isArray(result?.categories)
           ? result.categories
-              .map((category: { nombre?: string }) => category?.nombre)
-              .filter((name: string | undefined): name is string => Boolean(name?.trim()))
           : [];
 
         if (isMounted) {
@@ -320,11 +294,6 @@ export function FormCreateInventory({
       const cleanPrecioCompra = Number(values.precioCompra.replace(/\D/g, ""));
       const cleanStockActual = Number(values.stockActual.replace(/\D/g, ""));
       const cleanStockMinimo = Number(values.stockMinimo.replace(/\D/g, ""));
-      const rawTipoProducto =
-        selectedProductTypes.length > 0
-          ? selectedProductTypes.join(", ")
-          : values.tipoProducto;
-
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: {
@@ -332,7 +301,7 @@ export function FormCreateInventory({
         },
         body: JSON.stringify({
           ...values,
-          tipoProducto: canonicalTipoProducto(rawTipoProducto),
+          categoriaIds: selectedCategoryIds,
           descripcion: values.descripcion || null,
           precioVenta: cleanPrecio,
           precioCompra: cleanPrecioCompra,
@@ -399,94 +368,15 @@ export function FormCreateInventory({
       <form onSubmit={handleFormSubmit} className="space-y-6">
         <FormSection title="Información básica">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-            <FormField
-              control={form.control}
-              name="tipoProducto"
-              render={({ field }) => (
-                <FormItem className="col-span-1">
-                  <FormLabel
-                    required
-                    data-error={false}
-                    className="inline-block mb-1.5 font-medium text-foreground"
-                  >
-                    Tipo de producto
-                  </FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl aria-invalid={false}>
-                        <Button
-                          id="create-product-tipoProducto"
-                          type="button"
-                          variant="outline"
-                          className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
-                          ref={field.ref}
-                        >
-                          <span className="truncate">{productTypeSummary}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground">▾</span>
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
-                      <div className="max-h-64 space-y-1 overflow-y-auto">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={cn(
-                            "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                            selectedProductTypes.length === 0 && "border-primary bg-primary/10 text-primary"
-                          )}
-                          onClick={() => {
-                            setSelectedProductTypes([]);
-                            form.setValue("tipoProducto", "", { shouldValidate: true });
-                          }}
-                        >
-                          <span className="truncate">Sin tipo</span>
-                          {selectedProductTypes.length === 0 ? (
-                            <Check className="h-4 w-4 shrink-0" />
-                          ) : null}
-                        </Button>
-                        {categoryOptions.length === 0 ? (
-                          <div className="px-3 py-2 text-xs text-muted-foreground">
-                            No hay categorías disponibles.
-                          </div>
-                        ) : (
-                          categoryOptions.map((type) => {
-                            const isSelected = selectedProductTypes.includes(type);
-
-                            return (
-                              <Button
-                                key={type}
-                                type="button"
-                                variant="outline"
-                                className={cn(
-                                  "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                                  isSelected && "border-primary bg-primary/10 text-primary"
-                                )}
-                                onClick={() => handleProductTypeToggle(type)}
-                              >
-                                <span className="truncate">{type}</span>
-                                {isSelected ? (
-                                  <Check className="h-4 w-4 shrink-0" />
-                                ) : null}
-                              </Button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  {selectedProductTypes.length > 0 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {selectedProductTypes.length} tipo(s) seleccionado(s).
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Puedes seleccionar uno o varios tipos antes de guardar.
-                    </p>
-                  )}
-                </FormItem>
-              )}
-            />
+        <div className="space-y-2 col-span-1">
+          <FormLabel>Categorías</FormLabel>
+          <CategoryMultiSelect
+            categories={categoryOptions}
+            value={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
+            disabled={isSubmitting || uploadingImage}
+          />
+        </div>
 
             <FormField
               control={form.control}

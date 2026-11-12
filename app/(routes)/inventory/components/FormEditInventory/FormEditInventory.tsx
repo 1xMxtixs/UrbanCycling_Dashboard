@@ -15,7 +15,6 @@ import {
   FormLabel,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -28,10 +27,7 @@ import { ImageUpload } from "@/components/forms/ImageUpload"
 import { CategoryMultiSelect } from "../CategoryMultiSelect"
 import type { ProductColumn } from "../ListInventory/columns"
 import type { InventoryCategory } from "../../types"
-import { Check } from "lucide-react"
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status"
-import { canonicalTipoProducto, getTipoProductoOptions } from "@/lib/product-types"
-import { cn } from "@/lib/utils"
 
 const DESCRIPTION_MAX_LENGTH = 50;
 
@@ -54,7 +50,6 @@ const nonNegativeNumber = (label: string) =>
     })
 
 const formSchema = z.object({
-  tipoProducto: z.string().trim().min(1, "El tipo de producto es obligatorio"),
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100),
   descripcion: z.string().max(DESCRIPTION_MAX_LENGTH, "La descripción no puede superar 50 caracteres").optional(),
   precioVenta: nonNegativeNumber("El precio de venta").refine(
@@ -115,16 +110,6 @@ export function FormEditInventory({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
     product.categoriasProducto?.map((category) => category.idCategoria) ?? [],
   )
-  const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>(() => {
-    const rawValue = String(product.tipoProducto ?? "")
-    if (!rawValue.trim()) return []
-
-    return rawValue
-      .split(",")
-      .map((type) => type.trim())
-      .filter(Boolean)
-      .map((type) => canonicalTipoProducto(type))
-  })
 
   useEffect(() => {
     let isMounted = true
@@ -154,7 +139,6 @@ export function FormEditInventory({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      tipoProducto: canonicalTipoProducto(product.tipoProducto),
       nombre: product.nombre,
       descripcion: product.descripcion ?? "",
       precioVenta: String(product.precioVenta),
@@ -165,29 +149,9 @@ export function FormEditInventory({
     },
   })
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? ""
-  const productTypeOptions = categories.length > 0
-    ? categories.map((category) => category.nombre)
-    : getTipoProductoOptions(product.tipoProducto)
-  const productTypeSummary =
-    selectedProductTypes.length === 0
-      ? "Sin tipo"
-      : selectedProductTypes.length === 1
-        ? selectedProductTypes[0]
-        : `${selectedProductTypes.length} tipos`
-
-  const handleProductTypeToggle = (type: string) => {
-    setSelectedProductTypes((current) => current.includes(type)
-      ? current.filter((item) => item !== type)
-      : [...current, type])
-  }
-
-  useEffect(() => {
-    form.setValue("tipoProducto", selectedProductTypes.join(", "), { shouldValidate: true })
-  }, [selectedProductTypes, form])
 
   const handleInvalid = (errors: typeof form.formState.errors) => {
     const firstInvalid = ([
-      "tipoProducto",
       "estado",
       "nombre",
       "precioVenta",
@@ -237,7 +201,6 @@ export function FormEditInventory({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tipoProducto: canonicalTipoProducto(values.tipoProducto),
           nombre: values.nombre,
           descripcion: values.descripcion || null,
           precioVenta: Number(values.precioVenta),
@@ -289,85 +252,7 @@ export function FormEditInventory({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="tipoProducto"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel data-error={false}>Tipo de producto</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl aria-invalid={false}>
-                      <Button
-                        id="edit-product-tipoProducto"
-                        type="button"
-                        variant="outline"
-                        className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
-                        ref={field.ref}
-                      >
-                        <span className="truncate">{productTypeSummary}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground">▾</span>
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
-                    <div className="max-h-64 space-y-1 overflow-y-auto">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                          selectedProductTypes.length === 0 && "border-primary bg-primary/10 text-primary",
-                        )}
-                        onClick={() => {
-                          setSelectedProductTypes([])
-                        }}
-                      >
-                        <span className="truncate">Sin tipo</span>
-                        {selectedProductTypes.length === 0 ? (
-                          <Check className="h-4 w-4 shrink-0" />
-                        ) : null}
-                      </Button>
-                      {productTypeOptions.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
-                          No hay categorías disponibles.
-                        </div>
-                      ) : (
-                        productTypeOptions.map((type) => {
-                          const isSelected = selectedProductTypes.includes(type)
 
-                          return (
-                            <Button
-                              key={type}
-                              type="button"
-                              variant="outline"
-                              className={cn(
-                                "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                                isSelected && "border-primary bg-primary/10 text-primary",
-                              )}
-                              onClick={() => handleProductTypeToggle(type)}
-                            >
-                              <span className="truncate">{type}</span>
-                              {isSelected ? <Check className="h-4 w-4 shrink-0" /> : null}
-                            </Button>
-                          )
-                        })
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {selectedProductTypes.length > 0 ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {selectedProductTypes.length} tipo(s) seleccionado(s).
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Puedes seleccionar uno o varios tipos antes de guardar.
-                  </p>
-                )}
-              </FormItem>
-            )}
-          />
 
           <FormField
             control={form.control}
