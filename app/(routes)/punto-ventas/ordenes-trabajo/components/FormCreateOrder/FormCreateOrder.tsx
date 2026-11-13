@@ -39,6 +39,7 @@ import { ESTADO_PAGO } from "@/lib/payment-status"
 import { isRegistroActivo } from "@/lib/registro-status"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
 import { ESTADO_OT } from "@/lib/work-order-status"
+import { seleccionarProductoOrden } from "@/lib/work-order-products"
 import {
   OrderLinesSection,
   Product,
@@ -292,13 +293,13 @@ export function FormCreateOrder({
     const matched = products.find((p) => p.idProducto.toString() === idProducto)
     const price = matched ? Number(matched.precioVenta) : 0
 
-    const updated = [...selectedProducts]
-    updated[index] = {
-      ...updated[index],
-      idProducto,
-      precioUnitario: price,
+    const repetido = selectedProducts.some((linea, i) => i !== index && linea.idProducto === idProducto)
+    try {
+      setSelectedProducts(seleccionarProductoOrden(selectedProducts, index, idProducto, price))
+      if (repetido) toast.success("Se sumó la cantidad al producto existente.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo sumar la cantidad")
     }
-    setSelectedProducts(updated)
   }
 
   const handleProductQuantityChange = (index: number, cantidad: number) => {

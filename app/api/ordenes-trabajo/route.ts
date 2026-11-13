@@ -8,6 +8,8 @@ import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
 import { ESTADO_OT } from "@/lib/work-order-status"
+import { agruparLineasProductosOrden, WorkOrderProductError } from "@/lib/work-order-products"
+import { descontarStockProductos, InventoryStockError } from "@/lib/stored-procedures"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -561,13 +563,15 @@ export async function POST(req: Request) {
       )
     }
 
-    const productosSolicitados: ProductoSolicitado[] = productosInput.map(
+    const productosSolicitados: ProductoSolicitado[] = agruparLineasProductosOrden(productosInput.map(
       (item, index) => ({
         idProducto: parsePositiveInteger(item.idProducto),
         cantidad: parsePositiveInteger(item.cantidad),
         precioUnitario: data.productos[index]!.precioUnitario,
+        descuentoUnitario: 0,
+        costoUnitario: 0,
       })
-    )
+    ))
 
     const serviciosSolicitados: ServicioSolicitado[] = serviciosInput.map(
       (item, index) => ({
@@ -800,18 +804,12 @@ export async function POST(req: Request) {
         },
       })
 
-      for (const item of productosAgrupados) {
-        const producto = productosPorId.get(item.idProducto)!
-
-        await tx.producto.update({
-          where: {
-            idProducto: item.idProducto,
-          },
-          data: {
-            stockActual: producto.stockActual - item.cantidad,
-          },
-        })
-      }
+      await descontarStockProductos(tx, ventaCreada.ordenDeTrabajo!.lineasDeOrdenDeTrabajo
+        .filter((linea) => linea.idProducto !== null)
+        .map((linea) => ({
+          idProducto: linea.idProducto!, cantidad: linea.cantidad,
+          idLineaDeOrdenDeTrabajo: linea.idLineaDeOrdenDeTrabajo,
+        })))
 
       return {
         ...ventaCreada.ordenDeTrabajo!,
@@ -830,6 +828,14 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof WorkOrderProductError) {
+      return NextResponse.json({ code: error.code, message: error.message }, { status: error.status })
+    }
+    if (error instanceof InventoryStockError) {
+      return NextResponse.json({ code: error.code, message: error.message }, {
+        status: error.code === "PRODUCTO_NO_EXISTE" ? 404 : 409,
+      })
+    }
     console.log("[CREAR_ORDEN_TRABAJO]", error)
 
     return NextResponse.json(
