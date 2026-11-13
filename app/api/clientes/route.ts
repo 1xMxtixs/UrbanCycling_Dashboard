@@ -1,7 +1,11 @@
 //endpoints generales del inventario para registrar nuevos clientes.
 import { randomUUID } from "node:crypto"
 import { db } from "@/lib/db"
-import { separarApellidos, separarNombres } from "@/lib/client-helpers"
+import {
+  normalizarTexto,
+  separarApellidos,
+  separarNombres,
+} from "@/lib/client-helpers"
 import { validarRutOpcional } from "@/app/api/_lib/client-rut"
 import { validarYFormatearRut } from "@/lib/client-rut"
 import { EstadoRegistro, Prisma } from "@/generated/prisma"
@@ -100,9 +104,11 @@ export async function POST(req: Request) {
         nombreContacto: null,
       }
     } else if (tipoCliente === "juridica") {
-      const razonSocial = data.razon || data.razonSocial || data.RazonSocial
-      const giro = data.giro || null
-      const nombreContacto = data.nombreContacto || null
+      const razonSocial = normalizarTexto(
+        data.razon || data.razonSocial || data.RazonSocial
+      )
+      const giro = normalizarTexto(data.giro || null) || null
+      const nombreContacto = normalizarTexto(data.nombreContacto || null) || null
 
       if (!razonSocial) {
         return new NextResponse("Falta la Razón Social para persona jurídica", {
