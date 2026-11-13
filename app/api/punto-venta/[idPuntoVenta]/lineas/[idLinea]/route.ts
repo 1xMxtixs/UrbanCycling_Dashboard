@@ -10,6 +10,10 @@ import {
 } from "@/lib/stored-procedures";
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit";
 import { ESTADO_OT, ESTADOS_OT_CERRADOS } from "@/lib/work-order-status";
+import {
+  EstadoDocumentoTributario,
+  EstadoPagoVenta,
+} from "@/generated/prisma";
 import { NextResponse } from "next/server";
 
 class WorkOrderLineError extends Error {
@@ -20,6 +24,8 @@ class WorkOrderLineError extends Error {
       | "LINEA_NO_EXISTE"
       | "ORDEN_NO_MODIFICABLE"
       | "ESTADO_ORDEN_NO_PERMITE_AJUSTE"
+      | "ORDEN_CON_PAGOS"
+      | "ORDEN_CON_DOCUMENTO_TRIBUTARIO"
       | "LINEA_NO_ES_INSUMO"
       | "CANTIDAD_INVALIDA"
       | "VALORES_LINEA_INVALIDOS"
@@ -148,6 +154,24 @@ export async function PATCH(
 
       const orden = await tx.ordenDeTrabajo.findUnique({
         where: { idOrdenDeTrabajo },
+        include: {
+          venta: {
+            select: {
+              estadoPago: true,
+              asignacionesPago: {
+                select: { idAsignacionPago: true },
+              },
+              origenesDTE: {
+                where: {
+                  documentoTributario: {
+                    estado: EstadoDocumentoTributario.EMITIDO,
+                  },
+                },
+                select: { idOrigenDocumentoTributario: true },
+              },
+            },
+          },
+        },
       });
 
       if (!orden) {
@@ -157,11 +181,33 @@ export async function PATCH(
         );
       }
 
-      // Ajustar existencias modifica inventario, por eso solo se permite mientras la OT está en curso.
-      if (tieneCantidad && orden.estado !== ESTADO_OT.EN_CURSO) {
+      // Agregar, ajustar y eliminar productos comparten los mismos estados permitidos.
+      if (
+        tieneCantidad &&
+        orden.estado !== ESTADO_OT.POR_REALIZAR &&
+        orden.estado !== ESTADO_OT.EN_CURSO
+      ) {
         throw new WorkOrderLineError(
           "ESTADO_ORDEN_NO_PERMITE_AJUSTE",
-          'La orden debe estar en estado "En curso" para ajustar sus insumos'
+          'La orden debe estar "Por realizar" o "En curso" para ajustar sus productos'
+        );
+      }
+
+      if (
+        tieneCantidad &&
+        (orden.venta.estadoPago !== EstadoPagoVenta.PENDIENTE ||
+          orden.venta.asignacionesPago.length > 0)
+      ) {
+        throw new WorkOrderLineError(
+          "ORDEN_CON_PAGOS",
+          "No se pueden ajustar productos de una orden con pagos registrados"
+        );
+      }
+
+      if (tieneCantidad && orden.venta.origenesDTE.length > 0) {
+        throw new WorkOrderLineError(
+          "ORDEN_CON_DOCUMENTO_TRIBUTARIO",
+          "No se pueden ajustar productos de una orden con documento tributario emitido"
         );
       }
 
@@ -190,6 +236,7 @@ export async function PATCH(
         where: {
           idLineaDeOrdenDeTrabajo,
           idOrdenDeTrabajo,
+          cantidad: { gt: 0 },
         },
       });
 
@@ -336,6 +383,8 @@ export async function PATCH(
         LINEA_NO_EXISTE: 404,
         ORDEN_NO_MODIFICABLE: 409,
         ESTADO_ORDEN_NO_PERMITE_AJUSTE: 409,
+        ORDEN_CON_PAGOS: 409,
+        ORDEN_CON_DOCUMENTO_TRIBUTARIO: 409,
         LINEA_NO_ES_INSUMO: 409,
       };
 

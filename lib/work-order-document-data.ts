@@ -73,6 +73,9 @@ export async function getWorkOrderDocumentData(idOrdenDeTrabajo: number) {
         },
       },
       lineasDeOrdenDeTrabajo: {
+        where: {
+          cantidad: { gt: 0 },
+        },
         select: {
           idLineaDeOrdenDeTrabajo: true,
           idServicio: true,

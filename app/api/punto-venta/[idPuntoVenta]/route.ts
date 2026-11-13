@@ -97,6 +97,9 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
 
   const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
+  const lineasActivas = (
+    ordenTrabajoSegura.lineasDeOrdenDeTrabajo ?? []
+  ).filter((linea: { cantidad?: number }) => Number(linea.cantidad ?? 0) > 0)
   const totalPagado = asignaciones.reduce(
     (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
     0
@@ -104,6 +107,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
 
   return {
     ...ordenTrabajoSegura,
+    lineasDeOrdenDeTrabajo: lineasActivas,
     total: ordenTrabajoSegura.montoTotal,
     descuento: ordenTrabajoSegura.descuentoGlobal,
     estadoOrden: ordenTrabajoSegura.estado,
