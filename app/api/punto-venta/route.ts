@@ -20,6 +20,7 @@ import {
   recalcularTotalesOrdenTrabajo,
 } from "@/lib/stored-procedures"
 import { ESTADO_OT } from "@/lib/work-order-status"
+import { agruparLineasProductosOrden, WorkOrderProductError } from "@/lib/work-order-products"
 import { NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 
@@ -773,7 +774,7 @@ export async function POST(req: Request) {
         costoUnitario: item.costoUnitario,
       }
     })
-    const lineasOrdenProductos = productosOrden.map((item) => {
+    const lineasOrdenProductos = agruparLineasProductosOrden(productosOrden.map((item) => {
       const producto = productosPorId.get(item.idProducto)!
       const precioUnitario =
         item.precioUnitario ?? toNumber(producto.precioVenta)
@@ -787,7 +788,7 @@ export async function POST(req: Request) {
         descuentoUnitario: item.descuentoUnitario,
         costoUnitario: item.costoUnitario,
       }
-    })
+    }))
     const lineasOrdenServicios = serviciosOrden.map((item) => {
       const servicio = serviciosPorId.get(item.idServicio)!
       const precioUnitario =
@@ -1183,6 +1184,9 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof WorkOrderProductError) {
+      return NextResponse.json({ code: error.code, message: error.message }, { status: error.status })
+    }
     if (error instanceof InventoryStockError) {
       return NextResponse.json(
         {

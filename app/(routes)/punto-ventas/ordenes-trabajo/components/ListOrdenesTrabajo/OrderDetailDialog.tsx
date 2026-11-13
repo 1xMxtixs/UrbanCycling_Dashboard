@@ -72,6 +72,7 @@ import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 import { isRegistroActivo } from "@/lib/registro-status"
 import { WorkOrder, WorkOrderPayment, WorkOrderServiceLine } from "../../types"
+import { AddOrderProduct } from "./AddOrderProduct"
 import {
   buildWorkOrderContent,
   buildWorkOrderHtml,
@@ -291,6 +292,11 @@ export function OrderDetailDialog({
 
   const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
   const totalPagado = Number(order.totalPagado || 0)
+  const productDisabledReason = order.estadoOrden !== ESTADO_OT.POR_REALIZAR && order.estadoOrden !== ESTADO_OT.EN_CURSO
+    ? 'La orden debe estar "Por realizar" o "En curso" para agregar productos.'
+    : totalPagado > 0 || (order.estadoPago && order.estadoPago !== ESTADO_PAGO.PENDIENTE)
+      ? "No se pueden agregar productos a una orden con pagos registrados."
+      : undefined
   const isPaid =
     order.estadoPago === ESTADO_PAGO.PAGADA ||
     Math.max(0, total - totalPagado) === 0
@@ -1161,6 +1167,18 @@ export function OrderDetailDialog({
             </div>
 
             {/* Insumos y Repuestos */}
+            {isEditing && canEdit && (
+              <AddOrderProduct
+                key={`${order.idOrdenDeTrabajo}-${productLines.map((line) => `${line.idLineaDeOrdenDeTrabajo}:${line.cantidad}`).join(",")}`}
+                orderId={order.idOrdenDeTrabajo}
+                lines={productLines}
+                disabledReason={productDisabledReason}
+                onAdded={() => {
+                  window.dispatchEvent(new Event("work-orders:refresh"))
+                  onEditSuccess?.()
+                }}
+              />
+            )}
             <div className="space-y-2 pt-2 border-t border-border/60">
               <span className="text-xs text-muted-foreground block font-bold">
                 Insumos y Repuestos Utilizados:
