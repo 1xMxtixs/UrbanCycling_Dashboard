@@ -365,7 +365,7 @@ export function WorkOrderBicyclesSection({
 
       {editorMode?.kind === "create" && (
         <div className="rounded-xl border border-border bg-white p-4">
-          <h5 className="mb-4 border-b border-border pb-3 font-semibold text-foreground">
+          <h5 className="mb-4 font-semibold text-foreground">
             Nueva bicicleta
           </h5>
           {renderEditor(handleCreate, "Agregar bicicleta")}
@@ -388,9 +388,13 @@ export function WorkOrderBicyclesSection({
           return (
             <div
               key={bicycle.idBicicleta}
-              className="rounded-xl border border-border p-4"
+              className="rounded-xl border border-border bg-white p-4"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div
+                className={`flex items-start justify-between gap-3 ${
+                  isEditing ? "-mx-4 -mt-4 bg-muted/40 p-3" : ""
+                }`}
+              >
                 <div className="space-y-0.5">
                   <h5 className="font-bold text-foreground">
                     {bicycle.marca} {bicycle.modelo}
