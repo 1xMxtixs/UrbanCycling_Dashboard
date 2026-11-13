@@ -6,9 +6,7 @@ import {
   FileText,
   ShoppingBag,
   Coins,
-  Wrench,
   ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Pencil,
@@ -16,8 +14,6 @@ import {
   Download,
   Mail,
   History,
-  Maximize2,
-  Image as ImageIcon,
   Check,
   X,
   Loader2,
@@ -75,8 +71,9 @@ import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
 import { isRegistroActivo } from "@/lib/registro-status"
-import { WorkOrder, WorkOrderPayment, WorkOrderServiceLine } from "../../types"
+import { WorkOrder, WorkOrderBike, WorkOrderPayment, WorkOrderServiceLine } from "../../types"
 import { AddOrderProduct } from "./AddOrderProduct"
+import { WorkOrderBicyclesSection } from "./WorkOrderBicyclesSection"
 import {
   buildWorkOrderContent,
   buildWorkOrderHtml,
@@ -151,7 +148,9 @@ export function OrderDetailDialog({
   const { data: session } = useSession()
   const isAdmin = session?.user?.rol === "Administrador"
 
-  const [openBikes, setOpenBikes] = useState<{ [key: number]: boolean }>({})
+  const [visibleBicycles, setVisibleBicycles] = useState<WorkOrderBike[]>(
+    order?.bicicletas ?? []
+  )
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
 
   // Descuento global
@@ -232,7 +231,7 @@ export function OrderDetailDialog({
 
   // Sincronizar estados locales con la orden activa
   const syncKey = open && order
-    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.cantidad}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}`
+    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.cantidad}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}-${(order.bicicletas ?? []).map((b) => `${b.idBicicleta}:${b.marca}:${b.modelo}:${b.color}:${b.descripcion ?? ""}:${(b.imagenes ?? []).join("|")}`).join(",")}`
     : null
 
   useEffect(() => {
@@ -266,6 +265,7 @@ export function OrderDetailDialog({
       setSelectedNewServiceId("")
       setNewServiceQuantity(1)
       setProductToRemove(null)
+      setVisibleBicycles(order.bicicletas ?? [])
     })
   }, [syncKey, order])
 
@@ -313,6 +313,13 @@ export function OrderDetailDialog({
   const montoNeto = Math.round(total / 1.19)
 
   const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
+  const permissions = session?.user?.permisos ?? []
+  const canCreateBicycle =
+    isEditing && canEdit && permissions.includes(PERMISSIONS.BICYCLES_CREATE)
+  const canUpdateBicycle =
+    isEditing && canEdit && permissions.includes(PERMISSIONS.BICYCLES_UPDATE)
+  const canDeleteBicycle =
+    isEditing && canEdit && permissions.includes(PERMISSIONS.BICYCLES_DELETE)
   const totalPagado = Number(order.totalPagado || 0)
   const remainingBalance = Math.max(0, total - totalPagado)
   const hasRegisteredPayments =
@@ -1138,143 +1145,22 @@ export function OrderDetailDialog({
           </div>
 
           {/* 4. Bicicletas */}
-          <div className="space-y-3">
-            <h4 className="flex items-center gap-1.5 font-bold text-foreground">
-              <Wrench className="h-4.5 w-4.5 text-primary" />
-              Bicicletas ({order.bicicletas?.length || 0})
-            </h4>
-
-            <div className="space-y-3">
-              {order.bicicletas?.map((bike) => (
-                <div
-                  key={bike.idBicicleta}
-                  className="rounded-xl border border-border p-4 transition-colors duration-200 motion-reduce:transition-none"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <h5 className="font-bold text-foreground">
-                        {bike.marca} {bike.modelo}
-                      </h5>
-                      <p className="text-xs text-muted-foreground">
-                        Color: <span className="font-medium text-foreground">{bike.color}</span>
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setOpenBikes((prev) => ({
-                          ...prev,
-                          [bike.idBicicleta]: !prev[bike.idBicicleta],
-                        }))
-                      }
-                      className="h-8 text-xs cursor-pointer gap-1"
-                    >
-                      {openBikes[bike.idBicicleta] ? "Ocultar detalles" : "Ver detalles"}
-                      {openBikes[bike.idBicicleta] ? (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-
-                  {openBikes[bike.idBicicleta] && (
-                    <div className="mt-4 pt-4 border-t border-border space-y-4">
-                      {bike.descripcion && (
-                        <div>
-                          <span className="text-xs text-muted-foreground block mb-1">
-                            Descripción / Estado inicial
-                          </span>
-                          <p className="text-xs italic bg-background p-2.5 rounded-lg border border-border">
-                            {bike.descripcion}
-                          </p>
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                            <ImageIcon className="h-3.5 w-3.5" />
-                            Fotografías de Ingreso
-                          </span>
-                          {bike.imagenes?.length ? (
-                            <span className="text-[10px] font-bold text-muted-foreground">
-                              {bike.imagenes.length}{" "}
-                              {bike.imagenes.length === 1 ? "fotografía" : "fotografías"}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {bike.imagenes?.length ? (
-                          <div className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setLightbox({
-                                  images: bike.imagenes ?? [],
-                                  index: 0,
-                                  title: `${bike.marca} ${bike.modelo}`,
-                                })
-                              }
-                              className="group relative block w-full max-w-lg aspect-video rounded-lg overflow-hidden border border-border bg-background cursor-pointer"
-                            >
-                              <img
-                                src={bike.imagenes[0]}
-                                alt={`${bike.marca} ${bike.modelo} - fotografía 1`}
-                                className="object-cover w-full h-full"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-150 group-hover:bg-black/40 motion-reduce:transition-none">
-                                <div className="rounded-full bg-black/60 p-3 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 motion-reduce:transition-none">
-                                  <Maximize2 className="h-5 w-5" />
-                                </div>
-                              </div>
-                            </button>
-
-                            {bike.imagenes.length > 1 && (
-                              <div className="flex gap-2 overflow-x-auto pb-1">
-                                {bike.imagenes.map((image, imageIndex) => (
-                                  <button
-                                    key={`${image}-${imageIndex}`}
-                                    type="button"
-                                    onClick={() =>
-                                      setLightbox({
-                                        images: bike.imagenes ?? [],
-                                        index: imageIndex,
-                                        title: `${bike.marca} ${bike.modelo}`,
-                                      })
-                                    }
-                                    className="group relative h-16 w-20 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border bg-background transition-colors duration-150 hover:border-primary motion-reduce:transition-none"
-                                  >
-                                    <img
-                                      src={image}
-                                      alt={`${bike.marca} ${bike.modelo} - fotografía ${imageIndex + 1}`}
-                                      className="h-full w-full object-cover"
-                                    />
-                                    <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                                      {imageIndex + 1}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-8 text-center">
-                            <ImageIcon className="h-7 w-7 text-muted-foreground mb-2" />
-                            <p className="text-xs text-muted-foreground">
-                              No hay fotografías registradas
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <WorkOrderBicyclesSection
+            key={`${order.idOrdenDeTrabajo}-${isEditing}`}
+            idOrdenDeTrabajo={order.idOrdenDeTrabajo}
+            bicycles={visibleBicycles}
+            canCreate={canCreateBicycle}
+            canUpdate={canUpdateBicycle}
+            canDelete={canDeleteBicycle}
+            onChange={setVisibleBicycles}
+            onPersisted={() => {
+              window.dispatchEvent(new Event("work-orders:refresh"))
+              onEditSuccess?.()
+            }}
+            onPreviewImages={(images, index, title) =>
+              setLightbox({ images, index, title })
+            }
+          />
 
           {/* 5. Costos, Servicios e Insumos */}
           <div className="space-y-4 rounded-xl border border-border p-4">
