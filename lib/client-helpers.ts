@@ -1,9 +1,31 @@
+export function capitalizarCadaPalabra(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((palabra) => {
+      const partes = palabra.split("-")
+
+      return partes
+        .map((parte) => {
+          if (!parte) {
+            return parte
+          }
+
+          return parte.charAt(0).toLocaleUpperCase() + parte.slice(1).toLocaleLowerCase()
+        })
+        .join("-")
+    })
+    .join(" ")
+}
+
 export function normalizarTexto(value: unknown): string {
   if (typeof value !== "string") {
     return ""
   }
 
-  return value.trim().replace(/\s+/g, " ")
+  return capitalizarCadaPalabra(value)
 }
 
 export function normalizarTextoOpcional(value: unknown): string | null {
