@@ -66,7 +66,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
-import { formatClientName, formatCLP } from "@/lib/formatters"
+import { formatCLP } from "@/lib/formatters"
+import { esClienteJuridico } from "@/lib/client-type"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
@@ -233,6 +234,17 @@ export function OrderDetailDialog({
   const syncKey = open && order
     ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.cantidad}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}-${(order.bicicletas ?? []).map((b) => `${b.idBicicleta}:${b.marca}:${b.modelo}:${b.color}:${b.descripcion ?? ""}:${(b.imagenes ?? []).join("|")}`).join(",")}`
     : null
+
+  const isNaturalPerson = !esClienteJuridico(order?.cliente?.tipoCliente)
+  const clientDisplayLabel = isNaturalPerson ? "Nombre" : "Razón Social"
+  const clientDisplayValue = isNaturalPerson
+    ? [
+        order?.cliente?.primerNombre,
+        order?.cliente?.segundoNombre,
+        order?.cliente?.apellidoPaterno,
+        order?.cliente?.apellidoMaterno,
+      ].filter(Boolean).join(" ").trim() || "No indicado"
+    : order?.cliente?.razonSocial || "No indicado"
 
   useEffect(() => {
     if (!syncKey || !order) return
@@ -946,8 +958,8 @@ export function OrderDetailDialog({
             </h4>
             <div className="grid gap-3 sm:grid-cols-2">
               <DataField
-                label="Nombre / Razón Social"
-                value={formatClientName(order.cliente)}
+                label={clientDisplayLabel}
+                value={clientDisplayValue}
               />
               <DataField label="RUT" value={order.cliente?.rut || "No indicado"} />
               {order.cliente?.tipoCliente && (
