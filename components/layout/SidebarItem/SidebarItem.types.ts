@@ -8,6 +8,8 @@ export type SidebarRoute = {
   href: string
   permission?: PermissionCode
   adminOnly?: boolean
+  hiddenFromSidebar?: boolean
+  directLink?: boolean
   children?: SidebarRoute[]
 }
 
