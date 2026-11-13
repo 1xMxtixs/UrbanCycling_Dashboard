@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { requirePermission } from "@/lib/require-permission"
+import { requireAnyPermission } from "@/lib/require-permission"
 import { PERMISSIONS } from "@/lib/permissions"
 import {
   crearImagenTemporal,
@@ -8,9 +8,11 @@ import {
 } from "@/app/api/_lib/image-jobs"
 
 export async function POST(request: Request) {
-  const { session, response } = await requirePermission(
-    PERMISSIONS.BICYCLES_UPDATE
-  )
+  // La subida temporal se comparte entre la creacion y la edicion.
+  const { session, response } = await requireAnyPermission([
+    PERMISSIONS.BICYCLES_CREATE,
+    PERMISSIONS.BICYCLES_UPDATE,
+  ])
   if (response || !session)
     return response ?? new NextResponse("No autorizado", { status: 401 })
   try {
@@ -46,9 +48,11 @@ export async function POST(request: Request) {
   }
 }
 export async function DELETE(request: Request) {
-  const { session, response } = await requirePermission(
-    PERMISSIONS.BICYCLES_UPDATE
-  )
+  // Quien pudo subir el temporal tambien puede descartarlo al cerrar el formulario.
+  const { session, response } = await requireAnyPermission([
+    PERMISSIONS.BICYCLES_CREATE,
+    PERMISSIONS.BICYCLES_UPDATE,
+  ])
   if (response || !session)
     return response ?? new NextResponse("No autorizado", { status: 401 })
   try {
