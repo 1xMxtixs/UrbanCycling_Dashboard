@@ -203,7 +203,7 @@ export function FormCreateInventory({
 
     async function loadCategories() {
       try {
-        const response = await fetch("/api/inventory/categories", {
+        const response = await fetch("/api/inventory/categories?includeInactive=true", {
           cache: "no-store",
         });
         const result = await response.json().catch(() => null);
@@ -217,7 +217,8 @@ export function FormCreateInventory({
           : [];
 
         if (isMounted) {
-          setCategoryOptions(nextCategories);
+          const assignedIds = new Set(product?.categoriasProducto?.map((category) => category.idCategoria) ?? []);
+          setCategoryOptions(nextCategories.filter((category) => isRegistroActivo(category.estado) || assignedIds.has(category.idCategoria)));
         }
       } catch {
         if (isMounted) {
@@ -227,11 +228,13 @@ export function FormCreateInventory({
     }
 
     void loadCategories();
+    window.addEventListener("inventory:categories-changed", loadCategories);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("inventory:categories-changed", loadCategories);
     };
-  }, []);
+  }, [product?.categoriasProducto]);
 
   useEffect(() => {
     if (isEditing || !canAssociateSupplier) return;
