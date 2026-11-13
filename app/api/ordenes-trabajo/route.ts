@@ -923,6 +923,9 @@ export async function GET(req: Request) {
           },
         },
         lineasDeOrdenDeTrabajo: {
+          where: {
+            cantidad: { gt: 0 },
+          },
           include: {
             servicio: true,
             producto: true,

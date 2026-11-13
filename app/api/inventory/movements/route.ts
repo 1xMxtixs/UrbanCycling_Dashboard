@@ -426,7 +426,9 @@ export async function GET() {
             : movement.lineaDeVenta
               ? `Salida asociada a venta #${movement.lineaDeVenta.idVentaEnMostrador}`
               : movement.lineaDeOrdenDeTrabajo
-                ? `Consumo asociado a OT #${movement.lineaDeOrdenDeTrabajo.idOrdenDeTrabajo}`
+                ? tipoMovimiento === "ENTRADA"
+                  ? `Devolución asociada a OT #${movement.lineaDeOrdenDeTrabajo.idOrdenDeTrabajo}`
+                  : `Consumo asociado a OT #${movement.lineaDeOrdenDeTrabajo.idOrdenDeTrabajo}`
                 : null)
         let stockAnterior: number | null = null
         let stockNuevo: number | null = null
