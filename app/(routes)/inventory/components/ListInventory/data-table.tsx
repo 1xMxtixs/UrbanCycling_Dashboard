@@ -39,6 +39,7 @@ import {
   Package,
   Search,
   Truck,
+  Tags,
   X,
 } from "lucide-react"
 
@@ -55,6 +56,7 @@ interface DataTableProps {
   initialSearch?: string
   canAssociate?: boolean
   onAssociateProducts?: (productIds: number[]) => void
+  onManageCategories?: () => void
 }
 
 type ProductSearch =
@@ -94,12 +96,14 @@ export function DataTable({
   initialSearch = "",
   canAssociate = false,
   onAssociateProducts,
+  onManageCategories,
 }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [{ id: "estado", value: ESTADO_REGISTRO.ACTIVO }]
   )
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("all")
+  const effectiveCategoryId = categories.some((category) => String(category.idCategoria) === selectedCategoryId) ? selectedCategoryId : "all"
   const [productSearch, setProductSearch] = React.useState(initialSearch)
   const [isSelectingProducts, setIsSelectingProducts] = React.useState(false)
   const [selectedProductIds, setSelectedProductIds] = React.useState<number[]>(
@@ -164,11 +168,11 @@ export function DataTable({
 
   const categoryFilteredData = React.useMemo(() => {
     const productsByCategory =
-      selectedCategoryId === "all"
+      effectiveCategoryId === "all"
         ? data
         : data.filter((product) =>
             product.categoriasProducto?.some(
-              (category) => String(category.idCategoria) === selectedCategoryId
+              (category) => String(category.idCategoria) === effectiveCategoryId
             )
           )
 
@@ -191,7 +195,7 @@ export function DataTable({
         includesNormalizedText(product.nombre, productSearchState.query) ||
         includesNormalizedText(product.tipoProducto, productSearchState.query)
     )
-  }, [data, productSearchState, selectedCategoryId])
+  }, [data, productSearchState, effectiveCategoryId])
 
   const table = useReactTable({
     data: categoryFilteredData,
@@ -292,7 +296,7 @@ export function DataTable({
 
               <div className="w-full shrink-0 sm:w-56">
                 <Select
-                  value={selectedCategoryId}
+                  value={effectiveCategoryId}
                   onValueChange={setSelectedCategoryId}
                 >
                   <SelectTrigger aria-label="Filtrar productos por categoría" className="h-10 data-[size=default]:h-10 w-full rounded-xl border-border/80 bg-background text-sm shadow-2xs sm:w-56">
@@ -311,6 +315,7 @@ export function DataTable({
                   </SelectContent>
                 </Select>
               </div>
+              {onManageCategories && <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={onManageCategories}><Tags className="h-4 w-4" /> Administrar categorías</Button>}
             </div>
             {productSearchState.type === "invalid-id" && (
               <p id="product-search-error" className="text-xs text-destructive">

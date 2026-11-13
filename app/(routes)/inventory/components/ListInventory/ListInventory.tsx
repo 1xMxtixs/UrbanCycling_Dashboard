@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { PERMISSIONS } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "./data-table"
+import { CategoryManager } from "../CategoryManager/CategoryManager"
 import { getColumns, type ProductColumn } from "./columns"
 import { ProductDetailSheet } from "./ProductDetailSheet"
 import { FormEditInventory } from "../FormEditInventory"
@@ -52,6 +53,7 @@ export function ListInventory() {
     PERMISSIONS.SUPPLIERS_READ,
   ].every((p) => session?.user?.permisos?.includes(p))
   const [categories, setCategories] = useState<InventoryCategory[]>([])
+  const [openCategories, setOpenCategories] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<ProductColumn | null>(
     null
@@ -334,6 +336,7 @@ export function ListInventory() {
         data={inventory}
         categories={categories}
         initialSearch={searchParam}
+        onManageCategories={() => setOpenCategories(true)}
         canAssociate={
           canReadAssociations &&
           canUpdate &&
@@ -358,6 +361,8 @@ export function ListInventory() {
           }
         }}
       />
+
+      <CategoryManager open={openCategories} onOpenChange={setOpenCategories} />
 
       <Dialog open={openLowStock} onOpenChange={setOpenLowStock}>
         <DialogContent className="max-w-2xl rounded-xl">

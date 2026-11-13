@@ -8,6 +8,8 @@ export type InventoryCategory = {
   idCategoria: number;
   nombre: string;
   descripcion?: string | null;
+  estado?: string;
+  productosAsociados?: number;
 };
 
 export type ProductColumn = {
