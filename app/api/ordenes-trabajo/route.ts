@@ -1,3 +1,4 @@
+import { sumarPagosCompletados } from "@/lib/payment-summary"
 // Endpoints generales para registrar y listar ordenes de trabajo.
 import { EstadoPagoVenta, EstadoRegistro } from "@/generated/prisma"
 import {
@@ -941,10 +942,7 @@ export async function GET(req: Request) {
       )
 
       const asignaciones = orden.venta?.asignacionesPago ?? []
-      const totalPagado = asignaciones.reduce(
-        (sum: number, a: any) => sum + toNumber(a.montoAsociado),
-        0
-      )
+      const totalPagado = sumarPagosCompletados(asignaciones)
 
       return {
         ...orden,
@@ -963,7 +961,7 @@ export async function GET(req: Request) {
           fechaRegistro: a.pago?.fechaRegistro,
           estado: a.pago?.estado,
           metodoPago: a.pago?.metodoPago,
-          monto: a.pago?.monto,
+          monto: Number(a.montoAsociado),
           tipoAbono: a.tipoAbono,
         })),
       }

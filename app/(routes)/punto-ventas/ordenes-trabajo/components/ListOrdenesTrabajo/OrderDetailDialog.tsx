@@ -323,8 +323,7 @@ export function OrderDetailDialog({
       ? "No se pueden modificar productos de una orden con pagos registrados."
       : undefined
   const isPaid =
-    order.estadoPago === ESTADO_PAGO.PAGADA ||
-    (total > 0 && hasRegisteredPayments && remainingBalance === 0)
+    total > 0 && hasRegisteredPayments && remainingBalance === 0
 
   const assignedMechanic = mechanics.find(
     (m) => m.idUsuario === order.idMecanicoAsignado
@@ -1486,7 +1485,7 @@ export function OrderDetailDialog({
                         ? "info"
                         : "warning"
                   }
-                  label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago)}
+                  label={isPaid ? "Pagada" : getNombreEstadoPago(order.estadoPago === ESTADO_PAGO.PAGADA ? (totalPagado > 0 ? ESTADO_PAGO.PARCIAL : ESTADO_PAGO.PENDIENTE) : order.estadoPago)}
                   showDot={false}
                 />
               </div>
@@ -1521,9 +1520,10 @@ export function OrderDetailDialog({
                       <span className="text-[10px] text-muted-foreground">
                         {new Date(pago.fechaRegistro).toLocaleString("es-CL")}
                       </span>
+                      {pago.estado !== "COMPLETADO" && <span className="block text-[10px] text-muted-foreground">{pago.estado || "Pendiente"} · No aplicado al saldo</span>}
                     </div>
                     <span className="font-bold text-primary">
-                      +{formatCLP(Number(pago.monto))}
+                      {pago.estado === "COMPLETADO" ? "+" : ""}{formatCLP(Number(pago.monto))}
                     </span>
                   </div>
                 ))}
@@ -1541,7 +1541,12 @@ export function OrderDetailDialog({
         {/* Pie de Acciones */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 shrink-0">
           <div>
-            {!isPaid && remainingBalance > 0 && !isEditing && onPayClick && (
+            {!isPaid &&
+              remainingBalance > 0 &&
+              !isEditing &&
+              order.estadoOrden !== ESTADO_OT.ANULADA &&
+              session?.user?.permisos?.includes(PERMISSIONS.WORK_ORDERS_UPDATE_STATUS) &&
+              onPayClick && (
               <Button
                 variant="default"
                 size="sm"
@@ -1549,7 +1554,7 @@ export function OrderDetailDialog({
                 className="font-bold gap-1.5 cursor-pointer shadow-xs"
               >
                 <Coins className="h-4 w-4" />
-                Registrar Pago Restante
+                Registrar pago o abono
               </Button>
             )}
 

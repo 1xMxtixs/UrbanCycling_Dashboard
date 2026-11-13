@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { sumarPagosCompletados } from "@/lib/payment-summary"
 
 export class WorkOrderNotFoundError extends Error {
   constructor() {
@@ -142,7 +143,7 @@ export async function getWorkOrderDocumentData(idOrdenDeTrabajo: number) {
       neto: Number(orden.montoNeto),
       iva: Number(orden.montoIva),
       total: Number(orden.montoTotal),
-      totalPagado: pagos.reduce((total, pago) => total + pago.monto, 0),
+      totalPagado: sumarPagosCompletados(orden.venta.asignacionesPago),
     },
     pagos,
   }

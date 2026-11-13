@@ -1,3 +1,4 @@
+import { sumarPagosCompletados } from "@/lib/payment-summary"
 // Detalle referencial de punto de venta.
 // A falta de una tabla punto_venta, el parametro acepta valores como:
 // - venta-12
@@ -100,10 +101,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   const lineasActivas = (
     ordenTrabajoSegura.lineasDeOrdenDeTrabajo ?? []
   ).filter((linea: { cantidad?: number }) => Number(linea.cantidad ?? 0) > 0)
-  const totalPagado = asignaciones.reduce(
-    (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
-    0
-  )
+  const totalPagado = sumarPagosCompletados(asignaciones)
 
   return {
     ...ordenTrabajoSegura,
@@ -122,7 +120,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
       fechaRegistro: a.pago?.fechaRegistro,
       estado: a.pago?.estado,
       metodoPago: a.pago?.metodoPago,
-      monto: a.pago?.monto,
+      monto: Number(a.montoAsociado),
       tipoAbono: a.tipoAbono,
     })),
   }

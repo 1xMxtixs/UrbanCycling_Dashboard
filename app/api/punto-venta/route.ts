@@ -1,3 +1,5 @@
+import { sumarPagosCompletados } from "@/lib/payment-summary"
+import { validarMontoAbono, WorkOrderPaymentError } from "@/lib/work-order-payments"
 // Capa referencial del nuevo punto de venta.
 // Mientras no exista una tabla punto_venta, registra ventas y ordenes en sus
 // tablas actuales y responde con una forma unificada para el front.
@@ -149,10 +151,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo);
   
   const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? [];
-  const totalPagado = asignaciones.reduce(
-    (sum: number, a: any) => sum + Number(a.montoAsociado ?? 0),
-    0
-  )
+  const totalPagado = sumarPagosCompletados(asignaciones)
   const estadoCatalogo = ordenTrabajoSegura.estadoOrden
 
   return {
@@ -169,7 +168,7 @@ function adaptarOrdenTrabajo(ordenTrabajo: any) {
       fechaRegistro: a.pago?.fechaRegistro,
       estado: a.pago?.estado,
       metodoPago: a.pago?.metodoPago,
-      monto: a.pago?.monto,
+      monto: Number(a.montoAsociado),
       tipoAbono: a.tipoAbono,
     })),
   }
@@ -419,9 +418,11 @@ function obtenerMetodoPago(rawData: any) {
 
 function obtenerMontoPago(rawData: any): number | null {
   const monto =
+    rawData.pago?.montoPago ??
     rawData.pago?.monto_pagado ??
     rawData.pago?.montoPagado ??
     rawData.pago?.monto ??
+    rawData.montoPago ??
     rawData.monto_pagado ??
     rawData.montoPagado ??
     null
@@ -1077,6 +1078,10 @@ export async function POST(req: Request) {
         Number(ordenTrabajoActualizada?.montoTotal ?? 0) +
         Number(venta?.ventaEnMostrador?.montoTotal ?? 0)
       const montoPago = montoPagoSolicitado ?? totalOperacionFinal
+      if (tieneOrden && metodoPago) {
+        validarMontoAbono(montoPago)
+        if (montoPago > totalOperacionFinal) throw new WorkOrderPaymentError("MONTO_EXCEDE_SALDO", "El pago inicial no puede superar el total de la operación.", 409)
+      }
 
       const pago = metodoPago
         ? await tx.pago.create({
@@ -1185,6 +1190,9 @@ export async function POST(req: Request) {
     )
   } catch (error) {
     if (error instanceof WorkOrderProductError) {
+      return NextResponse.json({ code: error.code, message: error.message }, { status: error.status })
+    }
+    if (error instanceof WorkOrderPaymentError) {
       return NextResponse.json({ code: error.code, message: error.message }, { status: error.status })
     }
     if (error instanceof InventoryStockError) {
