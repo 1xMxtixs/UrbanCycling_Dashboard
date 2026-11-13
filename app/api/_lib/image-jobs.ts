@@ -73,7 +73,13 @@ function verificar(token: unknown, uid: number, aceptarVencido = false) {
   } catch {
     throw new ImagenError("Identificador temporal inválido")
   }
-  if (!data || typeof data !== "object" || !/^[1-9]\d{0,19}$/.test(data.id) || data.uid !== uid || !Number.isFinite(data.exp))
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !/^[1-9]\d{0,19}$/.test(data.id) ||
+    data.uid !== uid ||
+    !Number.isFinite(data.exp)
+  )
     throw new ImagenError("La imagen no pertenece al usuario", 403)
   if (!aceptarVencido && data.exp <= Date.now())
     throw new ImagenError(
@@ -156,7 +162,7 @@ export async function crearImagenTemporal(file: File, userId: number) {
 export async function prepararImagenes(
   tokens: unknown,
   userId: number,
-  bicicletaId: number
+  bicicletaId?: number
 ): Promise<Preparada[]> {
   if (tokens === undefined) return []
   if (!Array.isArray(tokens) || tokens.length > 8)
@@ -183,6 +189,9 @@ export async function prepararImagenes(
         if (
           ["imagen_confirmada", "imagen_archivada"].includes(row.tipoOperacion)
         ) {
+          // En creacion aun no existe un ID y ningun token confirmado es reutilizable.
+          if (bicicletaId === undefined)
+            throw new ImagenError("La imagen ya fue utilizada", 409)
           const asociada = await tx.imagenBicicleta.findFirst({
             where: { idBicicleta: bicicletaId, urlImagen: job.url },
           })
