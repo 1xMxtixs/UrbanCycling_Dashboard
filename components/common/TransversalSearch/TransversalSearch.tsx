@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Building2, ClipboardList, Package, Search, ShoppingBag, User, Wrench } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatCLP } from "@/lib/formatters"
 import { cn } from "@/lib/utils"
 import type {
   SearchCliente,
@@ -24,8 +25,6 @@ type Props = {
   onClose: () => void
 }
 type Result = SearchProduct | SearchService | SearchCliente | SearchWorkOrder | SearchSale
-
-const formatCLP = (value: number | string) => `$${Number(value || 0).toLocaleString("es-CL")}`
 
 function Highlight({ value, query }: { value: string; query: string }) {
   const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")

@@ -21,15 +21,34 @@ export function formatClientName(cliente: ClienteNombreInput): string {
   return parts.length > 0 ? parts.join(" ").trim() : "Sin cliente"
 }
 
+function parseCLPAmount(value: number | string | null | undefined): number {
+  if (value === null || value === undefined || value === "") {
+    return 0
+  }
+
+  const normalized = String(value).trim().replace(/[$\s]/g, "")
+  if (!normalized) {
+    return 0
+  }
+
+  const digitsOnly = normalized.replace(/[^\d-]/g, "")
+  if (!digitsOnly) {
+    return 0
+  }
+
+  const numeric = Number(digitsOnly)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
 /** Formatea un monto como moneda chilena sin decimales con signo $ y puntos de miles. */
 export function formatCLP(amount: number | string | null | undefined): string {
-  const numeric = Math.round(Number(amount) || 0)
+  const numeric = Math.round(parseCLPAmount(amount))
   return `$${numeric.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`
 }
 
 /** Acepta valores opcionales de formularios para el catálogo de servicios. */
 export function formatCurrency(value: number | string | null | undefined): string {
-  const numeric = Math.round(Number(value) || 0)
+  const numeric = Math.round(parseCLPAmount(value))
   return `$${numeric.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`
 }
 
