@@ -1,19 +1,12 @@
 "use client"
 
 import React from "react"
-import {
-  Plus,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Wrench,
-} from "lucide-react"
+import { Plus, Trash2, ChevronDown, ChevronUp, Wrench } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { ImageUpload } from "@/components/forms/ImageUpload"
+import { BicycleFields } from "@/components/forms/BicycleFields"
 import { MAX_BICYCLE_IMAGES } from "@/lib/bicycle-images"
 
 export interface BikeInput {
@@ -45,10 +38,7 @@ interface BikesSectionProps {
   ) => void
   onToggleCollapse: (index: number) => void
   onAddBikeImage: (index: number, file: File, preview: string) => void
-  onRemoveBikeImage: (
-    bikeIndex: number,
-    imageIndex: number
-  ) => void
+  onRemoveBikeImage: (bikeIndex: number, imageIndex: number) => void
 }
 
 export function BikesSection({
@@ -67,9 +57,7 @@ export function BikesSection({
         <div className="flex items-center gap-2">
           <Wrench className="h-4.5 w-4.5 text-muted-foreground" />
 
-          <h3 className="text-foreground font-bold">
-            Bicicletas Asociadas
-          </h3>
+          <h3 className="font-bold text-foreground">Bicicletas Asociadas</h3>
 
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             {bikes.length}
@@ -126,9 +114,7 @@ export function BikesSection({
                   {bike.imagePreviews.length > 0 && (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {bike.imagePreviews.length}{" "}
-                      {bike.imagePreviews.length === 1
-                        ? "foto"
-                        : "fotos"}
+                      {bike.imagePreviews.length === 1 ? "foto" : "fotos"}
                     </span>
                   )}
                 </div>
@@ -167,100 +153,20 @@ export function BikesSection({
 
               {!isCollapsed && (
                 <div className="space-y-4 p-4">
-                  {/* Información de bicicleta */}
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
-                        Marca
-                      </Label>
-
-                      <Input
-                        id={`bike-${idx}-marca`}
-                        placeholder="Ej: Trek, Giant"
-                        maxLength={50}
-                        value={bike.marca}
-                        onChange={(e) =>
-                          onUpdateBikeField(
-                            idx,
-                            "marca",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
-                        Modelo
-                      </Label>
-
-                      <Input
-                        id={`bike-${idx}-modelo`}
-                        placeholder="Ej: Marlin 7"
-                        maxLength={50}
-                        value={bike.modelo}
-                        onChange={(e) =>
-                          onUpdateBikeField(
-                            idx,
-                            "modelo",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <Label required className="inline-block mb-1.5 font-medium text-foreground">
-                        Color
-                      </Label>
-
-                      <Input
-                        id={`bike-${idx}-color`}
-                        placeholder="Ej: Negro/Rojo"
-                        maxLength={50}
-                        value={bike.color}
-                        onChange={(e) =>
-                          onUpdateBikeField(
-                            idx,
-                            "color",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Observaciones */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <Label className="inline-block font-medium text-foreground">
-                        Observaciones / Estado de Ingreso{" "}
-                        <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
-                      </Label>
-                      <span className="text-xs text-muted-foreground">
-                        {(bike.descripcion || "").length}/500
-                      </span>
-                    </div>
-
-                    <Textarea
-                      placeholder="Rayaduras previas, componentes adicionales, golpes, abolladuras..."
-                      value={bike.descripcion}
-                      maxLength={500}
-                      onChange={(e) =>
-                        onUpdateBikeField(
-                          idx,
-                          "descripcion",
-                          e.target.value
-                        )
-                      }
-                      rows={2}
-                    />
-                  </div>
+                  {/* Informacion reutilizable de bicicleta */}
+                  <BicycleFields
+                    idPrefix={`bike-${idx}`}
+                    value={bike}
+                    disabled={isSubmitting}
+                    onChange={(field, value) =>
+                      onUpdateBikeField(idx, field, value)
+                    }
+                  />
 
                   {/* Fotografías */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <Label className="inline-block mb-1.5 font-medium text-foreground">
+                      <Label className="mb-1.5 inline-block font-medium text-foreground">
                         Fotografías del Estado de Ingreso
                       </Label>
                       {bike.imagePreviews.length > 0 &&
@@ -282,30 +188,42 @@ export function BikesSection({
                         )}
                     </div>
                     <p className="text-xs text-muted-foreground/70">
-                      Puedes agregar hasta {MAX_BICYCLE_IMAGES} fotografías por bicicleta.
+                      Puedes agregar hasta {MAX_BICYCLE_IMAGES} fotografías por
+                      bicicleta.
                     </p>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                       {bike.imagePreviews.map((preview, imageIndex) => (
-                        <div key={`${preview}-${imageIndex}`} className="flex justify-center">
+                        <div
+                          key={`${preview}-${imageIndex}`}
+                          className="flex justify-center"
+                        >
                           <ImageUpload
                             label=""
                             imagePreview={preview}
                             disabled={isSubmitting}
                             onChange={(_, nextPreview) => {
-                              if (!nextPreview) onRemoveBikeImage(idx, imageIndex)
+                              if (!nextPreview)
+                                onRemoveBikeImage(idx, imageIndex)
                             }}
                           />
                         </div>
                       ))}
                       {bike.imagePreviews.length < MAX_BICYCLE_IMAGES && (
-                        <div className={bike.imagePreviews.length > 0 ? "hidden" : "col-span-2 w-full sm:col-span-3 md:col-span-4"}>
+                        <div
+                          className={
+                            bike.imagePreviews.length > 0
+                              ? "hidden"
+                              : "col-span-2 w-full sm:col-span-3 md:col-span-4"
+                          }
+                        >
                           <ImageUpload
                             label=""
                             inputId={`bike-add-image-${idx}`}
                             imagePreview={null}
                             disabled={isSubmitting}
                             onChange={(file, preview) => {
-                              if (file && preview) onAddBikeImage(idx, file, preview)
+                              if (file && preview)
+                                onAddBikeImage(idx, file, preview)
                             }}
                           />
                         </div>

@@ -13,6 +13,8 @@ import {
   respuestaInvalida,
 } from "@/lib/point-of-sale-status"
 import { requirePermission } from "@/lib/require-permission"
+import { leerMontoAbono, registrarAbonoOrdenTrabajo, WorkOrderPaymentError } from "@/lib/work-order-payments"
+import { sumarPagosCompletados } from "@/lib/payment-summary"
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import {
   EstadoPago,
@@ -115,9 +117,15 @@ function adaptarVenta(venta: any) {
 
 function adaptarOrdenTrabajo(ordenTrabajo: any) {
   const ordenTrabajoSegura = sanitizarActores(ordenTrabajo)
+  const asignaciones = ordenTrabajoSegura.venta?.asignacionesPago ?? []
 
   return {
     ...ordenTrabajoSegura,
+    estadoPago: ordenTrabajoSegura.venta?.estadoPago,
+    totalPagado: sumarPagosCompletados(asignaciones),
+    pagos: asignaciones.map((assignment: { montoAsociado: unknown; tipoAbono: string; pago: { idPago: number; fechaRegistro: Date; estado: string; metodoPago: string } }) => ({
+      ...assignment.pago, monto: Number(assignment.montoAsociado), tipoAbono: assignment.tipoAbono,
+    })),
     total: ordenTrabajoSegura.montoTotal,
     descuento: ordenTrabajoSegura.descuentoGlobal,
     codigoEstadoOrden: ordenTrabajoSegura.estado,
@@ -164,7 +172,10 @@ export async function PATCH(
       return response
     }
 
-    const data = await req.json()
+    const data = await req.json().catch(() => null)
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return respuestaInvalida("JSON_INVALIDO", "Debe enviar un objeto JSON válido")
+    }
     const estadoPagoInput = data.estado_pago ?? data.estadoPago
     const estadoPago = estadoPagoInput
       ? resolverEstadoPago(estadoPagoInput)
@@ -173,7 +184,7 @@ export async function PATCH(
     const metodoPago = metodoPagoInput
       ? String(metodoPagoInput).trim().toUpperCase()
       : null
-    const montoPago = data.monto_pagado ?? data.montoPagado ?? data.monto
+    const montoPago = parsed.tipo === "orden" ? leerMontoAbono(data) : data.montoPago ?? data.monto_pagado ?? data.montoPagado ?? data.monto
 
     if (estadoPagoInput && !estadoPago) {
       return respuestaInvalida(
@@ -182,7 +193,7 @@ export async function PATCH(
       )
     }
 
-    if (metodoPago) {
+    if (metodoPago && parsed.tipo === "venta") {
       // La FK de Pago utiliza el código de un método activo del catálogo.
       const metodoRegistrado = await prisma.metodoPago.findUnique({
         where: { codigo: metodoPago },
@@ -348,11 +359,18 @@ export async function PATCH(
       )
     }
 
-    if (!estadoOrden && !estadoPago) {
+    const solicitaPago = metodoPagoInput != null || montoPago !== undefined || estadoPagoInput != null
+    if (solicitaPago && !metodoPago) {
+      return respuestaInvalida("METODO_PAGO_REQUERIDO", "Selecciona el método de pago para registrar el abono")
+    }
+    if (solicitaPago && estadoOrden === ESTADO_OT.ANULADA) {
+      return respuestaInvalida("ANULACION_CON_PAGO", "La anulación y el registro de pagos deben realizarse por separado")
+    }
+    if (!estadoOrden && !solicitaPago) {
       return NextResponse.json(
         {
           code: "FALTA_ESTADO",
-          message: "Debe indicar estadoOrden o estadoPago",
+          message: "Debe indicar un cambio de estado o un pago con su método y monto",
         },
         { status: 400 }
       )
@@ -436,33 +454,12 @@ export async function PATCH(
           }
         }
 
-        let finalEstadoPago = estadoPago
-        const totalOrden = Number(ordenTrabajo.montoTotal)
-        const totalPagadoPrev =
-          ordenTrabajo.venta?.asignacionesPago?.reduce(
-            (sum: number, ap: { montoAsociado: unknown }) =>
-              sum + Number(ap.montoAsociado),
-            0
-          ) ?? 0
-        const saldoPendiente = Math.max(0, totalOrden - totalPagadoPrev)
-        const montoAPagar =
-          montoPago !== undefined && montoPago !== null
-            ? Number(montoPago)
-            : saldoPendiente
-
-        if (metodoPago && (!Number.isFinite(montoAPagar) || montoAPagar <= 0)) {
-          return respuestaInvalida(
-            "MONTO_PAGO_INVALIDO",
-            "Monto de pago inválido"
-          )
-        }
-
-        if (metodoPago) {
-          finalEstadoPago =
-            totalPagadoPrev + montoAPagar >= totalOrden
-              ? EstadoPagoVenta.PAGADA
-              : EstadoPagoVenta.PARCIAL
-        }
+        const pagoRegistrado = solicitaPago
+          ? await registrarAbonoOrdenTrabajo(tx, {
+              idOrdenDeTrabajo: parsed.id, idUsuario: session.user.idUsuario,
+              metodoPago: metodoPago!, montoPago,
+            })
+          : null
 
         const { bicicletas, archivosPendientes } =
           estadoOrden === ESTADO_OT.ANULADA
@@ -473,41 +470,9 @@ export async function PATCH(
             where: { idOrdenDeTrabajo: parsed.id },
             include: ordenRespuestaInclude,
           })
-          return { orden, pago: null, bicicletasEliminadas: 0 }
+          return { orden, pago: null, resumenPago: null, bicicletasEliminadas: 0 }
         }
-        let nuevoPago: Awaited<ReturnType<typeof tx.pago.create>> | null = null
-
-        if (metodoPago && montoAPagar > 0) {
-          nuevoPago = await tx.pago.create({
-            data: {
-              idUsuario: ordenTrabajo.venta.idUsuario,
-              fechaRegistro: new Date(),
-              estado: EstadoPago.COMPLETADO,
-              metodoPago,
-              monto: montoAPagar,
-            },
-          })
-
-          const isFullPayment = totalPagadoPrev + montoAPagar >= totalOrden
-
-          await tx.asignacionPago.create({
-            data: {
-              idPago: nuevoPago.idPago,
-              idVenta: ordenTrabajo.venta.idVenta,
-              idOrdenDeCompra: null,
-              montoAsociado: montoAPagar,
-              tipoAbono: isFullPayment ? "pago_total" : "abono",
-            },
-          })
-        }
-
-        if (finalEstadoPago) {
-          // Venta es la única fuente del estado financiero de la operación.
-          await tx.venta.update({
-            where: { idVenta: ordenTrabajo.venta.idVenta },
-            data: { estadoPago: finalEstadoPago },
-          })
-        }
+        const nuevoPago = pagoRegistrado?.pago ?? null
 
         const ordenActualizada = await tx.ordenDeTrabajo.update({
           where: {
@@ -561,6 +526,7 @@ export async function PATCH(
         return {
           orden: ordenActualizada,
           pago: nuevoPago,
+          resumenPago: pagoRegistrado?.resumenPago ?? null,
           bicicletasEliminadas: bicicletas.length,
         }
       }
@@ -588,6 +554,7 @@ export async function PATCH(
       tipoOperacion: "orden_trabajo",
       ordenTrabajo: adaptarOrdenTrabajo(resultado.orden),
       pago: resultado.pago,
+      resumenPago: resultado.resumenPago,
       ...(estadoOrden === ESTADO_OT.ANULADA
         ? {
             bicicletasEliminadas: resultado.bicicletasEliminadas,
@@ -602,6 +569,9 @@ export async function PATCH(
         : {}),
     })
   } catch (error) {
+    if (error instanceof WorkOrderPaymentError) {
+      return NextResponse.json({ code: error.code, message: error.message }, { status: error.status })
+    }
     console.log("[PUNTO_VENTA_ESTADO_PATCH]", error)
 
     return NextResponse.json(

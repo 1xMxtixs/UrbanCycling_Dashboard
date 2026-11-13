@@ -8,6 +8,8 @@ import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
+import { validarCategoriasAsignables, InventoryCategoryError } from "@/lib/inventory-categories"
+import { inventoryCategoryErrorResponse } from "@/app/api/_lib/inventory-category-response"
 
 type RouteContext = {
   params: Promise<{
@@ -79,27 +81,12 @@ const productCategoriesInclude = {
           idCategoria: true,
           nombre: true,
           descripcion: true,
+          estado: true,
         },
       },
     },
   },
 } as const
-
-async function validateCategoryIds(categoryIds: number[]) {
-  if (categoryIds.length === 0) {
-    return true
-  }
-
-  const categories = await db.categoria.findMany({
-    where: {
-      idCategoria: { in: categoryIds },
-      estado: EstadoRegistro.ACTIVO,
-    },
-    select: { idCategoria: true },
-  })
-
-  return categories.length === categoryIds.length
-}
 
 function validateStockMinimum(stockMinimo: unknown) {
   if (stockMinimo === undefined || stockMinimo === null || stockMinimo === "") {
@@ -299,16 +286,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    if (categoryIds !== undefined && !(await validateCategoryIds(categoryIds))) {
-      return NextResponse.json(
-        {
-          code: "CATEGORIAS_INVALIDAS",
-          message: "Una o más categorías no existen o están inactivas.",
-        },
-        { status: 400 },
-      )
-    }
-
     const updateData: {
       tipoProducto?: string
       codigoProveedor?: string | null
@@ -440,6 +417,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const product = await db.$transaction(async (tx) => {
+      if (categoryIds !== undefined) await validarCategoriasAsignables(tx, categoryIds, productId)
       if (Object.keys(updateData).length > 0) {
         await tx.producto.update({
           where: {
@@ -472,6 +450,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return NextResponse.json(withImageAlias(product))
   } catch (error) {
+    if (error instanceof InventoryCategoryError) return inventoryCategoryErrorResponse(error)
     console.log("[INVENTORY_ID_PATCH]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

@@ -133,6 +133,45 @@ export async function descartarSubidas(subidas: SubidaTemporal[]) {
   }
 }
 
+/** Sube los archivos que todavia no poseen un token temporal vigente. */
+async function asegurarSubidasTemporales(
+  archivos: File[],
+  subidas: Map<File, SubidaTemporal>
+) {
+  const resultados = await Promise.allSettled(
+    archivos.map(async (archivo) => {
+      const existente = subidas.get(archivo)
+      if (existente && new Date(existente.expiresAt).getTime() > Date.now()) {
+        return
+      }
+
+      const form = new FormData()
+      form.append("file", archivo)
+      const data = await solicitarBicicletaApi<SubidaTemporal>(
+        "/api/upload/temporales",
+        { method: "POST", body: form },
+        "subida"
+      )
+      if (
+        !data.url ||
+        !data.token ||
+        !data.finalUrl ||
+        !Number.isFinite(new Date(data.expiresAt).getTime())
+      ) {
+        throw new ErrorApiBicicleta(
+          "La imagen subida no devolvio una direccion valida.",
+          500,
+          "subida"
+        )
+      }
+      subidas.set(archivo, data)
+    })
+  )
+
+  const fallo = resultados.find((resultado) => resultado.status === "rejected")
+  if (fallo?.status === "rejected") throw fallo.reason
+}
+
 export async function obtenerBicicleta(
   id: number,
   signal?: AbortSignal
@@ -198,36 +237,8 @@ export async function guardarEdicionBicicleta({
       )
     }
   }
-  // Esperar todas las subidas antes de guardar. Conservar las exitosas para
-  // no duplicarlas si otra falla y se reintenta desde el mismo formulario.
-  const resultados = await Promise.allSettled(
-    archivos.map(async (archivo) => {
-      const existente = subidas.get(archivo)
-      if (existente && new Date(existente.expiresAt).getTime() > Date.now())
-        return
-      const form = new FormData()
-      form.append("file", archivo)
-      const data = await solicitarBicicletaApi<SubidaTemporal>(
-        "/api/upload/temporales",
-        { method: "POST", body: form },
-        "subida"
-      )
-      if (
-        !data.url ||
-        !data.token ||
-        !data.finalUrl ||
-        !Number.isFinite(new Date(data.expiresAt).getTime())
-      )
-        throw new ErrorApiBicicleta(
-          "La imagen subida no devolvió una dirección válida.",
-          500,
-          "subida"
-        )
-      subidas.set(archivo, data)
-    })
-  )
-  const fallo = resultados.find((r) => r.status === "rejected")
-  if (fallo?.status === "rejected") throw fallo.reason
+  // Conserva las subidas exitosas para no duplicarlas si el guardado falla.
+  await asegurarSubidasTemporales(archivos, subidas)
 
   // El PATCH existente guarda datos y reemplaza las asociaciones de imágenes
   // en una sola transacción. Nunca quitar fotos antes de completar las subidas.
@@ -261,4 +272,66 @@ export async function guardarEdicionBicicleta({
     }
     throw error
   }
+}
+
+export type NuevaBicicletaOrden = Omit<EdicionBicicleta, "idOrdenDeTrabajo">
+
+/** Registra una bicicleta en una ODT mediante imagenes temporales firmadas. */
+export async function crearBicicletaOrden({
+  idOrdenDeTrabajo,
+  valores,
+  archivos,
+  subidas,
+}: {
+  idOrdenDeTrabajo: number
+  valores: NuevaBicicletaOrden
+  archivos: File[]
+  subidas: Map<File, SubidaTemporal>
+}): Promise<Bicicleta> {
+  if (!Number.isSafeInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
+    throw new Error("La orden de trabajo no es valida.")
+  }
+  if (archivos.length > MAX_BICYCLE_IMAGES) {
+    throw new Error(
+      `Solo puedes tener hasta ${MAX_BICYCLE_IMAGES} imagenes por bicicleta.`
+    )
+  }
+
+  await asegurarSubidasTemporales(archivos, subidas)
+
+  try {
+    return await solicitarBicicletaApi<Bicicleta>(
+      "/api/bicycles",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idOrdenDeTrabajo,
+          marca: valores.marca.trim(),
+          modelo: valores.modelo.trim(),
+          color: valores.color.trim(),
+          descripcion: valores.descripcion.trim() || null,
+          imagenesTemporales: archivos.map(
+            (archivo) => subidas.get(archivo)!.token
+          ),
+        }),
+      },
+      "guardado"
+    )
+  } catch (error) {
+    if (error instanceof ErrorApiBicicleta && error.status === 410) {
+      void descartarSubidas([...subidas.values()])
+      subidas.clear()
+    }
+    throw error
+  }
+}
+
+/** Elimina fisicamente una bicicleta despues de la confirmacion del usuario. */
+export async function eliminarBicicletaOrden(idBicicleta: number) {
+  return solicitarBicicletaApi<void>(
+    `/api/bicycles/${idBicicleta}`,
+    { method: "DELETE" },
+    "guardado"
+  )
 }

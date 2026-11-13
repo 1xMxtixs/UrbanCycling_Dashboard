@@ -1,12 +1,20 @@
 import { z } from "zod"
 
+import { normalizarTexto } from "@/lib/client-helpers"
 import { validarYFormatearRut } from "@/lib/client-rut"
 
 const textoRequerido = (maxLength: number) =>
-  z.string().trim().min(1, "Este campo es obligatorio").max(maxLength)
+  z.string()
+    .trim()
+    .transform((value) => normalizarTexto(value))
+    .pipe(z.string().min(1, "Este campo es obligatorio").max(maxLength))
 
 const textoOpcional = (maxLength: number) =>
-  z.string().trim().max(maxLength).optional()
+  z.string()
+    .trim()
+    .transform((value) => normalizarTexto(value))
+    .pipe(z.string().max(maxLength))
+    .optional()
 
 const rutSchema = z.string().trim().transform((value, context) => {
   const result = validarYFormatearRut(value)

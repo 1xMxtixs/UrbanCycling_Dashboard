@@ -18,6 +18,8 @@ import { resolverEstadoRegistro } from "@/lib/estado-registro"
 import { PERMISSIONS } from "@/lib/permissions"
 import { parseProductSupplierCode } from "@/lib/product-supplier-code"
 import { requirePermission } from "@/lib/require-permission"
+import { validarCategoriasAsignables, InventoryCategoryError } from "@/lib/inventory-categories"
+import { inventoryCategoryErrorResponse } from "@/app/api/_lib/inventory-category-response"
 
 function withImageAlias(product: {
   idProducto: number
@@ -74,27 +76,12 @@ const productCategoriesInclude = {
           idCategoria: true,
           nombre: true,
           descripcion: true,
+          estado: true,
         },
       },
     },
   },
 } as const
-
-async function validateCategoryIds(categoryIds: number[]) {
-  if (categoryIds.length === 0) {
-    return true
-  }
-
-  const categories = await db.categoria.findMany({
-    where: {
-      idCategoria: { in: categoryIds },
-      estado: EstadoRegistro.ACTIVO,
-    },
-    select: { idCategoria: true },
-  })
-
-  return categories.length === categoryIds.length
-}
 
 function parseCategoryId(value: string | null) {
   if (value === null || value.trim() === "") {
@@ -583,18 +570,6 @@ export async function POST(request: Request) {
     }
 
     const normalizedCategoryIds = categoryIds ?? []
-    const categoriesAreValid = await validateCategoryIds(normalizedCategoryIds)
-
-    if (!categoriesAreValid) {
-      return NextResponse.json(
-        {
-          code: "CATEGORIAS_INVALIDAS",
-          message: "Una o más categorías no existen o están inactivas.",
-        },
-        { status: 400 },
-      )
-    }
-
     const existingProduct = await db.producto.findUnique({
       where: {
         nombre: data.nombre,
@@ -622,6 +597,7 @@ export async function POST(request: Request) {
     }
 
     const product = await db.$transaction(async (tx) => {
+      await validarCategoriasAsignables(tx, normalizedCategoryIds)
       for (const idProveedor of supplierIds) {
         await lockSupplier(tx, idProveedor, true)
       }
@@ -667,6 +643,7 @@ export async function POST(request: Request) {
     return NextResponse.json(withImageAlias(product, session?.user.permisos.includes(PERMISSIONS.SUPPLIERS_READ)), { status: 201 })
   } catch (error) {
     if (error instanceof ProductSupplierError) return productSupplierErrorResponse(error)
+    if (error instanceof InventoryCategoryError) return inventoryCategoryErrorResponse(error)
     console.log("[INVENTORY_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }

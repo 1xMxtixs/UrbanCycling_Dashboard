@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { InventoryCategory } from "../../types"
+import { isRegistroActivo } from "@/lib/registro-status"
 
 type CategoryMultiSelectProps = {
   categories: InventoryCategory[]
@@ -27,7 +28,7 @@ export function CategoryMultiSelect({
   if (categories.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-        No hay categorías activas disponibles.
+        No hay categorías disponibles.
       </p>
     )
   }
@@ -89,6 +90,7 @@ export function CategoryMultiSelect({
         >
           {categories.map((category) => {
             const isSelected = value.includes(category.idCategoria)
+            const inactive = category.estado !== undefined && !isRegistroActivo(category.estado)
 
             return (
               <Button
@@ -97,14 +99,14 @@ export function CategoryMultiSelect({
                 variant="outline"
                 role="option"
                 aria-selected={isSelected}
-                disabled={disabled}
+                disabled={disabled || (inactive && !isSelected)}
                 onClick={() => toggleCategory(category.idCategoria)}
                 className={cn(
                   "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
                   isSelected && "border-primary bg-primary/10 text-primary"
                 )}
               >
-                <span className="truncate">{category.nombre}</span>
+                <span className="truncate">{category.nombre}{inactive ? " (Inactiva)" : ""}</span>
                 {isSelected ? <Check className="h-4 w-4 shrink-0" /> : null}
               </Button>
             )

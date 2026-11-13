@@ -1,7 +1,15 @@
 import { db } from "@/lib/db"
 import type { Prisma } from "@/generated/prisma"
+import {
+  agregarServicioOrden,
+  WorkOrderServiceError,
+} from "@/lib/add-work-order-service"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
+import {
+  InventoryStockError,
+  WorkOrderTotalsError,
+} from "@/lib/stored-procedures"
 import { registrarAuditoriaOrdenTrabajo } from "@/lib/work-order-audit"
 import { ESTADO_OT } from "@/lib/work-order-status"
 import { NextResponse } from "next/server"
@@ -90,206 +98,91 @@ async function recalcularMontosOrden(
   }
 }
 
-// Agrega un servicio a una orden y recalcula sus montos dentro de una transaccion auditada.
+// Agrega un servicio con insumos opcionales dentro de una transaccion auditada.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ idVenta: string }> }
 ) {
   try {
-    const { response } = await requirePermission(PERMISSIONS.WORK_ORDERS_UPDATE)
+    const { session, response } = await requirePermission(
+      PERMISSIONS.WORK_ORDERS_UPDATE
+    )
 
-    if (response) {
-      return response
+    if (response || !session) {
+      return response ?? new NextResponse("No autorizado", { status: 401 })
     }
 
     const { idVenta } = await params
-    const { id_servicio, idServicio, cantidad } = await req.json()
     const idOrdenDeTrabajo = parseIdOrden(idVenta)
-    const servicioId = Number(id_servicio ?? idServicio)
-    const cantidadServicio = Number(cantidad)
 
     if (Number.isNaN(idOrdenDeTrabajo)) {
-      return NextResponse.json(
-        { code: "ID_INVALIDO", message: "El ID de la orden no es válido" },
-        { status: 400 }
+      throw new WorkOrderServiceError(
+        "ID_INVALIDO",
+        "El ID de la orden no es válido"
       )
     }
 
-    if (
-      !Number.isInteger(servicioId) ||
-      servicioId <= 0 ||
-      !Number.isInteger(cantidadServicio) ||
-      cantidadServicio <= 0
-    ) {
-      return NextResponse.json(
-        {
-          code: "FALTAN_DATOS",
-          message: "Servicio y cantidad son obligatorios",
-        },
-        { status: 400 }
+    const rawData: unknown = await req.json().catch(() => null)
+    if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+      throw new WorkOrderServiceError(
+        "JSON_INVALIDO",
+        "Debe enviar un objeto JSON válido"
       )
     }
 
-    const orden = await db.ordenDeTrabajo.findUnique({
-      where: {
+    const body = rawData as Record<string, unknown>
+    const servicioId = parsePositiveInteger(body.id_servicio ?? body.idServicio)
+    const cantidadServicio = parsePositiveInteger(body.cantidad)
+
+    if (Number.isNaN(servicioId) || Number.isNaN(cantidadServicio)) {
+      throw new WorkOrderServiceError(
+        "FALTAN_DATOS",
+        "Servicio y cantidad son obligatorios"
+      )
+    }
+
+    const resultado = await db.$transaction((tx) =>
+      agregarServicioOrden(tx, {
         idOrdenDeTrabajo,
-      },
-    })
-
-    if (!orden) {
-      return NextResponse.json(
-        {
-          code: "ORDEN_NO_EXISTE",
-          message: "La orden de trabajo no existe",
-        },
-        { status: 404 }
-      )
-    }
-
-    const servicio = await db.servicio.findUnique({
-      where: {
         idServicio: servicioId,
-      },
-    })
-
-    if (!servicio) {
-      return NextResponse.json(
-        {
-          code: "SERVICIO_NO_EXISTE",
-          message: "El servicio no existe",
-        },
-        { status: 404 }
-      )
-    }
-
-    const productosServicio = await db.productoServicio.findMany({
-      where: {
-        idServicio: servicio.idServicio,
-      },
-      include: {
-        producto: true,
-      },
-    })
-
-    if (productosServicio.length === 0) {
-      return NextResponse.json(
-        {
-          code: "SERVICIO_SIN_INSUMOS",
-          message: "El servicio no tiene insumos asociados",
-        },
-        { status: 409 }
-      )
-    }
-
-    const productosAUtilizar = productosServicio.map((item) => {
-      const cantidadNecesaria = item.cantidad * cantidadServicio
-
-      return {
-        producto: item.producto,
-        cantidadNecesaria,
-      }
-    })
-
-    const productoSinStock = productosAUtilizar.find(
-      (item) => item.producto.stockActual < item.cantidadNecesaria
+        cantidad: cantidadServicio,
+        idUsuario: session.user.idUsuario,
+      })
     )
-
-    if (productoSinStock) {
-      return NextResponse.json(
-        {
-          code: "STOCK_INSUFICIENTE",
-          message: `No hay stock suficiente para ${productoSinStock.producto.nombre}`,
-          producto: {
-            id_producto: productoSinStock.producto.idProducto,
-            idProducto: productoSinStock.producto.idProducto,
-            nombre: productoSinStock.producto.nombre,
-            stock_actual: productoSinStock.producto.stockActual,
-            stockActual: productoSinStock.producto.stockActual,
-          },
-          cantidad_requerida: productoSinStock.cantidadNecesaria,
-          cantidad_disponible: productoSinStock.producto.stockActual,
-        },
-        { status: 409 }
-      )
-    }
-
-    const resultado = await db.$transaction(async (tx) => {
-      const linea = await tx.lineaDeOrdenDeTrabajo.create({
-        data: {
-          idOrdenDeTrabajo,
-          idServicio: servicio.idServicio,
-          cantidad: cantidadServicio,
-          precioUnitario: servicio.precioVenta,
-          descuentoUnitario: 0,
-          costoUnitario: 0,
-        },
-      })
-
-      for (const item of productosAUtilizar) {
-        await tx.producto.update({
-          where: {
-            idProducto: item.producto.idProducto,
-          },
-          data: {
-            stockActual: item.producto.stockActual - item.cantidadNecesaria,
-          },
-        })
-      }
-
-      const lineas = await tx.lineaDeOrdenDeTrabajo.findMany({
-        where: {
-          idOrdenDeTrabajo,
-        },
-      })
-
-      const totalServicios = lineas.reduce(
-        (total, linea) =>
-          total + linea.cantidad * toNumber(linea.precioUnitario),
-        0
-      )
-      const montos = calcularMontos(totalServicios)
-
-      const ordenActualizada = await tx.ordenDeTrabajo.update({
-        where: {
-          idOrdenDeTrabajo,
-        },
-        data: {
-          montoSubtotal: montos.montoSubtotal,
-          montoTotal: montos.montoTotal,
-          montoNeto: montos.montoNeto,
-          montoIva: montos.montoIva,
-        },
-      })
-
-      return {
-        linea,
-        orden: ordenActualizada,
-        totalServicios,
-      }
-    })
 
     return NextResponse.json(
       {
+        code: "SERVICIO_AGREGADO",
+        message: "Servicio agregado correctamente a la orden",
         linea: resultado.linea,
-        servicio,
+        servicio: resultado.servicio,
         orden: resultado.orden,
         total_servicios: resultado.totalServicios,
-        productos_utilizados: productosAUtilizar.map((item) => ({
-          id_producto: item.producto.idProducto,
-          idProducto: item.producto.idProducto,
-          nombre: item.producto.nombre,
-          cantidad_utilizada: item.cantidadNecesaria,
-          stock_anterior: item.producto.stockActual,
-          stock_nuevo: item.producto.stockActual - item.cantidadNecesaria,
-        })),
+        productos_utilizados: resultado.productosUtilizados,
       },
       { status: 201 }
     )
   } catch (error) {
-    console.log("[AGREGAR_SERVICIO_ORDEN]", error)
+    if (error instanceof WorkOrderServiceError) {
+      return NextResponse.json(
+        { code: error.code, message: error.message },
+        { status: error.status }
+      )
+    }
+    if (
+      error instanceof InventoryStockError ||
+      error instanceof WorkOrderTotalsError
+    ) {
+      return NextResponse.json(
+        { code: error.code, message: error.message },
+        { status: error.code === "PRODUCTO_NO_EXISTE" ? 404 : 409 }
+      )
+    }
+
+    console.error("[AGREGAR_SERVICIO_ORDEN]", error)
 
     return NextResponse.json(
-      { code: "ERROR_INTERNO", message: "Internal Server Error" },
+      { code: "ERROR_INTERNO", message: "No se pudo agregar el servicio" },
       { status: 500 }
     )
   }
