@@ -83,7 +83,7 @@ export function AddOrderProduct({ orderId, lines, disabledReason, onAdded }: {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+    <div className="space-y-3 rounded-lg border border-primary/20 bg-popover p-3">
       <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
         <PlusCircle className="h-4 w-4" /> Agregar producto/repuesto
       </span>
@@ -97,7 +97,7 @@ export function AddOrderProduct({ orderId, lines, disabledReason, onAdded }: {
             <>
               <Label htmlFor="order-product-search">Buscar producto por nombre o ID</Label>
               <Input id="order-product-search" value={search} onChange={(event) => { setSearch(event.target.value); setProductId("") }} disabled={loading || saving} placeholder="Buscar producto…" aria-controls="order-product-results" />
-              <div id="order-product-results" className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-1" aria-label="Resultados de productos" aria-busy={loading}>
+              <div id="order-product-results" className="max-h-52 space-y-1 overflow-y-auto overscroll-contain rounded-md border border-border bg-popover p-1" aria-label="Resultados de productos" aria-busy={loading}>
                 {loading ? <p className="p-2 text-xs text-muted-foreground">Cargando inventario…</p> : filtered.map((product) => (
                   <Button
                     key={product.idProducto} type="button" variant={String(product.idProducto) === productId ? "secondary" : "ghost"}
