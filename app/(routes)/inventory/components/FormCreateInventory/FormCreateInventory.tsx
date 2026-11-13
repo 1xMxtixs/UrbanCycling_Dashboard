@@ -17,7 +17,6 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -29,12 +28,12 @@ import {
 import { ImageUpload } from "@/components/forms/ImageUpload";
 import { FormSection } from "@/components/forms/FormLayout";
 import { FormDialog } from "@/components/forms/FormDialog";
-import { Check, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { FormCreateInventoryProps, InventoryCategory } from "../../types";
 import { CategoryMultiSelect } from "../CategoryMultiSelect";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { ESTADO_REGISTRO, isRegistroActivo } from "@/lib/registro-status";
 import { PERMISSIONS } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 
 const DESCRIPTION_MAX_LENGTH = 50;
 type SupplierOption = { idProveedor: number; razonSocial: string; rut: string };
@@ -143,13 +142,6 @@ export function FormCreateInventory({
 
   const { isSubmitting } = form.formState;
   const description = useWatch({ control: form.control, name: "descripcion" }) ?? "";
-  const supplierSummary =
-    selectedSupplierIds.length === 0
-      ? "Sin proveedor"
-      : selectedSupplierIds.length === 1
-        ? "1 proveedor"
-        : `${selectedSupplierIds.length} proveedores`;
-
   const resetForm = () => {
     form.reset();
     setValidationError("");
@@ -454,66 +446,18 @@ export function FormCreateInventory({
                 No hay proveedores activos disponibles. Puedes crear el producto sin proveedor.
               </p>
             ) : (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full min-h-11 justify-between gap-2 overflow-hidden px-3 py-2 text-left text-sm"
-                    disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
-                  >
-                    <span className="truncate">{supplierSummary}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">▾</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" sideOffset={4} className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-2">
-                  <div className="max-h-64 space-y-1 overflow-y-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                        selectedSupplierIds.length === 0 && "border-primary bg-primary/10 text-primary"
-                      )}
-                      onClick={() => setSelectedSupplierIds([])}
-                    >
-                      <span className="truncate">Sin proveedor</span>
-                      {selectedSupplierIds.length === 0 ? (
-                        <Check className="h-4 w-4 shrink-0" />
-                      ) : null}
-                    </Button>
-                    {suppliers.map((supplier) => {
-                      const isSelected = selectedSupplierIds.includes(supplier.idProveedor);
-
-                      return (
-                        <Button
-                          key={supplier.idProveedor}
-                          type="button"
-                          variant="outline"
-                          className={cn(
-                            "h-auto min-h-9 w-full justify-between gap-2 px-3 py-2 text-left text-xs",
-                            isSelected && "border-primary bg-primary/10 text-primary"
-                          )}
-                          onClick={() =>
-                            setSelectedSupplierIds((current) =>
-                              current.includes(supplier.idProveedor)
-                                ? current.filter((id) => id !== supplier.idProveedor)
-                                : [...current, supplier.idProveedor],
-                            )
-                          }
-                        >
-                          <span className="min-w-0 truncate">
-                            {supplier.razonSocial} · {supplier.rut}
-                          </span>
-                          {isSelected ? (
-                            <Check className="h-4 w-4 shrink-0" />
-                          ) : null}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <MultiSelect
+                options={suppliers.map((supplier) => ({
+                  value: String(supplier.idProveedor),
+                  label: `${supplier.razonSocial} · ${supplier.rut}`,
+                }))}
+                value={selectedSupplierIds.map(String)}
+                onChange={(selectedValues) => setSelectedSupplierIds(selectedValues.map(Number))}
+                emptyLabel="Sin proveedor"
+                ariaLabel="Proveedores del producto"
+                multipleLabel="proveedores"
+                disabled={isSubmitting || uploadingImage || loadingSuppliers || Boolean(supplierError)}
+              />
             )}
             {loadingSuppliers ? (
               <p role="status" className="text-xs text-muted-foreground">Cargando proveedores...</p>
