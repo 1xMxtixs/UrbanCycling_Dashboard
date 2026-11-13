@@ -5,6 +5,12 @@ import {
   MAX_BICYCLE_IMAGES,
   normalizarImagenesBicicleta,
 } from "@/lib/bicycle-images"
+import { registrarAuditoriaBicicleta } from "@/lib/bicycle-audit"
+import {
+  actualizarBicicletaSchema,
+  normalizarPayloadBicicleta,
+  respuestaValidacionBicicleta,
+} from "@/lib/bicycle-validation"
 import { db } from "@/lib/db"
 import { PERMISSIONS } from "@/lib/permissions"
 import { requirePermission } from "@/lib/require-permission"
@@ -106,6 +112,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
+/** Actualiza parcialmente una bicicleta asociada a una ODT abierta. */
 export async function PATCH(request: Request, context: RouteContext) {
   let preparadas: Preparada[] = []
   let guardada = false
@@ -120,11 +127,23 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params
     const bicycleId = parseBicycleId(id)
-    const data = await request.json()
 
     if (Number.isNaN(bicycleId)) {
       return new NextResponse("Invalid bicycle id", { status: 400 })
     }
+
+    const rawData = await request.json()
+    const payload = normalizarPayloadBicicleta(rawData)
+    const resultadoValidacion = actualizarBicicletaSchema.safeParse(payload)
+
+    if (!resultadoValidacion.success) {
+      return NextResponse.json(
+        respuestaValidacionBicicleta(resultadoValidacion.error),
+        { status: 400 }
+      )
+    }
+
+    const data = resultadoValidacion.data
 
     const bicycleExists = await db.bicicleta.findUnique({
       where: {
@@ -139,33 +158,30 @@ export async function PATCH(request: Request, context: RouteContext) {
     const idOrdenDeTrabajo =
       data.idOrdenDeTrabajo === undefined
         ? bicycleExists.idOrdenDeTrabajo
-        : Number(data.idOrdenDeTrabajo)
-    if (!Number.isInteger(idOrdenDeTrabajo) || idOrdenDeTrabajo <= 0) {
-      return new NextResponse("Invalid work order id", { status: 400 })
-    }
+        : data.idOrdenDeTrabajo
 
-    const imagenes = normalizarImagenesBicicleta(data)
+    const imagenes = normalizarImagenesBicicleta(rawData)
+    const imagenesTemporales = payload.imagenesTemporales
     const replaceImages =
-      data.imagenesTemporales !== undefined ||
-      "imagenes" in data ||
-      "imagenesUrl" in data ||
-      "imagenesUrls" in data ||
-      "imagenUrl" in data
+      imagenesTemporales !== undefined ||
+      "imagenes" in payload ||
+      "imagenesUrl" in payload ||
+      "imagenesUrls" in payload ||
+      "imagenUrl" in payload
 
     if (imagenes.some((url) => url.includes("/tmp/bicicletas/")))
       throw new ImagenError(
         "Las imágenes temporales deben confirmarse mediante su identificador firmado"
       )
     if (
-      data.imagenesTemporales !== undefined &&
-      (!Array.isArray(data.imagenesTemporales) ||
-        data.imagenesTemporales.length > MAX_BICYCLE_IMAGES)
+      imagenesTemporales !== undefined &&
+      (!Array.isArray(imagenesTemporales) ||
+        imagenesTemporales.length > MAX_BICYCLE_IMAGES)
     )
       throw new ImagenError("Lista de imágenes temporales inválida")
     if (
       replaceImages &&
-      imagenes.length + (data.imagenesTemporales?.length ?? 0) >
-        MAX_BICYCLE_IMAGES
+      imagenes.length + (imagenesTemporales?.length ?? 0) > MAX_BICYCLE_IMAGES
     ) {
       return NextResponse.json(
         {
@@ -177,7 +193,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     preparadas = await prepararImagenes(
-      data.imagenesTemporales,
+      imagenesTemporales,
       session.user.idUsuario,
       bicycleId
     )
@@ -209,7 +225,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       await exigirOrdenAbierta(tx, actual.idOrdenDeTrabajo)
       await exigirOrdenAbierta(tx, idOrdenDeTrabajo)
       if (
-        data.imagenesTemporales !== undefined &&
+        imagenesTemporales !== undefined &&
         imagenes.some(
           (url) => !actual.imagenes.some((i) => i.urlImagen === url)
         )
@@ -239,8 +255,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           marca: data.marca,
           modelo: data.modelo,
           color: data.color,
-          descripcionAdicional:
-            data.descripcionAdicional ?? data.descripcion ?? undefined,
+          descripcionAdicional: data.descripcionAdicional,
           imagenes: replaceImages
             ? {
                 deleteMany: {},
@@ -254,6 +269,17 @@ export async function PATCH(request: Request, context: RouteContext) {
           imagenes: true,
         },
       })
+
+      // Conserva los valores previos y posteriores dentro de la transaccion.
+      await registrarAuditoriaBicicleta(tx, {
+        idUsuario: session.user.idUsuario,
+        idBicicleta: bicycleId,
+        idOrdenDeTrabajo: bicycle.idOrdenDeTrabajo,
+        tipoOperacion: "EDITAR_BICICLETA",
+        valorAnterior: actual,
+        valorNuevo: bicycle,
+      })
+
       return { bicycle, limpiezaId }
     })
     guardada = true
@@ -267,7 +293,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (!guardada) await liberarPreparadas(preparadas)
     if (error instanceof ImagenError)
       return NextResponse.json(
-        { message: error.message },
+        { code: "IMAGEN_BICICLETA_INVALIDA", message: error.message },
         { status: error.status }
       )
     const response = respuestaErrorBicicleta(error)
@@ -277,6 +303,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
+/** Elimina fisicamente una bicicleta y sus imagenes desde una ODT abierta. */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const { session, response } = await requirePermission(
@@ -305,6 +332,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     const limpiezaId = await db.$transaction(async (tx) => {
+      // Serializa eliminaciones y ediciones concurrentes sobre la misma ODT.
       await bloquearOrdenesTrabajo(tx, [bicycle.idOrdenDeTrabajo])
       const actual = await tx.bicicleta.findUnique({
         where: { idBicicleta: bicycleId },
@@ -317,14 +345,31 @@ export async function DELETE(_request: Request, context: RouteContext) {
           "BICICLETA_MODIFICADA",
           "La bicicleta cambió de orden; vuelva a intentar"
         )
+
+      // Mantiene la misma regla de estado utilizada al crear y editar.
+      await exigirOrdenAbierta(tx, actual.idOrdenDeTrabajo)
+
       const job = await encolarBorrado(
         tx,
         actual.imagenes.map((i) => i.urlImagen),
         session.user.idUsuario,
         bicycleId
       )
+
+      // El borrado fisico de imagenes y bicicleta es intencional.
       await tx.imagenBicicleta.deleteMany({ where: { idBicicleta: bicycleId } })
       await tx.bicicleta.delete({ where: { idBicicleta: bicycleId } })
+
+      // La auditoria conserva la fotografia eliminada sin restaurar el registro.
+      await registrarAuditoriaBicicleta(tx, {
+        idUsuario: session.user.idUsuario,
+        idBicicleta: bicycleId,
+        idOrdenDeTrabajo: actual.idOrdenDeTrabajo,
+        tipoOperacion: "ELIMINAR_BICICLETA",
+        valorAnterior: actual,
+        valorNuevo: { eliminada: true },
+      })
+
       return job
     })
     const limpieza = await intentarBorrado(limpiezaId)
