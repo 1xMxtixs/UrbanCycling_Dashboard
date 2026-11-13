@@ -17,7 +17,6 @@ import { RescheduleDialog } from "./RescheduleDialog"
 import { CancelOrderDialog } from "./CancelOrderDialog"
 import { OrderAuditDialog } from "./OrderAuditDialog"
 import { WorkOrder } from "../../types"
-import { ESTADO_PAGO } from "@/lib/payment-status"
 import { ESTADO_OT, getNombreEstadoOt } from "@/lib/work-order-status"
 import { adaptarOrdenPuntoVenta } from "@/lib/work-order-adapter"
 import { METODO_PAGO_DEFECTO } from "@/lib/payment-methods"
@@ -378,39 +377,48 @@ export function ListOrdenesTrabajo() {
     }
   }
 
-  const handleConfirmPayment = async () => {
-    if (!orderToPay) return
+  const handleConfirmPayment = async (monto: number) => {
+    if (!orderToPay || isConfirmingPayment) return
     setIsConfirmingPayment(true)
     try {
-      const total = Number(orderToPay.total)
-      const totalPagado = Number(orderToPay.totalPagado || 0)
-      const saldoRestante = Math.max(0, total - totalPagado)
-
       const res = await fetch(`/api/punto-venta/orden-${orderToPay.idOrdenDeTrabajo}/estado`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          estadoPago: ESTADO_PAGO.PAGADA,
           metodoPago: selectedMetodoPago,
-          montoPago: saldoRestante,
+          montoPago: monto,
         }),
       })
 
+      const data = await res.json()
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Error al registrar el pago restante")
+        if (["MONTO_EXCEDE_SALDO", "ORDEN_SIN_SALDO", "ORDEN_ANULADA"].includes(data.code)) {
+          setPayModalOpen(false)
+          setOrderToPay(null)
+          refreshOrders()
+        }
+        throw new Error(data.message || "Error al registrar el pago")
       }
 
-      toast.success("Pago registrado correctamente. La orden ahora está Pagada.")
+      const financial = {
+        totalPagado: data.resumenPago.totalPagado,
+        estadoPago: data.resumenPago.estadoPago,
+        pagos: data.ordenTrabajo.pagos,
+      }
+      setOrders((current) => current.map((order) => order.idOrdenDeTrabajo === orderToPay.idOrdenDeTrabajo ? { ...order, ...financial } : order))
+      if (selectedOrder?.idOrdenDeTrabajo === orderToPay.idOrdenDeTrabajo) setSelectedOrder({ ...selectedOrder, ...financial })
+      toast.success(data.resumenPago.saldoPendiente === 0
+        ? "Pago registrado. La orden quedó pagada."
+        : `Abono registrado. Saldo pendiente: $${Number(data.resumenPago.saldoPendiente).toLocaleString("es-CL")}.`)
       setPayModalOpen(false)
-      closeOrderDetail()
+      setOrderToPay(null)
       refreshOrders()
       router.refresh()
     } catch (err: unknown) {
       console.error(err)
-      toast.error(err instanceof Error ? err.message : "No se pudo procesar el pago restante")
+      toast.error(err instanceof Error ? err.message : "No se pudo registrar el pago")
     } finally {
       setIsConfirmingPayment(false)
     }
@@ -536,8 +544,8 @@ export function ListOrdenesTrabajo() {
       />
 
       {/* 4.5. Modal de Asignación de Insumos y Valorización */}
-      {/* 5. Modal de Pago Restante */}
-      <OrderPayDialog
+      {/* 5. Registro de pagos y abonos sucesivos */}
+      {payModalOpen && orderToPay && <OrderPayDialog
         open={payModalOpen}
         onOpenChange={setPayModalOpen}
         order={orderToPay}
@@ -545,7 +553,7 @@ export function ListOrdenesTrabajo() {
         onMetodoPagoChange={setSelectedMetodoPago}
         onConfirmPayment={handleConfirmPayment}
         isConfirmingPayment={isConfirmingPayment}
-      />
+      />}
 
       {/* 6. Modal de Comprobante / DTE */}
       <ReceiptTicketDialog
