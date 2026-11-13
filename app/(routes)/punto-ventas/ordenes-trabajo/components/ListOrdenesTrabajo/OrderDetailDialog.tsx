@@ -22,7 +22,10 @@ import {
   X,
   Loader2,
   UserCheck,
+  Minus,
+  Plus,
   PlusCircle,
+  Trash2,
   XCircle,
   Info,
 } from "lucide-react"
@@ -42,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/common/StatusBadge"
+import { StatusToggleDialog } from "@/components/common/StatusToggleDialog"
 import { WorkOrderStatusBadge } from "@/components/common/WorkOrderStatusBadge"
 import {
   Table,
@@ -175,6 +179,14 @@ export function OrderDetailDialog({
   // Edición por línea (precio y descuento unitario)
   const [lineStates, setLineStates] = useState<Record<number, EditableLineState>>({})
 
+  // Eliminación de productos de la orden
+  const [productToRemove, setProductToRemove] = useState<WorkOrderServiceLine | null>(null)
+  const [isRemovingProduct, setIsRemovingProduct] = useState(false)
+
+  // Cantidad visible y guardado de los controles +/- de cada producto
+  const [displayedQuantities, setDisplayedQuantities] = useState<Record<number, number>>({})
+  const [savingQuantityLineId, setSavingQuantityLineId] = useState<number | null>(null)
+
   // Anular Orden de Trabajo
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
@@ -220,13 +232,14 @@ export function OrderDetailDialog({
 
   // Sincronizar estados locales con la orden activa
   const syncKey = open && order
-    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}`
+    ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.cantidad}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}`
     : null
 
   useEffect(() => {
     if (!syncKey || !order) return
 
     const initialLineStates: Record<number, EditableLineState> = {}
+    const initialQuantities: Record<number, number> = {}
     for (const linea of order.lineasDeOrdenDeTrabajo ?? []) {
       initialLineStates[linea.idLineaDeOrdenDeTrabajo] = {
         draftPrice: String(Number(linea.precioUnitario ?? 0)),
@@ -234,6 +247,7 @@ export function OrderDetailDialog({
         isEditing: false,
         isSaving: false,
       }
+      initialQuantities[linea.idLineaDeOrdenDeTrabajo] = Number(linea.cantidad)
     }
 
     const draftDesc = String(Number(order.descuento ?? 0))
@@ -248,8 +262,10 @@ export function OrderDetailDialog({
       setDeliveryDateDraft(dateFormatted)
       setObservationsDraft(obs)
       setLineStates(initialLineStates)
+      setDisplayedQuantities(initialQuantities)
       setSelectedNewServiceId("")
       setNewServiceQuantity(1)
+      setProductToRemove(null)
     })
   }, [syncKey, order])
 
@@ -516,7 +532,97 @@ export function OrderDetailDialog({
     }
   }
 
-  // 7. Anular Orden
+  // 7. Ajustar una unidad y esperar al backend antes de reflejar la nueva cantidad.
+  async function handleAdjustProductQuantity(
+    linea: WorkOrderServiceLine,
+    delta: 1 | -1,
+  ) {
+    const lineId = linea.idLineaDeOrdenDeTrabajo
+    const currentQuantity = displayedQuantities[lineId] ?? Number(linea.cantidad)
+
+    if (
+      savingQuantityLineId !== null ||
+      productDisabledReason ||
+      lineStates[lineId]?.isEditing ||
+      lineStates[lineId]?.isSaving
+    ) return
+
+    // La última unidad utiliza el flujo destructivo, que explica el efecto en stock.
+    if (delta === -1 && currentQuantity === 1) {
+      setProductToRemove({ ...linea, cantidad: currentQuantity })
+      return
+    }
+
+    const newQuantity = currentQuantity + delta
+    setSavingQuantityLineId(lineId)
+
+    try {
+      const res = await fetch(
+        `/api/punto-venta/orden-${order!.idOrdenDeTrabajo}/lineas/${lineId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cantidad: newQuantity }),
+        },
+      )
+      const data: {
+        message?: string
+        linea?: { cantidad?: number }
+      } = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.message || "No se pudo actualizar la cantidad")
+      }
+
+      setDisplayedQuantities((prev) => ({
+        ...prev,
+        [lineId]: Number(data.linea?.cantidad ?? newQuantity),
+      }))
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo actualizar la cantidad.",
+      )
+    } finally {
+      setSavingQuantityLineId(null)
+    }
+  }
+
+  // 8. Eliminar un producto y esperar la restitución de stock antes de refrescar la vista.
+  async function handleRemoveProduct() {
+    if (!productToRemove || isRemovingProduct) return
+
+    setIsRemovingProduct(true)
+    try {
+      const res = await fetch(
+        `/api/ordenes-trabajo/${order!.idOrdenDeTrabajo}/productos/${productToRemove.idLineaDeOrdenDeTrabajo}`,
+        { method: "DELETE" },
+      )
+      const data: { message?: string } = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.message || "No se pudo quitar el producto de la orden")
+      }
+
+      toast.success("Producto quitado de la orden y stock restituido.")
+      setProductToRemove(null)
+      window.dispatchEvent(new Event("work-orders:refresh"))
+      onEditSuccess?.()
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo quitar el producto de la orden.",
+      )
+    } finally {
+      setIsRemovingProduct(false)
+    }
+  }
+
+  // 9. Anular Orden
   async function handleConfirmCancelOrder() {
     setIsCancellingOrder(true)
     try {
@@ -559,7 +665,9 @@ export function OrderDetailDialog({
       isSaving: false,
     }
 
-    const subtotal = efectivo(linea) * Number(linea.cantidad || 1)
+    const displayedQuantity = displayedQuantities[lineId] ?? Number(linea.cantidad)
+    const isSavingQuantity = savingQuantityLineId === lineId
+    const subtotal = efectivo(linea) * displayedQuantity
     const unitPrice = Number(linea.precioUnitario || 0)
     const lineDiscount = Number(linea.descuentoUnitario || 0)
 
@@ -573,9 +681,63 @@ export function OrderDetailDialog({
             <span className="font-semibold text-foreground text-xs block">
               {label}
             </span>
-            <span className="text-muted-foreground font-mono text-[11px]">
-              Cantidad: ×{linea.cantidad}
-            </span>
+            {isEditing && canEdit && linea.idProducto != null ? (
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">Cantidad:</span>
+                <div
+                  className="inline-flex items-center rounded-lg border border-border bg-background"
+                  title={productDisabledReason}
+                  aria-label={`Cantidad utilizada de ${label}`}
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Disminuir cantidad de ${label}`}
+                    disabled={
+                      savingQuantityLineId !== null ||
+                      isRemovingProduct ||
+                      state.isEditing ||
+                      state.isSaving ||
+                      Boolean(productDisabledReason)
+                    }
+                    onClick={() => handleAdjustProductQuantity(linea, -1)}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <span
+                    className="flex min-w-8 justify-center text-xs font-bold tabular-nums"
+                    aria-live="polite"
+                  >
+                    {isSavingQuantity ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      displayedQuantity
+                    )}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Aumentar cantidad de ${label}`}
+                    disabled={
+                      savingQuantityLineId !== null ||
+                      isRemovingProduct ||
+                      state.isEditing ||
+                      state.isSaving ||
+                      Boolean(productDisabledReason)
+                    }
+                    onClick={() => handleAdjustProductQuantity(linea, 1)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <span className="text-muted-foreground font-mono text-[11px]">
+                Cantidad: ×{displayedQuantity}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -587,21 +749,49 @@ export function OrderDetailDialog({
             </div>
 
             {isEditing && canEdit && !state.isEditing && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 cursor-pointer"
-                onClick={() =>
-                  setLineStates((prev) => ({
-                    ...prev,
-                    [lineId]: { ...state, isEditing: true },
-                  }))
-                }
-              >
-                <Pencil className="h-3 w-3" />
-                Editar Valor
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 cursor-pointer"
+                  disabled={savingQuantityLineId !== null || isRemovingProduct}
+                  onClick={() =>
+                    setLineStates((prev) => ({
+                      ...prev,
+                      [lineId]: { ...state, isEditing: true },
+                    }))
+                  }
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar Valor
+                </Button>
+
+                {linea.idProducto != null && (
+                  <span title={productDisabledReason}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Quitar ${label} de la orden`}
+                      disabled={
+                        Boolean(productDisabledReason) ||
+                        isRemovingProduct ||
+                        savingQuantityLineId !== null
+                      }
+                      onClick={() =>
+                        setProductToRemove({
+                          ...linea,
+                          cantidad: displayedQuantity,
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1469,6 +1659,25 @@ export function OrderDetailDialog({
             </DropdownMenu>
           </div>
         </div>
+
+        {/* Confirmación para quitar un producto y devolver sus unidades al inventario */}
+        <StatusToggleDialog
+          open={productToRemove !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen && !isRemovingProduct) setProductToRemove(null)
+          }}
+          title="¿Quitar producto de la orden?"
+          description={
+            productToRemove
+              ? `Se quitarán ${productToRemove.cantidad} ${productToRemove.cantidad === 1 ? "unidad" : "unidades"} de “${productToRemove.producto?.nombre || `Producto #${productToRemove.idProducto}`}”. Las unidades volverán al inventario y el total de la orden se recalculará. El producto seguirá existiendo en el catálogo.`
+              : undefined
+          }
+          confirmLabel="Quitar de la orden"
+          submittingLabel="Quitando..."
+          actionVariant="destructive"
+          isSubmitting={isRemovingProduct}
+          onConfirm={handleRemoveProduct}
+        />
 
         {/* Diálogo de Confirmación de Anulación */}
         <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
