@@ -286,20 +286,26 @@ export function OrderDetailDialog({
     Math.max(0, Number(line.precioUnitario || 0) - Number(line.descuentoUnitario || 0))
 
   const serviceLines = (order.lineasDeOrdenDeTrabajo || []).filter(
-    (l) => l.idServicio !== null && l.idServicio !== undefined
+    (l) =>
+      l.idServicio !== null &&
+      l.idServicio !== undefined &&
+      Number(l.cantidad) > 0
   )
 
   const productLines = (order.lineasDeOrdenDeTrabajo || []).filter(
-    (l) => l.idProducto !== null && l.idProducto !== undefined
+    (l) =>
+      l.idProducto !== null &&
+      l.idProducto !== undefined &&
+      Number(l.cantidad) > 0
   )
 
   const laborCost = serviceLines.reduce(
-    (sum, l) => sum + efectivo(l) * Number(l.cantidad || 1),
+    (sum, l) => sum + efectivo(l) * Number(l.cantidad ?? 0),
     0
   )
 
   const productsCost = productLines.reduce(
-    (sum, l) => sum + efectivo(l) * Number(l.cantidad || 1),
+    (sum, l) => sum + efectivo(l) * Number(l.cantidad ?? 0),
     0
   )
 
@@ -308,14 +314,17 @@ export function OrderDetailDialog({
 
   const canEdit = !ESTADOS_OT_CERRADOS.includes(order.estadoOrden as never)
   const totalPagado = Number(order.totalPagado || 0)
+  const remainingBalance = Math.max(0, total - totalPagado)
+  const hasRegisteredPayments =
+    totalPagado > 0 || (order.pagos?.length ?? 0) > 0
   const productDisabledReason = order.estadoOrden !== ESTADO_OT.POR_REALIZAR && order.estadoOrden !== ESTADO_OT.EN_CURSO
-    ? 'La orden debe estar "Por realizar" o "En curso" para agregar productos.'
+    ? 'La orden debe estar "Por realizar" o "En curso" para modificar sus productos.'
     : totalPagado > 0 || (order.estadoPago && order.estadoPago !== ESTADO_PAGO.PENDIENTE)
-      ? "No se pueden agregar productos a una orden con pagos registrados."
+      ? "No se pueden modificar productos de una orden con pagos registrados."
       : undefined
   const isPaid =
     order.estadoPago === ESTADO_PAGO.PAGADA ||
-    Math.max(0, total - totalPagado) === 0
+    (total > 0 && hasRegisteredPayments && remainingBalance === 0)
 
   const assignedMechanic = mechanics.find(
     (m) => m.idUsuario === order.idMecanicoAsignado
@@ -1490,7 +1499,7 @@ export function OrderDetailDialog({
                     isPaid ? "text-primary" : "text-destructive"
                   }`}
                 >
-                  {formatCLP(isPaid ? 0 : Math.max(0, total - totalPagado))}
+                  {formatCLP(isPaid ? 0 : remainingBalance)}
                 </span>
               </div>
             </div>
@@ -1532,7 +1541,7 @@ export function OrderDetailDialog({
         {/* Pie de Acciones */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 shrink-0">
           <div>
-            {!isPaid && !isEditing && onPayClick && (
+            {!isPaid && remainingBalance > 0 && !isEditing && onPayClick && (
               <Button
                 variant="default"
                 size="sm"
