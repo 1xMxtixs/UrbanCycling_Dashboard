@@ -339,7 +339,7 @@ export function PurchaseOrderDetail({
                 >
                   <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
                     <div className="grid grid-rows-[2.5rem_2rem] gap-2">
-                      <Label htmlFor="partial-payment" className="flex items-end">Monto del abono (CLP)</Label>
+                      <Label htmlFor="partial-payment" className="flex items-end">Monto del abono</Label>
                       <Input
                         id="partial-payment"
                         type="number"
