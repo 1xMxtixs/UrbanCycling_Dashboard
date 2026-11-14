@@ -490,7 +490,7 @@ export function FormCreateInventory({
                     data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
-                    Precio de venta (CLP)
+                    Precio de venta
                   </FormLabel>
                   <FormControl aria-invalid={false}>
                     <Input
@@ -525,7 +525,7 @@ export function FormCreateInventory({
                     data-error={false}
                     className="inline-block mb-1.5 font-medium text-foreground"
                   >
-                    Precio de compra (CLP)
+                    Precio de compra
                   </FormLabel>
                   <FormControl aria-invalid={false}>
                     <Input

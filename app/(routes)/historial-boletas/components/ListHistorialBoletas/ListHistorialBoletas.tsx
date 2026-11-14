@@ -272,11 +272,11 @@ export function ListHistorialBoletas() {
         "RUT receptor",
         "Fecha de emisión",
         "Estado",
-        "Subtotal (CLP)",
-        "Descuento (CLP)",
-        "Neto (CLP)",
-        "IVA (CLP)",
-        "Total (CLP)",
+        "Subtotal",
+        "Descuento",
+        "Neto",
+        "IVA",
+        "Total",
       ];
       worksheet.columns = [
         { key: "folio", width: 12 },
