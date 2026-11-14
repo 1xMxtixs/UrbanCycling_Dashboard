@@ -364,7 +364,7 @@ export function WorkOrderBicyclesSection({
       </div>
 
       {editorMode?.kind === "create" && (
-        <div className="rounded-xl border border-border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border border-border bg-white p-4 dark:bg-popover">
           <h5 className="-mx-4 -mt-4 bg-muted/40 p-3 font-semibold text-foreground">
             Nueva bicicleta
           </h5>
@@ -388,7 +388,7 @@ export function WorkOrderBicyclesSection({
           return (
             <div
               key={bicycle.idBicicleta}
-              className="rounded-xl border border-border bg-white p-4 dark:bg-card"
+              className="rounded-xl border border-border bg-white p-4 dark:bg-popover"
             >
               <div
                 className={`flex items-start justify-between gap-3 ${
