@@ -25,17 +25,17 @@ export function getColumns({
 }: GetColumnsOptions): ColumnDef<ServiceColumn>[] {
   return [
     {
-      accessorKey: "codigo",
-      header: "Código",
+      accessorKey: "idServicio",
+      header: "ID",
       cell: ({ row }) => (
         <span className="font-mono text-xs font-semibold text-muted-foreground">
-          {row.getValue("codigo")}
+          #{row.original.idServicio}
         </span>
       ),
     },
     {
       accessorKey: "nombre",
-      header: "Servicio / Labor",
+      header: "Servicio",
       cell: ({ row }) => {
         const s = row.original
 
@@ -52,6 +52,15 @@ export function getColumns({
           </div>
         )
       },
+    },
+    {
+      accessorKey: "codigo",
+      header: "Código",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-semibold text-muted-foreground">
+          {row.getValue("codigo")}
+        </span>
+      ),
     },
     {
       accessorKey: "precioVenta",

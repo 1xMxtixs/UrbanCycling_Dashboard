@@ -84,6 +84,7 @@ export const dataManagementSidebar = [
     icon: Users,
     label: "Clientes",
     href: "/clientes/directorio",
+    directLink: true,
     children: [
       {
         icon: Users,
@@ -96,6 +97,7 @@ export const dataManagementSidebar = [
         label: "Historial de clientes",
         href: "/clientes/historial",
         permission: PERMISSIONS.CLIENTS_READ,
+        hiddenFromSidebar: true,
       },
     ],
   },

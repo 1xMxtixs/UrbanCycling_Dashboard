@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BikeCard } from "./BikeCard";
 import { FormEditBicicleta } from "../FormEditBicicleta/FormEditBicicleta";
+import { ModalDetalleBicicleta } from "../ModalDetalleBicicleta";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DataTableContainer } from "@/components/common/DataTableContainer";
 import { MetricCard } from "@/components/common/MetricCard";
@@ -55,6 +56,8 @@ export function ListBicicletas() {
     null
   );
   const [openEditModal, setOpenEditModal] = useState(false);
+  const [detalleBicicleta, setDetalleBicicleta] = useState<Bicicleta | null>(null);
+  const [openDetalleModal, setOpenDetalleModal] = useState(false);
   const [ordenes, setOrdenes] = useState<OrdenTrabajoResumen[]>([]);
   const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
   const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
@@ -133,6 +136,20 @@ export function ListBicicletas() {
       void fetchOrdenes();
     },
     [canEdit, fetchOrdenes]
+  );
+
+  const handleOpenDetalle = useCallback((bicicleta: Bicicleta) => {
+    setDetalleBicicleta(bicicleta);
+    setOpenDetalleModal(true);
+  }, []);
+
+  const handleEditFromDetalle = useCallback(
+    (bicicleta: Bicicleta) => {
+      setOpenDetalleModal(false);
+      setDetalleBicicleta(null);
+      handleEditBicicleta(bicicleta);
+    },
+    [handleEditBicicleta]
   );
 
   const normalizedSearch = search.trim().toLowerCase();
@@ -367,12 +384,20 @@ export function ListBicicletas() {
                   key={bicicleta.idBicicleta}
                   bicicleta={bicicleta}
                   onEdit={canEdit ? handleEditBicicleta : undefined}
+                  onSelect={handleOpenDetalle}
                 />
               ))}
             </div>
           )}
         </div>
       </DataTableContainer>
+
+      <ModalDetalleBicicleta
+        bicicleta={detalleBicicleta}
+        open={openDetalleModal}
+        onOpenChange={setOpenDetalleModal}
+        onEdit={canEdit ? handleEditFromDetalle : undefined}
+      />
 
       {selectedBicicleta && (
         <FormEditBicicleta

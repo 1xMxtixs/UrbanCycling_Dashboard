@@ -45,7 +45,7 @@ export function WorkOrderHistoryItem({
     : orderStatus.label;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs transition-colors duration-150 hover:border-border motion-reduce:transition-none">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-popover shadow-2xs transition-colors duration-150 hover:border-border motion-reduce:transition-none">
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
@@ -110,19 +110,19 @@ export function WorkOrderHistoryItem({
 
       {isExpanded && (
         <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2 text-xs">
-          <p className="text-foreground bg-card p-2 rounded-lg border border-border/60 leading-relaxed text-xs">
+          <p className="text-foreground bg-popover p-2 rounded-lg border border-border/60 leading-relaxed text-xs">
             {orden.observacionesIngreso || "Sin observaciones registradas."}
           </p>
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg border border-border/60 bg-card p-1.5">
+            <div className="rounded-lg border border-border/60 bg-popover p-1.5">
               <span className="block text-[10px] text-muted-foreground">Descuento</span>
               <span className="font-bold text-foreground">{formatCLP(Number(orden.descuento || 0))}</span>
             </div>
-            <div className="rounded-lg border border-border/60 bg-card p-1.5">
+            <div className="rounded-lg border border-border/60 bg-popover p-1.5">
               <span className="block text-[10px] text-muted-foreground">Pago</span>
               <span className="font-bold text-foreground">{paymentLabel}</span>
             </div>
-            <div className="rounded-lg border border-border/60 bg-card p-1.5">
+            <div className="rounded-lg border border-border/60 bg-popover p-1.5">
               <span className="block text-[10px] text-muted-foreground">Total</span>
               <span className="font-bold text-foreground">{formatCLP(Number(orden.total || 0))}</span>
             </div>

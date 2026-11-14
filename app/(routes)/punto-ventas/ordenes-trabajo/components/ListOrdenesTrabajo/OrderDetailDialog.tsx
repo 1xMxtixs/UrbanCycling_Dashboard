@@ -66,7 +66,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DataField } from "@/components/common/DataField"
-import { formatClientName, formatCLP } from "@/lib/formatters"
+import { formatCLP } from "@/lib/formatters"
+import { esClienteJuridico } from "@/lib/client-type"
 import { ESTADO_PAGO, getNombreEstadoPago } from "@/lib/payment-status"
 import { getNombreMetodoPago } from "@/lib/payment-methods"
 import { ESTADO_OT, ESTADOS_OT_CERRADOS, getNombreEstadoOtVisible } from "@/lib/work-order-status"
@@ -233,6 +234,17 @@ export function OrderDetailDialog({
   const syncKey = open && order
     ? `${order.idOrdenDeTrabajo}-${order.descuento ?? 0}-${order.idMecanicoAsignado ?? ""}-${order.fechaEntregaEstimada ?? ""}-${(order.lineasDeOrdenDeTrabajo ?? []).map((l) => `${l.idLineaDeOrdenDeTrabajo}:${l.cantidad}:${l.precioUnitario}:${l.descuentoUnitario ?? 0}`).join(",")}-${(order.bicicletas ?? []).map((b) => `${b.idBicicleta}:${b.marca}:${b.modelo}:${b.color}:${b.descripcion ?? ""}:${(b.imagenes ?? []).join("|")}`).join(",")}`
     : null
+
+  const isNaturalPerson = !esClienteJuridico(order?.cliente?.tipoCliente)
+  const clientDisplayLabel = isNaturalPerson ? "Nombre" : "Razón Social"
+  const clientDisplayValue = isNaturalPerson
+    ? [
+        order?.cliente?.primerNombre,
+        order?.cliente?.segundoNombre,
+        order?.cliente?.apellidoPaterno,
+        order?.cliente?.apellidoMaterno,
+      ].filter(Boolean).join(" ").trim() || "No indicado"
+    : order?.cliente?.razonSocial || "No indicado"
 
   useEffect(() => {
     if (!syncKey || !order) return
@@ -689,7 +701,7 @@ export function OrderDetailDialog({
     return (
       <div
         key={lineId}
-        className="rounded-lg border border-border bg-background p-3 space-y-2 transition-colors duration-150"
+        className="rounded-lg border border-border bg-popover p-3 space-y-2 transition-colors duration-150"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -700,7 +712,7 @@ export function OrderDetailDialog({
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground">Cantidad:</span>
                 <div
-                  className="inline-flex items-center rounded-lg border border-border bg-background"
+                  className="inline-flex items-center rounded-lg border border-border bg-popover"
                   title={productDisabledReason}
                   aria-label={`Cantidad utilizada de ${label}`}
                 >
@@ -827,7 +839,7 @@ export function OrderDetailDialog({
                     [lineId]: { ...prev[lineId], draftPrice: e.target.value },
                   }))
                 }
-                className="h-7 w-28 text-xs bg-background"
+                className="h-7 w-28 text-xs bg-popover"
                 disabled={state.isSaving}
               />
             </div>
@@ -845,7 +857,7 @@ export function OrderDetailDialog({
                     [lineId]: { ...prev[lineId], draftDiscount: e.target.value },
                   }))
                 }
-                className="h-7 w-28 text-xs bg-background"
+                className="h-7 w-28 text-xs bg-popover"
                 disabled={state.isSaving}
               />
             </div>
@@ -910,7 +922,7 @@ export function OrderDetailDialog({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent className="flex max-h-[min(90dvh,48rem)] w-[calc(100%-2rem)] flex-col overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent className="flex max-h-[min(90dvh,48rem)] w-[calc(100%-2rem)] flex-col overflow-hidden bg-popover p-0 sm:max-w-4xl">
         <DialogHeader className="shrink-0 px-6 pt-6 pr-12">
           <DialogTitle className="flex flex-col gap-2 border-b border-border pb-2 text-xl font-black sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
@@ -937,7 +949,7 @@ export function OrderDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6 pt-4 text-sm">
+        <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-6 pb-6 pt-4 text-sm">
           {/* 1. Datos Cliente */}
           <div className="space-y-2 rounded-xl border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
@@ -946,8 +958,8 @@ export function OrderDetailDialog({
             </h4>
             <div className="grid gap-3 sm:grid-cols-2">
               <DataField
-                label="Nombre / Razón Social"
-                value={formatClientName(order.cliente)}
+                label={clientDisplayLabel}
+                value={clientDisplayValue}
               />
               <DataField label="RUT" value={order.cliente?.rut || "No indicado"} />
               {order.cliente?.tipoCliente && (
@@ -1117,7 +1129,7 @@ export function OrderDetailDialog({
                   value={observationsDraft}
                   onChange={(e) => setObservationsDraft(e.target.value)}
                   placeholder="Detalla las observaciones de ingreso, fallas reportadas o diagnóstico técnico..."
-                  className="min-h-24 text-xs resize-y bg-background"
+                  className="min-h-24 text-xs resize-y bg-popover"
                   disabled={isSavingObservations}
                 />
                 <div className="flex justify-end">
@@ -1138,7 +1150,7 @@ export function OrderDetailDialog({
                 </div>
               </div>
             ) : (
-              <p className="text-foreground italic bg-background p-3 rounded-lg border border-border leading-relaxed">
+              <p className="text-foreground italic bg-popover p-3 rounded-lg border border-border leading-relaxed break-words">
                 {order.observacionesIngreso || "No se especificaron observaciones adicionales."}
               </p>
             )}
@@ -1173,7 +1185,7 @@ export function OrderDetailDialog({
 
             {/* Agregar nuevo servicio en modo edición */}
             {isEditing && canEdit && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+              <div className="rounded-lg border border-primary/20 bg-popover p-3 space-y-3">
                 <span className="text-xs font-bold text-primary flex items-center gap-1.5">
                   <PlusCircle className="h-4 w-4" />
                   Agregar Servicio Técnico a la Orden
@@ -1186,7 +1198,7 @@ export function OrderDetailDialog({
                       onValueChange={setSelectedNewServiceId}
                       disabled={isAddingService}
                     >
-                      <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectTrigger className="h-9 text-xs bg-popover">
                         <SelectValue placeholder="Seleccionar servicio del catálogo..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1205,7 +1217,7 @@ export function OrderDetailDialog({
                       min={1}
                       value={newServiceQuantity}
                       onChange={(e) => setNewServiceQuantity(Math.max(1, Number(e.target.value)))}
-                      className="h-9 text-xs bg-background"
+                      className="h-9 text-xs bg-popover"
                       disabled={isAddingService}
                     />
                   </div>
@@ -1244,7 +1256,7 @@ export function OrderDetailDialog({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
                   No se registran servicios técnicos cargados en esta orden.
                 </p>
               )}
@@ -1277,7 +1289,7 @@ export function OrderDetailDialog({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic bg-background p-2.5 rounded-lg border border-border">
+                <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
                   No se han cargado insumos o repuestos adicionales a esta orden.
                 </p>
               )}
@@ -1304,7 +1316,7 @@ export function OrderDetailDialog({
                       step={500}
                       value={descuentoDraft}
                       onChange={(e) => setDescuentoDraft(e.target.value)}
-                      className="h-8 w-28 text-xs bg-background"
+                      className="h-8 w-28 text-xs bg-popover"
                       disabled={isSavingDescuento}
                     />
                     <Button
@@ -1397,7 +1409,7 @@ export function OrderDetailDialog({
                 {order.pagos.map((pago: WorkOrderPayment, idx: number) => (
                   <div
                     key={pago.idPago ? `pago-${pago.idPago}` : `pago-${idx}-${pago.fechaRegistro}`}
-                    className="flex justify-between items-center text-xs bg-background p-2 rounded border border-border"
+                    className="flex justify-between items-center text-xs bg-popover p-2 rounded border border-border"
                   >
                     <div className="space-y-0.5">
                       <span className="font-semibold block capitalize font-sans text-foreground">
@@ -1425,7 +1437,7 @@ export function OrderDetailDialog({
         <Separator />
 
         {/* Pie de Acciones */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-popover px-6 py-3">
           <div>
             {!isPaid &&
               remainingBalance > 0 &&

@@ -86,7 +86,7 @@ export function ClientHistoryContent({
 
   return (
     <div className="flex flex-col space-y-6">
-      <section className="space-y-5 rounded-2xl border border-border/80 bg-card p-4 shadow-xs sm:p-6">
+      <section className="space-y-5 rounded-2xl border border-border/80 bg-popover p-4 shadow-xs sm:p-6">
         <div className="flex items-start gap-4">
           <Avatar className="h-14 w-14 shrink-0 rounded-2xl border border-border/80 sm:h-16 sm:w-16">
             <AvatarFallback className="rounded-2xl bg-primary/10 text-xl font-black text-primary">
@@ -161,7 +161,7 @@ export function ClientHistoryContent({
         )}
       </section>
 
-      <section className="flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
+      <section className="flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-popover shadow-xs">
         <div className="flex flex-col items-stretch justify-between gap-3 border-b border-border/60 bg-muted/30 p-4 sm:flex-row sm:items-center sm:p-5">
           <div>
             <h3 className="flex items-center gap-2 text-base font-bold text-foreground">

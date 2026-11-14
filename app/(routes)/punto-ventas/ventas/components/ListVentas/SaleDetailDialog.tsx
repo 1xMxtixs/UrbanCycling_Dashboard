@@ -58,8 +58,8 @@ export function SaleDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader className="border-b border-border pb-2">
+      <DialogContent className="flex max-h-[min(90dvh,48rem)] flex-col overflow-hidden bg-popover p-0 sm:max-w-xl">
+        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
           <DialogTitle className="flex items-center justify-between text-xl font-black">
             <span>Detalle de Venta #{sale.venta.idVenta}</span>
             <StatusBadge
@@ -79,9 +79,9 @@ export function SaleDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 py-4 space-y-4 text-xs font-mono">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain space-y-4 px-6 pb-5 pt-2 text-xs font-mono">
           {/* Info Cliente */}
-          <div className="space-y-1 bg-muted/30 p-3 rounded-lg border border-border">
+          <div className="space-y-1 rounded-lg border border-border bg-popover p-3">
             <div className="flex items-center gap-1.5 font-sans font-bold border-b border-border pb-1 mb-1 text-foreground">
               <User className="h-3.5 w-3.5 text-primary" />
               Datos de Facturación / Cliente
@@ -115,7 +115,7 @@ export function SaleDetailDialog({
               <ShoppingBag className="h-3.5 w-3.5 text-primary" />
               Productos Vendidos
             </div>
-            <div className="rounded-lg border border-border bg-background overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border bg-popover">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -164,10 +164,8 @@ export function SaleDetailDialog({
           </div>
         </div>
 
-        <Separator />
-
         {/* Acciones del Modal */}
-        <div className="flex justify-between gap-2 pt-1">
+        <div className="flex shrink-0 justify-between gap-2 border-t border-border bg-popover px-6 py-4">
           <div>
             {!isAnulada && sale.estadoPago === ESTADO_PAGO.PENDIENTE && (
               <Button

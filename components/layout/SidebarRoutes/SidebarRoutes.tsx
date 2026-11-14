@@ -45,6 +45,8 @@ function filterRoutes(
   isAdmin: boolean,
 ): SidebarRoute[] {
   return routes.flatMap((item) => {
+    if (item.hiddenFromSidebar) return []
+
     const children = item.children ? filterRoutes(item.children, permissions, isAdmin) : undefined
     const canAccessItem =
       (!item.adminOnly || isAdmin) &&
@@ -52,7 +54,11 @@ function filterRoutes(
 
     if (!canAccessItem && !children?.length) return []
 
-    return [{ ...item, href: children?.[0]?.href ?? item.href, children }]
+    return [{
+      ...item,
+      href: children?.[0]?.href ?? item.href,
+      children: item.directLink ? undefined : children,
+    }]
   })
 }
 

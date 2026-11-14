@@ -202,7 +202,7 @@ export function FormCreateServicio({
                   data-error={false}
                   className="inline-block mb-1.5 font-medium text-foreground"
                 >
-                  Precio de mano de obra (CLP)
+                  Precio de mano de obra
                 </FormLabel>
                 <FormControl aria-invalid={false}>
                   <Input

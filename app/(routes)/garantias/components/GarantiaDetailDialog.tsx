@@ -55,9 +55,9 @@ export function GarantiaDetailDialog({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-4xl"
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <ShieldCheck className="h-5 w-5 text-primary" />
@@ -76,7 +76,8 @@ export function GarantiaDetailDialog({
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-6 py-5">
+          <div className="min-w-0 space-y-6">
           <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -146,7 +147,7 @@ export function GarantiaDetailDialog({
                   Motivo del Reclamo
                 </p>
 
-                <p className="rounded-lg border border-border/50 bg-background p-3 text-sm leading-relaxed">
+                <p className="min-w-0 break-words rounded-lg border border-border/50 bg-popover p-3 text-sm leading-relaxed">
                   {garantia.motivoReclamo}
                 </p>
               </div>
@@ -182,7 +183,7 @@ export function GarantiaDetailDialog({
                   Observaciones de Resolución
                 </p>
 
-                <p className="rounded-lg border border-border/50 bg-background p-3 text-sm leading-relaxed">
+                <p className="min-w-0 break-words rounded-lg border border-border/50 bg-popover p-3 text-sm leading-relaxed">
                   {garantia.observacionesResolucion ||
                     "Sin observaciones de resolución."}
                 </p>
@@ -190,7 +191,11 @@ export function GarantiaDetailDialog({
             </div>
           )}
 
-          <div className="flex flex-col-reverse justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row">
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-border/60 bg-popover px-6 py-4">
+          <div className="flex flex-col-reverse justify-between gap-2 sm:flex-row">
             {canEdit ? (
               <Button
                 variant="outline"

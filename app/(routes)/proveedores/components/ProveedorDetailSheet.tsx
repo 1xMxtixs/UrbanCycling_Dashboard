@@ -115,24 +115,25 @@ export function ProveedorDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-border/80 shadow-2xl sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-border/80 p-0 shadow-2xl sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
           <DialogTitle>Detalle del proveedor</DialogTitle>
           <DialogDescription>
             Información registrada del proveedor.
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="flex min-h-80 items-center justify-center">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        ) : detalle ? (
-          <div className="space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+          {isLoading ? (
+            <div className="flex min-h-80 items-center justify-center">
+              <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : detalle ? (
+            <div className="space-y-6">
             <div className="rounded-2xl border border-border/80 bg-muted/20 p-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
@@ -180,7 +181,7 @@ export function ProveedorDetailSheet({
                 </h3>
               </div>
 
-              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-2 bg-card">
+              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-2 bg-popover">
                 <DataField label="Giro comercial" value={detalle.giro} />
                 <DataField
                   label="Condiciones de pago"
@@ -204,7 +205,7 @@ export function ProveedorDetailSheet({
                 Datos de contacto
               </h3>
 
-              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-2 bg-card">
+              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-2 bg-popover">
                 <DataField
                   label="Teléfono"
                   value={telefono?.telefono || "No registrado"}
@@ -226,7 +227,7 @@ export function ProveedorDetailSheet({
                 Dirección
               </h3>
 
-              <div className="rounded-xl border border-border/70 p-4 bg-card">
+              <div className="rounded-xl border border-border/70 p-4 bg-popover">
                 {direccion ? (
                   <div className="flex gap-3">
                     <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
@@ -253,11 +254,17 @@ export function ProveedorDetailSheet({
 
             <Separator />
 
-            {/* PR-13: Verbos y textos claros alineados con la acción real */}
-            <div className="flex flex-col gap-2 sm:flex-row">
+          </div>
+          ) : null}
+        </div>
+
+        {detalle && !isLoading && !error && (
+          <div className="shrink-0 border-t border-border bg-popover px-6 py-4">
+            {/* Acciones fijas, siguiendo el pie de los formularios. */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
-                className="flex-1 cursor-pointer rounded-xl font-semibold"
+                className="cursor-pointer rounded-xl font-semibold"
                 onClick={onEdit}
               >
                 <Pencil className="mr-2 h-4 w-4" />
@@ -266,7 +273,7 @@ export function ProveedorDetailSheet({
 
               <Button
                 variant="destructive"
-                className="flex-1 cursor-pointer rounded-xl font-semibold"
+                className="cursor-pointer rounded-xl font-semibold"
                 onClick={onDelete}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -274,7 +281,7 @@ export function ProveedorDetailSheet({
               </Button>
             </div>
           </div>
-        ) : null}
+        )}
       </DialogContent>
     </Dialog>
   )

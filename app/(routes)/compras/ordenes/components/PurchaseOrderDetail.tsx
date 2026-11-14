@@ -232,8 +232,8 @@ export function PurchaseOrderDetail({
   return (
     <>
     <Dialog open={Boolean(orderSummary) && !receptionOpen} onOpenChange={(open) => { if (!busy) onOpenChange(open) }}>
-      <DialogContent className="flex h-[min(78dvh,48rem)] max-h-[88dvh] w-[calc(100vw-2rem)] min-w-0 flex-col gap-3 overflow-hidden sm:w-full sm:max-w-5xl">
-        <DialogHeader className="shrink-0">
+      <DialogContent className="flex max-h-[min(90dvh,48rem)] w-[calc(100vw-2rem)] min-w-0 flex-col gap-0 overflow-hidden bg-popover p-0 sm:w-full sm:max-w-5xl">
+        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
           <DialogTitle>Orden de compra {orderSummary ? `OC-${orderSummary.idOrdenDeCompra}` : ""}</DialogTitle>
           <DialogDescription>Detalle, estado, pagos parciales y recepción de inventario.</DialogDescription>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -247,7 +247,7 @@ export function PurchaseOrderDetail({
             </Button>
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pr-2">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-6 py-5">
         {id ? (loading && !order ? (
           <div className="space-y-4 py-4 animate-pulse motion-reduce:animate-none" aria-busy="true">
             <Skeleton className="h-24 w-full rounded-xl" />
@@ -256,7 +256,7 @@ export function PurchaseOrderDetail({
           </div>
         ) : order ? (
           <div className="min-w-0 space-y-5">
-            <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-popover p-4 sm:grid-cols-2">
               <DataField label="Proveedor" value={order.proveedor.razonSocial} />
               <DataField label="Emisión" value={formatDateCL(order.fechaRegistro)} />
               <DataField label="Entrega estimada" value={formatDateCL(order.fechaEntregaEstimada)} />
@@ -304,7 +304,7 @@ export function PurchaseOrderDetail({
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between border-t border-border/70 bg-muted/30 px-4 py-3 text-sm">
+              <div className="flex justify-between border-t border-border/70 bg-popover px-4 py-3 text-sm">
                 <span>Total de la orden</span>
                 <strong>{formatCLP(total)}</strong>
               </div>
@@ -339,17 +339,15 @@ export function PurchaseOrderDetail({
                 >
                   <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
                     <div className="grid grid-rows-[2.5rem_2rem] gap-2">
-                      <Label htmlFor="partial-payment" className="flex items-end">Monto del abono (CLP)</Label>
+                      <Label htmlFor="partial-payment" className="flex items-end">Monto del abono</Label>
                       <Input
                         id="partial-payment"
-                        type="number"
-                        min="1"
-                        max={balance}
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
                         required
-                        value={amount}
-                        onChange={(event) => setAmount(event.target.value)}
-                        placeholder={`Hasta ${balance}`}
+                        value={amount === "" ? "" : formatCLP(amount)}
+                        onChange={(event) => setAmount(event.target.value.replace(/\D/g, ""))}
+                        placeholder={`Hasta ${formatCLP(balance)}`}
                         disabled={busy}
                       />
                     </div>
@@ -393,36 +391,8 @@ export function PurchaseOrderDetail({
               </div>
             )}
 
-            {canUpdate && (
-              <div className="flex flex-col gap-2 border-t border-border/60 pt-4 sm:flex-row sm:justify-end">
-                {order.estado === ESTADO_COMPRA.BORRADOR && (
-                  <Button onClick={() => void runTransition("ENVIAR")} disabled={busy}>
-                    {busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Send className="mr-2 h-4 w-4" />}
-                    Marcar como enviada
-                  </Button>
-                )}
-                {canReceive && order.estado === ESTADO_COMPRA.ENVIADA && order.lineas.some((line) => line.cantidadRecibida < line.cantidadOrdenada) && (
-                  <Button type="button" variant="outline" onClick={() => setReceptionOpen(true)} disabled={busy || loading}>
-                    Registrar recepción
-                  </Button>
-                )}
-                {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago === ESTADO_PAGO_COMPRA.PAGADA && order.estadoRecepcion === ESTADO_RECEPCION_COMPRA.RECIBIDA && (
-                  <Button
-                    type="button"
-                    onClick={() => setConfirmReceiveOpen(true)}
-                    disabled={busy || loading}
-                  >
-                    {busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                    Cerrar orden
-                  </Button>
-                )}
-                {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago !== ESTADO_PAGO_COMPRA.PAGADA && (
-                  <p className="text-sm text-muted-foreground">Completa todos los pagos antes de cerrar y recibir la orden.</p>
-                )}
-              </div>
-            )}
             {order.estado === ESTADO_COMPRA.ENVIADA && (
-              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <p className="rounded-lg bg-popover p-3 text-xs text-muted-foreground">
                 Registra las unidades recibidas en cada entrega. Para cerrar la orden se requiere recibir todos los productos y completar los pagos.
               </p>
             )}
@@ -434,6 +404,33 @@ export function PurchaseOrderDetail({
         )) : null}
         </div>
 
+        {order && canUpdate && (
+          <div className="shrink-0 border-t border-border/60 bg-popover px-6 py-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              {order.estado === ESTADO_COMPRA.BORRADOR && (
+                <Button onClick={() => void runTransition("ENVIAR")} disabled={busy}>
+                  {busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Send className="mr-2 h-4 w-4" />}
+                  Marcar como enviada
+                </Button>
+              )}
+              {canReceive && order.estado === ESTADO_COMPRA.ENVIADA && order.lineas.some((line) => line.cantidadRecibida < line.cantidadOrdenada) && (
+                <Button type="button" variant="outline" onClick={() => setReceptionOpen(true)} disabled={busy || loading}>
+                  Registrar recepción
+                </Button>
+              )}
+              {order.estado === ESTADO_COMPRA.ENVIADA && order.estadoPago === ESTADO_PAGO_COMPRA.PAGADA && order.estadoRecepcion === ESTADO_RECEPCION_COMPRA.RECIBIDA && (
+                <Button
+                  type="button"
+                  onClick={() => setConfirmReceiveOpen(true)}
+                  disabled={busy || loading}
+                >
+                  {busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  Cerrar orden
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {order && (
           <StatusToggleDialog
             open={confirmReceiveOpen}
