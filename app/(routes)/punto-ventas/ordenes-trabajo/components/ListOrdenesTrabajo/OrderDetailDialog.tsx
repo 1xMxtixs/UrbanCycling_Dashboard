@@ -697,91 +697,171 @@ export function OrderDetailDialog({
     const subtotal = efectivo(linea) * displayedQuantity
     const unitPrice = Number(linea.precioUnitario || 0)
     const lineDiscount = Number(linea.descuentoUnitario || 0)
+    const isEditingLine = isEditing && state.isEditing && canEdit
 
     return (
-      <div
-        key={lineId}
-        className="rounded-lg border border-border bg-popover p-3 space-y-2 transition-colors duration-150"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <span className="font-semibold text-foreground text-xs block">
-              {label}
-            </span>
-            {isEditing && canEdit && linea.idProducto != null ? (
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">Cantidad:</span>
-                <div
-                  className="inline-flex items-center rounded-lg border border-border bg-popover"
-                  title={productDisabledReason}
-                  aria-label={`Cantidad utilizada de ${label}`}
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Disminuir cantidad de ${label}`}
-                    disabled={
-                      savingQuantityLineId !== null ||
-                      isRemovingProduct ||
-                      state.isEditing ||
-                      state.isSaving ||
-                      Boolean(productDisabledReason)
-                    }
-                    onClick={() => handleAdjustProductQuantity(linea, -1)}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <span
-                    className="flex min-w-8 justify-center text-xs font-bold tabular-nums"
-                    aria-live="polite"
-                  >
-                    {isSavingQuantity ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      displayedQuantity
-                    )}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Aumentar cantidad de ${label}`}
-                    disabled={
-                      savingQuantityLineId !== null ||
-                      isRemovingProduct ||
-                      state.isEditing ||
-                      state.isSaving ||
-                      Boolean(productDisabledReason)
-                    }
-                    onClick={() => handleAdjustProductQuantity(linea, 1)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <span className="text-muted-foreground font-mono text-[11px]">
-                Cantidad: ×{displayedQuantity}
-              </span>
+      <TableRow key={lineId} className="align-top">
+        <TableCell className="py-3 align-top">
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold text-foreground text-[11px] leading-4">{label}</span>
+            {linea.idProducto != null && !isEditingLine && (
+              <span className="text-[10px] text-muted-foreground">Insumo / repuesto</span>
             )}
           </div>
+        </TableCell>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <span className="text-[10px] text-muted-foreground block">Subtotal</span>
-              <span className="font-mono font-bold text-foreground text-xs">
-                {formatCLP(subtotal)}
+        <TableCell className="py-3 align-top">
+          {isEditing && canEdit && linea.idProducto != null ? (
+            <div
+              className="inline-flex items-center rounded-lg border border-border bg-popover"
+              title={productDisabledReason}
+              aria-label={`Cantidad utilizada de ${label}`}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Disminuir cantidad de ${label}`}
+                disabled={
+                  savingQuantityLineId !== null ||
+                  isRemovingProduct ||
+                  state.isEditing ||
+                  state.isSaving ||
+                  Boolean(productDisabledReason)
+                }
+                onClick={() => handleAdjustProductQuantity(linea, -1)}
+              >
+                <Minus className="h-3 w-3" />
+              </Button>
+              <span
+                className="flex min-w-8 justify-center text-[11px] font-bold tabular-nums"
+                aria-live="polite"
+              >
+                {isSavingQuantity ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  displayedQuantity
+                )}
               </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Aumentar cantidad de ${label}`}
+                disabled={
+                  savingQuantityLineId !== null ||
+                  isRemovingProduct ||
+                  state.isEditing ||
+                  state.isSaving ||
+                  Boolean(productDisabledReason)
+                }
+                onClick={() => handleAdjustProductQuantity(linea, 1)}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
             </div>
+          ) : (
+            <span className="font-mono text-[11px]">×{displayedQuantity}</span>
+          )}
+        </TableCell>
 
-            {isEditing && canEdit && !state.isEditing && (
-              <div className="flex items-center gap-1">
+        <TableCell className="py-3 align-top">
+          {isEditingLine ? (
+            <Input
+              type="number"
+              min={0}
+              step={100}
+              value={state.draftDiscount}
+              onChange={(e) =>
+                setLineStates((prev) => ({
+                  ...prev,
+                  [lineId]: { ...prev[lineId], draftDiscount: e.target.value },
+                }))
+              }
+              className="h-7 w-24 text-[11px] bg-popover"
+              disabled={state.isSaving}
+            />
+          ) : lineDiscount > 0 ? (
+            <span className="font-mono text-[11px] font-bold text-primary">−{formatCLP(lineDiscount)}</span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">—</span>
+          )}
+        </TableCell>
+
+        <TableCell className="py-3 align-top text-right">
+          <span className="font-mono font-bold text-foreground text-[11px]">
+            {formatCLP(subtotal)}
+          </span>
+        </TableCell>
+
+        <TableCell className="py-3 align-top">
+          {isEditingLine ? (
+            <Input
+              type="number"
+              min={0}
+              step={100}
+              value={state.draftPrice}
+              onChange={(e) =>
+                setLineStates((prev) => ({
+                  ...prev,
+                  [lineId]: { ...prev[lineId], draftPrice: e.target.value },
+                }))
+              }
+              className="h-7 w-24 text-[11px] bg-popover"
+              disabled={state.isSaving}
+            />
+          ) : (
+            <span className="font-mono text-[11px]">{formatCLP(unitPrice)}</span>
+          )}
+        </TableCell>
+
+        <TableCell className="py-3 align-top">
+          {isEditing && canEdit ? (
+            isEditingLine ? (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 gap-1 text-[11px] cursor-pointer font-semibold"
+                  disabled={state.isSaving}
+                  onClick={() => handleSaveLine(linea)}
+                >
+                  {state.isSaving ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Check className="h-3 w-3" />
+                  )}
+                  Guardar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px] cursor-pointer"
+                  disabled={state.isSaving}
+                  onClick={() =>
+                    setLineStates((prev) => ({
+                      ...prev,
+                      [lineId]: {
+                        draftPrice: String(Number(linea.precioUnitario ?? 0)),
+                        draftDiscount: String(Number(linea.descuentoUnitario ?? 0)),
+                        isEditing: false,
+                        isSaving: false,
+                      },
+                    }))
+                  }
+                >
+                  <X className="h-3 w-3" />
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs gap-1 cursor-pointer"
+                  className="h-7 text-[11px] gap-1 cursor-pointer"
                   disabled={savingQuantityLineId !== null || isRemovingProduct}
                   onClick={() =>
                     setLineStates((prev) => ({
@@ -791,7 +871,7 @@ export function OrderDetailDialog({
                   }
                 >
                   <Pencil className="h-3 w-3" />
-                  Editar Valor
+                  Editar
                 </Button>
 
                 {linea.idProducto != null && (
@@ -819,98 +899,10 @@ export function OrderDetailDialog({
                   </span>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Campos de edición inline para la línea */}
-        {isEditing && state.isEditing && canEdit ? (
-          <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-border/60 bg-muted/40 p-2.5 rounded-md">
-            <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Precio Unitario ($)</Label>
-              <Input
-                type="number"
-                min={0}
-                step={100}
-                value={state.draftPrice}
-                onChange={(e) =>
-                  setLineStates((prev) => ({
-                    ...prev,
-                    [lineId]: { ...prev[lineId], draftPrice: e.target.value },
-                  }))
-                }
-                className="h-7 w-28 text-xs bg-popover"
-                disabled={state.isSaving}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Descuento Unit. ($)</Label>
-              <Input
-                type="number"
-                min={0}
-                step={100}
-                value={state.draftDiscount}
-                onChange={(e) =>
-                  setLineStates((prev) => ({
-                    ...prev,
-                    [lineId]: { ...prev[lineId], draftDiscount: e.target.value },
-                  }))
-                }
-                className="h-7 w-28 text-xs bg-popover"
-                disabled={state.isSaving}
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 pb-0.5">
-              <Button
-                type="button"
-                size="sm"
-                className="h-7 gap-1 text-xs cursor-pointer font-semibold"
-                disabled={state.isSaving}
-                onClick={() => handleSaveLine(linea)}
-              >
-                {state.isSaving ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Check className="h-3 w-3" />
-                )}
-                Guardar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs cursor-pointer"
-                disabled={state.isSaving}
-                onClick={() =>
-                  setLineStates((prev) => ({
-                    ...prev,
-                    [lineId]: {
-                      draftPrice: String(Number(linea.precioUnitario ?? 0)),
-                      draftDiscount: String(Number(linea.descuentoUnitario ?? 0)),
-                      isEditing: false,
-                      isSaving: false,
-                    },
-                  }))
-                }
-              >
-                <X className="h-3 w-3" />
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
-            <span>Precio Unit.: {formatCLP(unitPrice)}</span>
-            {lineDiscount > 0 && (
-              <span className="text-primary font-semibold">
-                Desc.: −{formatCLP(lineDiscount)}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+            )
+          ) : null}
+        </TableCell>
+      </TableRow>
     )
   }
 
@@ -971,7 +963,225 @@ export function OrderDetailDialog({
             </div>
           </div>
 
-          {/* 2. Detalles de Fechas y Responsable */}
+          {/* 2. Costos, Servicios e Insumos */}
+          <div className="space-y-4 rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between border-b border-border pb-1.5">
+              <h4 className="flex items-center gap-1.5 font-bold text-foreground">
+                <ShoppingBag className="h-4 w-4 text-primary" />
+                Detalle de Costos, Servicios e Insumos
+              </h4>
+            </div>
+
+            {/* Agregar nuevo servicio en modo edición */}
+            {isEditing && canEdit && (
+              <div className="rounded-lg border border-primary/20 bg-popover p-3 space-y-3">
+                <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <PlusCircle className="h-4 w-4" />
+                  Agregar Servicio Técnico a la Orden
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-8 space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Servicio Técnico</Label>
+                    <Select
+                      value={selectedNewServiceId}
+                      onValueChange={setSelectedNewServiceId}
+                      disabled={isAddingService}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-popover">
+                        <SelectValue placeholder="Seleccionar servicio del catálogo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {catalogServices.map((srv) => (
+                          <SelectItem key={srv.idServicio} value={String(srv.idServicio)}>
+                            {srv.nombre} — {formatCLP(srv.precioVenta)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Cantidad</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={newServiceQuantity}
+                      onChange={(e) => setNewServiceQuantity(Math.max(1, Number(e.target.value)))}
+                      className="h-9 text-xs bg-popover"
+                      disabled={isAddingService}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 w-full text-xs font-semibold cursor-pointer gap-1"
+                      onClick={handleAddServiceToOrder}
+                      disabled={isAddingService || !selectedNewServiceId}
+                    >
+                      {isAddingService ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <PlusCircle className="h-3.5 w-3.5" />
+                      )}
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Servicios Técnicos */}
+            <div className="space-y-2">
+              <span className="text-xs text-muted-foreground block font-bold">
+                Mano de Obra y Servicios Técnicos:
+              </span>
+              {serviceLines.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-border bg-popover">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Servicio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Cantidad</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Descuento</TableHead>
+                        <TableHead className="text-right text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Precio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {serviceLines.map((line) =>
+                        renderLineRow(
+                          line,
+                          line.servicio?.nombre || `Servicio Técnico #${line.idServicio}`
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
+                  No se registran servicios técnicos cargados en esta orden.
+                </p>
+              )}
+            </div>
+
+            {/* Insumos y Repuestos */}
+            {isEditing && canEdit && (
+              <AddOrderProduct
+                key={`${order.idOrdenDeTrabajo}-${productLines.map((line) => `${line.idLineaDeOrdenDeTrabajo}:${line.cantidad}`).join(",")}`}
+                orderId={order.idOrdenDeTrabajo}
+                lines={productLines}
+                disabledReason={productDisabledReason}
+                onAdded={() => {
+                  window.dispatchEvent(new Event("work-orders:refresh"))
+                  onEditSuccess?.()
+                }}
+              />
+            )}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <span className="text-xs text-muted-foreground block font-bold">
+                Insumos y Repuestos Utilizados:
+              </span>
+              {productLines.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-border bg-popover">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Producto</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Cantidad</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Descuento</TableHead>
+                        <TableHead className="text-right text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Precio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productLines.map((line) =>
+                        renderLineRow(
+                          line,
+                          line.producto?.nombre || `Producto / Insumo #${line.idProducto}`
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
+                  No se han cargado insumos o repuestos adicionales a esta orden.
+                </p>
+              )}
+            </div>
+
+            <Separator className="my-3" />
+
+            {/* Resumen Económico */}
+            <div className="space-y-3">
+              {isEditing && canEdit && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 p-2.5 rounded-lg border border-border">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-foreground block">
+                      Descuento Global de la Orden
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Aplica un descuento general al subtotal de la orden.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={descuentoDraft}
+                      onChange={(e) => setDescuentoDraft(e.target.value)}
+                      className="h-8 w-28 text-xs bg-popover"
+                      disabled={isSavingDescuento}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-xs font-semibold cursor-pointer"
+                      onClick={handleSaveDescuento}
+                      disabled={isSavingDescuento}
+                    >
+                      {isSavingDescuento ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Aplicar"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`grid grid-cols-2 gap-3 pt-1 ${
+                  Number(order.descuento) > 0
+                    ? "sm:grid-cols-3 lg:grid-cols-5"
+                    : "sm:grid-cols-4"
+                }`}
+              >
+                <DataField label="Total Repuestos" value={formatCLP(productsCost)} />
+                <DataField label="Monto Servicio" value={formatCLP(laborCost)} />
+                <DataField label="Monto Neto" value={formatCLP(montoNeto)} />
+                {Number(order.descuento) > 0 && (
+                  <DataField
+                    label="Descuento global"
+                    value={`−${formatCLP(Number(order.descuento))}`}
+                  />
+                )}
+                <DataField
+                  label="Monto Total"
+                  value={
+                    <span className="font-black text-primary">
+                      {formatCLP(Number(order.total))}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Detalles de Fechas y Responsable */}
           <div className="space-y-3 rounded-xl border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <Calendar className="h-4 w-4 text-primary" />
@@ -1116,7 +1326,7 @@ export function OrderDetailDialog({
             )}
           </div>
 
-          {/* 3. Trabajo a Realizar / Diagnóstico */}
+          {/* 4. Trabajo a Realizar / Diagnóstico */}
           <div className="space-y-2 rounded-xl border border-border p-4">
             <h4 className="flex items-center gap-1.5 font-bold text-foreground border-b border-border pb-1.5">
               <FileText className="h-4 w-4 text-primary" />
@@ -1156,7 +1366,7 @@ export function OrderDetailDialog({
             )}
           </div>
 
-          {/* 4. Bicicletas */}
+          {/* 5. Bicicletas */}
           <WorkOrderBicyclesSection
             key={`${order.idOrdenDeTrabajo}-${isEditing}`}
             idOrdenDeTrabajo={order.idOrdenDeTrabajo}
@@ -1173,8 +1383,6 @@ export function OrderDetailDialog({
               setLightbox({ images, index, title })
             }
           />
-
-          {/* 5. Costos, Servicios e Insumos */}
           <div className="space-y-4 rounded-xl border border-border p-4">
             <div className="flex items-center justify-between border-b border-border pb-1.5">
               <h4 className="flex items-center gap-1.5 font-bold text-foreground">
@@ -1247,13 +1455,27 @@ export function OrderDetailDialog({
                 Mano de Obra y Servicios Técnicos:
               </span>
               {serviceLines.length > 0 ? (
-                <div className="space-y-2">
-                  {serviceLines.map((line) =>
-                    renderLineRow(
-                      line,
-                      line.servicio?.nombre || `Servicio Técnico #${line.idServicio}`
-                    )
-                  )}
+                <div className="overflow-hidden rounded-lg border border-border bg-popover">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Servicio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Cantidad</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Descuento</TableHead>
+                        <TableHead className="text-right text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Precio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {serviceLines.map((line) =>
+                        renderLineRow(
+                          line,
+                          line.servicio?.nombre || `Servicio Técnico #${line.idServicio}`
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
@@ -1280,13 +1502,27 @@ export function OrderDetailDialog({
                 Insumos y Repuestos Utilizados:
               </span>
               {productLines.length > 0 ? (
-                <div className="space-y-2">
-                  {productLines.map((line) =>
-                    renderLineRow(
-                      line,
-                      line.producto?.nombre || `Producto / Insumo #${line.idProducto}`
-                    )
-                  )}
+                <div className="overflow-hidden rounded-lg border border-border bg-popover">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Producto</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Cantidad</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Descuento</TableHead>
+                        <TableHead className="text-right text-[10px] uppercase tracking-wide text-muted-foreground">Subtotal</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Precio</TableHead>
+                        <TableHead className="text-[10px] uppercase tracking-wide text-muted-foreground">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productLines.map((line) =>
+                        renderLineRow(
+                          line,
+                          line.producto?.nombre || `Producto / Insumo #${line.idProducto}`
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic bg-popover p-2.5 rounded-lg border border-border">
